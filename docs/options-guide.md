@@ -333,7 +333,7 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 | **Export Server List** | Save launcher connections XML (default dir or SAF **Choose location…**) |
 | **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF **Choose location…** — preferred way to keep a portable copy) |
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
-| **Check for updates** | Checkbox, **on by default**, app-wide. See below |
+| **Check for updates** | Checkbox, app-wide. **On** by default on GitHub APKs; **off** by default on the F-Droid build. See below |
 | **Check for updates now** | Ask GitHub straight away and say what it found either way |
 | **About** | About dialog |
 
@@ -342,9 +342,10 @@ release exists, when you open the launcher, with a button to the release page
 and instructions for downloading the APK there. This is the only connection the
 app makes to anything other than a MUD you added: a plain read of the public
 releases page, with nothing about you in the request. Turn it off and the app
-talks to nothing but your MUDs. If you installed from **F-Droid, turn it off** —
-F-Droid updates you already. The test flavour never checks on its own, whatever
-this is set to; **Check for updates now** works there, since you asked for it.
+talks to nothing but your MUDs. The **F-Droid** build already defaults it off
+(`-Pblowtorch.fdroid`); F-Droid updates you. The test flavour never checks on
+its own, whatever this is set to; **Check for updates now** works there, since
+you asked for it.
 Failures are silent; "Skip this one" suppresses a version you do not want to be
 reminded about. The setting used to live in a world's Options → Miscellaneous,
 which made it look per-world; it was always app-wide, and your existing choice

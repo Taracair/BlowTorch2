@@ -35,7 +35,10 @@ A Lua plugin runs with the app’s privileges (same as classic BlowTorch): full 
 
 ## Network
 
-Connects only to hosts you add in the launcher. No phone-home to the BlowTorch 2 project.
+Connects only to hosts you add in the launcher. The F-Droid build does not
+phone GitHub on start (automatic update check defaults off). A GitHub-signed
+APK of the same source still does, unless you turn **⋮ → Check for updates**
+off. **Check for updates now** always talks to GitHub if you tap it.
 
 ---
 
@@ -89,7 +92,7 @@ Not used for:
 - Reading other apps’ private data
 - Uploading files
 
-You do **not** have to grant it. You can play with network + notification/foreground-service permissions. Without it, files go under app-specific storage; Browse / Pick file still work for many flows.
+You do **not** have to grant it. You can play with network + notification/foreground-service permissions. Without it, files go under app-specific storage; **Pick file…** / **Choose location…** open the system picker without asking for All files access first.
 
 Grant only if you want the shared `/BlowTorch/` path.  
 **Options → Miscellaneous → Manage Storage Access**. Revoke anytime in system app settings.
@@ -104,7 +107,7 @@ SAF (folder picker) is already used for many pickers and is more privacy-friendl
 |-------|-----------|
 | Telemetry / ads | None |
 | Accounts with us | None |
-| Data leaving the device | Only your MUD TCP traffic |
+| Data leaving the device | MUD TCP. GitHub APKs also GET the releases API unless the player turns the check off. The F-Droid build defaults that check off. |
 | Local settings | On device; backup/export when you ask |
 | Source | Open (MIT); F-Droid builds from tags |
 

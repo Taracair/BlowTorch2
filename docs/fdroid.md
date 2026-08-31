@@ -1,23 +1,31 @@
 # Publishing BlowTorch 2 on F-Droid
 
-This repo is prepared for an [fdroiddata](https://gitlab.com/fdroid/fdroiddata) merge request. F-Droid builds from source and signs with their key; we do not ship a Play-style release keystore in the recipe.
+F-Droid builds from source and signs with their key. Do not copy this recipe
+until the placeholders are filled **after** a GitHub tag exists. Do not submit
+the `btTest` flavor.
 
-## What is already in the tree
+The in-tree YAML is a skeleton (`X.Y.Z` / `NNN` / `PUT_FULL_SHA_HERE`). Copy it
+into [fdroiddata](https://gitlab.com/fdroid/fdroiddata) only after
+`git rev-parse 'vX.Y.Z^{commit}'`.
+
+## What is in the tree
 
 | Path | Purpose |
 |------|---------|
-| `fastlane/metadata/android/en-US/` | Title, short/full description, changelog (`changelogs/225.txt`), icon, phone screenshots |
-| `metadata/com.resurrection.blowtorch2.yml` | Draft recipe to copy into fdroiddata (`metadata/com.resurrection.blowtorch2.yml`) |
+| `fastlane/metadata/android/en-US/` | Title, short/full description, changelog, icon. Phone screenshots must be dummy-host shots on the tag you submit. |
+| `metadata/com.resurrection.blowtorch2.yml` | Skeleton to copy into fdroiddata (same filename) |
 | `BT_Free/build.gradle` | `production` flavor; release unsigned unless `BT_LOCAL_SIGN=1` |
 | `./build_ndk_libraries.sh` | Builds native `.so` files into `BTLib/libs/` before Gradle assemble |
 
-Package id for the store: **`com.resurrection.blowtorch2`** (flavor `production`). Do not submit the `btTest` flavor to F-Droid.
+Package id: **`com.resurrection.blowtorch2`**. The F-Droid recipe appends
+`blowtorch.fdroid=true` so that APK defaults the GitHub update check **off**.
+GitHub APKs do not set that property.
 
 ## Checklist before opening the MR
 
-1. **Tag a release** on GitHub (e.g. `v2.1.1`) from the commit you want F-Droid to build.
-2. In `metadata/com.resurrection.blowtorch2.yml`, set `commit:` to that tag (or exact SHA).
-3. Confirm local build with the same steps F-Droid will use:
+1. Tag a release on GitHub (`vX.Y.Z`, three numbers, no `-test`).
+2. Put that tag's full commit SHA in `commit:`.
+3. Confirm local build:
 
    ```bash
    export ANDROID_HOME=…
@@ -26,31 +34,32 @@ Package id for the store: **`com.resurrection.blowtorch2`** (flavor `production`
    ./gradlew :BT_Free:assembleProductionRelease
    ```
 
-   The APK should be under `BT_Free/build/outputs/apk/production/release/` and **unsigned** (or only locally signed if you set `BT_LOCAL_SIGN=1`).
+   APK under `BT_Free/build/outputs/apk/production/release/`, unsigned unless
+   `BT_LOCAL_SIGN=1`. This local command does **not** set `blowtorch.fdroid`;
+   the APK still defaults the GitHub update check on. F-Droid CI appends that
+   property in `prebuild`.
+4. Dummy-host screenshots under
+   `fastlane/metadata/android/en-US/images/phoneScreenshots/` (PNG, portrait).
+5. Optional: `featureGraphic.png` (1024×500) next to `icon.png`.
 
-4. Optional: add more screenshots under `fastlane/metadata/android/en-US/images/phoneScreenshots/` (PNG, portrait).
-5. Optional: `featureGraphic.png` (1024×500) next to `icon.png` for a nicer client header.
+## Submit
 
-## Submit to F-Droid
-
-1. Fork [fdroiddata](https://gitlab.com/fdroid/fdroiddata) on GitLab.
-2. Copy this repo’s `metadata/com.resurrection.blowtorch2.yml` into fdroiddata’s `metadata/` folder (same filename).
-3. Open a merge request following [Submitting to F-Droid](https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/).
-4. Wait for the buildserver / CI review. First inclusion can take days to weeks.
+1. Fork fdroiddata on GitLab (public fork).
+2. Copy this repo's YAML into fdroiddata `metadata/` (same filename). Do not
+   copy Fastlane into fdroiddata.
+3. Open an **App inclusion** merge request.
+   [Submitting to F-Droid](https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/).
+4. First inclusion is days to weeks. Do not open an RFP in parallel.
 
 ## Notes for reviewers
 
-- **License:** MIT (original Offset Null + this fork).
+- **License:** MIT.
 - **No proprietary deps** in the production Gradle graph.
-- **Permissions / privacy / All files access:** see **[`FDROID_README.md`](FDROID_README.md)** — please read that before flagging storage permissions. Summary: All files access is optional UX for a shared `/BlowTorch/` tree; the client can play without it.
-- **scandelete** removes `BTLib/key` (local debug keystore used only for developer installs).
-- **LuaJIT 2.1** (needed for `arm64-v8a`; 2.0.5 does not support it) is vendored in `LuaJIT-2.1/`, like the `LuaJIT-2.0.5/` tree that was always there. Upstream ships 2.1 only as a moving branch, so vendoring is what makes a tag build the same interpreter twice. No srclib, no download during the build. MIT, `COPYRIGHT` included; the upstream commit is named at the top of `build_ndk_libraries.sh`.
-- **No prebuilt binaries** in the tree: the five archived `BT_Free/release/v1.*/BlowTorch.apk` and four `LuaJIT-2.0.5/src/libluajit-*.so` were deleted. Nothing linked the `.so` — `BTLib/jni/luajava/Android.mk` links `libluajit-$(TARGET_ARCH_ABI).a`, which the build script produces. Older tags still contain them, so **submit a tag that is at or after this change** — see the `commit:` field in the recipe.
-- Submit the **`production`** flavor only (do not enable `btTest` in the recipe).
-- Fastlane text is read from the tagged commit under `fastlane/metadata/android/`.
-
-## After inclusion
-
-- Bump `versionCode` / `versionName` in `BT_Free/build.gradle`.
-- Add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
-- Tag and push; AutoUpdateMode `Version` + UpdateCheckMode `Tags` should pick it up once the recipe is live (adjust if maintainers prefer another mode).
+- **Permissions / All files access:** [`FDROID_README.md`](FDROID_README.md).
+  Connecting does not need the grant. Import/export/backup use SAF or app
+  storage without opening the All-files screen first. The grant is only so
+  `/BlowTorch/` is visible in a file manager.
+- **LuaJIT 2.1** is vendored in `LuaJIT-2.1/`. No srclib, no download during
+  the build. `HOST_CC="gcc -m32"` needs `gcc-multilib`.
+- Submit **`production`** only. Prebuild sets `blowtorch.fdroid=true`.
+- Fastlane text is read from the tagged commit.

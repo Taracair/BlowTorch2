@@ -519,8 +519,9 @@ Session logging is separate (`SessionLogger` / connection session-log options).
 
 The only non-MUD network use is an optional **update check**: a plain GET of the
 public GitHub releases API, at most once a day, no identifiers. Implementation:
-`util/UpdateChecker.java`. Off by default for F-Droid users (they should turn the
-setting off); test builds never check.
+`util/UpdateChecker.java`. GitHub production defaults the check **on**. The
+F-Droid recipe sets `-Pblowtorch.fdroid` so that APK defaults it **off**. Test
+builds never check on their own.
 
 There are no ads, analytics, or accounts.
 

@@ -11,7 +11,7 @@ Also:
 • Growable input bar (.wrap), in-app Help and crash/log report
 • Eight-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
 
-No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder. You can refuse it and still play. Details: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
+No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. The F-Droid build does not contact GitHub on start. Lua plugins run with the app’s privileges; only load ones you trust. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder. You can refuse it and still play, import and export through the system picker. Details: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
 
 Original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). This is an unofficial fork. Back up your settings before upgrading.
 

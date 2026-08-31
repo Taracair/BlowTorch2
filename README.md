@@ -149,25 +149,27 @@ anyone about to change the code.
 
 A local client. No ads, no analytics, no accounts, no server of mine anywhere.
 
-The only request this app makes on its own, besides the worlds you added, is
-an update check against GitHub, on by default, at most once a day. That is a
-GET of GitHub's latest-release API (`User-Agent: BlowTorch2`) — no account,
-no game text, nothing about you in the body. If a world then asks the client
-to fetch a sound or a picture, that fetch is the world talking, not a tracker
-of mine. The update check is in
+The only request a GitHub install makes on its own, besides the worlds you
+added, is an update check against GitHub, on by default, at most once a day.
+That is a GET of GitHub's latest-release API (`User-Agent: BlowTorch2`) — no
+account, no game text, nothing about you in the body. The F-Droid build of
+the same source defaults that check **off** (`-Pblowtorch.fdroid`); F-Droid
+updates you already. If a world then asks the client to fetch a sound or a
+picture, that fetch is the world talking, not a tracker of mine. The check
+is in
 [`UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
-(~200 lines) if you would rather verify than take my word. Turn it off under
-the launcher's **⋮ → Check for updates** and the app stops phoning GitHub.
-App-wide, not per world. If you installed from F-Droid, turn it off:
-F-Droid updates you already. Test builds never check on their own; **Check
-for updates now** still talks to GitHub if you tap it.
+if you would rather verify than take my word. Turn it off under the
+launcher's **⋮ → Check for updates** and the app stops phoning GitHub.
+App-wide, not per world. Test builds never check on their own; **Check for
+updates now** still talks to GitHub if you tap it.
 
 Internet is needed to play. A foreground service is how the session can stay
 up when the screen is off. Notifications on Android 13+ are useful (connection
 state, alerts), not required to type. All files access is not needed to play
 — it is so `/BlowTorch/` is visible in a file manager (settings, backups,
 maps, logs). Without it, everything still runs from app storage, with import
-and export through the system picker. Display over other apps is not needed
+and export through the system picker (the picker does not first ask for All
+files access). Display over other apps is not needed
 either, unless you float a button or a gauge over the soft keyboard. The
 full list is in [`docs/FDROID_README.md`](docs/FDROID_README.md).
 
