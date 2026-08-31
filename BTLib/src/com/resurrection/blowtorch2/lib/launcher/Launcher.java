@@ -2295,36 +2295,18 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			break;
 		}
 		case MENU_IMPORT_SERVER_LIST:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
-				@Override
-				public void run() {
-					DoImportMenu(SDCardUtils.hasStoragePermissions(Launcher.this));
-				}
-			});
+			// SAF / app-storage. Do not call hasPermissions(): that opens All-files
+			// and never reaches the picker.
+			DoImportMenu(SDCardUtils.hasStoragePermissions(this));
 			break;
 		case MENU_EXPORT_SERVER_LIST:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
-				@Override
-				public void run() {
-					AskExportFileName(SDCardUtils.hasStoragePermissions(Launcher.this));
-				}
-			});
+			AskExportFileName(SDCardUtils.hasStoragePermissions(this));
 			break;
 		case MENU_BACKUP_ALL_SETTINGS:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
-				@Override
-				public void run() {
-					AskBackupAllSettings();
-				}
-			});
+			AskBackupAllSettings();
 			break;
 		case MENU_RESTORE_SETTINGS_BACKUP:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
-				@Override
-				public void run() {
-					AskImportSettings();
-				}
-			});
+			AskImportSettings();
 			break;
 		case MENU_SDCARD_PERMISSIONS:
 			SDCardUtils.invalidateRootCache();

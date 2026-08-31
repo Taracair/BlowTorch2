@@ -2510,20 +2510,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			settingsTransfer.doResetDialog();
 			break;
 		case 1300:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT, new Runnable() {
-				@Override
-				public void run() {
-					settingsTransfer.doExportDialog();
-				}
-			});
+			settingsTransfer.doExportDialog();
 			break;
 		case 1400:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_IMPORT, new Runnable() {
-				@Override
-				public void run() {
-					settingsTransfer.doImportDialog(SDCardUtils.hasStoragePermissions(MainWindow.this));
-				}
-			});
+			settingsTransfer.doImportDialog(SDCardUtils.hasStoragePermissions(this));
 			break;
 		case 600:
 			BetterPluginSelectionDialog pd = new BetterPluginSelectionDialog(this,service);
@@ -9099,25 +9089,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Options → Miscellaneous → Export Settings. Same path as the old menu item. */
 	public void exportSettingsFromOptions() {
-		SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT,
-				new Runnable() {
-					@Override
-					public void run() {
-						settingsTransfer.doExportDialog();
-					}
-				});
+		settingsTransfer.doExportDialog();
 	}
 
 	/** Options → Miscellaneous → Import Settings. Same path as the old menu item. */
 	public void importSettingsFromOptions() {
-		SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_IMPORT,
-				new Runnable() {
-					@Override
-					public void run() {
-						settingsTransfer.doImportDialog(
-								SDCardUtils.hasStoragePermissions(MainWindow.this));
-					}
-				});
+		settingsTransfer.doImportDialog(SDCardUtils.hasStoragePermissions(this));
 	}
 
 	public void requestStorageAccessFromOptions() {

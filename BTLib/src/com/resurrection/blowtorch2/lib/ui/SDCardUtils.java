@@ -445,17 +445,12 @@ public class SDCardUtils {
     }
 
     /**
-     * Requests notification and storage permissions once at launcher startup.
+     * Requests legacy storage permissions at launcher startup on Android 10
+     * and older. Notifications wait until MainWindow connects. All-files
+     * access is never asked here.
      */
     public static void requestStartupPermissions(final AppCompatActivity activity, View root, final int code) {
         java.util.ArrayList<String> needed = new java.util.ArrayList<String>();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            for (String permission : PermissionHelper.getNotificationPermissions()) {
-                if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
-                    needed.add(permission);
-                }
-            }
-        }
         for (String permission : getStoragePermissions()) {
             if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
                 needed.add(permission);
@@ -479,6 +474,12 @@ public class SDCardUtils {
                 });
     }
 
+    /**
+     * Ask for All-files (11+) or legacy storage, then run {@code onGranted}.
+     * Only for Manage Storage Access. Import/export/backup must not call this:
+     * without the grant it opens the system All-files screen and never runs
+     * {@code onGranted}, so the SAF picker never appears.
+     */
     public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code) {
         return hasPermissions(activity, root, code, null);
     }
