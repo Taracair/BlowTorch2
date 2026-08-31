@@ -3,21 +3,20 @@
  */
 package com.resurrection.blowtorch2.lib.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 import android.os.Message;
-import android.os.SystemClock;
 
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerDuration;
+import com.resurrection.blowtorch2.lib.timer.TimerInfoText;
 
 /** Timer CRUD, play/pause/stop, and .timer command action handling for a Connection. */
 final class ConnectionTimers {
-
-	/** 1000 mm. */
-	private static final double ONE_THOUSAND_MILLIS = 1000.0;
 
 	/** Enum used for the Timer command action ordinals. */
 	enum TIMER_ACTION {
@@ -56,7 +55,7 @@ final class ConnectionTimers {
 			doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.RESET);
 			break;
 		case Connection.MESSAGE_TIMERINFO:
-			doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.INFO);
+			doTimerInfo((String) msg.obj, msg.arg1 == 1);
 			break;
 		case Connection.MESSAGE_TIMERPAUSE:
 			doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.PAUSE);
@@ -92,6 +91,84 @@ final class ConnectionTimers {
 		persistTimerSettings();
 		if (!silent) {
 			host.toast("Timer " + name + ": " + TimerDuration.format(seconds));
+		}
+	}
+
+	/**
+	 * Status for one timer, or every timer when {@code name} is empty.
+	 *
+	 * @param name Timer name, or empty / null for all.
+	 * @param toWindow true writes into the game window; false is a long toast.
+	 *                 An all-timer dump always goes to the window.
+	 */
+	void doTimerInfo(final String name, final boolean toWindow) {
+		if (name == null || name.trim().length() == 0) {
+			String all = describeAllTimers();
+			if (all.length() == 0) {
+				emitTimerInfo("No timers in this world.", true);
+				return;
+			}
+			emitTimerInfo(all, true);
+			return;
+		}
+		Plugin timerHost = findTimerHost(name);
+		if (timerHost == null) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		timerHost.updateTimerProgress();
+		TimerData t = timerHost.getSettings().getTimers().get(name);
+		if (t == null) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		int seconds = t.getSeconds() == null ? 0 : t.getSeconds().intValue();
+		String text = TimerInfoText.describe(name, seconds, t.getRemainingTime(),
+				timerHost.isTimerRunning(name), t.isRepeat());
+		emitTimerInfo(text, toWindow);
+	}
+
+	private String describeAllTimers() {
+		StringBuilder sb = new StringBuilder();
+		appendTimers(sb, host.mSettings);
+		if (host.mPlugins != null) {
+			for (Plugin p : host.mPlugins) {
+				appendTimers(sb, p);
+			}
+		}
+		return sb.toString();
+	}
+
+	private void appendTimers(final StringBuilder sb, final Plugin owner) {
+		if (owner == null || owner.getSettings() == null
+				|| owner.getSettings().getTimers() == null
+				|| owner.getSettings().getTimers().isEmpty()) {
+			return;
+		}
+		owner.updateTimerProgress();
+		ArrayList<String> names = new ArrayList<String>(owner.getSettings().getTimers().keySet());
+		Collections.sort(names);
+		for (String n : names) {
+			TimerData t = owner.getSettings().getTimers().get(n);
+			if (t == null) {
+				continue;
+			}
+			if (sb.length() > 0) {
+				sb.append("\n\n");
+			}
+			int seconds = t.getSeconds() == null ? 0 : t.getSeconds().intValue();
+			sb.append(TimerInfoText.describe(n, seconds, t.getRemainingTime(),
+					owner.isTimerRunning(n), t.isRepeat()));
+		}
+	}
+
+	private void emitTimerInfo(final String text, final boolean toWindow) {
+		if (toWindow) {
+			host.dispatchNoProcess(("\n" + text + "\n").getBytes());
+		} else {
+			host.toast(text, true);
 		}
 	}
 
@@ -160,20 +237,7 @@ final class ConnectionTimers {
 				}
 				break;
 			case INFO:
-				TimerData t = timerHost.getSettings().getTimers().get(obj);
-				if (t.isPlaying()) {
-					long now = SystemClock.elapsedRealtime();
-					long dur = now - t.getStartTime();
-					int sec = t.getSeconds() - (int) (dur / ONE_THOUSAND_MILLIS);
-					host.toast(obj + ": " + sec + "s");
-				} else {
-					if (t.getRemainingTime() != t.getSeconds()) {
-						int sec = t.getSeconds() - t.getRemainingTime();
-						host.toast("Timer " + obj + " is paused, " + sec + " remain.");
-					} else {
-						host.toast("Timer " + obj + " is not running.");
-					}
-				}
+				doTimerInfo(obj, false);
 				break;
 			case NONE:
 				break;

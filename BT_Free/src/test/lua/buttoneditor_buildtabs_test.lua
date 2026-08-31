@@ -276,6 +276,7 @@ _G.CheckBox = "CheckBox"
 _G.ArrayAdapter = "ArrayAdapter"
 _G.View = { VISIBLE = 0, GONE = 8 }
 _G.TYPE_TEXT_FLAG_MULTI_LINE = 0x20000
+_G.TYPE_CLASS_TEXT = 0x1
 _G.Color = { argb = function(_, a, r, g, b) return (a * 16777216) + (r * 65536) + (g * 256) + b end }
 _G.density = 2.625
 _G.PluginXCallS = function() end
@@ -313,6 +314,12 @@ check(o.tabs.click.contentId == 1, "click tab content id")
 check(o.tabs.swipe.contentId == 3, "swipe tab content id")
 check(o.tabs.accordion.contentId == 4, "accordion tab content id")
 check(o.widgets.clickLabelEdit ~= nil, "click label edit widget missing")
+check(o.widgets.clickLabelEdit._inputType
+			== _G.TYPE_CLASS_TEXT + _G.TYPE_TEXT_FLAG_MULTI_LINE,
+	"click label CLASS_TEXT|MULTI_LINE so Enter inserts a newline")
+check(o.widgets.flipLabelEdit._inputType
+			== _G.TYPE_CLASS_TEXT + _G.TYPE_TEXT_FLAG_MULTI_LINE,
+	"flip label CLASS_TEXT|MULTI_LINE so Enter inserts a newline")
 check(o.widgets.swipeUpLeftCmdEdit ~= nil, "diagonal swipe edit missing")
 check(o.carriedDiagonalSwipes ~= nil, "carriedDiagonalSwipes must be set")
 check(o.carriedDiagonalSwipes.swipeUpLeftCommand == "ne", "diagonal values must be carried")

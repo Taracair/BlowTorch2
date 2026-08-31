@@ -119,6 +119,42 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	/**
+	 * A colour code runs until the next one. Whatever CSI is last on a
+	 * finished colour-triggered line (trigger paint, a restore, a leftover
+	 * 38;5;n) is what {@code Window.onDraw} still holds for the next
+	 * uncoloured line, which should have stayed default grey. Put a full
+	 * reset immediately before the newline. Unfinished lines must not get
+	 * this: their rest can still arrive in the next packet.
+	 */
+	private static void ensureStreamResetBeforeNewLine(LinkedList<Unit> newLine,
+			TextTree tree) {
+		if (newLine == null || newLine.isEmpty()) {
+			return;
+		}
+		if (!(newLine.getLast() instanceof TextTree.NewLine)) {
+			return;
+		}
+		if (newLine.size() >= 2) {
+			Unit prev = newLine.get(newLine.size() - 2);
+			if (prev instanceof Color && isBareReset((Color) prev)) {
+				return;
+			}
+		}
+		newLine.add(newLine.size() - 1, tree.makeColor(Collections.singletonList(
+				Integer.valueOf(0))));
+	}
+
+	/**
+	 * Only a lone SGR 0 is already a stream close. {@code 0;36} resets then
+	 * paints cyan; {@code 38;5;0} uses 0 as an xterm index. Those must still
+	 * get a real {@code [0m} after them.
+	 */
+	private static boolean isBareReset(Color c) {
+		List<Integer> ops = c.getOperations();
+		return ops != null && ops.size() == 1 && ops.get(0).intValue() == 0;
+	}
+
+	/**
 	 * 0, 16 and 231 are the editor's "foreground only" sentinels: do not paint
 	 * a background, and close whatever CSI background was already open.
 	 */
@@ -138,16 +174,25 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	/**
-	 * After a foreground-only paint the restore must name a default
-	 * background, otherwise a MUD {@code 48;5;n} (or ANSI 40-47) sitting
-	 * before the match stays open through the replacement -- the neon block.
-	 * Background-only colour units are not the pre-match foreground, so they
-	 * must not become the restore either: that left the trigger's foreground
-	 * running.
+	 * After the match, the rest of the line must not keep the paint. A
+	 * foreground-only paint has to name a default background or a MUD
+	 * {@code 48;5;n} sitting before the match stays open (the neon block);
+	 * that branch also drops background-only units so they cannot become
+	 * the restore foreground. An explicit background paint used to restore
+	 * the pre-match SGR as-is ({@code 1}, {@code 22}), which does not close
+	 * {@code 48;5;n} or {@code 38;5;n}, so the trigger's paint ran to the
+	 * newline. That branch keeps bleed (including a MUD background) and
+	 * adds 39 / 49 when bleed names no foreground / background.
 	 */
 	private Color colorAfterMatch(TextTree tree, Color bleed) {
 		if (!skipsBackgroundPaint(backgroundColor)) {
-			return bleed;
+			List<Integer> ops = (bleed != null && bleed.getOperations() != null)
+					? new ArrayList<Integer>(bleed.getOperations())
+					: new ArrayList<Integer>();
+			if (!listNamesForeground(ops)) {
+				ops.add(Integer.valueOf(39));
+			}
+			return tree.makeRestoreColor(ops);
 		}
 		List<Integer> fg = foregroundOps(bleed);
 		if (!listNamesForeground(fg)) {
@@ -367,6 +412,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		while(it.hasNext()) {
 			newLine.add(it.next());
 		}
+		ensureStreamResetBeforeNewLine(newLine, tree);
 		
 		//here is where we would do tree pruning/data updating.
 		

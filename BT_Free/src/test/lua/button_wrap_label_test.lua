@@ -39,11 +39,17 @@ check(restored.wrapLabel == true, "wrapLabel true round-trips")
 check(restored.label == "LOOK NORTH", "label survived with wrapLabel")
 local old = assert(loadstring(serialize({ label = "N" })))()
 check(old.wrapLabel == nil, "old buttons have no wrapLabel key")
+local broken = assert(loadstring(serialize({ label = "LOOK\nNORTH" })))()
+check(broken.label == "LOOK\nNORTH", "a newline in the label survives serialize")
 
 print("2. editor and save paths name wrapLabel")
 local advanced = readAll(ROOT .. "/buttoneditoradvanced.lua")
 check(advanced:find('setText("Wrap label")', 1, true) ~= nil,
 	"Others tab has Wrap label checkbox")
+check(advanced:find("safeAddView(ui.labelSizeCaptionColumn, ui.wrapLabelCheck)", 1, true) == nil,
+	"Wrap label is not under Label Font Size")
+check(advanced:find("safeAddView(ui.wrapLabelRow, ui.wrapLabelCheck)", 1, true) ~= nil,
+	"Wrap label is the last SIZE & POSITION row")
 check(advanced:find("tmp.wrapLabel", 1, true) ~= nil,
 	"getEditorValues reads wrapLabel")
 
@@ -58,8 +64,8 @@ check(window:find("editorValues.wrapLabel = button.data.wrapLabel == true", 1, t
 local buttons = readAll(ROOT .. "/button.lua")
 check(buttons:find("wrapLabel = false", 1, true) ~= nil,
 	"BUTTONSET_DATA defaults wrapLabel off")
-check(buttons:find("self.data.wrapLabel == true", 1, true) ~= nil,
-	"draw uses wrap only when explicitly true")
+check(buttons:find("buttonLabelUsesWrappedLayout(self.data.wrapLabel, label)", 1, true) ~= nil,
+	"draw uses wrap layout when the checkbox is on or the label has a newline")
 check(buttons:find("canvas:drawText(label,tX,tY,p)", 1, true) ~= nil,
 	"one-line drawText path still exists for wrap off")
 
@@ -88,6 +94,45 @@ check(buttons:find("self.data.showGestureLabel == false", 1, true) ~= nil,
 	"drawGestureLabel still keyed on showGestureLabel")
 check(buttons:find("self.data.showGestureHints == false", 1, true) ~= nil,
 	"grid badges still keyed on showGestureHints")
+
+print("6. a newline is a hard break; wrap checkbox still word-wraps")
+check(buttons:find("function buttonLabelUsesWrappedLayout", 1, true) ~= nil,
+	"buttonLabelUsesWrappedLayout is in button.lua")
+do
+	local loadfn = loadstring or load
+	local fn = assert(loadfn([==[
+function buttonLabelUsesWrappedLayout(wrapLabel, label)
+	if wrapLabel == true then
+		return true
+	end
+	if label == nil then
+		return false
+	end
+	return string.find(tostring(label), "\n", 1, true) ~= nil
+end
+return buttonLabelUsesWrappedLayout
+]==], "label-wrap"))()
+	check(fn(false, "LOOK NORTH") == false, "wrap off, one line")
+	check(fn(true, "LOOK NORTH") == true, "wrap on, one line")
+	check(fn(false, "LOOK\nNORTH") == true, "Enter is a break without the checkbox")
+	check(fn(false, "LOOK\\nNORTH") == false, "typed backslash-n is not a break")
+	check(fn(false, nil) == false, "nil label is one line")
+end
+
+print("7. Label and Flip label fields accept Enter")
+local buildtabs = readAll(ROOT .. "/buttoneditor_buildtabs.lua")
+check(buildtabs:find("clickLabelEdit:setLines(1)", 1, true) == nil,
+	"click label is not locked to one line")
+check(buildtabs:find("clickLabelEdit:setInputType(MULTILINE_TEXT)", 1, true) ~= nil,
+	"click label accepts Enter")
+check(buildtabs:find("flipLabelEdit:setLines(1)", 1, true) == nil,
+	"flip label is not locked to one line")
+check(buildtabs:find("flipLabelEdit:setInputType(MULTILINE_TEXT)", 1, true) ~= nil,
+	"flip label accepts Enter")
+check(buildtabs:find("TYPE_CLASS_TEXT + TYPE_TEXT_FLAG_MULTI_LINE", 1, true) ~= nil,
+	"label InputType includes TYPE_CLASS_TEXT so Android treats it as multiline")
+check(view:find("ButtonLabelWrap.usesWrappedLayout", 1, true) ~= nil,
+	"floating tiles use the same wrap rule")
 
 if failures == 0 then
 	print("All button_wrap_label tests passed.")

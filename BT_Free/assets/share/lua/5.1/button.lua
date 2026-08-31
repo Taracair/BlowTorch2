@@ -185,6 +185,19 @@ local function rectBottom(r)
 	return r.bottom
 end
 
+-- Wrap label checkbox word-wraps a long name. A real newline in the label
+-- (Enter in the editor) is a hard break even when that checkbox is off.
+-- Typed backslash-n is not a break, so C:\notes stays one line.
+function buttonLabelUsesWrappedLayout(wrapLabel, label)
+	if wrapLabel == true then
+		return true
+	end
+	if label == nil then
+		return false
+	end
+	return string.find(tostring(label), "\n", 1, true) ~= nil
+end
+
 -- Wrap the label inside the tile using Android StaticLayout. Single-line
 -- drawText stays on the wrap-off path so existing buttons are pixel-identical.
 local function drawWrappedLabel(canvas, paint, label, rect, density, cx, cy)
@@ -648,7 +661,7 @@ function BUTTON:draw(state,canvas)
 	-- in the manager -- the tile moved and its label stayed behind.
 	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
 	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
-	if self.data.wrapLabel == true then
+	if buttonLabelUsesWrappedLayout(self.data.wrapLabel, label) then
 		p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 		drawWrappedLabel(canvas, p, label, rect, self.density, cx, cy)
 	else

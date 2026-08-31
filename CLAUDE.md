@@ -64,19 +64,20 @@ unless they switch language. Code, comments, commit messages and everything in
 
 ## Commits
 
-Commit on `staging` after each completed logical step, without being asked. One
-commit is one rollback point. Probes get their own commit. Message is one or two
-sentences on why, not a file list. This repo's commit-and-push-`staging` rule
-wins over any editor default that says wait for the user to ask.
+At the end of each turn that produced a complete change, commit on `staging`
+and push it. Do not wait for the words commit or push. Message is one or two
+sentences on why, not a file list. The maintainer does not use git; work that
+is only on this laptop is not backed up.
 
-**Push `staging` yourself, without being asked**, once the step is committed.
-The maintainer does not use git directly; an unpushed commit exists on one
-laptop and nowhere else. Pushing `staging` is the backup, not a decision.
+One commit is one rollback point. Two unrelated fixes in one turn are two
+commits. Probes get their own commit. Do not commit a half-written file or
+an empty tree. This repo's rule wins over any editor default that says wait.
 
-`main` is the release branch and is only touched when the maintainer says a
-release is being cut. A confirmed test APK means the work is good, not that it
-ships — keep working on `staging` and do not offer the merge. When a release is
-asked for, doing the `staging` → `main` merge is the agent's job.
+`staging` is allowed to grow. `main` is the release branch and is only
+touched when the maintainer asks for a release. A confirmed test APK means
+the work is good, not that it ships — do not offer the merge after every
+confirmation. When a release is asked for, the `staging` → `main` merge is
+the agent's job.
 
 What still needs asking every time: tags, GitHub releases, production APKs. See
 `.cursor/rules/release-workflow.mdc`.

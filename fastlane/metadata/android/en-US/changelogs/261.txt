@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.1
+• .kb stepu always recalls history in a wrapped bar; .kb lineu moves a line
+• .timer info / dump: state, set for, elapsed, remaining, repeat
+• Button label Enter break; colour-trigger and SGR 22 bleed fixes

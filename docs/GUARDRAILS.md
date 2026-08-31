@@ -34,6 +34,7 @@ new opportunity for the two copies to disagree.
 | Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script |
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
 | Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
+| Wrap-up omitted "what was not verified" | Claude Code `Stop` (`claude-stop-reminder.sh`) | Continues the turn once; Cursor cannot do this |
 
 The 16 KB check earns its place by having caught a real one on the day it was
 written. `BTLib/libs` is not in git and is built by a script nobody remembers to
@@ -79,12 +80,15 @@ repo. A `.claude/settings.json` here would be silently ignored. The adapters it
 points at (`scripts/hooks/claude-*.sh`) are versioned; the wiring that enables
 them is not, and cannot be reviewed in a diff.
 
-Open `BlowTorch/` as the Cursor workspace. If the parent folder is open
-instead, Cursor reads `../.cursor/hooks.json`, which must list the same four
-events (`beforeShellExecution`, `afterFileEdit`, `preToolUse`, `subagentStart`)
-and the parent `rules/*.mdc` files must match this repo — `check.sh` fails
-locally when they drift. Parent `rules/` are usually symlinks into this repo;
-`hooks.json` cannot be, because the python paths differ. Without
+Open `BlowTorch/` as the Cursor workspace. Project hook commands run from that
+root, so they must be `.cursor/hooks/…` — `hooks/…` is the user-hooks layout
+and looks for a folder that does not exist. Cursor then errors on every tool
+call. If the parent folder is open instead, Cursor reads `../.cursor/hooks.json`,
+which must list the same four events (`beforeShellExecution`, `afterFileEdit`,
+`preToolUse`, `subagentStart`) and the parent `rules/*.mdc` files must match
+this repo — `check.sh` fails locally when they drift. Parent `rules/` are
+usually symlinks into this repo; `hooks.json` cannot be, because the python
+paths differ (`BlowTorch/.cursor/hooks/…` from the parent root). Without
 `beforeShellExecution` there, `adb uninstall` is not denied in the editor.
 
 **Git `pre-commit`** (`scripts/hooks/pre-commit`) is the layer that does not care
@@ -117,6 +121,7 @@ scripts/hooks/
   commit-msg             git hook: the probe check, which needs the real message
   claude-bash-guard.sh   Claude Code adapter, unused on Cursor
   claude-edit-guard.sh   Claude Code adapter, unused on Cursor
+  claude-stop-reminder.sh  Claude Code Stop: wrap-up must name what was not verified
 .cursor/hooks/
   before-shell-execution.py
   after-file-edit.py

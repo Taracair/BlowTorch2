@@ -1975,6 +1975,10 @@ public class StellarService extends Service {
 		broadcastInputBarActionWithArg(8, delta);
 	}
 
+	public final void doInputBarHistory(final int delta) {
+		broadcastInputBarActionWithArg(10, delta);
+	}
+
 	/** mode: {@link #INPUT_EDIT_TOOLS_TOGGLE}, {@link #INPUT_EDIT_TOOLS_ON}, {@link #INPUT_EDIT_TOOLS_OFF}. */
 	public static final int INPUT_EDIT_TOOLS_TOGGLE = 0;
 	public static final int INPUT_EDIT_TOOLS_ON = 1;
@@ -2045,6 +2049,9 @@ public class StellarService extends Service {
 					break;
 				case 9:
 					mCallbacks.getBroadcastItem(i).inputBarEditTools(arg);
+					break;
+				case 10:
+					mCallbacks.getBroadcastItem(i).inputBarHistory(arg);
 					break;
 				default:
 					break;

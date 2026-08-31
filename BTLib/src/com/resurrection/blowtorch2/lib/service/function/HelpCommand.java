@@ -97,7 +97,7 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("trigger", "Triggers and scripts", "list, enable and disable triggers");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
-		cmd("timer", "Triggers and scripts", "list, enable and disable timers");
+		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
 		cmd("sound", "Triggers and scripts",
 				"which volume a trigger's sound uses, and warning when it is off");
 		cmd("dobell", "Triggers and scripts",
@@ -407,7 +407,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .kb insertword <text>  — same as insert\n"
 					+ "  .kb add|popup|flush|clear|close\n"
 					+ "  .kb sel|copy|cut|paste\n"
-					+ "  .kb start|end|stepf|stepb|stepu|stepd\n";
+					+ "  .kb start|end|stepf|stepb|stepu|stepd|lineu|lined\n";
 		}
 		if (filter.equals("trigger")) {
 			return "\n"
@@ -423,8 +423,12 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .timer:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .timer play|pause|reset|stop|info <name> [silent]\n"
-					+ "  .timer duration <name> <seconds> [silent]\n";
+					+ "  .timer play|pause|reset|stop <name> [silent]\n"
+					+ "  .timer info <name> [window]      toast, or game window with window\n"
+					+ "  .timer dump <name>               same as info … window\n"
+					+ "  .timer duration <name>            status (same as info)\n"
+					+ "  .timer duration <name> <seconds> [silent]\n"
+					+ "  .timer dump / .timer list / .timer info   every timer, in the window\n";
 		}
 		if (filter.equals("map")) {
 			return "\n"

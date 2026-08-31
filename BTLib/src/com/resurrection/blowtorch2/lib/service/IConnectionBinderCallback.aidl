@@ -111,7 +111,7 @@ oneway interface IConnectionBinderCallback {
 	void inputBarCursorToEnd();
 	/** Move caret by one character: negative = back, positive = forward. */
 	void inputBarCursorStep(int delta);
-	/** Move caret by line: negative = up, positive = down. */
+	/** Move caret by one visual line: negative = up, positive = down. Does not recall history. */
 	void inputBarCursorVertical(int delta);
 	/**
 	 * Show/hide/toggle the Edit tools strip above the input row.
@@ -178,4 +178,9 @@ oneway interface IConnectionBinderCallback {
 	void chatInboxUpdated(String display);
 	/** Open the chat drawer on a named thread (e.g. {@code .chat vermin}). */
 	void openChatThread(String threadId);
+	/**
+	 * Command history: negative = older (↑ / .kb stepu), positive = newer (↓ / .kb stepd).
+	 * Appended: do not insert this above existing methods.
+	 */
+	void inputBarHistory(int delta);
 }

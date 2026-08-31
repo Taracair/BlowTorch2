@@ -3114,16 +3114,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mTriggerColor.closeAtLineEnds(mFinished);
 
 		mFinished.updateMetrics();
-		
+
+		// dumpToBytes(false) empties the tree. Snapshot first or DUMP is
+		// always lines=0 (measured 29 Aug 2026: every event that day).
+		if (mColourBleed != null) {
+			mColourBleed.recordDispatchDump(mDisplay, mFinished);
+		}
+
 		byte[] proc = mFinished.dumpToBytes(false);
 		
 		buffer.addBytesImplSimple(proc);
 		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own
 		// TextTree and the line above already holds the text.
 		notifyMainWindow(proc);
-		if (mColourBleed != null) {
-			mColourBleed.recordDispatchDump(mDisplay, mFinished);
-		}
 		} finally {
 			ColourBleedProbe.unbind();
 		}
@@ -7720,8 +7723,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param str The string to use for the toast message.
 	 */
 	void toast(final String str) {
+		toast(str, false);
+	}
+
+	/** @param longTime true uses {@link android.widget.Toast#LENGTH_LONG} — for .timer info. */
+	void toast(final String str, final boolean longTime) {
 		Context c = this.getContext();
-		Toast t = Toast.makeText(c, str, Toast.LENGTH_SHORT);
+		Toast t = Toast.makeText(c, str, longTime ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
 		float density = c.getResources().getDisplayMetrics().density;
 		t.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, (int) (TOAST_MESSAGE_TOP_OFFSET * density));
 		t.show();

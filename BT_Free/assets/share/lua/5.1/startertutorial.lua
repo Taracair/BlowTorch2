@@ -401,8 +401,9 @@ options), Cancel (left), Done (right).
 
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
-tile to edit label/commands/gestures/accordion. Wrap label (on the
-label row) splits a long name onto two lines. Active (same row as Name,
+tile to edit label/commands/gestures/accordion. Wrap label (Others →
+Size & Position, last row) splits a long name onto two lines. Enter in the
+Label field is a hard break even when that box is off. Active (same row as Name,
 on by default) hides the tile in play without deleting it. Done saves
 the set.
 
@@ -560,9 +561,21 @@ Control from the input bar:
   .timer reset <name>
   .timer stop <name>
   .timer info <name>
+  .timer info <name> window
+  .timer dump <name>
+  .timer dump
+  .timer duration <name>
   .timer duration <name> <seconds>
 
-Optional third token suppresses toasts (not used with info), e.g.
+.timer info is a toast: running or paused or stopped, how long it is set
+for, how long this run has lasted, how long is left, and whether it
+repeats. Add window (or use .timer dump) to write that into the game
+window instead. .timer dump with no name lists every timer. .timer
+duration <name> with no seconds is the same as info; with seconds it
+changes how long the timer runs.
+
+Optional silent as a last word suppresses toasts on play/pause/reset/stop
+(not used with info/dump), e.g.
   .timer play mytick silent
 
 Changing the duration does not stop the timer: one that was running
@@ -721,10 +734,12 @@ TOPICS.keyboard = function()
   .kb flush      send current input
   .kb clear      clear text
   .kb sel / cut / copy / paste
-  .kb start|end|stepf|stepb|stepu|stepd
+  .kb start|end|stepf|stepb|stepu|stepd|lineu|lined
 
 Edit on the input bar expands Sel/Cut/Copy/Paste and a compact arrow pad.
-Up/down recall command history.]])
+Up/down on that pad, hardware arrows, and .kb stepu/.kb stepd recall
+command history even when the bar has wrapped to several lines. .kb lineu
+and .kb lined move the caret one visual line and do not touch history.]])
 end
 
 TOPICS.completion = function()
@@ -1515,7 +1530,7 @@ local tipsShown = {}
 local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
 	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; actions gag, colour, send, or run Lua.]],
-	timer = [[.timer lists timers. .timer name on|off. Repeating or one-shot commands on the phone, not the MUD.]],
+	timer = [[.timer info name. .timer dump writes that into the window; dump with no name lists all. .timer play|pause|stop name. .timer duration name seconds changes the length.]],
 	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],
