@@ -1,0 +1,18 @@
+BlowTorch 2 to fork klasycznego klienta MUD BlowTorch na Androida.
+
+Łączy się z grami tekstowymi (MUD), trzyma panele przycisków na ekranie i obsługuje triggery, aliasy, timery, speedwalki oraz wtyczki Lua. Kolory ANSI, GMCP i połączenia w tle są wspierane.
+
+Ten fork jest pod obecnego Androida: instalowalne buildy, znowu działające storage i backupy, jaśniejszy pasek wpisywania, logi sesji i kilka dodatków (przyciski ośmiokierunkowe / przytrzymanie / akordeon, .search, .wrap, pomoc GMCP).
+
+Także:
+• Osobny pakiet produkcyjny, żeby test mógł stać obok stabilnej instalacji
+• Import/export i backup/restore zip (folder /BlowTorch/ albo systemowe pickery)
+• Log sesji do pliku, czas połączenia na powiadomieniu
+• Rozszerzalny pasek wpisywania (.wrap), pomoc w aplikacji i zgłoszenie awarii/logu
+• Przyciski ośmiokierunkowe / przytrzymanie / akordeon; Edytuj przyciski z menu przepełnienia
+
+Bez reklam, bez analityki, bez konta w chmurze BlowTorch. Łączy się tylko z hostami, które dodasz. Build F-Droid nie kontaktuje GitHuba przy starcie. Wtyczki Lua mają uprawnienia aplikacji; ładuj tylko te, którym ufasz. „Dostęp do wszystkich plików” jest opcjonalny — tylko po to, by ustawienia/backupy/logi mogły leżeć w zwykłym folderze /BlowTorch/. Możesz odmówić i nadal grać, importować i eksportować przez systemowy picker. Szczegóły: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
+
+Oryginalny BlowTorch: Daniel Block / Offset Null Entertainment (MIT). To nieoficjalny fork. Zrób backup ustawień przed aktualizacją.
+
+Źródło i zgłoszenia: https://github.com/Taracair/BlowTorch2

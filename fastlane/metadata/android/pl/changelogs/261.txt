@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.1
+• .kb stepu zawsze przywołuje historię w zawijanym pasku; .kb lineu przesuwa linię
+• .timer info / dump: stan, ustawione na, minęło, zostało, powtórzenia
+• Enter w etykiecie przycisku łamie wiersz; poprawki przecieku kolorów i SGR 22

@@ -13,6 +13,7 @@ into [fdroiddata](https://gitlab.com/fdroid/fdroiddata) only after
 | Path | Purpose |
 |------|---------|
 | `fastlane/metadata/android/en-US/` | Title, short/full description, changelog, icon. Phone screenshots must be dummy-host shots on the tag you submit. |
+| `fastlane/metadata/android/pl/` | Polish store text (second locale for F-Droid Latest once screenshots exist). |
 | `metadata/com.resurrection.blowtorch2.yml` | Skeleton to copy into fdroiddata (same filename) |
 | `BT_Free/build.gradle` | `production` flavor; release unsigned unless `BT_LOCAL_SIGN=1` |
 | `./build_ndk_libraries.sh` | Builds native `.so` files into `BTLib/libs/` before Gradle assemble |

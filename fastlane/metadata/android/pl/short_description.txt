@@ -1,0 +1,1 @@
+Klient MUD z triggerami, aliasami, timerami i wtyczkami Lua
