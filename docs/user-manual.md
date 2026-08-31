@@ -1318,7 +1318,11 @@ Control it from the input bar, by name:
 .timer pause heal     hold it where it is
 .timer reset heal     back to full duration
 .timer stop heal      stop and reset
-.timer info heal      how long is left
+.timer info heal      status: running/paused/stopped, set for, elapsed, remaining, repeat (toast)
+.timer info heal window  same text in the game window
+.timer dump heal      same as info … window
+.timer dump           every timer, in the window
+.timer duration heal  same as info
 .timer duration heal 30   change how long it runs (whole seconds)
 ```
 
@@ -1401,7 +1405,9 @@ is enabled; `.alias list` shows every alias at once.
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
-    `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
+    `.timer <action> <name> [silent|window]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`, `dump`. `silent` suppresses toasts on play/pause/reset/stop. `window` on `info` writes the status into the game window instead of a toast
+    `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
+    `.timer duration <name>`   Same as `.timer info <name>`
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
@@ -2243,9 +2249,11 @@ letters are Speedwalk *keys*.
     `end` / `cursorend`        Caret to end
     `stepf` / `stepr`          Caret one character right
     `stepb` / `stepl`          Caret one character left
-    `stepu` / `stepd`          Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first
+    `stepu`                    Previous command (always — even when the bar is wrapped or multi-line)
+    `stepd`                    Next command (always)
+    `lineu` / `lined`          Caret one visual line up / down; does not recall history
 
-Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
+Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`, `.kb stepu`, `.kb lineu`.
 
 **`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
 puts it where the cursor is and works out the spaces (words get spaces;
@@ -2258,7 +2266,7 @@ tappable word bound to `.kb insert $word`; see below.
 give it lands at the cursor character for character, which is the one to use
 when you need a leading space or want two things run together on purpose.
 
-**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
+**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as hardware up/down and `.kb stepu` / `.kb stepd`); they do not walk visual lines of a wrapped bar. `.kb lineu` / `.kb lined` move the caret one line. ←/→ move the caret one character.
 
 **Options → Window → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
 

@@ -7723,8 +7723,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param str The string to use for the toast message.
 	 */
 	void toast(final String str) {
+		toast(str, false);
+	}
+
+	/** @param longTime true uses {@link android.widget.Toast#LENGTH_LONG} — for .timer info. */
+	void toast(final String str, final boolean longTime) {
 		Context c = this.getContext();
-		Toast t = Toast.makeText(c, str, Toast.LENGTH_SHORT);
+		Toast t = Toast.makeText(c, str, longTime ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
 		float density = c.getResources().getDisplayMetrics().density;
 		t.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, (int) (TOAST_MESSAGE_TOP_OFFSET * density));
 		t.show();

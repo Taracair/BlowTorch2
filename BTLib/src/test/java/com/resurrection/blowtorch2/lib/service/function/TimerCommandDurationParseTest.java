@@ -38,4 +38,58 @@ public class TimerCommandDurationParseTest {
 	public void durationRequiresNumericSeconds() {
 		assertFalse(TimerCommand.DURATION_PATTERN.matcher(" duration heal abc").matches());
 	}
+
+	@Test
+	public void durationWithoutSecondsIsAQueryNotASet() {
+		assertFalse(TimerCommand.DURATION_PATTERN.matcher(" duration heal").matches());
+		Matcher q = TimerCommand.DURATION_QUERY_PATTERN.matcher(" duration heal");
+		assertTrue(q.matches());
+		assertEquals("heal", q.group(1));
+		assertTrue(q.group(2) == null || q.group(2).isEmpty());
+	}
+
+	@Test
+	public void durationQueryRejectsANonWindowTail() {
+		Matcher q = TimerCommand.DURATION_QUERY_PATTERN.matcher(" duration heal 15s");
+		assertTrue(q.matches());
+		assertEquals("15s", q.group(2));
+		assertFalse(TimerCommand.isWindowToken(q.group(2)));
+	}
+
+	@Test
+	public void durationQueryAcceptsWindowToken() {
+		Matcher q = TimerCommand.DURATION_QUERY_PATTERN.matcher(" duration heal window");
+		assertTrue(q.matches());
+		assertEquals("heal", q.group(1));
+		assertEquals("window", q.group(2));
+		assertTrue(TimerCommand.isWindowToken(q.group(2)));
+	}
+
+	@Test
+	public void durationSetStillWinsWhenSecondsArePresent() {
+		Matcher set = TimerCommand.DURATION_PATTERN.matcher(" duration heal 30");
+		assertTrue(set.matches());
+		Matcher q = TimerCommand.DURATION_QUERY_PATTERN.matcher(" duration heal 30");
+		// Query also matches that shape; execute() tries the set pattern first.
+		assertTrue(q.matches());
+		assertEquals("30", set.group(2));
+	}
+
+	@Test
+	public void bareInfoDumpListMatch() {
+		assertTrue(TimerCommand.BARE_DUMP_PATTERN.matcher(" info").matches());
+		assertTrue(TimerCommand.BARE_DUMP_PATTERN.matcher(" dump").matches());
+		assertTrue(TimerCommand.BARE_DUMP_PATTERN.matcher(" LIST").matches());
+		assertFalse(TimerCommand.BARE_DUMP_PATTERN.matcher(" dump heal").matches());
+		assertFalse(TimerCommand.BARE_DUMP_PATTERN.matcher(" play").matches());
+	}
+
+	@Test
+	public void windowTokenIsOnlyTheWordWindow() {
+		assertTrue(TimerCommand.isWindowToken("window"));
+		assertTrue(TimerCommand.isWindowToken("WINDOW"));
+		assertFalse(TimerCommand.isWindowToken("silent"));
+		assertFalse(TimerCommand.isWindowToken(""));
+		assertFalse(TimerCommand.isWindowToken(null));
+	}
 }

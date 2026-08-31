@@ -110,7 +110,7 @@ the keyboard.
 game as `#5 north`.
 `.trigger group off combat` — disable that trigger group.
 `.alias toggle kk` — that alias on or off.
-`.timer play heal` — start that timer (`pause` / `reset` / `stop`).
+`.timer play heal` — start that timer (`pause` / `reset` / `stop` / `info` / `dump`).
 `.suggest on` — word chips from recent game text.
 
 Dot commands are on by default. `..` alone toggles them. `..look` sends
