@@ -60,4 +60,13 @@ public class UpdateCheckerTest {
 		assertTrue(UpdateChecker.compareVersions(null, "2.1.13") < 0);
 		assertTrue(UpdateChecker.compareVersions("2.1.13", null) > 0);
 	}
+
+	/**
+	 * Our Gradle and CI do not pass {@code -Pblowtorch.fdroid}. The F-Droid
+	 * recipe does, and that APK must default the other way.
+	 */
+	@Test
+	public void githubAndTestBuildsDefaultTheCheckOn() {
+		assertTrue(UpdateChecker.defaultEnabled());
+	}
 }

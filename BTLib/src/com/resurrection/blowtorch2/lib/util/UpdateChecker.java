@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.resurrection.blowtorch2.lib.BuildConfig;
+
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -189,10 +191,20 @@ public final class UpdateChecker {
 	 * wants. The toggle is in the launcher's ⋮ menu.
 	 *
 	 * @param context Any context.
-	 * @return true when the automatic check should run. Defaults to on.
+	 * @return true when the automatic check should run. GitHub production
+	 *     defaults on; an F-Droid build ({@code -Pblowtorch.fdroid}) defaults
+	 *     off. A player who has used the ⋮ toggle is stored either way.
 	 */
 	public static boolean isEnabled(final Context context) {
-		return context == null || prefs(context).getBoolean(KEY_ENABLED, true);
+		if (context == null) {
+			return defaultEnabled();
+		}
+		return prefs(context).getBoolean(KEY_ENABLED, defaultEnabled());
+	}
+
+	/** Default when the player has never touched the ⋮ toggle. */
+	static boolean defaultEnabled() {
+		return BuildConfig.UPDATE_CHECK_ON_BY_DEFAULT;
 	}
 
 	/** Write the app-wide flag. Called when the Options toggle changes. */

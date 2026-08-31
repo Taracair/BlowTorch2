@@ -12,6 +12,12 @@ android {
         versionCode 219
         versionName "2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // GitHub APKs keep the automatic check on. F-Droid's recipe appends
+        // blowtorch.fdroid=true so the APK they compile defaults it off
+        // (reviewers adb-install that artifact; installer-name tricks miss that).
+        buildConfigField "boolean", "UPDATE_CHECK_ON_BY_DEFAULT",
+                ((findProperty("blowtorch.fdroid") ?: "false").toString() == "true")
+                        ? "false" : "true"
         // Fat APK for phones/tablets: 32-bit + 64-bit ARM (covers virtually all devices).
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
