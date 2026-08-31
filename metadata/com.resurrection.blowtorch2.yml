@@ -1,12 +1,11 @@
 Categories:
-  - Games
   - Internet
+  - Game Helper
 
 License: MIT
 
 AuthorName: Taracair
-AuthorEmail: ''
-WebSite: https://github.com/Taracair/BlowTorch2
+AuthorEmail: TARACAIR@GMAIL.COM
 SourceCode: https://github.com/Taracair/BlowTorch2
 IssueTracker: https://github.com/Taracair/BlowTorch2/issues
 Changelog: https://github.com/Taracair/BlowTorch2/releases
@@ -17,77 +16,52 @@ RepoType: git
 Repo: https://github.com/Taracair/BlowTorch2.git
 
 Builds:
-  - versionName: '2.2.4'
-    versionCode: 257
-    commit: v2.2.4
+  - versionName: 'X.Y.Z'
+    versionCode: NNN
+    commit: PUT_FULL_SHA_HERE
     subdir: BT_Free
     sudo:
       - apt-get update || apt-get update
-      - apt-get install -y openjdk-17-jdk-headless gcc make
-      - update-alternatives --auto java || true
+      - apt-get install -y openjdk-17-jdk-headless gcc-multilib libc6-dev-i386 make
+      - update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+      - update-alternatives --set javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac
     gradle:
       - production
     ndk: r26b
-    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
-    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
-    scandelete:
-      - BTLib/key
-
-  - versionName: '2.1.5'
-    versionCode: 229
-    commit: v2.1.5
-    subdir: BT_Free
-    sudo:
-      - apt-get update || apt-get update
-      - apt-get install -y openjdk-17-jdk-headless gcc make
-      - update-alternatives --auto java || true
-    gradle:
-      - production
-    ndk: r26b
-    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
-    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
-    scandelete:
-      - BTLib/key
-      - LuaJIT-2.1
-
-  - versionName: '2.1.3'
-    versionCode: 227
-    commit: v2.1.3
-    subdir: BT_Free
-    sudo:
-      - apt-get update || apt-get update
-      - apt-get install -y openjdk-17-jdk-headless gcc make
-      - update-alternatives --auto java || true
-    gradle:
-      - production
-    ndk: r26b
-    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
-    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
-    scandelete:
-      - BTLib/key
-      - LuaJIT-2.1
+    prebuild:
+      - sed -i -e '/^org.gradle.java.home=/d' ../gradle.properties
+      - echo 'org.gradle.java.home=/usr/lib/jvm/java-17-openjdk-amd64' >> ../gradle.properties
+      - echo 'blowtorch.fdroid=true' >> ../gradle.properties
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
+    build:
+      - export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$
+      - cd .. && ./build_ndk_libraries.sh
 
 MaintainerNotes: |
-  Native libs are produced by ./build_ndk_libraries.sh into BTLib/libs/ (not
-  committed). Release signing is left unset unless BT_LOCAL_SIGN=1; F-Droid
-  signs the APK. Package id is com.resurrection.blowtorch2 (production flavor).
-  Uses MANAGE_EXTERNAL_STORAGE so default user files can live under /BlowTorch/
-  (settings, backups, launcher, session_logs, logs) outside Android/data.
-  This is optional for playing; see docs/FDROID_README.md for the full
-  permission justification aimed at reviewers and users.
+  Production flavor only (applicationId com.resurrection.blowtorch2).
+  Do not enable btTest. Native LuaJIT is compiled by
+  ./build_ndk_libraries.sh into BTLib/libs/ (not in git). Both
+  LuaJIT trees are vendored; the script must not hit the network.
+  HOST_CC="gcc -m32" needs gcc-multilib. Unsigned release unless
+  BT_LOCAL_SIGN=1; F-Droid signs. gradle.properties may still contain
+  an Arch java.home; prebuild sed deletes it and writes the Debian path.
+  blowtorch.fdroid=true makes the automatic GitHub update check default
+  off in this APK; GitHub-signed builds leave it on.
 
-  LuaJIT 2.1 (needed for arm64-v8a; 2.0.5 does not support it) has no upstream
-  release, only a moving branch, so its sources are vendored in LuaJIT-2.1/ next
-  to the LuaJIT-2.0.5/ tree that was always there. No srclib and no network: the
-  build script compiles both from the checkout. Provenance is the commit named
-  at the top of build_ndk_libraries.sh; LuaJIT is MIT, COPYRIGHT included.
+  MANAGE_EXTERNAL_STORAGE is opt-in UX for a visible /BlowTorch/
+  folder. Connecting works from app storage without the grant.
+  Launcher and in-session import/export/backup use SAF or app storage
+  without opening the All-files screen first. Overlay and
+  ignore-battery are opt-in at use. Foreground service type
+  specialUse keeps the MUD TCP session alive with the screen off.
+  usesCleartextTraffic is for telnet worlds the user adds.
+  See docs/FDROID_README.md.
 
-  The 2.2.4 Builds entry below predates that: tag v2.2.4 still contains five
-  archived APKs, four prebuilt .so and the fetch. Repoint commit: at the first
-  tag that carries the vendored sources before submitting anything.
+  F-Droid users should update via F-Droid. versionName lives on the
+  production flavor; UpdateCheckData skips the btTest "*-test" name.
 
-ArchivePolicy: 2 versions
 AutoUpdateMode: Version
-UpdateCheckMode: Tags
-CurrentVersion: '2.2.4'
-CurrentVersionCode: 257
+UpdateCheckMode: 'Tags ^v[0-9.]+$'
+UpdateCheckData: BT_Free/build.gradle|versionCode\s+(\d+)|.|versionName\s+"([\d.]+)"
+CurrentVersion: 'X.Y.Z'
+CurrentVersionCode: NNN
