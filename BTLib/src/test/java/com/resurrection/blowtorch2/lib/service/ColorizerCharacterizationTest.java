@@ -41,6 +41,15 @@ public class ColorizerCharacterizationTest {
 		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_FG_START, Colorizer.getColorType(38));
 		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_BG_START, Colorizer.getColorType(48));
 		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_FIVE, Colorizer.getColorType(5));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(3));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(4));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(7));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(9));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(21));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(23));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(24));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(27));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(29));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(90));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(91));
 		assertEquals(Colorizer.COLOR_TYPE.BACKGROUND, Colorizer.getColorType(101));
@@ -51,25 +60,31 @@ public class ColorizerCharacterizationTest {
 	public void getColorTypeFromCharSequence() {
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType("31"));
 		assertEquals(Colorizer.COLOR_TYPE.NORMAL_INTENSITY, Colorizer.getColorType("22"));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType("3"));
+		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_FIVE, Colorizer.getColorType("5"));
 		assertEquals(Colorizer.COLOR_TYPE.NOT_A_COLOR, Colorizer.getColorType("nope"));
 	}
 
 	/**
-	 * Bold and SGR 22 are intensity, not a colour. If the bleed search stopped
-	 * on 22 it would never find the real foreground further back. Background
-	 * codes already skip for the same reason.
+	 * Bold, faint, SGR 22 and italic/underline/strike/reverse are not a colour.
+	 * If the bleed search stopped on them it would never find the real
+	 * foreground further back. Background codes already skip for the same
+	 * reason. SGR 5 stays {@code XTERM_256_FIVE} and still stops (or starts
+	 * 256-colour) — it is not style.
 	 */
 	@Test
 	public void bleedSearchDoesNotStopOnIntensityAlone() {
 		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.BRIGHT_CODE));
 		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.NORMAL_INTENSITY));
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.DIM_CODE));
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.SGR_STYLE));
 		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.BACKGROUND));
 		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.NOT_A_COLOR));
 		assertFalse(Colorizer.stopsFgBleedSearch(null));
 		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.FOREGROUND));
 		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.DEFAULT_FOREGROUND));
 		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.ZERO_CODE));
-		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.DIM_CODE));
+		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.XTERM_256_FIVE));
 	}
 
 	/**

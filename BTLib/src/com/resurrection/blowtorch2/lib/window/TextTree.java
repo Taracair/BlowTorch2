@@ -1852,6 +1852,8 @@ public class TextTree {
 		boolean drawCacheXterm256BG;
 		boolean drawCacheTrueColorFG;
 		boolean drawCacheTrueColorBG;
+		/** {@link com.resurrection.blowtorch2.lib.service.SgrStyle} bits after this unit. */
+		int drawCacheSgr;
 		/**
 		 * Inserted by a colour trigger. Replace uses this to tell a MUD
 		 * background from a trigger background. A later colour trigger on the

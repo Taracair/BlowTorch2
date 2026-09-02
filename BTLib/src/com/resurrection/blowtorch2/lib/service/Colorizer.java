@@ -1568,7 +1568,11 @@ public final class Colorizer {
 		DEFAULT_FOREGROUND,
 		/** 49, returns the background to default. */
 		DEFAULT_BACKGROUND,
-		/** 1 or 0 I think, I'm not sure if this constant is used. */
+		/**
+		 * 2. Standalone SGR faint (Window turns the faint bit on). After 38/48
+		 * this same number starts a truecolor payload and never reaches paint
+		 * as faint. Not blink — that is 5.
+		 */
 		DIM_CODE,
 		/** Background color, 40-48. */
 		BACKGROUND,
@@ -1583,7 +1587,12 @@ public final class Colorizer {
 		/** The xterm 256 extra marker byte 5. */
 		XTERM_256_FIVE,
 		/** An xterm 256 color. */
-		XTERM_256_COLOR
+		XTERM_256_COLOR,
+		/**
+		 * Italic / underline / strike / reverse (3, 4, 7, 9, 21, 23, 24, 27, 29).
+		 * Not 5 — that stays {@link #XTERM_256_FIVE} so {@code 38;5;n} is a colour.
+		 */
+		SGR_STYLE
 	}
 	
 	/** Gets the type of color code for the given argument.
@@ -1638,6 +1647,10 @@ public final class Colorizer {
 		
 		if (value == XTERM_256_FIVE) { return COLOR_TYPE.XTERM_256_FIVE; }
 
+		if (SgrStyle.isCode(value.intValue())) {
+			return COLOR_TYPE.SGR_STYLE;
+		}
+
 		// Bright ANSI (aixterm): 90–97 FG, 100–107 BG
 		if (value >= 90 && value <= 97) {
 			return COLOR_TYPE.FOREGROUND;
@@ -1659,11 +1672,11 @@ public final class Colorizer {
 	}
 
 	/**
-	 * Whether this SGR type can stop the {@code onDraw} bleed search. Bold (1)
-	 * and normal intensity (22) change the bright register but do not name a
-	 * colour, so the search must keep walking — the same reason a background
-	 * code does not stop it. Clearing leftover SGR 1 is {@code updateColorRegisters},
-	 * not this predicate: 22 as {@code NOT_A_COLOR} already skipped the stop.
+	 * Whether this SGR type can stop the {@code onDraw} bleed search. Bold (1),
+	 * faint (2), normal intensity (22) and {@link COLOR_TYPE#SGR_STYLE} change
+	 * registers but do not name a colour, so the search must keep walking — the
+	 * same reason a background code does not stop it. Clearing leftover SGR 1
+	 * is {@code updateColorRegisters}, not this predicate.
 	 */
 	public static boolean stopsFgBleedSearch(final COLOR_TYPE type) {
 		if (type == null) {
@@ -1673,7 +1686,9 @@ public final class Colorizer {
 		case NOT_A_COLOR:
 		case BACKGROUND:
 		case BRIGHT_CODE:
+		case DIM_CODE:
 		case NORMAL_INTENSITY:
+		case SGR_STYLE:
 			return false;
 		default:
 			return true;

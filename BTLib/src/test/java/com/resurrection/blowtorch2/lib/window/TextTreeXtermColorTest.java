@@ -100,6 +100,19 @@ public class TextTreeXtermColorTest {
 				firstColorOps(ESC + "[38;5;22m"));
 	}
 
+	/**
+	 * {@code 38;5;3} is xterm index 3 (olive in the cube), not italic.
+	 * Window's xterm branch consumes the 3 before {@code getColorType}.
+	 * Standalone 3 is italic — that is a different unit.
+	 */
+	@Test
+	public void xtermIndex3IsPaletteNotItalic() throws Exception {
+		assertEquals(Arrays.asList(38, 5, 3),
+				firstColorOps(ESC + "[38;5;3m"));
+		assertEquals(Arrays.asList(3),
+				firstColorOps(ESC + "[3m"));
+	}
+
 	/** Tempest Season login banner (measured 16 Aug 2026, no TTYPE). */
 	@Test
 	public void tempestSeasonBannerCyanSplits() throws Exception {

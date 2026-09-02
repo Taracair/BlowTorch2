@@ -2334,6 +2334,19 @@ New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
 is kept when you close the world.
 
+## Colours the world sends
+
+Bold is the **bright palette** (SGR 1), not a heavier typeface. Italic (3),
+underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
+sends `[3mlook[23m` shows `look` slanted; `[4m` puts a line under the word;
+`[9m` a line through it; `[7m` swaps ink and paper; `[2m` is dimmer.
+
+Double underline (21) is an underline, not "bold off" — that is 22. Blink is
+ignored (the same 5 that starts `38;5;n` colour, so `[38;5;3m` is still colour
+index 3, not italic).
+
+MXP `<I>` / `<U>` / `<S>` inject those same codes, so they follow.
+
 ## Dim repeated lines
 
 **Options → Window → Dim repeated lines?** (off by default). When a long line

@@ -63,6 +63,7 @@ import android.widget.RelativeLayout.LayoutParams;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.SettingsChangedListener;
+import com.resurrection.blowtorch2.lib.service.SgrStyle;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings.LINK_MODE;
@@ -259,6 +260,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Integer mSelectedColor = Integer.valueOf(37);
 	/** ANSI Drawing routine current brightness register. */
 	private Integer mSelectedBright = Integer.valueOf(0);
+	/** Italic / underline / strike / reverse / faint. Not a typeface. */
+	private final SgrStyle mSgr = new SgrStyle();
 	/** ANSI Drawing routine current background color. */
 	private Integer mSelectedBackground = Integer.valueOf(60);
 	/** Utility variable that is used by the ANSI drawing routine to properly handle xterm 256 colors. */
@@ -2313,6 +2316,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			p.setAntiAlias(true);
 			p.setTextSize(mPrefFontSize);
 			p.setColor(0xFFFFFFFF);
+			p.setUnderlineText(false);
+			p.setStrikeThruText(false);
+			p.setTextSkewX(0f);
+			mSgr.clear();
 			
 			// Sideways scroll is applied at the row origin rather than with
 			// canvas.translate on purpose: link boxes are built from this same x
@@ -2452,6 +2459,18 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
 				p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, true,
 						mLightPaperShade));
+				mSgr.clear();
+			}
+			// Reverse needs the register background; otherwise keep paper (do not
+			// bleed a leftover 40 as a cell fill). Faint dims the bleed FG.
+			if (mSgr.reverse()) {
+				applyAnsiPaints(p, b);
+			} else {
+				applySgrDecorations(p);
+				if (mSgr.faint()) {
+					p.setColor(LightPaper.dimTowardPaper(p.getColor(),
+							SgrStyle.FAINT_DIM_PERCENT, mLightPaper, mLightPaperShade));
+				}
 			}
 			mResolvedFg = p.getColor();
 			mPaintingDimLine = false;
@@ -2719,6 +2738,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								linkColor.setTypeface(p.getTypeface());
 								linkColor.setUnderlineText(false);
 								linkColor.setColor(themedLinkColor());
+							}
+							linkColor.setStrikeThruText(p.isStrikeThruText());
+							linkColor.setTextSkewX(p.getTextSkewX());
+							if (p.isUnderlineText()) {
+								linkColor.setUnderlineText(true);
 							}
 							
 							if (doIndicator) {
@@ -4317,6 +4341,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mTrueColorBG = false;
 			mTrueColorCollect = false;
 			mTrueColorCount = 0;
+			mSgr.clear();
 			break;
 		case BRIGHT_CODE:
 			mSelectedBright = 1;
@@ -4328,6 +4353,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// SGR 22: neither bold nor faint. Must clear leftover SGR 1 or
 			// default grey (#BBBBBB) paints as bright white (#FFFFFF).
 			mSelectedBright = 0;
+			mSgr.clearFaint();
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
@@ -4341,7 +4367,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				mXterm256FGStart = false;
 				mXterm256BGStart = false;
 				mXterm256Color = false;
+			} else {
+				mSgr.setFaint(true);
 			}
+			break;
+		case SGR_STYLE:
+			mSgr.apply(i.intValue());
 			break;
 		case DEFAULT_FOREGROUND:
 			mSelectedColor = 37;
@@ -4393,6 +4424,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		h = 31 * h + (mXterm256FG ? 1 : 0) + (mXterm256BG ? 2 : 0)
 				+ (mTrueColorFG ? 4 : 0) + (mTrueColorBG ? 8 : 0);
 		h = 31 * h + (mLightPaper ? 16 : 0) + mLightPaperShade;
+		h = 31 * h + mSgr.bits();
 		return h;
 	}
 
@@ -4428,6 +4460,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256BG = cu.drawCacheXterm256BG;
 			mTrueColorFG = cu.drawCacheTrueColorFG;
 			mTrueColorBG = cu.drawCacheTrueColorBG;
+			mSgr.setBits(cu.drawCacheSgr);
+			applySgrDecorations(textPaint);
 			return;
 		}
 
@@ -4460,6 +4494,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		cu.drawCacheXterm256BG = mXterm256BG;
 		cu.drawCacheTrueColorFG = mTrueColorFG;
 		cu.drawCacheTrueColorBG = mTrueColorBG;
+		cu.drawCacheSgr = mSgr.bits();
 		cu.drawCacheValid = true;
 	}
 
@@ -4476,22 +4511,42 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			fgRaw = 0xFF000000 | Colorizer.getColorValue(
 					mSelectedBright, mSelectedColor, mXterm256FG);
 		}
-		final int fg = LightPaper.remapForeground(fgRaw, mLightPaper, defaultFg,
+		int fg = LightPaper.remapForeground(fgRaw, mLightPaper, defaultFg,
 				mLightPaperShade);
-		if (textPaint.getColor() != fg) {
-			textPaint.setColor(fg);
-		}
 		final int bgRaw = mTrueColorBG
 				? (0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF))
 				: (0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
-		final int bg = LightPaper.remapBackground(bgRaw, mLightPaper, defaultBg,
+		int bg = LightPaper.remapBackground(bgRaw, mLightPaper, defaultBg,
 				mLightPaperShade);
+		if (mSgr.reverse()) {
+			final int swapped = fg;
+			fg = bg;
+			bg = swapped;
+		}
+		if (mSgr.faint()) {
+			fg = LightPaper.dimTowardPaper(fg, SgrStyle.FAINT_DIM_PERCENT,
+					mLightPaper, mLightPaperShade);
+		}
+		if (textPaint.getColor() != fg) {
+			textPaint.setColor(fg);
+		}
 		if (bgPaint.getColor() != bg) {
 			bgPaint.setColor(bg);
 		}
 		if (bgPaint == b) {
 			mBgPaintColor = bg;
 		}
+		applySgrDecorations(textPaint);
+	}
+
+	/**
+	 * Underline / strike / italic skew from {@link #mSgr}. Italic is skew, not
+	 * {@link Typeface#ITALIC} — {@code ensureGridCache} keys typeface+size.
+	 */
+	private void applySgrDecorations(final Paint textPaint) {
+		textPaint.setUnderlineText(mSgr.underline());
+		textPaint.setStrikeThruText(mSgr.strike());
+		textPaint.setTextSkewX(mSgr.italic() ? SgrStyle.ITALIC_SKEW : 0f);
 	}
 
 	/** Bleed search found an open FG; remap it the same way {@link #applyAnsiPaints} does. */
