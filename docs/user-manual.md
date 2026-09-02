@@ -571,7 +571,9 @@ In the trigger editor:
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
 similar actions. `$` on its own is end of line, not a dollar sign: to match
-`earned $70` write `earned \$70`.
+`earned $70` write `earned \$70`. Invisible paste characters (a zero-width
+space in front of `^`) are ignored in regex mode — they are how a pattern
+that looks right matches nothing.
 
 ### Speak Out Loud
 

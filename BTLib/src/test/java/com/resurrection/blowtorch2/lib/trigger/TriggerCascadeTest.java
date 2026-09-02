@@ -128,6 +128,15 @@ public class TriggerCascadeTest {
 	}
 
 	@Test
+	public void zeroWidthSpaceBeforeCaretStillAnchors() {
+		TriggerData t = trigger("price", "\u200b^(.+?)\\s+earned\\s+\\$(.+)");
+		List<TriggerCascade.Hit> hits = drain(compile(t),
+				"[ tag ]: Name earned $70 for a vermin.\n");
+		assertEquals(1, hits.size());
+		assertEquals("70 for a vermin.", hits.get(0).groups[2]);
+	}
+
+	@Test
 	public void unescapedDollarIsEndOfLineNotAPrice() {
 		TriggerData bad = trigger("price", "earned $70");
 		assertTrue(drain(compile(bad), LINE).isEmpty());

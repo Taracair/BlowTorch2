@@ -6,6 +6,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsOptionXml
 
 import java.util.regex.Matcher;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -103,6 +104,13 @@ public class TriggerParserTest {
 		String xml = out.toString();
 		assertTrue(xml.contains("keepEvaluating=\"false\""));
 		assertFalse(xml.contains("keepEvaluating=\"true\""));
+	}
+
+	@Test
+	public void regexCompileDropsZeroWidthSpace() {
+		assertEquals("^earned \\$(.+)",
+				TriggerData.stripRegexFormatChars("\u200b^earned \\$(.+)"));
+		assertEquals("earned", TriggerData.stripRegexFormatChars("earned"));
 	}
 
 	@Test

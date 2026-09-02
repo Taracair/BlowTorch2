@@ -1853,9 +1853,11 @@ public class TextTree {
 		boolean drawCacheTrueColorFG;
 		boolean drawCacheTrueColorBG;
 		/**
-		 * Inserted by a colour trigger. Restore after a later match must not
-		 * treat this as the server's colour — that is how a second trigger on
-		 * the same line painted the tail with the first trigger's colour.
+		 * Inserted by a colour trigger. Replace uses this to tell a MUD
+		 * background from a trigger background. A later colour trigger on the
+		 * same line treats these units as the colour still in effect, so a
+		 * word trigger restores to a channel colour instead of the raw MUD
+		 * colour underneath.
 		 */
 		boolean triggerPaint;
 		

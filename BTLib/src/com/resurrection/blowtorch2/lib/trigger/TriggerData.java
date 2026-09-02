@@ -148,7 +148,9 @@ public class TriggerData implements Parcelable {
 		// otherwise. Everything below compiles against this, and nothing below
 		// may write it back -- getPattern() has to keep returning what the
 		// player typed or the profile would be saved with the alias expanded.
-		final String source = getEffectivePattern();
+		final String source = this.interpretAsRegex
+				? stripRegexFormatChars(getEffectivePattern())
+				: getEffectivePattern();
 		if (this.interpretAsRegex) {
 			try {
 				this.p = Pattern.compile(source);
@@ -175,6 +177,41 @@ public class TriggerData implements Parcelable {
 			this.p = Pattern.compile(Pattern.quote(source));
 		}
 		this.m = p.matcher("");
+	}
+
+	/**
+	 * Drop Unicode format characters (zero-width space, BOM, …) from a regex
+	 * before compiling. They are what a paste from a chat app leaves in front
+	 * of {@code ^}, so {@code ^earned} never matches the start of the line.
+	 * The player's stored pattern is unchanged; only the matcher ignores them.
+	 * Literal triggers keep the characters — a ZWSP in the game text is real.
+	 */
+	static String stripRegexFormatChars(final String source) {
+		if (source == null || source.isEmpty()) {
+			return source;
+		}
+		int n = source.length();
+		int i = 0;
+		while (i < n) {
+			int cp = source.codePointAt(i);
+			if (Character.getType(cp) == Character.FORMAT) {
+				break;
+			}
+			i += Character.charCount(cp);
+		}
+		if (i >= n) {
+			return source;
+		}
+		StringBuilder out = new StringBuilder(n);
+		out.append(source, 0, i);
+		while (i < n) {
+			int cp = source.codePointAt(i);
+			if (Character.getType(cp) != Character.FORMAT) {
+				out.appendCodePoint(cp);
+			}
+			i += Character.charCount(cp);
+		}
+		return out.toString();
 	}
 	
 	public Matcher getMatcher() {

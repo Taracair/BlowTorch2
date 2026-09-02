@@ -297,9 +297,11 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		
 		int working = 0;
 		
-		// What to go back to after the match: the colour the server had this line
-		// in. tree.getBleedColor() answers for the point parsing reached, which
-		// on the first line of a chunk is the last line's colour, not this one's.
+		// Colour in effect at the match: start from what this line opened in,
+		// then walk units. tree.getBleedColor() is the previous line on the
+		// first line of a chunk. Earlier trigger paint on this line counts —
+		// skipping it restored the raw MUD colour under a channel trigger
+		// ("says" magenta, then the original green through to the newline).
 		Color bleed = line.getServerColorAtStart() != null
 				? tree.makeRestoreColor(line.getServerColorAtStart())
 				: tree.getBleedColor();
@@ -330,10 +332,10 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 					newLine.add(u);
 				}
 			} else {
-				if (u instanceof TextTree.Color && !((TextTree.Color) u).isTriggerPaint()) {
-					Color serverColor = (Color) u;
-					if (!skipsBackgroundPaint(backgroundColor) || namesForeground(serverColor)) {
-						bleed = serverColor;
+				if (u instanceof TextTree.Color) {
+					Color previous = (Color) u;
+					if (!skipsBackgroundPaint(backgroundColor) || namesForeground(previous)) {
+						bleed = previous;
 					}
 				}
 				newLine.add(u);

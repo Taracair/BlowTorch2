@@ -293,11 +293,13 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
-	 * Same two colour triggers on one line: {@code [chatnet] ù says, "ù"}.
-	 * The second restore must not pick up the first trigger's colour unit.
+	 * Same two colour triggers on one line: a channel colour then {@code says}.
+	 * {@code says} must close (the quote is not magenta). The channel colour
+	 * is still in effect, so the quote stays that colour rather than dropping
+	 * through to the raw MUD cyan underneath.
 	 */
 	@Test
-	public void twoColorTriggersOnOneLineDoNotLeaveTheFirstColourAfterTheSecond()
+	public void twoColorTriggersOnOneLineRestoreToTheLineColourNotTheWord()
 			throws Exception {
 		TextTree working = new TextTree();
 		TriggerColorState state = new TriggerColorState();
@@ -311,7 +313,66 @@ public class ColorTriggerBleedTest {
 		working.updateMetrics();
 		String dumped = new String(working.dumpToBytes(false), ENC);
 		assertSaysPainted(dumped);
-		assertQuoteIsNotChatnetGreen(dumped, "two ColorActions on one line");
+		assertQuoteKeepsLineColour(dumped, TRIGGER_COLOR);
+	}
+
+	/**
+	 * A channel trigger replaces {@code [ VERMIN ]:} (11) with {@code CORPCHAT:}
+	 * (9) and paints the line, then a word trigger colours {@code says} at the
+	 * original offsets. Connection keeps {@code modCount} on that line so the
+	 * colour action does not keep {@code sa} and insert {@code says} on top
+	 * ({@code sasays}), and the word colour closes back to the channel colour
+	 * rather than running to the newline.
+	 */
+	@Test
+	public void aShorterReplaceThenWordColorDoesNotDuplicateOrBleed()
+			throws Exception {
+		final int channelColor = 75;
+		final Pattern prefix = Pattern.compile("\\[ VERMIN \\]:");
+		final String raw = "[ VERMIN ]: Name says hello\n";
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl(raw.getBytes(ENC));
+		TextTree.Line line = working.getLines().get(0);
+		String stripped = TextTree.deColorLine(line).toString();
+		Matcher whole = Pattern.compile("\\[ VERMIN \\]:.+").matcher(stripped);
+		Matcher saysOnOriginal = Pattern.compile("says").matcher(stripped);
+		assertTrue(whole.find());
+		assertTrue(saysOnOriginal.find());
+		int origSaysStart = saysOnOriginal.start();
+		int origSaysEnd = saysOnOriginal.end();
+		String origSays = saysOnOriginal.group();
+
+		ColorAction channel = new ColorAction();
+		channel.setColor(channelColor);
+		channel.setBackgroundColor(NO_BACKGROUND);
+		channel.doResponse(null, working, 0, null, line, whole.start(),
+				whole.end() - 2, whole.group(), null, "test", "host", 0, 0,
+				false, null, null, null, "channel", ENC);
+		fireReplace(working, 0, line, prefix, "CORPCHAT:");
+
+		ColorAction word = new ColorAction();
+		word.setColor(SAYS_COLOR);
+		word.setBackgroundColor(NO_BACKGROUND);
+		word.doResponse(null, working, 0, null, line, origSaysStart,
+				origSaysEnd - 2, origSays, null, "test", "host", 0, 0, false,
+				null, null, null, "says", ENC);
+		state.closeAtLineEnds(working);
+
+		String plain = TextTree.deColorLine(working.getLines().get(0)).toString();
+		assertTrue("replacement missing: " + plain,
+				plain.startsWith("CORPCHAT: Name says hello"));
+		assertTrue("duplicated the start of the word: " + plain,
+				plain.indexOf("sasays") < 0);
+		Integer atSays = xtermFgAt(working, "says");
+		assertTrue("says was not painted: " + visible(
+				new String(working.dumpToBytes(true), ENC)),
+				atSays != null && atSays.intValue() == SAYS_COLOR);
+		Integer atHello = xtermFgAt(working, "hello");
+		assertTrue("says colour leaked to the end of the line (xterm " + atHello
+				+ "): " + visible(new String(working.dumpToBytes(true), ENC)),
+				atHello != null && atHello.intValue() == channelColor);
 	}
 
 	/**
@@ -468,6 +529,17 @@ public class ColorTriggerBleedTest {
 		assertTrue(via + " leaked chatnet colour onto the quote after says: "
 				+ visible(dumped),
 				afterSays.indexOf("38;5;" + TRIGGER_COLOR) < 0);
+	}
+
+	/** After the letters {@code says}, the word colour must have closed. */
+	private static void assertQuoteKeepsLineColour(String dumped, int lineColor) {
+		int saysAt = dumped.indexOf("says");
+		assertTrue("no says in: " + visible(dumped), saysAt >= 0);
+		String afterSays = dumped.substring(saysAt + "says".length());
+		assertTrue("says colour leaked onto the quote: " + visible(dumped),
+				afterSays.indexOf("38;5;" + SAYS_COLOR) < 0);
+		assertTrue("quote dropped the line trigger colour: " + visible(dumped),
+				afterSays.indexOf("38;5;" + lineColor) >= 0);
 	}
 
 	/**

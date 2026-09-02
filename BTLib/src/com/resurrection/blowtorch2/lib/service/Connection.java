@@ -87,6 +87,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.speedwalk.SpeedwalkExpand;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
+import com.resurrection.blowtorch2.lib.trigger.LineModCount;
 import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
@@ -2919,6 +2920,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			HashSet<Integer> removedLines = new HashSet<Integer>();
 			HashSet<Integer> stoppedOnLine = new HashSet<Integer>();
 			HashSet<String> firedHits = new HashSet<String>();
+			// ReplaceResponder writes a length delta into tree.modCount. The
+			// cascade walks one trigger across every line, then the next, so a
+			// single "reset when the line changes" flag zeroes line 0 when line
+			// 1 replaces, and a later colour of "says" on line 0 becomes
+			// "sasays" again. Keep one delta per original line.
+			LineModCount lineMods = new LineModCount();
 			while (!done) {
 				done = true;
 				boolean rebuildTriggers = false;
@@ -2956,7 +2963,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					}
 					l = it.previous();
 					lineNumber = seated;
-					mWorking.setModCount(0);
+					mWorking.setModCount(lineMods.load(originalLine));
 
 					TriggerData t = hit.trigger;
 					Plugin p = mTriggerPluginByIdentity.get(t);
@@ -2978,6 +2985,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							for (int i = 0; i < hit.groups.length; i++) {
 								mCaptureMap.put(Integer.toString(i), hit.groups[i]);
 							}
+							boolean lineGone = false;
 							for (TriggerResponder responder : t.getResponders()) {
 								try {
 									responder.doResponse(mService.getApplicationContext(), 
@@ -3005,7 +3013,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 										rebuildTriggers = true;
 									}
 								} catch (IteratorModifiedException e1) {
+									lineGone = true;
 									markRemovedSpan(removedLines, originalLine, matched);
+									lineMods.drop(originalLine);
 									it = e1.getIterator();
 									mWorking.setModCount(0);
 									if (it.hasPrevious()) {
@@ -3027,6 +3037,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 									continueScan = false;
 								}
 							}
+							if (!lineGone) {
+								lineMods.store(originalLine, mWorking.getModCount());
+							}
 							if (!gate.isKeepEvaluating()) {
 								markRemovedSpan(stoppedOnLine, originalLine, matched);
 							}
@@ -3042,6 +3055,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					// left-to-right, so those lines may not have been seen yet.
 					// Already-fired (trigger, start) pairs are skipped above.
 					mWorking.setModCount(0);
+					lineMods.clear();
 					done = false;
 					continueScan = true;
 					buildTriggerSystem();
