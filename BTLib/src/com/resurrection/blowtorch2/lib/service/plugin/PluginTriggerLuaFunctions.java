@@ -164,7 +164,9 @@ NewTrigger(name,pattern,config[,action,...])
 --configuration parameters is a table that can have the following properties defined:
 --regex = [boolean] indicates use of regular expression or literal text.
 --group = [string] group name to enroll this trigger into.
---fireOnce = [boolean] indicates whether this trigger is a one shot trigger.
+--once = [boolean] fire once then stay quiet until enabled again.
+--sequence = [number] smaller runs first (default 10).
+--enabled = [boolean]
 --notification action table configuration can have the following properties
 --{
 --	type="notification", (must be set for the action type)
@@ -212,7 +214,7 @@ NewTrigger(name,pattern,config[,action,...])
 --}
 --simple notification
 NewTrigger("tmp", "^foo\.$", 
-{ regex = true,group = "test", fireOnce = false }, 
+{ regex = true, group = "test", once = false, sequence = 10 }, 
 { type = "notification", title="custom title", message="custom message", vibrate = 2 })
 --literal trigger with colorize and response to the server.
 NewTrigger("tmp2", "fox", { regex = false },
@@ -271,6 +273,8 @@ class NewTriggerFunction extends JavaFunction {
 					t.setInterpretAsRegex(obj.getBoolean());
 				} else if(key.equals("group")) {
 					t.setGroup(obj.getString());
+				} else if(key.equals("sequence") && type == Plugin.LUA_TNUMBER) {
+					t.setSequence((int) obj.getNumber());
 				}
 				Log.e("LUA","KEY: " + key + " VALUE: " + value + " TYPE: "+type);
 				this.L.pop(1);

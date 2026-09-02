@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -98,6 +99,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	//private CheckBox literal;
 	private CheckBox once;
 	private CheckBox keepGoing;
+
+	private final List<TriggerData> orderSet = new ArrayList<TriggerData>();
+	private final List<TriggerSampleHits.Candidate> sampleCandidates =
+			new ArrayList<TriggerSampleHits.Candidate>();
 	
 	String selectedPlugin = null;
 	
@@ -235,6 +240,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if (keepGoing != null) {
 			keepGoing.setChecked(the_trigger.isKeepEvaluating());
 		}
+		EditText sequence = (EditText)findViewById(R.id.trigger_editor_sequence);
+		if (sequence != null) {
+			sequence.setText(Integer.toString(the_trigger.getSequence()));
+		}
+		loadOrderSet();
+		loadSampleCandidates();
 		
 		if(isEditor) {
 			Button editdone = (Button)findViewById(R.id.trigger_editor_done_button);
@@ -248,6 +259,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			keepGoing.setOnCheckedChangeListener(new KeepEvaluatingCheckChangedListener());
 		}
 		setupTriggerPreview(title, pattern, literal);
+		setupOrderAndSample(title, sequence);
 		setupSourcePicker(pattern, literal, title);
 		EditorDialogChrome.applyFullScreen(this);
 	}
@@ -462,6 +474,143 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			expand.setOnClickListener(expandClick);
 		}
 		updateTriggerPreview(title, pattern, literal, preview);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void loadOrderSet() {
+		orderSet.clear();
+		if (service == null) {
+			return;
+		}
+		try {
+			Map<String, TriggerData> map;
+			if (PluginFilterSelectionDialog.MAIN_SETTINGS.equals(selectedPlugin)) {
+				map = (Map<String, TriggerData>) service.getTriggerData();
+			} else {
+				map = (Map<String, TriggerData>) service.getPluginTriggerData(selectedPlugin);
+			}
+			if (map != null) {
+				orderSet.addAll(map.values());
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"TriggerEditorDialog.loadOrderSet", e);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void loadSampleCandidates() {
+		sampleCandidates.clear();
+		if (service == null) {
+			return;
+		}
+		try {
+			addSampleCandidates(TriggerSampleHits.MAIN_PLUGIN,
+					(Map<String, TriggerData>) service.getTriggerData());
+			List<String> plugins = (List<String>) service.getPluginsWithTriggers();
+			if (plugins != null) {
+				for (String plugin : plugins) {
+					if (plugin == null || !service.isPluginEnabled(plugin)) {
+						continue;
+					}
+					addSampleCandidates(plugin,
+							(Map<String, TriggerData>) service.getPluginTriggerData(plugin));
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"TriggerEditorDialog.loadSampleCandidates", e);
+		}
+	}
+
+	private void addSampleCandidates(final String plugin,
+			final Map<String, TriggerData> map) {
+		if (map == null) {
+			return;
+		}
+		for (TriggerData t : map.values()) {
+			TriggerSampleHits.Candidate c = TriggerSampleHits.Candidate.tryCreate(plugin, t);
+			if (c != null) {
+				sampleCandidates.add(c);
+			}
+		}
+	}
+
+	private void setupOrderAndSample(final EditText title, final EditText sequence) {
+		TextWatcher orderWatch = new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+				updateRunOrder(title, sequence);
+			}
+			public void afterTextChanged(Editable s) {}
+		};
+		if (title != null) {
+			title.addTextChangedListener(orderWatch);
+		}
+		if (sequence != null) {
+			sequence.addTextChangedListener(orderWatch);
+		}
+		updateRunOrder(title, sequence);
+
+		final EditText sample = (EditText) findViewById(R.id.trigger_sample_line);
+		final TextView also = (TextView) findViewById(R.id.trigger_also_match);
+		if (sample == null || also == null) {
+			return;
+		}
+		TextWatcher sampleWatch = new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+				updateSampleHits(sample, title, also);
+			}
+			public void afterTextChanged(Editable s) {}
+		};
+		sample.addTextChangedListener(sampleWatch);
+		if (title != null) {
+			title.addTextChangedListener(sampleWatch);
+		}
+		updateSampleHits(sample, title, also);
+	}
+
+	private void updateRunOrder(final EditText title, final EditText sequence) {
+		TextView row = (TextView) findViewById(R.id.trigger_run_order);
+		if (row == null) {
+			return;
+		}
+		String name = title != null ? title.getText().toString() : "";
+		int seq = TriggerOrder.parseSequence(
+				sequence != null ? sequence.getText().toString() : "");
+		String editing = isEditor && original_trigger != null
+				? original_trigger.getName() : null;
+		row.setText(TriggerOrder.describeNeighbors(orderSet, editing, name, seq));
+	}
+
+	private void updateSampleHits(final EditText sample, final EditText title,
+			final TextView also) {
+		String sampleText = sample.getText().toString();
+		if (sampleText.length() == 0) {
+			also.setText("");
+			return;
+		}
+		String skipName = title != null ? title.getText().toString().trim() : "";
+		ArrayList<String> skipNames = new ArrayList<String>();
+		if (skipName.length() > 0) {
+			skipNames.add(skipName);
+		}
+		if (isEditor && original_trigger != null && original_trigger.getName() != null
+				&& original_trigger.getName().length() > 0
+				&& !original_trigger.getName().equals(skipName)) {
+			skipNames.add(original_trigger.getName());
+		}
+		also.setText(TriggerSampleHits.formatHits(
+				TriggerSampleHits.matchingLabels(sampleText, sampleCandidates,
+						selectedPlugin, skipNames, TriggerSampleHits.DEFAULT_CAP)));
+	}
+
+	private void applySequenceFromEditor() {
+		EditText sequence = (EditText) findViewById(R.id.trigger_editor_sequence);
+		if (sequence != null) {
+			the_trigger.setSequence(TriggerOrder.parseSequence(sequence.getText().toString()));
+		}
 	}
 
 	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
@@ -697,7 +846,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if(!groupText.equals(existingGroup)) retval = true;
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
 		if(test.isFireOnce() != fireOnce.isChecked()) retval = true;
-		if (keepGoing != null && test.isKeepEvaluating() != keepGoing.isChecked()) retval = true; 
+		if (keepGoing != null && test.isKeepEvaluating() != keepGoing.isChecked()) retval = true;
+		EditText sequence = (EditText)findViewById(R.id.trigger_editor_sequence);
+		if (sequence != null
+				&& test.getSequence() != TriggerOrder.parseSequence(sequence.getText().toString())) {
+			retval = true;
+		} 
 		
 		ConditionGroup origCond = original_trigger.getConditions() != null
 				? original_trigger.getConditions() : new ConditionGroup();
@@ -843,6 +997,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				the_trigger.setPattern(pattern.getText().toString());
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
+				applySequenceFromEditor();
 				
 				//i don't care anymore about the checkchanged listeners. it was a neat idea, but here goes.
 				try {
@@ -868,6 +1023,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				the_trigger.setPattern(pattern.getText().toString());
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
+				applySequenceFromEditor();
 				try {
 					if(selectedPlugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
 						service.newTrigger(the_trigger);

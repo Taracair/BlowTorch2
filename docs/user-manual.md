@@ -553,6 +553,18 @@ In the trigger editor:
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
   Off → after this trigger fires, later triggers are not tried on this line.  
+- **Order** → smaller number runs first (default **10**). A channel rewrite
+  at 10 and a word colour at 20: `CORPCHAT: Name opens north` stays channel
+  colour except `opens` is yellow. Off-channel, `Name opens north` is yellow
+  throughout that word. Two triggers with the same number run A→Z by name;
+  the editor says when they share a number — split them if that order is
+  wrong. Keep going? does not set this order. The list shows the number on
+  each row. Options (`=`) can sort by sequence instead of group, name (the
+  default). Sorting **All** by sequence is not fire order: main runs, then
+  each plugin.  
+- **Who else fires** → type a game line under Order. Other enabled triggers
+  that also match that line are listed. It tries one line; it does not
+  compare patterns.  
 - **Preview** under the pattern box is three lines; **Show all** / **Show less**
   opens the rest (what the pattern will really match, alias paste, compile).
   **New Action** stays pinned above Cancel / ? / Done.  
@@ -560,7 +572,8 @@ In the trigger editor:
   **Group** dropdown (existing names) or type a new name below it. The Triggers
   list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
   under search (All / Main / plugins, and All groups / (default) / named).
-  Options (=) is Enable/Disable all for the current filter.
+  Options (=) is Enable/Disable all for the current filter, and on Triggers
+  a sort-by-sequence toggle.
 - **Conditions** → extra gate after the pattern matches — not a substitute
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
@@ -727,7 +740,9 @@ dialog when you turn Literal off.
 Triggers, Aliases, and Timers lists show **Plugin** (All / Main / plugins) next
 to search. Triggers and Timers also show **Group** (All groups / (default) /
 named). Changing a spinner rebuilds the list and shows a short toast.
-Enable/Disable all (Triggers/Aliases) stays under Options (`=`).
+Enable/Disable all (Triggers/Aliases) stays under Options (`=`). Triggers
+also have **Sort by sequence** there (list view only; fire order is still
+the Order number).
 
 Timers support an optional **Group** in the timer editor (same idea as
 triggers): list subtitle `[group]`, sort by group, XML `group` attribute.

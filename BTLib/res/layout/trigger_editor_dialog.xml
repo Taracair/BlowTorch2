@@ -164,8 +164,65 @@
   				android:layout_width="0dip"
   				android:layout_height="wrap_content"
   				android:layout_weight="1"
-  				android:checked="true"/>
+  			android:checked="true"/>
   		</LinearLayout>
+  		<TableLayout
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:stretchColumns="1"
+  			android:shrinkColumns="1">
+  			<TableRow>
+  				<TextView
+  					android:text="Order:"
+  					android:paddingLeft="10dip"/>
+  				<EditText
+  					android:id="@+id/trigger_editor_sequence"
+  					android:hint="10"
+  					android:layout_marginRight="10dip"
+  					android:layout_width="0dip"
+  					android:layout_weight="1"
+  					android:singleLine="true"
+  					android:inputType="numberSigned"/>
+  			</TableRow>
+  		</TableLayout>
+  		<TextView
+  			android:id="@+id/trigger_run_order"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:paddingLeft="10dip"
+  			android:paddingRight="10dip"
+  			android:paddingTop="2dip"
+  			android:paddingBottom="4dip"
+  			android:textSize="12sp"
+  			android:textColor="@color/chrome_description"/>
+  		<TextView
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:paddingLeft="10dip"
+  			android:paddingRight="10dip"
+  			android:paddingTop="8dip"
+  			android:paddingBottom="4dip"
+  			android:text="Who else fires"
+  			android:textColor="@color/chrome_section_text"/>
+  		<EditText
+  			android:id="@+id/trigger_sample_line"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:hint="Type a game line — who else fires?"
+  			android:singleLine="true"
+  			android:inputType="text"/>
+  		<TextView
+  			android:id="@+id/trigger_also_match"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:paddingLeft="10dip"
+  			android:paddingRight="10dip"
+  			android:paddingTop="2dip"
+  			android:paddingBottom="8dip"
+  			android:textSize="12sp"
+  			android:textColor="@color/chrome_description"/>
     		<LinearLayout
   			android:id="@+id/trigger_conditions_header"
   			android:layout_width="match_parent"

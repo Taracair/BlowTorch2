@@ -121,4 +121,29 @@ public class TriggerParserTest {
 		assertFalse("case matches fireOnce: TRUE is not true",
 				TriggerParser.keepEvaluatingFromAttribute("TRUE"));
 	}
+
+	@Test
+	public void saveTriggerToXmlOmitsSequenceWhenDefaultTen() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("seq");
+		trigger.setPattern("x");
+		trigger.setSave(true);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		assertFalse(out.toString().contains("sequence"));
+	}
+
+	@Test
+	public void saveTriggerToXmlWritesSequenceWhenNotTen() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("seq");
+		trigger.setPattern("x");
+		trigger.setSave(true);
+		trigger.setSequence(20);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		assertTrue(out.toString().contains("sequence=\"20\""));
+	}
 }

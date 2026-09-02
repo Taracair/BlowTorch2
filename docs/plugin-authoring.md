@@ -552,7 +552,8 @@ comment set; this section is the maintained summary.
 | `GetVariable(name)` | Read (nil if unset) |
 | `UnsetVariable(name)` | Clear |
 
-**`NewTrigger` config table** (common keys): `regex`, `group`, `fireOnce`.
+**`NewTrigger` config table** (common keys): `regex`, `group`, `once` (not
+`fireOnce`), `enabled`, `sequence` (number; smaller runs first, default 10).
 
 **Action tables** (`type` required):
 

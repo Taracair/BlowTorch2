@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +66,7 @@ import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerParser;
 import com.resurrection.blowtorch2.lib.timer.TimerSchedule;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerOrder;
 import com.resurrection.blowtorch2.lib.trigger.TriggerParser;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -1542,25 +1542,7 @@ Note("Example text!")
 	public void sortTriggers() {
 		if(this.settings.getTriggers().size() == 0) return;
 		sortedTriggers = new ArrayList<TriggerData>(this.settings.getTriggers().values());
-		Collections.sort(sortedTriggers,new Comparator() {
-
-			
-			
-
-			public int compare(Object arg0, Object arg1) {
-				// TODO Auto-generated method stub
-				TriggerData a = (TriggerData)arg0;
-				TriggerData b = (TriggerData)arg1;
-				//if(a.getSequence() == 5 || b.getSequence() == 5) {
-					//Log.e("COMP","STOP HERE");
-				//}
-				if(a.getSequence() > b.getSequence()) return 1;
-				if(a.getSequence() < b.getSequence()) return -1;
-				
-				return 0;
-			}
-			
-		});
+		Collections.sort(sortedTriggers, TriggerOrder.COMPARATOR);
 	}
 	
 	public ArrayList<TriggerData> getSortedTriggers() {

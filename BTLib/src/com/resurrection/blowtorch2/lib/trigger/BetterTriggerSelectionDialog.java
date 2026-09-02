@@ -11,6 +11,7 @@ import java.util.TreeSet;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -43,6 +44,13 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	String[] sortedKeys;
 	private boolean mShowWarning = true;
 
+	private static final String PREFS_NAME = "trigger_list";
+	private static final String PREF_SORT = "sort";
+	private static final String SORT_GROUP = "group";
+	private static final String SORT_SEQUENCE = "sequence";
+	/** After Enable all / Disable all in {@link #addPluginFilterOptions}. */
+	private static final int OPTION_SORT = 2;
+
 	public BetterTriggerSelectionDialog(Context context,
 			IConnectionBinder service,boolean showWarning) {
 		super(context, service);
@@ -63,6 +71,46 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	@Override
 	protected String getDisableAllLabel() {
 		return "Disable ALL triggers (current list)";
+	}
+
+	@Override
+	protected void addPluginFilterOptions() {
+		super.addPluginFilterOptions();
+		this.addOptionItem(sortOptionLabel(), true);
+	}
+
+	@Override
+	public void onOptionItemClicked(int row) {
+		if (row == OPTION_SORT) {
+			toggleSort();
+			hideOptionsMenu();
+			return;
+		}
+		super.onOptionItemClicked(row);
+	}
+
+	private String sortOptionLabel() {
+		if (sortBySequence()) {
+			return "Sort by group, name (now: sequence)";
+		}
+		return "Sort by sequence (now: group, name)";
+	}
+
+	private boolean sortBySequence() {
+		return SORT_SEQUENCE.equals(prefs().getString(PREF_SORT, SORT_GROUP));
+	}
+
+	private void toggleSort() {
+		boolean next = !sortBySequence();
+		prefs().edit().putString(PREF_SORT, next ? SORT_SEQUENCE : SORT_GROUP).apply();
+		clearOptionItems();
+		addPluginFilterOptions();
+		notifyOptionItemsChanged();
+		buildList();
+	}
+
+	private SharedPreferences prefs() {
+		return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 	}
 
 	@Override
@@ -275,6 +323,13 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			public int compare(String a, String b) {
 				TriggerData da = dataMap.get(a);
 				TriggerData db = dataMap.get(b);
+				if (sortBySequence()) {
+					int cmp = TriggerOrder.compare(da, db);
+					if (cmp != 0) {
+						return cmp;
+					}
+					return displayNameForKey(a).compareToIgnoreCase(displayNameForKey(b));
+				}
 				String ga = groupKey(da);
 				String gb = groupKey(db);
 				int gcmp = ga.compareToIgnoreCase(gb);
@@ -317,15 +372,16 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 		return data.getGroup();
 	}
 
-	/** Pattern subtitle; prefix with [group] when a non-default group is set. */
+	/** Sequence, then optional [group], then the pattern. */
 	private static String formatExtra(TriggerData data) {
 		String pattern = data.getPattern() != null ? data.getPattern() : "";
 		String group = data.getGroup();
+		String body = pattern;
 		if (group != null && group.length() > 0
 				&& !TriggerData.DEFAULT_GROUP.equals(group)) {
-			return "[" + group + "] " + pattern;
+			body = "[" + group + "] " + pattern;
 		}
-		return pattern;
+		return data.getSequence() + " · " + body;
 	}
 
 	@Override
