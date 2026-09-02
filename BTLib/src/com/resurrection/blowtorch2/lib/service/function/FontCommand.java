@@ -14,9 +14,9 @@ public class FontCommand extends SpecialCommand {
 
 	public static final String OPTION_KEY = "font_size";
 
-	/** Below this nothing is readable; above it a phone shows a dozen words. */
+	/** Below this nothing is readable; 96 still fits a tablet without a typo becoming a wall. */
 	public static final int MIN_SIZE = 6;
-	public static final int MAX_SIZE = 48;
+	public static final int MAX_SIZE = 96;
 	public static final int DEFAULT_SIZE = 20;
 
 	public FontCommand() {
@@ -83,7 +83,7 @@ public class FontCommand extends SpecialCommand {
 		}
 	}
 
-	static int clamp(final int size) {
+	public static int clamp(final int size) {
 		return Math.max(MIN_SIZE, Math.min(MAX_SIZE, size));
 	}
 }

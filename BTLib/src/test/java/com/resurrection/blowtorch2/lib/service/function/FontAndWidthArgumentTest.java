@@ -25,6 +25,13 @@ public class FontAndWidthArgumentTest {
 	}
 
 	@Test
+	public void fontKeepsATabletSize() {
+		assertEquals(Integer.valueOf(50), FontCommand.resolve("50", 20));
+		assertEquals(50, FontCommand.clamp(50));
+		assertEquals(30, FontCommand.clamp(30));
+	}
+
+	@Test
 	public void fontClampsBothWays() {
 		assertEquals(Integer.valueOf(FontCommand.MAX_SIZE), FontCommand.resolve("+99", 20));
 		assertEquals(Integer.valueOf(FontCommand.MIN_SIZE), FontCommand.resolve("-99", 20));

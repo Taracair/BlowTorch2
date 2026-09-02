@@ -1545,7 +1545,7 @@ local TIPS = {
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
-	font = [[.font N sets game font size (6–48). .font +2 / -2 steps from where you are.]],
+	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	kb = [[Same as .keyboard.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],

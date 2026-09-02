@@ -54,6 +54,7 @@ import com.resurrection.blowtorch2.lib.service.function.SendButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
 import com.resurrection.blowtorch2.lib.service.function.FrameCommand;
+import com.resurrection.blowtorch2.lib.service.function.FontCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
 import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
@@ -1707,7 +1708,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		mSettingsIO.buildSettingsPage();
 		syncLegacyLineSizeWithFont();
-		clampExcessiveFontSizeFromBadFit();
+		clampFontSizeToRange();
 		undoAggressiveMapDefaults();
 		if (mMapper != null) {
 			mMapper.applySettingsFromConnection();
@@ -1725,10 +1726,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/**
-	 * Profiles created with {@code Math.max(20, calculate80CharFontSize())} got
-	 * ~40–50px fonts on modern phones. Cap once back to a readable default.
+	 * Keep {@code font_size} inside {@link FontCommand#MIN_SIZE}–
+	 * {@link FontCommand#MAX_SIZE}. Do not rewrite a chosen size back to
+	 * {@link WindowToken#DEFAULT_FONT_SIZE}: that was a one-shot for 80-column
+	 * fit profiles (~40–50px) and it ran on every load, so Options → Window →
+	 * Font Size 50 came back as 20 when the world closed.
 	 */
-	private void clampExcessiveFontSizeFromBadFit() {
+	private void clampFontSizeToRange() {
 		if (mWindows == null || mWindows.isEmpty() || mSettings == null) {
 			return;
 		}
@@ -1742,11 +1746,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				return;
 			}
 			int fontSize = (Integer) ((IntegerOption) opt).getValue();
-			// 80-col fit on a ~2400px edge lands around 40–55; real prefs are usually ≤28.
-			if (fontSize <= 36) {
+			int use = FontCommand.clamp(fontSize);
+			if (use == fontSize) {
 				return;
 			}
-			int use = WindowToken.DEFAULT_FONT_SIZE;
 			String fontStr = Integer.toString(use);
 			main.getSettings().setOption("font_size", fontStr);
 			mSettings.setLineSize(use);
@@ -1761,10 +1764,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					Log.w("BlowTorch", "clamp font_size UI update failed", e);
 				}
 			}
-			Log.i("BlowTorch", "Clamped excessive font_size " + fontSize + " → " + use);
+			Log.i("BlowTorch", "Clamped font_size " + fontSize + " → " + use);
 			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
 		} catch (Exception e) {
-			Log.w("BlowTorch", "clampExcessiveFontSizeFromBadFit failed", e);
+			Log.w("BlowTorch", "clampFontSizeToRange failed", e);
 		}
 	}
 
@@ -5185,7 +5188,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * once: the window's own settings, the UI over the callback, and a save.
 	 * Window options do not live in the connection settings plugin, so
 	 * {@link #updateIntegerSetting} alone changes nothing the player can see —
-	 * this is the path clampExcessiveFontSizeFromBadFit already uses.
+	 * this is the path clampFontSizeToRange already uses.
 	 *
 	 * @return false when there is no window to change yet.
 	 */

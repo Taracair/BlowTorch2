@@ -560,7 +560,7 @@ public class WindowToken implements Parcelable {
 		
 		IntegerOption fontSize = new IntegerOption();
 		fontSize.setTitle("Font Size");
-		fontSize.setDescription("The height of a drawn character.");
+		fontSize.setDescription("The height of a drawn character, in pixels (6–96).");
 		fontSize.setKey("font_size");
 		fontSize.setValue(DEFAULT_FONT_SIZE);
 		window.addOption(fontSize);
