@@ -2344,6 +2344,11 @@ index 3, not italic).
 
 MXP `<I>` / `<U>` / `<S>` inject those same codes, so they follow.
 
+Emoji and other wide glyphs occupy **two cells** when drawn (so an animal is
+not a vertical sliver). Wrapping still counts one column per character, so a
+full row of emoji can overflow the canvas. ASCII maps (`█` `░` `▒` `▓`) stay
+one cell.
+
 ## Dim repeated lines
 
 **Options → Window → Dim repeated lines?** (off by default). When a long line

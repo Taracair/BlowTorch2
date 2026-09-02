@@ -1272,24 +1272,39 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return mOneCharWidth * (float) charCount;
 	}
 
-	/** Pixel width of a text unit on the fixed cell grid (one cell per Unicode code point).
-	 * charcount is the code point count: every Text constructor derives it from its own
-	 * data, and breakAt() replaces a split unit with fresh Text objects rather than
-	 * editing one in place, so the two cannot drift apart. Counting again per unit cost
-	 * a codePointCount() walk on every drawn word. */
+	/** Pixel width of a text unit on the fixed cell grid.
+	 * Display cells come from {@link CellWidth} so a wide glyph's background
+	 * and link box cover both columns. {@code text.charcount} is still the
+	 * code-point count used for wrap/NAWS/selection columns. */
 	private float cellWidth(final TextTree.Text text) {
 		if (text == null) {
 			return 0f;
 		}
-		return cellWidth(text.charcount);
+		final String s = text.getString();
+		if (s == null || s.length() == 0) {
+			return 0f;
+		}
+		return cellWidth(CellWidth.cells(s));
+	}
+
+	/** Pixel width of {@code s[0, utf16End)} on the display grid. */
+	private float cellWidthPrefix(final String s, final int utf16End) {
+		return cellWidth(CellWidth.cells(s, 0, utf16End));
+	}
+
+	/** Pixel width of {@code s[utf16Start, utf16End)} on the display grid. */
+	private float cellWidthSpan(final String s, final int utf16Start, final int utf16End) {
+		return cellWidth(CellWidth.cells(s, utf16Start, utf16End));
 	}
 
 	/**
 	 * Draw {@code s} on a fixed terminal grid starting at {@code x}.
-	 * Each Unicode code point occupies one cell of width {@link #mOneCharWidth}.
-	 * Block elements (U+2580–U+259F) are painted geometrically so maps stay aligned
-	 * even when the active font lacks those glyphs. Every glyph is clipped to its
-	 * cell so fallback fonts cannot bleed into neighboring columns.
+	 * ASCII and Block Elements occupy one cell; East-Asian-wide and emoji
+	 * occupy two ({@link CellWidth}). Combining marks draw on the previous
+	 * glyph and do not advance. Wrap/NAWS still count one column per code
+	 * point, so a full row of emoji can overflow the canvas.
+	 * Block elements (U+2580–U+259F) are painted geometrically so maps stay
+	 * aligned even when the active font lacks those glyphs.
 	 * Returns the pixel advance for the whole run.
 	 */
 	/** Reused so drawing a run of text does not allocate; getFontMetrics()
@@ -1429,15 +1444,34 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		float cursor = x;
 		int runStart = -1;
 		float runX = x;
+		float lastGlyphX = x;
+		int lastGlyphCols = 1;
 		int i = 0;
 		while (i < len) {
 			final int cp = s.codePointAt(i);
 			final int charCount = Character.charCount(cp);
+			final int cols = CellWidth.cells(cp);
 			final boolean isBlock = cp >= 0x2580 && cp <= 0x259F;
 			final float w = mGridWidths[i];
-			// Zero-width and combining marks report 0 and must not join a run.
-			final boolean exactCell = !isBlock && Math.abs(w - cell) < 0.01f;
-			final boolean fitsCell = !isBlock && w > 0f && w <= cell + 0.5f;
+
+			if (cols == 0) {
+				if (runStart >= 0) {
+					c.drawText(s, runStart, i, runX, baseline, paint);
+					runStart = -1;
+				}
+				c.save();
+				c.clipRect(lastGlyphX, textTop,
+						lastGlyphX + lastGlyphCols * cell, textBot);
+				c.drawText(s, i, i + charCount, lastGlyphX, baseline, paint);
+				c.restore();
+				i += charCount;
+				continue;
+			}
+
+			// Wide glyphs are never "exact one cell" even when the font reports
+			// a 1-cell advance — that was the emoji sliver.
+			final boolean exactCell = cols == 1 && !isBlock && Math.abs(w - cell) < 0.01f;
+			final boolean fitsCell = cols == 1 && !isBlock && w > 0f && w <= cell + 0.5f;
 
 			if (exactCell) {
 				if (runStart < 0) {
@@ -1449,8 +1483,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					c.drawText(s, runStart, i, runX, baseline, paint);
 					runStart = -1;
 				}
-				if (fitsCell) {
-					// Fits its cell, so no clip is needed; just place it.
+				if (cols == 2) {
+					c.save();
+					c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
+					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					c.restore();
+				} else if (fitsCell) {
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
 				} else {
 					c.save();
@@ -1464,7 +1502,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					c.restore();
 				}
 			}
-			cursor += cell;
+			lastGlyphX = cursor;
+			lastGlyphCols = cols;
+			cursor += cols * cell;
 			i += charCount;
 		}
 		if (runStart >= 0) {
@@ -2633,8 +2673,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 									}
 									int localStart = overlapStart - unitPlainStart;
 									int localEnd = overlapEnd - unitPlainStart;
-									float left = x + cellWidth(localStart);
-									float right = left + cellWidth(localEnd - localStart);
+									float left = x + cellWidthPrefix(unitStr, localStart);
+									float right = left + cellWidthSpan(unitStr, localStart, localEnd);
 									c.drawRect(left, cellTop(y), right, cellBottom(y), mSearchMatchPaint);
 								}
 							}
@@ -3328,7 +3368,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			int localStart = overlapStart - unitPlainStart;
 			int localEnd = overlapEnd - unitPlainStart;
-			float left = x + cellWidth(localStart);
+			float left = x + cellWidthPrefix(unitStr, localStart);
 			c.drawText(unitStr.substring(localStart, localEnd), left, baseline, mSearchMatchTextPaint);
 		}
 	}
@@ -3832,8 +3872,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			final String[] commands, final boolean tapSendsFirst,
 			final boolean underline, final boolean bold,
 			final boolean frame) {
-		float left = x + cellWidth(start);
-		float right = left + cellWidth(end - start);
+		float left = x + cellWidthPrefix(source, start);
+		float right = left + cellWidthSpan(source, start, end);
 		float bottom = cellBottom(y);
 		float top = cellTop(y);
 
