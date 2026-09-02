@@ -5,7 +5,7 @@ package com.resurrection.blowtorch2.lib.service;
  *
  * <p><b>Why this exists.</b> A multi-line trigger — one pattern that has to
  * match three consecutive lines of a room description — is nearly free on the
- * pattern side: {@code mMassivePattern} is already compiled with
+ * pattern side: the cascade is already compiled with
  * {@code Pattern.MULTILINE} and already matched against the whole incoming
  * chunk, not line by line. What is not known is whether those three lines
  * reliably arrive <i>in the same chunk</i>. If a world usually splits a room

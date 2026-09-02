@@ -76,4 +76,41 @@ public class TriggerParserTest {
 		assertTrue(xml.contains("triggerEnabled"));
 		assertTrue(xml.contains("name=\"_cerb\""));
 	}
+
+	@Test
+	public void saveTriggerToXmlOmitsKeepEvaluatingWhenTrue() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("keep");
+		trigger.setPattern("x");
+		trigger.setSave(true);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertFalse(xml.contains("keepEvaluating"));
+	}
+
+	@Test
+	public void saveTriggerToXmlWritesKeepEvaluatingFalse() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("stop");
+		trigger.setPattern("x");
+		trigger.setSave(true);
+		trigger.setKeepEvaluating(false);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertTrue(xml.contains("keepEvaluating=\"false\""));
+		assertFalse(xml.contains("keepEvaluating=\"true\""));
+	}
+
+	@Test
+	public void keepEvaluatingFromAttributeDefaultsTrue() {
+		assertTrue(TriggerParser.keepEvaluatingFromAttribute(null));
+		assertTrue(TriggerParser.keepEvaluatingFromAttribute("true"));
+		assertFalse(TriggerParser.keepEvaluatingFromAttribute("false"));
+		assertFalse("case matches fireOnce: TRUE is not true",
+				TriggerParser.keepEvaluatingFromAttribute("TRUE"));
+	}
 }

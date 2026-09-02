@@ -69,10 +69,9 @@ public final class TriggerParser {
 				out.attribute("", BasePluginParser.ATTR_SEQUENCE, Integer.toString(trigger.getSequence()));
 			}
 			if(!trigger.getGroup().equals(TriggerData.DEFAULT_GROUP)) out.attribute("", BasePluginParser.ATTR_GROUP, trigger.getGroup());
-			
-			//if(trigger.isKeepEvaluating()) {
-				//out.attribute("", BasePluginParser.ATTR_KEEPEVALUATING, trigger.isKeepEvaluating() ? "true" : "false");
-			//}
+			if(!trigger.isKeepEvaluating()) {
+				out.attribute("", BasePluginParser.ATTR_KEEPEVALUATING, "false");
+			}
 			
 			ConditionParser.saveConditionsToXML(out, trigger);
 			for(TriggerResponder r : trigger.getResponders()){
@@ -82,6 +81,13 @@ public final class TriggerParser {
 			out.endTag("", BasePluginParser.TAG_TRIGGER);
 		}
 	}
-	
+
+	/**
+	 * XML {@code keepEvaluating}: omit or {@code null} means true (the default).
+	 * Only the exact string {@code "true"} is true when the attribute is present.
+	 */
+	static boolean keepEvaluatingFromAttribute(final String raw) {
+		return raw == null ? true : "true".equals(raw);
+	}
 	
 }

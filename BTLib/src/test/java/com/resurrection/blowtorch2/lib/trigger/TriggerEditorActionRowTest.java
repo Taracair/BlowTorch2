@@ -62,6 +62,7 @@ public class TriggerEditorActionRowTest {
 	@Test
 	public void editorHelpMergesPatternAndConditions() {
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("LITERAL?"));
+		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("KEEP GOING"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
 	}

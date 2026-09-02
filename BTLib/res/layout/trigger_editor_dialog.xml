@@ -147,15 +147,24 @@
   				android:id="@+id/trigger_literal_checkbox"
   				android:text="Literal?"
   				android:textSize="13sp"
-  				android:layout_width="wrap_content"
+  				android:layout_width="0dip"
   				android:layout_height="wrap_content"
-  				android:layout_marginRight="16dip"/>
+  				android:layout_weight="1"/>
   			<CheckBox
   				android:id="@+id/trigger_once_checkbox"
   				android:text="Fire Once?"
   				android:textSize="13sp"
-  				android:layout_width="wrap_content"
-  				android:layout_height="wrap_content"/>
+  				android:layout_width="0dip"
+  				android:layout_height="wrap_content"
+  				android:layout_weight="1"/>
+  			<CheckBox
+  				android:id="@+id/trigger_keep_evaluating_checkbox"
+  				android:text="Keep going?"
+  				android:textSize="13sp"
+  				android:layout_width="0dip"
+  				android:layout_height="wrap_content"
+  				android:layout_weight="1"
+  				android:checked="true"/>
   		</LinearLayout>
     		<LinearLayout
   			android:id="@+id/trigger_conditions_header"

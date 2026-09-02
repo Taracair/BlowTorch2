@@ -15,6 +15,7 @@ public class EditorHelpTest {
 	public void listTextsKeepTheThreeHeadings() {
 		assertTrue(EditorHelp.ALIASES.contains("THE TWO FIELDS"));
 		assertTrue(EditorHelp.TRIGGERS.contains("CONDITIONS"));
+		assertTrue(EditorHelp.TRIGGERS.contains("KEEP GOING"));
 		assertTrue(EditorHelp.TIMERS.contains("CONDITIONS"));
 	}
 

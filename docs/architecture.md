@@ -346,8 +346,8 @@ sequenceDiagram
    `addBytesImpl` sees them (colour already had `bin`; href did not). Regex
    linkify (`hyperlinks_enabled`) is a separate pass. BTIMG inline images ride
    the same OSC skip path.
-5. **`Colorizer.stripAnsiEscapes`** feeds the amalgamated trigger matcher and
-   session logging.
+5. **`Colorizer.stripAnsiEscapes`** feeds the trigger cascade (`TriggerCascade`,
+   one pattern per trigger, list order) and session logging.
 6. Matching **triggers** run **responders** (gag, replace, colour, script, …)
    on the connection thread.
 7. Finished lines land in the main **`WindowToken`** buffer; the UI is notified

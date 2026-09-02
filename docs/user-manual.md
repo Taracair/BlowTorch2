@@ -550,6 +550,9 @@ In the trigger editor:
 
 - **Literal?** on → match the pattern as plain text (no regex)  
 - **Literal?** off → pattern is a regular expression  
+- **Keep going?** on (default) → every trigger that matches this line still
+  runs. One can rewrite a channel tag and another can gag the spam inside it.
+  Off → after this trigger fires, later triggers are not tried on this line.  
 - **Preview** under the pattern box is three lines; **Show all** / **Show less**
   opens the rest (what the pattern will really match, alias paste, compile).
   **New Action** stays pinned above Cancel / ? / Done.  
@@ -567,7 +570,8 @@ In the trigger editor:
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
-similar actions.
+similar actions. `$` on its own is end of line, not a dollar sign: to match
+`earned $70` write `earned \$70`.
 
 ### Speak Out Loud
 

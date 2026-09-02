@@ -49,7 +49,8 @@ public class TriggerElementListener implements ElementListener {
 		current_trigger.setEnabled( (a.getValue("",BasePluginParser.ATTR_TRIGGERENEABLED) == null) ? true : (a.getValue("",BasePluginParser.ATTR_TRIGGERENEABLED)).equals("true") ? true : false);
 		current_trigger.setSequence( (a.getValue("",BasePluginParser.ATTR_SEQUENCE) == null) ? 10 : Integer.parseInt(a.getValue("",BasePluginParser.ATTR_SEQUENCE)));
 		current_trigger.setGroup( (a.getValue("",BasePluginParser.ATTR_GROUP) == null) ? "" : a.getValue("",BasePluginParser.ATTR_GROUP));
-		current_trigger.setKeepEvaluating((a.getValue("",BasePluginParser.ATTR_KEEPEVALUATING) == null) ? true : ("true".equals(a.getValue("",BasePluginParser.ATTR_KEEPEVALUATING))) ? true : false);
+		current_trigger.setKeepEvaluating(TriggerParser.keepEvaluatingFromAttribute(
+				a.getValue("", BasePluginParser.ATTR_KEEPEVALUATING)));
 		
 		current_trigger.setResponders(new ArrayList<TriggerResponder>());
 		current_trigger.setConditions(new ConditionGroup());

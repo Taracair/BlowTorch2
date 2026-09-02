@@ -13,6 +13,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -30,7 +32,6 @@ import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.launcher.BuiltinTutorial;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
-import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
@@ -86,8 +87,8 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.speedwalk.SpeedwalkExpand;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
-import com.resurrection.blowtorch2.lib.trigger.TriggerPattern;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -107,8 +108,6 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 
 import android.util.Log;
-import android.util.SparseArray;
-//import android.util.Log;
 import android.util.Xml;
 import android.view.Gravity;
 import android.widget.Toast;
@@ -371,10 +370,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Used by the trigger processor to map line start/end to line number. */
 	private final TreeSet<Range> mLineMap = new TreeSet<Range>(new RangeComparator());
 
-	/** A utiltiy object to keep track of the order of triggers. */
-	private final SparseArray<TriggerData> mSortedTriggerMap = new SparseArray<TriggerData>(0);
-	/** A utiltity object to keep track of the sorted order of plugins. */
-	private final SparseArray<Plugin> mTriggerPluginMap = new SparseArray<Plugin>(0);
+	/**
+	 * Owner of each trigger in {@link #mTriggerCascade}, by identity of the
+	 * snapshot compiled at the last rebuild. Not a name map: a plugin trigger
+	 * and a main trigger can share a name.
+	 */
+	private final IdentityHashMap<TriggerData, Plugin> mTriggerPluginByIdentity =
+			new IdentityHashMap<TriggerData, Plugin>();
 	/** Remote window callback map. Reduces overhead for needing to communicate with windows. */
 	private final RemoteCallbackList<IWindowCallback> mWindowCallbacks = new RemoteCallbackList<IWindowCallback>();
 	/** The list of window tokens in loaded order. */
@@ -387,12 +389,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Auto-reconnect / persistent-connection state and scheduling. */
 	private final ConnectionReconnect mReconnect = new ConnectionReconnect(this);
 
-	/** The amalgamated trigger string. Very long in most cases. */
-	private String mMassiveTriggerString = null;
-	/** The amalgamated trigger string pattern object. */
-	private Pattern mMassivePattern = null;
-	/** The amalgamated trigger string matcher object. */
-	private Matcher mMassiveMatcher = null;
+	/**
+	 * Per-trigger walk of the current chunk. Replaces the old joined regex,
+	 * which could only attribute one alternative at a given column.
+	 */
+	private TriggerCascade mTriggerCascade = TriggerCascade.EMPTY;
 	/**
 	 * Null unless the player ran {@code .probe lines on}. Null-checked rather
 	 * than flagged so that the ordinary path costs one reference comparison per
@@ -1843,7 +1844,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * command for another subsystem, not something to match against game text.
 	 *
 	 * @param t The trigger to test.
-	 * @return true when it should be added to the alternation.
+	 * @return true when it belongs in {@link TriggerCascade}.
 	 */
 	private static boolean isMatchableTrigger(final TriggerData t) {
 		if (t == null || !t.isEnabled() || t.getPattern() == null) {
@@ -1864,37 +1865,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return true;
 	}
 
-	/** Work horse function to rebuild the trigger system.
+	/** Rebuild the cascade that dispatch walks, plus gestures, MCP and tap rules.
 	 *
-	 * I think this is called from a number of placed, but it should really be called from dispatch()
-	 * when triggers are dirty.
-	 *
-	 * The joining and the group arithmetic moved to TriggerPattern, which has
-	 * tests, for the same reasons the alias half moved to AliasPattern: the
-	 * alternation is built from the sanitised matcher rather than the raw
-	 * pattern field, so there is one sanitisation point; Pattern.quote replaces
-	 * the hand-built \Q...\E span; and the join is compiled inside a try, since
-	 * this runs out of binder methods that have no catch of their own.
+	 * <p>Called from dispatch when the set is dirty, and from every editor /
+	 * {@code .trigger} / Lua path that changes a trigger. A trigger may name an
+	 * alias in its pattern — {@code $alias{name}} — and this is where that
+	 * alias's text is pasted in, against the <em>player's</em> alias table.
 	 */
 	public final void buildTriggerSystem() {
 		if (mSettings == null) {
 			return;
 		}
-		mSortedTriggerMap.clear();
-		mTriggerPluginMap.clear();
-		TriggerPattern combined = new TriggerPattern();
-		// A trigger may name an alias in its pattern -- $alias{name} -- and this
-		// is where the alias's text is pasted in. Here rather than in the
-		// parser, because a trigger has to follow the alias it names: every
-		// alias edit already rebuilds the trigger system through
-		// ConnectionAliases, so the next line of game text is matched against
-		// the alias as it is now.
-		//
-		// One table for everyone, and it is the player's. A plugin's trigger
-		// writing $alias{x} therefore resolves against the player's aliases,
-		// not the plugin's own -- which is the way round that cannot surprise
-		// the player: the alternative lets a plugin decide what a name means
-		// without the player being able to see it in their own alias list.
+		mTriggerPluginByIdentity.clear();
+		ArrayList<TriggerData> ordered = new ArrayList<TriggerData>();
 		java.util.Map<String, String> aliasBodies =
 				com.resurrection.blowtorch2.lib.trigger.TriggerAliasReference.bodies(getAliases());
 		ArrayList<TriggerData> tmp = mSettings.getSortedTriggers();
@@ -1907,11 +1890,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				TriggerData t = tmp.get(i);
 				t.resolveAliases(aliasBodies);
 				if (isMatchableTrigger(t)) {
-					int group = combined.add(t);
-					if (group > 0) {
-						mSortedTriggerMap.put(group, t);
-						mTriggerPluginMap.put(group, mSettings);
-					}
+					ordered.add(t);
+					mTriggerPluginByIdentity.put(t, mSettings);
 				}
 			}
 		}
@@ -1930,11 +1910,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					TriggerData t = tmp.get(i);
 					t.resolveAliases(aliasBodies);
 					if (isMatchableTrigger(t)) {
-						int group = combined.add(t);
-						if (group > 0) {
-							mSortedTriggerMap.put(group, t);
-							mTriggerPluginMap.put(group, p);
-						}
+						ordered.add(t);
+						mTriggerPluginByIdentity.put(t, p);
 					}
 				}
 			}
@@ -1946,25 +1923,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// being listened for, rather than in whichever of those paths someone
 		// remembered to touch.
 		refreshDeviceGestures();
-		mMassiveTriggerString = combined.regex();
-		try {
-			mMassivePattern = combined.compile(Pattern.MULTILINE);
-		} catch (java.util.regex.PatternSyntaxException bad) {
-			// Every alternative compiled on its own, so this is the rare join-only
-			// failure -- two triggers declaring the same named group is one. The
-			// maps have to be emptied along with the pattern: leaving them
-			// populated while matching against something else would attribute a
-			// match to a trigger that is not there, which is worse than matching
-			// nothing.
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
-					"Connection.buildTriggerSystem: combined trigger pattern would not compile,"
-					+ " no trigger will fire until the set changes", bad);
-			mSortedTriggerMap.clear();
-			mTriggerPluginMap.clear();
-			mMassiveTriggerString = "";
-			mMassivePattern = Pattern.compile("");
-		}
-		mMassiveMatcher = mMassivePattern.matcher("");
+		mTriggerCascade = TriggerCascade.compile(ordered);
 		triggersDirty = false;
 		if (mMcpEngine != null) {
 			loadMcpTriggers();
@@ -2681,6 +2640,41 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		public int getEnd() { return mEnd; }
 		
 	}
+
+	/**
+	 * Tree index of {@code original} after earlier gags removed lower indices
+	 * (newer lines, in this newest-first list).
+	 *
+	 * @return -1 when that original line was itself gagged.
+	 */
+	private static int currentLineIndex(final int original, final Set<Integer> removed) {
+		if (removed.contains(Integer.valueOf(original))) {
+			return -1;
+		}
+		int idx = original;
+		for (Integer r : removed) {
+			if (r.intValue() < original) {
+				idx--;
+			}
+		}
+		return idx;
+	}
+
+	/** Record the original line numbers a gag took, including a multi-line span. */
+	private static void markRemovedSpan(final Set<Integer> removed, final int lineNumber,
+			final String matched) {
+		int span = 1;
+		if (matched != null) {
+			for (int i = 0; i < matched.length(); i++) {
+				if (matched.charAt(i) == '\n') {
+					span++;
+				}
+			}
+		}
+		for (int i = 0; i < span; i++) {
+			removed.add(Integer.valueOf(lineNumber - i));
+		}
+	}
 	
 	/** Range class comparator.	 */
 	private class RangeComparator implements Comparator<Range> {
@@ -2880,7 +2874,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
 		// Measured here rather than anywhere else on purpose: this is the exact
-		// string the combined trigger pattern is matched against, so it is the
+		// string the trigger cascade is matched against, so it is the
 		// only place that can answer whether a pattern could span lines.
 		if (mChunkStats != null) {
 			mChunkStats.record(stripped);
@@ -2908,7 +2902,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mLineMap.add(new Range(LINE_MATCHER.start(), LINE_MATCHER.end(), lineNumber));
 			lineNumber = lineNumber - 1;
 		}
-		boolean keepEvaluating = true;
+		boolean continueScan = true;
 		lineNumber = mWorking.getLines().size() - 1;
 		Line l = null;
 		if (mColourBleed != null) {
@@ -2922,61 +2916,55 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		if (found) {
 			boolean done = false;
+			HashSet<Integer> removedLines = new HashSet<Integer>();
+			HashSet<Integer> stoppedOnLine = new HashSet<Integer>();
+			HashSet<String> firedHits = new HashSet<String>();
 			while (!done) {
 				done = true;
 				boolean rebuildTriggers = false;
-				boolean replaceGagged = false;
-				int gagloc = -1;
-				mMassiveMatcher.reset(stripped);
-				while (keepEvaluating && mMassiveMatcher.find()) {
-					int s = mMassiveMatcher.start();
-					int e = mMassiveMatcher.end() - 1;
-					String matched = mMassiveMatcher.group();
+				mTriggerCascade.reset(stripped);
+				TriggerCascade.Hit hit;
+				while (continueScan && (hit = mTriggerCascade.nextHit()) != null) {
+					int s = hit.start;
+					int e = hit.end - 1;
+					String matched = hit.matched();
+					String firedKey = System.identityHashCode(hit.trigger) + ":" + s;
+					if (firedHits.contains(firedKey)) {
+						continue;
+					}
 					Range r = new Range(s, e, 0);
 					SortedSet<Range> tmp = mLineMap.tailSet(r);
-	
-					int tmpline = tmp.first().getLine();
+					if (tmp.isEmpty()) {
+						continue;
+					}
+
+					int originalLine = tmp.first().getLine();
 					int tmpstart = s - tmp.first().getStart();
 					int tmpend = (e - 1) - tmp.first().getStart();
-					gagloc = tmp.first().getEnd();
-					
-					int index = -1;
-					for (int i = 1; i <= mMassiveMatcher.groupCount(); i++) {
-						if (mMassiveMatcher.group(i) != null) {
-							index = i;
-							i = mMassiveMatcher.groupCount();
-						}
-					}
-					
-					if (index > 0) {
-						//we have found a trigger. advance the line number to
-						
-						TriggerData t = mSortedTriggerMap.get(index);
-						Plugin p = mTriggerPluginMap.get(index);
 
-						boolean gagged = false;
-						if (lineNumber > tmpline) {
-							int amount = lineNumber - tmpline;
-							
-							for (int i = 0; i < amount; i++) {
-								if (it.hasPrevious()) {
-								l = it.previous();
-								}
-							}
-							mWorking.setModCount(0);
-							lineNumber = tmpline;
-							if (it.hasNext()) {
-								lineNumber = tmpline;	
-							}
-						} else if (tmpline > lineNumber) {
-							gagged = true;
-						}
-						if (t != null && t.isEnabled() && !gagged) {
-							// Prefer the live map entry so editor/toggle mutations are
-							// what the gate sees even if the matcher still holds an older ref.
-							// Look in the owning plugin (main settings or a real plugin) —
-							// never fall through to getTriggers() alone, or a same-named
-							// main trigger would steal a plugin trigger's conditions.
+					if (removedLines.contains(Integer.valueOf(originalLine))
+							|| stoppedOnLine.contains(Integer.valueOf(originalLine))) {
+						continue;
+					}
+					int seated = currentLineIndex(originalLine, removedLines);
+					if (seated < 0 || seated >= mWorking.getLines().size()) {
+						continue;
+					}
+					it = mWorking.getLines().listIterator(seated + 1);
+					if (!it.hasPrevious()) {
+						continue;
+					}
+					l = it.previous();
+					lineNumber = seated;
+					mWorking.setModCount(0);
+
+					TriggerData t = hit.trigger;
+					Plugin p = mTriggerPluginByIdentity.get(t);
+					if (p == null) {
+						p = mSettings;
+					}
+
+					if (t != null && t.isEnabled()) {
 							TriggerData gate = t;
 							if (t.getName() != null && p != null && p.getSettings() != null) {
 								TriggerData live = p.getSettings().getTriggers().get(t.getName());
@@ -2985,15 +2973,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								}
 							}
 							if (ConditionEvaluator.evaluate(gate, Connection.this)) {
+							firedHits.add(firedKey);
 							mCaptureMap.clear();
-							for (int i = index; i <= (t.getMatcher().groupCount() + index); i++) {
-								
-								mCaptureMap.put(Integer.toString(i - index), mMassiveMatcher.group(i));
+							for (int i = 0; i < hit.groups.length; i++) {
+								mCaptureMap.put(Integer.toString(i), hit.groups[i]);
 							}
 							for (TriggerResponder responder : t.getResponders()) {
-								if (responder instanceof GagAction) {
-									replaceGagged = true;
-								}
 								try {
 									responder.doResponse(mService.getApplicationContext(), 
 																	   mWorking, 
@@ -3016,18 +3001,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 																	   mSettings.getEncoding());
 									
 									if (triggersDirty) {
-										keepEvaluating = false;
+										continueScan = false;
 										rebuildTriggers = true;
 									}
 								} catch (IteratorModifiedException e1) {
+									markRemovedSpan(removedLines, originalLine, matched);
 									it = e1.getIterator();
 									mWorking.setModCount(0);
-									lineNumber = it.previousIndex();
 									if (it.hasPrevious()) {
 										l = it.previous();
-									} else {
-										keepEvaluating = false;
+										lineNumber = it.nextIndex();
 									}
+									// Do not abort the chunk: gagging the newest line
+									// leaves no previous iterator, but older lines
+									// in this packet may still have triggers to run.
 									
 								} catch (Exception eResp) {
 									String tname = t.getName() != null ? t.getName() : "?";
@@ -3037,62 +3024,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 											eResp);
 								}
 								if (mWorking.getLines().size() == 0) {
-									keepEvaluating = false;
+									continueScan = false;
 								}
+							}
+							if (!gate.isKeepEvaluating()) {
+								markRemovedSpan(stoppedOnLine, originalLine, matched);
 							}
 							}
 						}
-					}
 					if (rebuildTriggers) {
 						break;
 					}
 				}
 				if (rebuildTriggers) {
+					// Same chunk: a script changed the set. Do not slice the
+					// string or flush earlier lines — list order is not
+					// left-to-right, so those lines may not have been seen yet.
+					// Already-fired (trigger, start) pairs are skipped above.
 					mWorking.setModCount(0);
 					done = false;
-					keepEvaluating = true;
-					int e = mMassiveMatcher.end();
-
-					if (e != stripped.length()) {
-						if (replaceGagged) {
-							stripped = stripped.substring(gagloc + 1, stripped.length());
-						} else {
-							stripped = stripped.substring(e + 1, stripped.length());
-						}	
-					}
-					
-					if (lineNumber <= mWorking.getLines().size() - 1) {
-						while (mWorking.getLines().size() - 1 > lineNumber) {
-
-							Line tmp = mWorking.getLines().get(mWorking.getLines().size() - 1);
-							mWorking.getLines().remove(mWorking.getLines().size() - 1);
-							mFinished.appendLine(tmp);
-						}
-						
-					}
-					
+					continueScan = true;
 					buildTriggerSystem();
-					
-					mLineMap.clear();
-					LINE_MATCHER.reset(stripped);
-					found = false;
-
-					lineNumber = mWorking.getLines().size() - 1;
-					while (LINE_MATCHER.find()) {
-						found = true;
-						mLineMap.add(new Range(LINE_MATCHER.start(), LINE_MATCHER.end(), lineNumber));
-						lineNumber = lineNumber - 1;
-					}
-					
-					lineNumber = mWorking.getLines().size() - 1;
-					if (lineNumber == -1) {
-						keepEvaluating = false;
-						done = true;
-					} else {
-						it = mWorking.getLines().listIterator(lineNumber + 1);
-						l = it.previous();
-					}
-					
 				}
 				
 				

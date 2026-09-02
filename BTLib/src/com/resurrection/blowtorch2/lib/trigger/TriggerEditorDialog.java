@@ -97,6 +97,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	
 	//private CheckBox literal;
 	private CheckBox once;
+	private CheckBox keepGoing;
 	
 	String selectedPlugin = null;
 	
@@ -212,6 +213,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		//literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
 		once = (CheckBox)findViewById(R.id.trigger_once_checkbox);
+		keepGoing = (CheckBox)findViewById(R.id.trigger_keep_evaluating_checkbox);
 		
 		//if(isEditor) {
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
@@ -230,6 +232,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		literal.setChecked(!the_trigger.isInterpretAsRegex());
 		once.setChecked(the_trigger.isFireOnce());
+		if (keepGoing != null) {
+			keepGoing.setChecked(the_trigger.isKeepEvaluating());
+		}
 		
 		if(isEditor) {
 			Button editdone = (Button)findViewById(R.id.trigger_editor_done_button);
@@ -239,6 +244,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
+		if (keepGoing != null) {
+			keepGoing.setOnCheckedChangeListener(new KeepEvaluatingCheckChangedListener());
+		}
 		setupTriggerPreview(title, pattern, literal);
 		setupSourcePicker(pattern, literal, title);
 		EditorDialogChrome.applyFullScreen(this);
@@ -628,7 +636,18 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "you type, and the trigger is only borrowing the words.\n\n"
 			+ "IF YOU REALLY WANT THE NAME AS TEXT\n"
 			+ "Only a pattern that is exactly the name is replaced. Turn Literal? off "
-			+ "and write ^name$ and it is a pattern of its own again.";
+			+ "and write ^name$ and it is a pattern of its own again.\n\n"
+			+ "KEEP GOING?\n"
+			+ "On (the default): every trigger that matches this line still runs. Two "
+			+ "triggers can both fire — one rewrites a channel tag, another gags the "
+			+ "spam inside it. Off: after this trigger fires, later triggers are not "
+			+ "tried on this line.\n\n"
+			+ "FIRE ONCE?\n"
+			+ "Fires the first time and then stays quiet until the trigger is enabled "
+			+ "again.\n\n"
+			+ "A DOLLAR IN THE GAME TEXT\n"
+			+ "In a regular expression $ means end of line, not a price. To match "
+			+ "earned $70 write earned \\$70.";
 
 	/**
 	 * Snapshot the alias names so the preview can resolve $alias{...} without a
@@ -677,7 +696,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		String existingGroup = test.getGroup() != null ? test.getGroup() : "";
 		if(!groupText.equals(existingGroup)) retval = true;
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
-		if(test.isFireOnce() != fireOnce.isChecked()) retval = true; 
+		if(test.isFireOnce() != fireOnce.isChecked()) retval = true;
+		if (keepGoing != null && test.isKeepEvaluating() != keepGoing.isChecked()) retval = true; 
 		
 		ConditionGroup origCond = original_trigger.getConditions() != null
 				? original_trigger.getConditions() : new ConditionGroup();
@@ -1311,6 +1331,14 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			}
 		}
 		
+	}
+
+	private class KeepEvaluatingCheckChangedListener implements CompoundButton.OnCheckedChangeListener {
+
+		public void onCheckedChanged(CompoundButton arg0, boolean arg1) {
+			the_trigger.setKeepEvaluating(arg1);
+		}
+
 	}
 
 	public void onClick(DialogInterface arg0, int arg1) {

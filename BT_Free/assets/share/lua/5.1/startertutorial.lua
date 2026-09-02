@@ -472,11 +472,16 @@ Example idea: when the game says you are hungry, Ack sends "eat bread".
 Another: gag spammy combat lines; Color important tells; Toast a warning.
 
 Open: ⋮ → Triggers → add. Keep Literal on until you need regex. Captures
-in regex mode become $1, $2 in Ack / Replace / Toast text. The ? button
+in regex mode become $1, $2 in Ack / Replace / Toast text. In a regex, $
+is end of line — to match earned $70 write earned \$70. The ? button
 beside Done explains the pattern box, and the preview under the box is
 three lines — Show all / Show less opens the rest, so you can see what
 your pattern will really do before you save it. The ? on the
 Triggers list itself explains what a trigger is, with examples.
+
+Two triggers can both fire on the same line (Keep going? is on by
+default). One can rewrite a channel tag, another can gag the spam inside
+it. Untick Keep going? to stop later triggers after this one fires.
 
 Using an alias as the pattern: type an alias's NAME on its own and the
 trigger watches for that alias's TEXT instead. With an alias spares that

@@ -312,7 +312,7 @@ addition to `post`. Live values of kept names are **not** in this XML.
 | `fireOnce`, `hidden`, `enabled` | Behaviour flags |
 | `sequence` | Order (default 10) |
 | `group` | Group name |
-| `keepEvaluating` | Continue after match (default true) |
+| `keepEvaluating` | Continue after match. Default true (omit the attribute). Write `keepEvaluating="false"` to stop later triggers on that line. |
 
 Nested responders: `<ack>`, `<toast>`, `<notification>`, `<script function="…">`,
 `<replace>`, `<color>`, `<gag>`, `<setVariable>`. Common attr: `fireWhen`
