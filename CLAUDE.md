@@ -25,6 +25,14 @@ list is now enforced by a script, so you do not have to remember it. See
    back to the maintainer before a seventh approach. Ask two things out loud:
    do they want what they said, and is what they said what you understood.
 
+## Code comments
+
+Default: no comment. If one is useful, 1–2 lines. Keep measurements, API quirks,
+compatibility constraints, and "not measured". Do not guess a mechanism (rule 3),
+narrate the implementation, or write what the previous version did. When editing,
+condense only comments on the code you are already changing. No repo-wide sweep
+unless asked. Method: `docs/ORCHESTRATION.md` ("Comments are facts, not essays").
+
 ## Commands
 
 ```sh

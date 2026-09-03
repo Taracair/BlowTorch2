@@ -91,6 +91,19 @@ stops the next person spending a session on it.
 
 A measurement that lives only in a commit message will be re-taken.
 
+### Comments are facts, not essays
+
+Default is no comment. A useful comment is 1–2 lines that will still be true
+after the next edit: a measured number, an API quirk, a compatibility
+constraint, or "not measured". Narrating the implementation, restating the
+function name, and "this used to do X" are how a wrong hypothesis becomes
+durable (rule 3).
+
+When editing, condense only comments on the code you are already changing.
+Do not sweep the tree unless asked. Stale `TODO`/`FIXME` markers are a size
+signal, not a backlog: do not delete them in passing unless you have checked
+they are false.
+
 ### Silence is not evidence
 
 A threshold probe that logs nothing is indistinguishable from a probe that never
