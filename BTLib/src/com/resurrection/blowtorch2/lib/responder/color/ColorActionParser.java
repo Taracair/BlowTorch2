@@ -20,10 +20,26 @@ public final class ColorActionParser {
 	
 	public static void saveColorActionToXML(XmlSerializer out,ColorAction r) throws IllegalArgumentException, IllegalStateException, IOException {
 		out.startTag("", BasePluginParser.TAG_COLORACTION);
-		out.attribute("", "text", Integer.toString(r.getColor()));
-		out.attribute("", "background", Integer.toString(r.getBackgroundColor()));
-		//out.text(Integer.toString(r.getColor()));
-		
+		TriggerColorPaint p = r.getPaint();
+		out.attribute("", "text", p.formatTextAttr());
+		out.attribute("", "background", p.formatBackgroundAttr());
+		String bgMode = p.formatBackgroundModeAttr();
+		if (bgMode != null) {
+			out.attribute("", "backgroundMode", bgMode);
+		}
+		writeStyle(out, "bold", p.hasStyle(TriggerColorPaint.STYLE_BOLD));
+		writeStyle(out, "faint", p.hasStyle(TriggerColorPaint.STYLE_FAINT));
+		writeStyle(out, "italic", p.hasStyle(TriggerColorPaint.STYLE_ITALIC));
+		writeStyle(out, "underline", p.hasStyle(TriggerColorPaint.STYLE_UNDERLINE));
+		writeStyle(out, "reverse", p.hasStyle(TriggerColorPaint.STYLE_REVERSE));
+		writeStyle(out, "strike", p.hasStyle(TriggerColorPaint.STYLE_STRIKE));
 		out.endTag("", BasePluginParser.TAG_COLORACTION);
+	}
+
+	private static void writeStyle(XmlSerializer out, String name, boolean on)
+			throws IOException {
+		if (on) {
+			out.attribute("", name, "true");
+		}
 	}
 }

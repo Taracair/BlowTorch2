@@ -1928,6 +1928,10 @@ public class TextTree {
 		public boolean isTriggerPaint() {
 			return triggerPaint;
 		}
+
+		public void setTriggerPaint(boolean triggerPaint) {
+			this.triggerPaint = triggerPaint;
+		}
 		
 		public boolean equals(Object o) {
 			if(o == this) return true;

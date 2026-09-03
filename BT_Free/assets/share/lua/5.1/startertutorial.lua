@@ -525,7 +525,8 @@ MCP hooks: @message-name.
 Responders worth knowing early:
   Ack            send text (or Lua) — can use $1
   Replace / Gag  change or hide the matched line
-  Color          tint matching text
+  Color          256 grid and RGB wheel; text and background can be
+                 turned off separately; plus bold / italic / underline
   Toast / Notification   phone-side alerts
   Set Variable   store a session name=value (may use $1)
 
@@ -676,7 +677,9 @@ To debug colour codes:
   .colordebug 2   color off, show codes
   .colordebug 3   color off, no codes
 
-Trigger Color responders can tint matched lines.
+Trigger Color responders can tint matched lines. The Color action has a
+256 grid and an RGB wheel; text and background can be turned off
+separately, plus bold / italic / underline.
 
 Options → Window → Light theme? (off by default): light grey paper and
 dark ink. Colours the game sends stay; whites and light greys are

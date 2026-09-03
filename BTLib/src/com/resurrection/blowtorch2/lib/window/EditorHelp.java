@@ -200,7 +200,7 @@ public final class EditorHelp {
 			+ "ACTIONS\n"
 			+ "    Ack             send a command back to the game\n"
 			+ "    Replace / Gag   change or hide the line\n"
-			+ "    Color           tint the matching text\n"
+			+ "    Color           256 grid or RGB wheel; text and background off separately; bold/italic/underline\n"
 			+ "    Tappable Word   make the match pressable\n"
 			+ "    Toast / Notification   tell the phone\n"
 			+ "    Set Variable    remember something for later\n\n"

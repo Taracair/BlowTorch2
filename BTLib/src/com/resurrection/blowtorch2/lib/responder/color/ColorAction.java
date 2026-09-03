@@ -17,7 +17,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
@@ -31,29 +30,19 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 
 	private int color = DEFAULT_COLOR; //xterm 256 color? otherwise this should be an int.
 	private int backgroundColor = DEFAULT_BACKGROUND_COLOR;
+	private TriggerColorPaint paint = TriggerColorPaint.legacyDefaults();
 	public static int DEFAULT_COLOR = 256;
 	public static int DEFAULT_BACKGROUND_COLOR = 232;
-	/**
-	 * ColorAction skips painting a background at 0, 16, or 231 ("foreground
-	 * only"). 49 is the SGR that returns the background to default -- the same
-	 * code {@link TextTree#makeRestoreColor} adds when a restore names no
-	 * background of its own.
-	 */
-	private static final int BACKGROUND_DEFAULT = 49;
 	
 	public ColorAction(RESPONDER_TYPE pType) {
 		super(pType);
-		// TODO Auto-generated constructor stub
-		color = DEFAULT_COLOR;
-		backgroundColor = DEFAULT_BACKGROUND_COLOR;
+		syncLegacyInts();
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 	
 	public ColorAction() {
 		super(RESPONDER_TYPE.COLOR);
-		//color = DEFAULT_COLOR;
-		color = DEFAULT_COLOR;
-		backgroundColor = DEFAULT_BACKGROUND_COLOR;
+		syncLegacyInts();
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 
@@ -63,10 +52,17 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	public void writeToParcel(Parcel o, int flags) {
-		// TODO Auto-generated method stub
 		o.writeInt(color);
 		o.writeInt(backgroundColor);
 		o.writeString(this.getFireType().getString());
+		TriggerColorPaint p = paintOrDefault();
+		o.writeInt(p.getFgMode().ordinal());
+		o.writeInt(p.getFgXterm());
+		o.writeInt(p.getFgRgb());
+		o.writeInt(p.getBgMode().ordinal());
+		o.writeInt(p.getBgXterm());
+		o.writeInt(p.getBgRgb());
+		o.writeInt(p.getStyles());
 	}
 
 	/**
@@ -164,13 +160,33 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	private void addPaint(Line line, LinkedList<Unit> newLine, TextTree tree) {
-		newLine.add(line.newColor(color));
-		if (skipsBackgroundPaint(backgroundColor)) {
-			newLine.add(tree.makeColor(Collections.singletonList(
-					Integer.valueOf(BACKGROUND_DEFAULT))));
-		} else {
-			newLine.add(line.newBackgroundColor(backgroundColor));
+		TriggerColorPaint spec = paintOrDefault();
+		List<Integer> fg = spec.toForegroundSgrOps();
+		if (!fg.isEmpty()) {
+			if (spec.getFgMode() == TriggerColorPaint.FgMode.XTERM) {
+				newLine.add(line.newColor(spec.getFgXterm()));
+			} else {
+				newLine.add(triggerColor(tree, fg));
+			}
 		}
+		List<Integer> bg = spec.toBackgroundSgrOps();
+		if (!bg.isEmpty()) {
+			if (spec.getBgMode() == TriggerColorPaint.BgMode.XTERM) {
+				newLine.add(line.newBackgroundColor(spec.getBgXterm()));
+			} else {
+				newLine.add(triggerColor(tree, bg));
+			}
+		}
+		List<Integer> styleOn = spec.toStyleOnOps();
+		if (!styleOn.isEmpty()) {
+			newLine.add(triggerColor(tree, styleOn));
+		}
+	}
+
+	private static Color triggerColor(TextTree tree, List<Integer> ops) {
+		Color c = tree.makeColor(ops);
+		c.setTriggerPaint(true);
+		return c;
 	}
 
 	/**
@@ -183,24 +199,36 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	 * {@code 48;5;n} or {@code 38;5;n}, so the trigger's paint ran to the
 	 * newline. That branch keeps bleed (including a MUD background) and
 	 * adds 39 / 49 when bleed names no foreground / background.
+	 *
+	 * <p>KEEP background does not emit 49: the MUD background stays on the
+	 * matched span. RESET (old sentinels 0/16/231) still emits 49.
 	 */
 	private Color colorAfterMatch(TextTree tree, Color bleed) {
-		if (!skipsBackgroundPaint(backgroundColor)) {
+		TriggerColorPaint spec = paintOrDefault();
+		if (spec.paintsBackground()) {
 			List<Integer> ops = (bleed != null && bleed.getOperations() != null)
 					? new ArrayList<Integer>(bleed.getOperations())
 					: new ArrayList<Integer>();
-			if (!listNamesForeground(ops)) {
+			if (spec.paintsForeground() && !listNamesForeground(ops)) {
 				ops.add(Integer.valueOf(39));
 			}
+			ops.addAll(spec.toStyleOffOps());
 			return tree.makeRestoreColor(ops);
 		}
 		List<Integer> fg = foregroundOps(bleed);
-		if (!listNamesForeground(fg)) {
+		if (spec.paintsForeground() && !listNamesForeground(fg)) {
 			ArrayList<Integer> withFg = new ArrayList<Integer>(fg);
 			withFg.add(Integer.valueOf(39));
 			fg = withFg;
 		}
-		return tree.makeRestoreColor(fg);
+		fg.addAll(spec.toStyleOffOps());
+		if (spec.resetsBackground()) {
+			return tree.makeRestoreColor(fg);
+		}
+		if (fg.isEmpty()) {
+			return null;
+		}
+		return tree.makeColor(fg);
 	}
 
 	private static boolean namesForeground(Color c) {
@@ -334,7 +362,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			} else {
 				if (u instanceof TextTree.Color) {
 					Color previous = (Color) u;
-					if (!skipsBackgroundPaint(backgroundColor) || namesForeground(previous)) {
+					if (paintOrDefault().paintsBackground() || namesForeground(previous)) {
 						bleed = previous;
 					}
 				}
@@ -373,9 +401,11 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			if(preEmptiveChopAt > 0) {
 				int length = ((Text)u).getString().length();
 				Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
-				newLine.add(restore);
+				if (restore != null) {
+					newLine.add(restore);
+				}
 				newLine.add(post);
-			} else {
+			} else if (restore != null) {
 				restoreOrLeaveOpen(line, newLine, restore, it);
 			}
 		} else {
@@ -403,9 +433,11 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			if(chopAt > 0) {
 				int length = ((Text)chop).getString().length();
 				Text post = line.newText(((Text)chop).getString().substring(length-chopAt,length));
-				newLine.add(restore);
+				if (restore != null) {
+					newLine.add(restore);
+				}
 				newLine.add(post);
-			} else {
+			} else if (restore != null) {
 				restoreOrLeaveOpen(line, newLine, restore, it);
 			}
 		}
@@ -432,8 +464,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	@Override
 	public TriggerResponder copy() {
 		ColorAction tmp = new ColorAction(RESPONDER_TYPE.COLOR);
-		tmp.color = this.color;
-		tmp.backgroundColor = this.backgroundColor;
+		tmp.setPaint(paintOrDefault());
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -443,8 +474,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		if(!(o instanceof ColorAction)) return false;
 		ColorAction b= (ColorAction)o;
 		ColorAction a = this;
-		if(a.color != b.color) return false;
-		if(a.backgroundColor != b.backgroundColor) return false;
+		if(!a.paintOrDefault().equals(b.paintOrDefault())) return false;
 		if(a.getFireType() != b.getFireType()) return false;
 		
 		return true;
@@ -457,28 +487,31 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	private void readFromParcel(Parcel in) {
-		// TODO Auto-generated method stub
 		this.color = in.readInt();
 		this.backgroundColor = in.readInt();
 		
 		String fireType = in.readString();
-		//Log.e("ACKRESPONDER","READING FROM PARCEL, FIRE TYPE:" + fireType);
 		if(fireType.equals(FIRE_WINDOW_OPEN)) {
-			//Log.e("ACKRESPONDER","attempting to set open");
 			setFireType(FIRE_WHEN.WINDOW_OPEN);
 		} else if (fireType.equals(FIRE_WINDOW_CLOSED)) {
-			//Log.e("ACKRESPONDER","attempting to set closed");
 			setFireType(FIRE_WHEN.WINDOW_CLOSED);
 		} else if (fireType.equals(FIRE_ALWAYS)) {
-			//Log.e("ACKRESPONDER","attempting to set both");
 			setFireType(FIRE_WHEN.WINDOW_BOTH);
 		} else if (fireType.equals(FIRE_NEVER)) {
-			//Log.e("ACKRESPONDER","attempting to set never");
 			setFireType(FIRE_WHEN.WINDOW_NEVER);
 		} else {
-			//Log.e("ACKRESPONDER","defaulting to both");
 			setFireType(FIRE_WHEN.WINDOW_BOTH);
 		}
+		int fgMode = in.readInt();
+		int fgXterm = in.readInt();
+		int fgRgb = in.readInt();
+		int bgMode = in.readInt();
+		int bgXterm = in.readInt();
+		int bgRgb = in.readInt();
+		int styles = in.readInt();
+		paint = TriggerColorPaint.fromParcelFields(fgMode, fgXterm, fgRgb,
+				bgMode, bgXterm, bgRgb, styles);
+		syncLegacyInts();
 	}
 	
 	public static Parcelable.Creator<ColorAction> CREATOR = new Parcelable.Creator<ColorAction>() {
@@ -502,6 +535,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 
 	public void setColor(int color) {
 		this.color = color;
+		paintOrDefault().setForegroundXterm(color);
 	}
 
 	public int getColor() {
@@ -509,11 +543,36 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 	
 	public void setBackgroundColor(int color) {
-		this.backgroundColor = color;
+		paintOrDefault().setBackgroundLegacyIndex(color);
+		syncLegacyInts();
 	}
 	
 	public int getBackgroundColor() {
 		return backgroundColor;
+	}
+
+	public TriggerColorPaint getPaint() {
+		return paintOrDefault();
+	}
+
+	public void setPaint(TriggerColorPaint spec) {
+		this.paint = spec == null
+				? TriggerColorPaint.legacyDefaults()
+				: spec.copy();
+		syncLegacyInts();
+	}
+
+	private TriggerColorPaint paintOrDefault() {
+		if (paint == null) {
+			paint = TriggerColorPaint.legacyDefaults();
+		}
+		return paint;
+	}
+
+	private void syncLegacyInts() {
+		TriggerColorPaint spec = paintOrDefault();
+		this.color = spec.legacyForegroundInt();
+		this.backgroundColor = spec.legacyBackgroundInt();
 	}
 	
 }

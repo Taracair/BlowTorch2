@@ -564,16 +564,18 @@ comment set; this section is the maintained summary.
 | `send` | `text` |
 | `gag` | `output`, `log`, `retarget` |
 | `replace` | `text`, `retarget` |
-| `color` | `foreground`, `background` (1–256 xterm) |
+| `color` | `foreground`, `background`: xterm number, `#RRGGBB`, `false`/`"keep"`, `"default"` (background RESET), `{ xterm = n }`, `{ rgb = "#rrggbb" }` or `{ r=, g=, b= }`. Absent keys keep defaults (fg 256, bg 232). Styles: `bold`, `faint`, `italic`, `underline`, `reverse`, `strike`. `backgroundMode = "xterm"` paints a numeric background including 0/16/231. |
 | `script` | Lua function name (via XML responder; see also script responder in XML) |
 
 Example:
 
 ```lua
 NewTrigger("fox_color", "fox", { regex = false },
-  { type = "color", foreground = 36, background = 75 },
+  { type = "color", foreground = "#ff8800", background = false, bold = true },
   { type = "send", text = "listen fox" })
 ```
+
+The matched word is orange and bold; the MUD background stays. Old xterm still works: `{ type = "color", foreground = 36, background = 75 }`.
 
 ### 6.6 Inspect (player main sets — read-only)
 

@@ -25,14 +25,23 @@ public class ColorElementListener implements TextElementListener{
 	
 	public void start(Attributes a) {
 		ColorAction tmp = new ColorAction();
-		if(a.getValue("","text") != null) {
-			tmp.setColor(Integer.parseInt(a.getValue("","text")));
-		}
-		
-		if(a.getValue("","background") != null) {
-			tmp.setBackgroundColor(Integer.parseInt(a.getValue("","background")));
-		}
+		tmp.setPaint(TriggerColorPaint.fromXml(
+				a.getValue("", "text"),
+				a.getValue("", "textMode"),
+				a.getValue("", "background"),
+				a.getValue("", "backgroundMode"),
+				xmlTrue(a, "bold"),
+				xmlTrue(a, "faint"),
+				xmlTrue(a, "italic"),
+				xmlTrue(a, "underline"),
+				xmlTrue(a, "reverse"),
+				xmlTrue(a, "strike")));
 		current_trigger.getResponders().add(tmp.copy());
+	}
+
+	private static boolean xmlTrue(Attributes a, String name) {
+		String v = a.getValue("", name);
+		return v != null && ("true".equalsIgnoreCase(v) || "1".equals(v));
 	}
 
 	public void end(String body) {

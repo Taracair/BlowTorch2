@@ -16,6 +16,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.responder.color.ColorAction;
+import com.resurrection.blowtorch2.lib.responder.color.TriggerColorPaint;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponder;
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
@@ -209,8 +210,13 @@ NewTrigger(name,pattern,config[,action,...])
 --color action table configuration
 --{
 --	type = "color", (must be set for the action type).
---	foreground = [number], 1-256 indicating the foreground xterm256 color to use.
---	background = [number], 1-256 indicating the background xterm256 color to use.
+--	foreground / background = xterm number (bg 0/16/231 still RESET),
+--		false or "keep", "default" on background (RESET),
+--		"#RGB" / "#RRGGBB" / "#AARRGGBB",
+--		{ xterm = n }, { rgb = "#rrggbb" } or { r=, g=, b= }.
+--	Absent keys keep defaults (fg 256, bg 232).
+--	backgroundMode = "xterm" paints a numeric background including 0/16/231.
+--	bold, faint, italic, underline, reverse, strike = true / 1 / "true".
 --}
 --simple notification
 NewTrigger("tmp", "^foo\.$", 
@@ -218,8 +224,9 @@ NewTrigger("tmp", "^foo\.$",
 { type = "notification", title="custom title", message="custom message", vibrate = 2 })
 --literal trigger with colorize and response to the server.
 NewTrigger("tmp2", "fox", { regex = false },
-{ type = "color", foreground = 36, background = 75},
+{ type = "color", foreground = "#ff8800", background = false, bold = true },
 { type = "send", text = "listen fox" })
+--old xterm still works: { type = "color", foreground = 36, background = 75 }
 \endluacode
 */
 class NewTriggerFunction extends JavaFunction {
@@ -313,6 +320,11 @@ class NewTriggerFunction extends JavaFunction {
 						break;
 					case Plugin.LUA_TSTRING:
 						value = obj.getString();
+						break;
+					case Plugin.LUA_TTABLE:
+						if ("foreground".equals(key) || "background".equals(key)) {
+							value = luaTableOneLevel();
+						}
 						break;
 					}
 					data.put(key, value);
@@ -490,15 +502,16 @@ class NewTriggerFunction extends JavaFunction {
 				ColorAction tmp = new ColorAction();
 				Object foreground = data.get("foreground");
 				Object background = data.get("background");
-				if(foreground == null || !(foreground instanceof Double)) {
-					foreground = new Double(256);
+				TriggerColorPaint paint = TriggerColorPaint.fromLua(foreground, background);
+				if (background instanceof Number
+						&& TriggerColorPaint.MODE_XTERM.equals(data.get("backgroundMode"))) {
+					paint.setBackgroundXterm(((Number) background).intValue());
 				}
-				
-				if(background == null || !(background instanceof Double)) {
-					background = new Double(232);
-				}
-				tmp.setColor(((Double)foreground).intValue());
-				tmp.setBackgroundColor(((Double)background).intValue());
+				TriggerColorPaint.applyLuaStyles(paint, data.get("bold"),
+						data.get("faint"), data.get("italic"),
+						data.get("underline"), data.get("reverse"),
+						data.get("strike"));
+				tmp.setPaint(paint);
 				r = tmp;
 			} else if(type.equals("script")) {
 				ScriptResponder tmp = new ScriptResponder();
@@ -536,6 +549,31 @@ class NewTriggerFunction extends JavaFunction {
 		
 		plugin.addTrigger(t);
 		return 0;
+	}
+
+	private HashMap<String, Object> luaTableOneLevel() {
+		HashMap<String, Object> nested = new HashMap<String, Object>();
+		this.L.pushNil();
+		while (this.L.next(-2) != 0) {
+			String nk = this.L.getLuaObject(-2).getString();
+			LuaObject nvObj = this.L.getLuaObject(-1);
+			int nt = this.L.type(-1);
+			Object nv = null;
+			switch (nt) {
+			case Plugin.LUA_TNUMBER:
+				nv = new Double(nvObj.getNumber());
+				break;
+			case Plugin.LUA_TBOOLEAN:
+				nv = new Boolean(nvObj.getBoolean());
+				break;
+			case Plugin.LUA_TSTRING:
+				nv = nvObj.getString();
+				break;
+			}
+			nested.put(nk, nv);
+			this.L.pop(1);
+		}
+		return nested;
 	}
 	
 }

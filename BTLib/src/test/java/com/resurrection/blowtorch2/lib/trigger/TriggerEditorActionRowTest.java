@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
+import com.resurrection.blowtorch2.lib.responder.color.ColorAction;
+import com.resurrection.blowtorch2.lib.responder.color.TriggerColorPaint;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.window.EditorHelp;
@@ -35,6 +37,19 @@ public class TriggerEditorActionRowTest {
 		list.add(second);
 		assertEquals(0, list.indexOf(second));
 		assertEquals(1, list.lastIndexOf(second));
+	}
+
+	@Test
+	public void colorRowSummarisesPaint() {
+		ColorAction color = new ColorAction();
+		TriggerColorPaint paint = TriggerColorPaint.fromLua("#ff8800",
+				Boolean.FALSE);
+		TriggerColorPaint.applyLuaStyles(paint, Boolean.TRUE, null, null, null,
+				null, null);
+		color.setPaint(paint);
+		assertEquals("Color", TriggerEditorDialog.actionTypeLabel(color));
+		assertEquals("#FF8800 / bg keep bold",
+				TriggerEditorDialog.actionSummary(color));
 	}
 
 	@Test

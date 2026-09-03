@@ -1109,7 +1109,9 @@ you open it.
 
 On a trigger:
 
-- **Color** action — recolour the matching line.
+- **Color** action — recolour the matching text. xterm 256 or truecolor
+  (`#RRGGBB`), independently for text and background, and styles (bold,
+  italic, underline, …). Old saved triggers keep their numbers.
 - **Gag** action — hide it entirely (optional **retarget** sends the line to
   an extra text window instead of discarding it).
 - **Replace** action — swap text in it, `$1` works here too (also has

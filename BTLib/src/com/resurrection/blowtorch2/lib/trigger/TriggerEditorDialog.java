@@ -1156,7 +1156,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					+ (extra > 0 ? " (+" + extra + " in a menu)" : "");
 		}
 		case COLOR:
-			return Integer.toString(((ColorAction) responder).getColor());
+			return ((ColorAction) responder).getPaint().summary();
 		case SET_VARIABLE: {
 			SetVariableResponder sv = (SetVariableResponder) responder;
 			String name = nullToEmpty(sv.getVariableName());

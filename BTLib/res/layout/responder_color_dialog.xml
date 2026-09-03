@@ -1,354 +1,254 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:minWidth="300dip"
-    android:orientation="vertical" >
-
-
-
-
-
-
-
-
+    android:background="@color/chrome_body"
+    android:orientation="vertical">
 
     <TextView
         android:id="@+id/titlebar"
-        android:layout_width="match_parent"
-        android:layout_height="42dip"
-        android:background="@color/chrome_title_bar"
-        android:gravity="center"
-        android:text="RECOLOR TEXT"
-        android:textColor="@color/chrome_title_text"
-        android:textSize="14dip"
-        android:textStyle="bold"
-        android:textAllCaps="true" />
-
-
-
-
-
+        style="@style/BlowTorch.Chrome.Title"
+        android:text="RECOLOR TEXT" />
 
     <ScrollView
+        android:id="@+id/color_editor_scroll"
         android:layout_width="match_parent"
-        android:layout_height="360dip"
+        android:layout_height="400dip"
         android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-    <RadioGroup
-        android:id="@+id/swatch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minWidth="240dip"
-        android:orientation="horizontal" >
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <RadioButton
-            android:id="@+id/foreground"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:checked="true"
-            android:gravity="center_vertical|center_horizontal"
-            android:text="Foreground"
-            android:textSize="30dip" />
-
-
-
-
-
-
-
-        <RadioButton
-            android:id="@+id/background"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="30dip" />
-
-    </RadioGroup>
-
-    <TabHost
-        android:id="@android:id/tabhost"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="160dip" >
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" >
+            android:orientation="vertical"
+            android:paddingLeft="12dip"
+            android:paddingRight="12dip"
+            android:paddingTop="8dip"
+            android:paddingBottom="8dip">
 
-            <TabWidget
-                android:id="@android:id/tabs"
+            <TextView
+                android:id="@+id/color_preview"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" >
-            </TabWidget>
+                android:layout_height="wrap_content"
+                android:minHeight="40dip"
+                android:gravity="center"
+                android:padding="8dip"
+                android:text="Sample text"
+                android:textSize="16sp"
+                android:textColor="#FFBBBBBB"
+                android:background="@color/chrome_preview" />
 
-            <FrameLayout
-                android:id="@android:id/tabcontent"
+            <CheckBox
+                android:id="@+id/color_text_check"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" >
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dip"
+                android:text="Color the text"
+                android:textColor="@color/chrome_title_text"
+                android:buttonTint="@color/chrome_accent" />
+
+            <CheckBox
+                android:id="@+id/color_background_check"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Color the background"
+                android:textColor="@color/chrome_title_text"
+                android:buttonTint="@color/chrome_accent" />
+
+            <CheckBox
+                android:id="@+id/color_default_paper_check"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Default paper (clear MUD background)"
+                android:textColor="@color/chrome_title_text"
+                android:buttonTint="@color/chrome_accent" />
+
+            <RadioGroup
+                android:id="@+id/color_channel_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dip"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/color_channel_foreground"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:checked="true"
+                    android:text="Foreground"
+                    android:textColor="@color/chrome_title_text"
+                    android:buttonTint="@color/chrome_accent" />
+
+                <RadioButton
+                    android:id="@+id/color_channel_background"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Background"
+                    android:textColor="@color/chrome_title_text"
+                    android:buttonTint="@color/chrome_accent" />
+            </RadioGroup>
+
+            <TabHost
+                android:id="@android:id/tabhost"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dip">
 
                 <LinearLayout
-                    android:id="@+id/tab1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_horizontal" >
+                    android:orientation="vertical">
 
-                    <TableLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" >
+                    <TabWidget
+                        android:id="@android:id/tabs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
 
-                        <TableRow
-                            android:id="@+id/tableRow1"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" >
+                    <FrameLayout
+                        android:id="@android:id/tabcontent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
 
-                            <Button
-                                android:id="@+id/red_up"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▲" />
-
-                            <Button
-                                android:id="@+id/green_up"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▲" />
-
-                            <Button
-                                android:id="@+id/blue_up"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▲" />
-                        </TableRow>
-
-                        <TableRow
-                            android:id="@+id/tableRow2"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" >
-
-
-
-
-                            <TextView
-                                android:id="@+id/red_val"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="#FF990000"
-                                android:gravity="center_horizontal"
-                                android:minWidth="40dip"
-                                android:text="0"
-                                android:textAppearance="?android:attr/textAppearanceLarge" />
-
-
-                            <TextView
-                                android:id="@+id/green_val"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="#FF009900"
-                                android:gravity="center_horizontal"
-                                android:minWidth="40dip"
-                                android:text="0"
-                                android:textAppearance="?android:attr/textAppearanceLarge" />
-
-
-                            <TextView
-                                android:id="@+id/blue_val"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:background="#FF000099"
-                                android:gravity="center_horizontal"
-                                android:minWidth="40dip"
-                                android:text="0"
-                                android:textAppearance="?android:attr/textAppearanceLarge" />
-
-                        </TableRow>
-
-                        <TableRow
-                            android:id="@+id/tableRow3"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" >
-
-                            <Button
-                                android:id="@+id/red_down"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▼" />
-
-                            <Button
-                                android:id="@+id/green_down"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▼" />
-
-                            <Button
-                                android:id="@+id/blue_down"
-                                style="?android:attr/buttonStyleSmall"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▼" />
-                        </TableRow>
-                    </TableLayout>
-                </LinearLayout>
-
-
-                <LinearLayout
-                    android:id="@+id/tab2"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_horizontal"
-                    android:orientation="horizontal" >
-
-
-
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:gravity="center_horizontal"
-                        android:orientation="vertical" >
-
-
-
-
-                        <Button
-                            android:id="@+id/grey_up"
-                            style="?android:attr/buttonStyleSmall"
+                        <LinearLayout
+                            android:id="@+id/color_tab_256"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="▲" />
+                            android:orientation="vertical"
+                            android:paddingTop="6dip">
 
+                            <com.resurrection.blowtorch2.lib.responder.color.Xterm256PaletteView
+                                android:id="@+id/color_xterm_palette"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:contentDescription="xterm 256 colour grid" />
+                        </LinearLayout>
 
-                        <TextView
-                            android:id="@+id/grey_value"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_horizontal"
-                            android:minWidth="40dip"
-                            android:text="0"
-                            android:textAppearance="?android:attr/textAppearanceLarge" />
-
-
-
-
-
-                        <Button
-                            android:id="@+id/grey_down"
-                            style="?android:attr/buttonStyleSmall"
+                        <LinearLayout
+                            android:id="@+id/color_tab_rgb"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="▼" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingTop="8dip">
 
-                    </LinearLayout>
+                            <EditText
+                                android:id="@+id/color_hex"
+                                android:layout_width="0dip"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:fontFamily="monospace"
+                                android:hint="#RRGGBB"
+                                android:textColor="@color/chrome_title_text"
+                                android:textColorHint="@color/chrome_hint"
+                                android:inputType="text"
+                                android:imeOptions="actionDone"
+                                android:singleLine="true" />
+
+                            <Button
+                                android:id="@+id/color_wheel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginLeft="8dip"
+                                android:text="Wheel…" />
+                        </LinearLayout>
+                    </FrameLayout>
                 </LinearLayout>
+            </TabHost>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dip"
+                android:orientation="horizontal">
 
-                <LinearLayout
-                    android:id="@+id/tab3"
-                    android:layout_width="match_parent"
+                <CheckBox
+                    android:id="@+id/color_style_bold"
+                    android:layout_width="0dip"
                     android:layout_height="wrap_content"
-                    android:gravity="center_horizontal" >
+                    android:layout_weight="1"
+                    android:text="Bold"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
 
+                <CheckBox
+                    android:id="@+id/color_style_faint"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Faint"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
 
+                <CheckBox
+                    android:id="@+id/color_style_italic"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Italic"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
+            </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
+                <CheckBox
+                    android:id="@+id/color_style_underline"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Underline"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
 
+                <CheckBox
+                    android:id="@+id/color_style_reverse"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Reverse"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
 
-                    <CheckBox
-                        android:id="@+id/bright"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical"
-                        android:layout_marginRight="20dip"
-                        android:text="Bright?" />
-
-
-
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:orientation="vertical" >
-
-
-
-                        <Button
-                            android:id="@+id/sys_up"
-                            style="?android:attr/buttonStyleSmall"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="▲" />
-
-
-
-
-
-                        <TextView
-                            android:id="@+id/sys_val"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_horizontal"
-                            android:minWidth="40dip"
-                            android:text="0"
-                            android:textAppearance="?android:attr/textAppearanceLarge" />
-
-
-
-                        <Button
-                            android:id="@+id/sys_down"
-                            style="?android:attr/buttonStyleSmall"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="▼" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-            </FrameLayout>
+                <CheckBox
+                    android:id="@+id/color_style_strike"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Strike"
+                    android:textColor="@color/chrome_title_text"
+                    android:textSize="13sp"
+                    android:buttonTint="@color/chrome_accent" />
+            </LinearLayout>
         </LinearLayout>
-    </TabHost>
-
-    </LinearLayout>
     </ScrollView>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dip"
-        android:orientation="horizontal" >
-
-
-
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@color/chrome_title_bar"
+        android:paddingLeft="6dip"
+        android:paddingRight="6dip"
+        android:paddingTop="6dip"
+        android:paddingBottom="6dip">
 
         <Button
             android:id="@+id/cancel"
             android:layout_width="0dip"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minHeight="44dip"
             android:text="Cancel" />
 
         <Button
@@ -356,8 +256,8 @@
             android:layout_width="0dip"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:minHeight="44dip"
+            android:layout_marginLeft="6dip"
             android:text="Done" />
-
     </LinearLayout>
-
 </LinearLayout>
