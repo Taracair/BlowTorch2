@@ -6192,7 +6192,11 @@ end
 		try {
 			// Bundled assets: "fonts/DejaVuSansMono.ttf"
 			if (name.startsWith("fonts/") && name.endsWith(".ttf")) {
-				return typefaceFromAssetWithEmojiFallback(name);
+				// Null means the asset is missing. Keep the mono fallback loaded
+				// above rather than handing null to Paint, which would silently
+				// switch the grid to the default proportional face.
+				final Typeface asset = typefaceFromAssetWithEmojiFallback(name);
+				return asset != null ? asset : font;
 			}
 			if(name.contains("/")) {
 				if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
