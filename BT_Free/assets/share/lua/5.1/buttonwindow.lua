@@ -81,33 +81,15 @@ DisplayMetrics = view:getContext():getResources():getDisplayMetrics()
 
 suppress_editor = false
 
--- A switch that is on unless it says otherwise, read the way the rest of the
--- code reads it.
---
--- The same value reaches Lua in three shapes: a string from the settings XML,
--- a boolean from the Lua setters, and a number from a couple of initialisers —
--- `1 ~= "1"` is a documented trap in this project. button.lua's draw path and
--- the editor checkbox both spell the test "off only when it explicitly says
--- off". loadOptions spelled it the other way round, listing the four forms
--- that mean on and treating everything else as off, so any shape those four
--- missed silently turned the badges off instead of leaving them alone.
+-- On unless explicitly false/"false"/0/"0". XML strings vs Lua booleans:
+-- `1 ~= "1"`.
 local function optionOnUnlessSaidOtherwise(value)
 	return not (value == false or value == "false"
 		or value == 0 or value == "0")
 end
 
--- Put the drawing options back into the globals button.lua declares.
---
--- Measured, not guessed: the R4 probe printed hints=true immediately after a
--- set load while the stored option said "false", and hints=false a moment
--- later. loadButtons reloads button.lua, and loading it re-runs its
--- declarations — buttonShowHints, buttonShowSwipePreview and buttonRoundness
--- all snap back to the file's own defaults, discarding what the options said.
--- Whichever of loadButtons and loadOptions ran last decided how the pad looked,
--- so the badges came and went with no setting having changed. This is the one
--- place that owns those three, and both callers use it.
--- Session .buttonopacity is not an Options key, so it is held across the
--- require in loadButtons rather than restored here.
+-- R4: loadButtons re-requires button.lua and resets hint/roundness defaults;
+-- both callers go through applyButtonDrawOptions. .buttonopacity is session-only.
 function applyButtonDrawOptions()
 	local o = options or {}
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
@@ -623,16 +605,7 @@ local SWIPE8_SECTORS = {
 	"right", "upright", "up", "upleft", "left", "downleft", "down", "downright",
 }
 
--- Eight-way classifier, deliberately a separate function rather than a rewrite of
--- classifySwipe.
---
--- classifySwipe must keep returning only up/down/left/right: the accordion swipe
--- trigger compares its result against accordionDirection, which is never diagonal.
--- Diagonals are resolved on top of the 4-way answer in the touch handler, so a
--- button with no diagonal commands behaves exactly as it did before.
---
--- Same threshold and same dead zone as classifySwipe, so both agree on whether a
--- gesture counts as a swipe at all.
+-- 8-way; classifySwipe stays 4-way (accordion). Same dead zone.
 function classifySwipe8(dx, dy, threshold)
 	if math.abs(dx) < threshold and math.abs(dy) < threshold then
 		return nil
@@ -688,10 +661,7 @@ local function hasAccordionConfig(data)
 	return data.accordionChildren ~= nil and #data.accordionChildren > 0
 end
 
--- Experiment (revert this commit): accordion children can be grid tiles you
--- pin. Identity is a minted string id on the tile ("b12"), never index or
--- x/y. The child row keeps {id, label, command} so a revert to the snapshot
--- overlay still has something to draw. Packs stay label+command with no id.
+-- Accordion child identity is minted id ("b12"), not index/x/y.
 local nextButtonSeq = 1
 
 function mintButtonId()

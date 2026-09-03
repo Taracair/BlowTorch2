@@ -17,13 +17,8 @@ do
 	end
 end
 
---- Ask Colorizer for a colour, and fall back rather than throw.
----
---- Calling a method that does not exist on the Java object raises out of
---- luajava, and the whole command dies with "error in error handling" - which
---- says nothing about the real cause. That is exactly what happened with
---- getBrightGreenColor, which is not a method Colorizer has. A missing colour
---- should cost the colour, not the command.
+--- Ask Colorizer for a colour; missing method must not throw
+--- (luajava "error in error handling").
 local function colorOf(method, fallback)
 	if Colorizer == nil then
 		return fallback
@@ -1815,25 +1810,9 @@ RegisterSpecialCommand("tips", "tipsCommand")
 
 
 --------------------------------------------------------------------------
--- The practice yard
+-- Practice yard: 3 tiles; typeable lines only via the >> helper; check()
+-- uses GetPlayer*. OnOfflineCommand return path is the normal incoming path.
 --------------------------------------------------------------------------
--- Not a game. A tutor NPC standing in a small yard, who explains the client
--- and then checks what the player built.
---
--- Design notes, because they are easy to undo by accident:
---   * Three tiles, no exploring. The point is the lessons, not the map.
---   * Anything the player can type is marked the same way every time, with
---     the >> marker and its own colour. A wall of prose where some of it is
---     typeable and some is not is the thing that makes tutorials useless.
---   * The tutor checks real client state through GetPlayerTriggers /
---     GetPlayerAliases / GetPlayerTimers. Saying "well done" without looking
---     would be worse than saying nothing.
---   * Lessons push buttons as much as typing: on a phone, the buttons are the
---     point of this client.
---
--- Java calls OnOfflineCommand with whatever the player typed; the text we
--- return goes back through the normal incoming path, so the player's own
--- triggers fire on it and the mapper follows.
 
 local function green()
 	return colorOf("getGreenColor", "\027[0;32m")

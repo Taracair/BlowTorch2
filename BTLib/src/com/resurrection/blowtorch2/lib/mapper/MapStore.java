@@ -208,18 +208,8 @@ public final class MapStore {
 		private int tileCount = -1;
 	}
 
-	/** How much of a map file to read when only {@code hostHint} is wanted.
-	 *
-	 * <p>Correctness does not rest on this number, nor on where the field sits.
-	 * {@link #readHostHintFromPrefix} only answers when it can: it found the field,
-	 * or it read the entire file and the field is not in it. Otherwise it says so
-	 * and the caller parses properly. Key order decides how often we get the cheap
-	 * answer, not whether the answer is right — which matters, because the field
-	 * order of {@code JSONObject} is a property of the implementation on the
-	 * device, not something the JSON format promises.
-	 *
-	 * <p>The budget is generous because overshooting costs one buffered read and
-	 * undershooting costs a full parse.
+	/** Prefix budget for {@code hostHint} only. Null from the prefix means parse
+	 * the file; {@code JSONObject} key order is not a format guarantee.
 	 */
 	private static final int HINT_PREFIX_BYTES = 8192;
 

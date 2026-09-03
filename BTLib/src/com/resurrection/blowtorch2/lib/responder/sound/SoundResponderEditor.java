@@ -27,18 +27,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * Choosing the sound a trigger makes.
- *
- * <p>Three sources, in the order a player is likely to want them: the sounds
- * that ship with the app, the ones in their own folder, and anything else on
- * the phone through the system picker.
- *
- * <p>Their own folder is {@link #userSoundsDir} — {@code /BlowTorch/sounds} on
- * shared storage — and it is named in the dialog on purpose. A sound chosen
- * from there is remembered by its path, so a file that later moves or is
- * deleted leaves a trigger that has gone quiet with nothing on screen to say
- * why. The dialog says so next to the name, and this is the screen where it is
- * fixed.
+ * Pick bundled / {@code /BlowTorch/sounds} / system picker. Path is all that
+ * is stored.
  */
 public class SoundResponderEditor extends Dialog {
 
@@ -67,15 +57,7 @@ public class SoundResponderEditor extends Dialog {
 		}
 	}
 
-	/**
-	 * Where a player's own sounds are meant to live.
-	 *
-	 * <p>One named folder rather than "wherever you picked it from", because a
-	 * path is all that is stored and a path that moves is a trigger that stops
-	 * making a noise. Named in the dialog, in the help and in the manual.
-	 *
-	 * @return the folder, whether or not it exists yet.
-	 */
+	/** {@code /BlowTorch/sounds} on shared storage. */
 	public static File userSoundsDir() {
 		return new File(new File(Environment.getExternalStorageDirectory(), "BlowTorch"),
 				"sounds");
@@ -207,13 +189,7 @@ public class SoundResponderEditor extends Dialog {
 		}
 	}
 
-	/**
-	 * The list of sounds to choose from.
-	 *
-	 * <p>Bundled first — they are the ones guaranteed to be there — then the
-	 * player's own folder, then the phone's notification sounds, then the system
-	 * picker for anything else.
-	 */
+	/** Bundled, then the player's folder, then notifications, then the picker. */
 	private void showSoundPicker() {
 		final LinkedHashMap<String, String> choices = new LinkedHashMap<String, String>();
 		for (NotificationSounds.SoundPreset preset : NotificationSounds.BUNDLED) {

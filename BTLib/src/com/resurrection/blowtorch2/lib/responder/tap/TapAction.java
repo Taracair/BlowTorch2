@@ -36,16 +36,8 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	 */
 	private java.util.ArrayList<String> commands = new java.util.ArrayList<String>();
 	/**
-	 * With several commands, whether a tap sends the first one instead of asking.
-	 *
-	 * <p>Per action rather than one setting for the whole world, because the
-	 * answer is a property of the words: "kill $word" wants to go the moment it
-	 * is touched, and something that drops your armour wants to be asked about
-	 * every time. One switch could only ever be wrong for half the triggers.
-	 *
-	 * <p>Off by default — that is what the app already does, and turning it on
-	 * means a tap starts sending to the game without asking, which is the
-	 * player's decision to make and not ours.
+	 * With several commands, send the first on tap instead of a menu. Per
+	 * action; default off.
 	 */
 	private boolean tapSendsFirst;
 	private boolean underline = true;
@@ -225,23 +217,8 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	}
 
 	/**
-	 * One action out of every tap action on the same trigger.
-	 *
-	 * <p>Nothing stops a player adding two "Tappable Word" actions to one
-	 * trigger, and without this that means two rules over the same word: the
-	 * marks are drawn twice, two hit boxes sit on top of each other, and which
-	 * command a tap sends depends on which box is found last. Merged, the word
-	 * is one tappable thing that offers both commands — which is what two
-	 * actions on one trigger can only have been meant to say.
-	 *
-	 * <p>The look comes from the <b>first</b> action alone. OR-ing the marks
-	 * read as a bug from the chair: with "frame" ticked on the first action and
-	 * a forgotten second action still carrying the default underline, the word
-	 * came out underlined and nothing in the editor said why. Commands keep
-	 * their order, first action first, and duplicates are dropped so the menu
-	 * does not offer the same command twice.
-	 *
-	 * @return null when the list holds no tap action.
+	 * Merge tap actions on one trigger: commands concatenated (first action
+	 * first, duplicates dropped), look from the first action only.
 	 */
 	public static TapAction merge(java.util.List<TapAction> actions) {
 		if (actions == null || actions.isEmpty()) {

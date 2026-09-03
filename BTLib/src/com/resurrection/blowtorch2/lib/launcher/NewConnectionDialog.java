@@ -106,12 +106,7 @@ public class NewConnectionDialog extends Dialog {
 		refreshExtraAccountsList();
 	}
 
-	/** Toggle the password between hidden and readable.
-	 *
-	 * Typing a login blind is how people end up locked out of a character, and
-	 * the password is kept in plain text on the device regardless, so there is
-	 * nothing gained by refusing to show it back.
-	 */
+	/** Toggle password visibility. */
 	private void wirePasswordReveal() {
 		final EditText password = (EditText) findViewById(R.id.passwordinput);
 		final android.widget.Button toggle =

@@ -2782,22 +2782,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	/**
-	 * Drop a half-finished touch on the way out. Nothing else.
-	 *
-	 * <p>This used to call {@code clearButtons} too, and that is where the stray
-	 * BACK button came from. {@code clearButtons} is the player's
-	 * {@code .clearbuttons} feature: it swaps the whole set for a single BACK
-	 * button, sets {@code buttonsCleared}, and while that flag is up a press on
-	 * <em>any</em> button restores the set instead of sending its command and the
-	 * long-press editor is suppressed. Borrowing it to mean "we are leaving" left
-	 * the window holding that one-button set for the whole time the app was away
-	 * — so any frame drawn before {@code restoreButtons} runs on the way back
-	 * shows a lone BACK button from no preset the player recognises.
-	 *
-	 * <p>Nothing needed it. The overlay windows come down in
-	 * {@code FloatingButtonController.onPause}, which is what keeps them from
-	 * floating over the next app, and {@code restoreButtons} already handles
-	 * arriving on a set that was never cleared.
+	 * Drop a half-finished touch on pause. Do not call {@code clearButtons}:
+	 * that is {@code .clearbuttons} (lone BACK until restore). Overlays come
+	 * down in {@code FloatingButtonController.onPause}.
 	 */
 	private void cancelTouchOnPause() {
 		windowCall("button_window", "cancelTouchGesture", "");
@@ -4210,26 +4197,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Is the kept command still the thing the input bar is showing?
-	 *
-	 * <p>Keep Last leaves the command you just sent in the bar, selected. The
-	 * first ↑ therefore has to step <em>past</em> it, or it hands you back the
-	 * line already in front of you.
-	 *
-	 * <p>Asked of the text rather than answered from a flag. The flag was the
-	 * bug, twice: it said "the bar holds the kept command" and stayed saying it
-	 * after the player cleared the bar, because the watcher that clears it only
-	 * runs when characters are <em>inserted</em> ({@code count > 0}) and deleting
-	 * inserts nothing. You send {@code list jewelry}, delete it, press ↑, and get
-	 * the command before it. The text either is that command or it is not, and
-	 * that is not a thing to track.
-	 *
-	 * <p>The flag still gates it, and has to: after one ↑ the bar also shows the
-	 * newest command, and stepping past it again would skip an entry every time.
-	 * The flag is what separates "Keep Last put it there" from "browsing did".
-	 *
-	 * @return true only when Keep Last put the newest command in the bar and it
-	 *         is still there, unedited.
+	 * Keep Last leaves the sent command selected; first ↑ must skip it.
+	 * Compare the bar text, not a flag that only clears on insert. The flag
+	 * still gates after browsing (bar also shows the newest command then).
 	 */
 	private boolean keptCommandIsStillOnScreen() {
 		if (!historyWidgetKept || mInputBox == null || history == null) {

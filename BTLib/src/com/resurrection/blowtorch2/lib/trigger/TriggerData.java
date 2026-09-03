@@ -91,16 +91,8 @@ public class TriggerData implements Parcelable {
 	private String patternError;
 
 	/**
-	 * The pattern with every {@code $alias{name}} it could resolve pasted in,
-	 * or null when nothing has resolved it.
-	 *
-	 * <p>Kept beside {@code pattern} rather than replacing it, because the
-	 * player's text is what the editor shows and what the profile stores, and
-	 * what {@link #setPattern} clears this against. It does cross the binder:
-	 * the UI process builds the tappable-word rules from
-	 * {@link #getCompiledPattern()} of a trigger it was handed, and while this
-	 * stayed behind in the service that pattern was the alias's name -- the
-	 * word never lit up.
+	 * Alias-resolved pattern, stored beside raw {@code pattern} (editor/XML).
+	 * Crosses the binder so UI tap rules compile the resolved form.
 	 */
 	private String resolvedPattern;
 

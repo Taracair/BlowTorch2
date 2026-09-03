@@ -1415,19 +1415,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	private static final String KEY_FIRST_RUN_SHOWN = "shown";
 
 	/**
-	 * Say once, on a first install, that nearly everything is off on purpose.
-	 *
-	 * <p>The client has more in it than a first screen can suggest, and a new
-	 * player meeting all of it at once reads that as clutter rather than as
-	 * choice. This is the one place that says out loud that the emptiness is
-	 * deliberate and where the switches are.
-	 *
-	 * <p><b>Only on a real first install.</b> Someone who has been playing for a
-	 * year does not need to be told how the app they already configured works,
-	 * and an upgrade must not nag. The package's own install and update stamps
-	 * settle that exactly: they are equal until the app has been updated at
-	 * least once. A count of configured worlds would not — the launcher ships
-	 * with the Starter Tutorial in the list, so a fresh install has one already.
+	 * First-install only ({@code firstInstallTime == lastUpdateTime}). The
+	 * tutorial row is already in the list, so world-count is not a first-run test.
 	 */
 	private void maybeShowFirstRunNotice() {
 		final SharedPreferences prefs =
@@ -2360,26 +2349,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	/**
-	 * One update check per process, not per Activity instance.
-	 *
-	 * <p>Rotating the launcher destroys and recreates it, and an instance field
-	 * would let that count as a fresh launch. The 24-hour gate inside
-	 * {@link UpdateChecker} would mostly hide it, but "once per launch" should
-	 * mean what it says.
+	 * One update check per process. Rotation recreates the Activity.
 	 */
 	private static boolean updateCheckStartedThisLaunch = false;
 
 	/**
-	 * Ask GitHub about a newer release when the player opens the launcher.
-	 *
-	 * <p>This is the app starting up, which is the honest place for it: the
-	 * check is a property of the install, and the launcher is the one screen
-	 * every session goes through. It used to hang off a connection profile's
-	 * Miscellaneous options and fire from MainWindow, which meant the setting
-	 * read as per-world and the dialog could land in the middle of a session.
-	 *
-	 * <p>Silent on any failure, at most once a day inside the checker, and
-	 * never at all on the test flavour — see {@code UpdateChecker.checkAsync}.
+	 * Launcher startup; once per process. Silent on failure, at most once a day,
+	 * never on the test flavour.
 	 */
 	private void maybeCheckForUpdates() {
 		if (updateCheckStartedThisLaunch) {

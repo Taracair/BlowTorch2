@@ -233,25 +233,6 @@ public class HyperSettings {
 			
 			out.endTag("", BaseParser.TAG_WINDOW);
 			
-			/****************************************
-			out.startTag("",BaseParser.TAG_DATASEMINEWLINE);
-			if(data.isSemiIsNewLine()) {
-				out.text("1");
-			} else {
-				out.text("2");
-			}
-			
-			out.endTag("", BaseParser.TAG_DATASEMINEWLINE);
-			
-			out.startTag("", BaseParser.TAG_PROCESSPERIOD);
-			if(data.isProcessPeriod()) {
-				out.text("true");
-			} else {
-				out.text("false");
-			}
-			out.endTag("",BaseParser.TAG_PROCESSPERIOD);
-			********************************************/
-			
 			out.startTag("",BaseParser.TAG_SERVICE);
 			
 			out.attribute("", BaseParser.ATTR_SEMINEWLINE, (data.isSemiIsNewLine()) ? "true" : "false");

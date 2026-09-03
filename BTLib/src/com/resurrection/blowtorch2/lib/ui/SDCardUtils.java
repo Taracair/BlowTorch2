@@ -243,18 +243,9 @@ public class SDCardUtils {
     private static volatile File sRootCache;
 
     /**
-     * The grant state the cached root was worked out under.
-     *
-     * <p>Explicit invalidation was not enough and produced a real bug: the UI
-     * and the {@code :stellar} service are separate processes with separate
-     * copies of this static, so clearing it in the UI did nothing for the
-     * service, which is where settings export and import actually run. Granting
-     * All files access left the service writing to app-internal storage
-     * forever, and import could not find anything.
-     *
-     * <p>Checking the grant instead is self-correcting in both processes.
-     * {@link Environment#isExternalStorageManager()} is a cheap state read, not
-     * the eight filesystem probes that made caching worth doing.
+     * Grant flag the cached root was computed under. UI and {@code :stellar}
+     * are separate statics; re-check {@link Environment#isExternalStorageManager()}
+     * instead of hoping invalidate crossed processes.
      */
     private static volatile boolean sRootCacheHadAllFiles;
 

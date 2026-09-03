@@ -423,12 +423,7 @@ local function drawAccordionChevron(canvas, paint, rect, direction, expanded, de
 	drawDirectionArrow(canvas, paint, cx, cy, drawDir, size, color)
 end
 
--- Compass layout for the gesture hints: the four straight swipes are lettered on
--- the edge midpoints, the four diagonals are small arrows in the corners.
---
--- The letters used to sit at 72% of the width/height, which is a corner. That was
--- fine while only four directions existed; it collides with the diagonals now, so
--- they moved to true midpoints.
+-- Straight swipe letters at edge midpoints (72% collided with diagonals).
 local STRAIGHT_HINTS = {
 	{ field = "swipeUpCommand",    text = "U", edge = "top"    },
 	{ field = "swipeDownCommand",  text = "D", edge = "bottom" },

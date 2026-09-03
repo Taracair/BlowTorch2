@@ -15,43 +15,16 @@ import android.speech.tts.UtteranceProgressListener;
  */
 public final class SpeechEngine {
 
-	/**
-	 * How many utterances may be waiting before the backlog is dropped.
-	 *
-	 * <p>Three is about two seconds of speech. Past that the words being spoken
-	 * are describing something that has already stopped being true.
-	 */
+	/** How many utterances may wait before the backlog is dropped (~2 s). */
 	public static final int MAX_PENDING = 3;
 
-	/**
-	 * The same text within this many milliseconds is not repeated.
-	 *
-	 * <p>Worlds repeat lines — a status line, the same miss message four times
-	 * in a round. Saying it four times is noise, and it pushes the line that
-	 * mattered out of the queue.
-	 */
+	/** Same text within this window is not spoken again. */
 	public static final long REPEAT_GUARD_MS = 1500;
 
-	/**
-	 * How long after the last sign of typing speech stays quiet.
-	 *
-	 * <p>A safety net, not the mechanism: the input bar says when it is empty
-	 * again, and this only matters if that message never arrives — the UI
-	 * process being killed mid-command, say. Without it a player could be left
-	 * with an alert that has silently stopped working and no way to guess why.
-	 */
+	/** Quiet timeout if the empty-bar message never arrives. */
 	public static final long TYPING_QUIET_TIMEOUT_MS = 30000;
 
-	/**
-	 * Whether typing silences speech at all — the player's choice, from
-	 * Options → Input.
-	 *
-	 * <p>Off, matching the option's own default. Speaking whenever a trigger
-	 * fires is what this app has always done, so that is what a player who never
-	 * opens the option gets. On, the quiet falls over the busiest moments — you
-	 * type most in a fight — and an alert that goes silent exactly then is a
-	 * worse failure than one that talks too much, so it is opted into.
-	 */
+	/** Options → Input; default off so alerts still speak in a fight. */
 	private static volatile boolean quietWhileTyping = false;
 
 	/** @param quiet true to stay silent while a command is being composed. */
@@ -64,14 +37,7 @@ public final class SpeechEngine {
 	private static volatile long playerTypingAt = 0;
 
 	/**
-	 * The input bar has something in it, or has just been emptied.
-	 *
-	 * <p>Static because the caller is a binder thread in {@code :stellar} and the
-	 * engine may not have been made yet — the first thing a player does after
-	 * connecting is often type, and building a speech engine to record that
-	 * would be absurd.
-	 *
-	 * @param typing true while a command is being composed.
+	 * Input bar empty/full. Static: the binder may run before the engine exists.
 	 */
 	public static void setPlayerTyping(final boolean typing) {
 		playerTyping = typing;
@@ -106,12 +72,7 @@ public final class SpeechEngine {
 	/** Why it is not speaking, in words a player can act on. */
 	private String problem = null;
 
-	/**
-	 * Kept so the engine can say when nobody can hear it.
-	 *
-	 * <p>The application context, so holding it leaks nothing — this is a
-	 * process-lifetime singleton already.
-	 */
+	/** Application context: process-lifetime singleton, used when nobody can hear TTS. */
 	private final Context appContext;
 
 	private SpeechEngine(final Context context) {

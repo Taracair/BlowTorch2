@@ -1760,26 +1760,9 @@ public class MapperController {
 	}
 
 	/**
-	 * Load a named map (or create empty if missing).
-	 *
+	 * Host-claimed map, else adopt unclaimed {@code default}, else a new file
+	 * named for the host. Blank host falls back to the shared name.
 	 * @return status message for the window
-	 */
-	/**
-	 * Open the map that belongs to this world, creating it the first time.
-	 *
-	 * <p>Every connection used to open the file literally called {@code default},
-	 * so every MUD drew into the same map and rooms from different worlds piled
-	 * up in one file. {@code hostHint} was written into each map and then never
-	 * read by anything.
-	 *
-	 * <p>Order: a saved map already claimed by this host wins. Failing that, an
-	 * unclaimed {@code default} is adopted and stamped — that is the map someone
-	 * upgrading already has, and it must not appear to vanish. Otherwise the
-	 * world gets a file of its own, named after its host.
-	 *
-	 * @param host Host of the current connection; blank falls back to the old
-	 *     shared name, since without a host there is nothing to separate.
-	 * @return Status line for the caller to show.
 	 */
 	public String openMapForHost(final String host) {
 		String h = host == null ? "" : host.trim();
@@ -1963,6 +1946,10 @@ public class MapperController {
 		}
 	}
 
+	/**
+	 * Load a named map (or create empty if missing).
+	 * @return status message for the window
+	 */
 	public String openMap(final String name) {
 		String mapName = TextUtils.isEmpty(name) ? DEFAULT_MAP_NAME : name.trim();
 		Context ctx = context();
