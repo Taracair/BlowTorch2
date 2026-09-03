@@ -26,10 +26,10 @@ Use:
   section for the area, and a short "what this is" (paths + a few sentences,
   not a wave essay). Tell it to run `scripts/review-diff.sh` in that repo.
 
-Do **not** dump whole-tree `git diff`. The tool result is truncated here
-(god classes, fat waves). `scripts/review-diff.sh` prints status, `--stat`,
-then per-file diffs up to a byte budget. For `TOO LARGE` or remaining files:
-`git diff -- <one path>` or `git diff -U0 -- <path>`. Do not Read a 4000-line
+Do **not** dump whole-tree `git diff`. Cursor Shell results omit the middle
+of large stdout. `scripts/review-diff.sh` prints a short index and writes
+hunks to `.scratch/review-diff/page-NN.txt`. Read every listed page. A
+one-page bundle that fits is also printed inline. Do not Read a 4000-line
 class hunting for the hunk.
 
 Triage, fix real findings, re-run until clean or until you hit something to

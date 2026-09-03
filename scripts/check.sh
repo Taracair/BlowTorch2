@@ -146,6 +146,10 @@ if ! grep -q 'scripts/review-diff.sh' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc must tell the reviewer to run scripts/review-diff.sh"
   reviewer_ok=0
 fi
+if ! grep -Fq '.scratch/review-diff' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc must tell the reviewer to Read .scratch/review-diff pages"
+  reviewer_ok=0
+fi
 if grep -qE 'tell it to run `git diff` in that repo' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc still tells the reviewer to dump git diff"
   reviewer_ok=0
@@ -153,9 +157,19 @@ fi
 if [ ! -x scripts/review-diff.sh ]; then
   echo "scripts/review-diff.sh is missing or not executable"
   reviewer_ok=0
-elif ! scripts/review-diff.sh >/dev/null; then
-  echo "scripts/review-diff.sh failed on the current tree"
-  reviewer_ok=0
+else
+  rd_out="$(mktemp)"
+  if ! scripts/review-diff.sh >"$rd_out"; then
+    echo "scripts/review-diff.sh failed on the current tree"
+    reviewer_ok=0
+  elif ! grep -Fq '.scratch/review-diff' "$rd_out"; then
+    echo "scripts/review-diff.sh stdout must name .scratch/review-diff"
+    reviewer_ok=0
+  elif grep -q '^diff --git' "$rd_out" && ! grep -q '=== page-01 (inline' "$rd_out"; then
+    echo "scripts/review-diff.sh dumped hunks onto stdout instead of pages"
+    reviewer_ok=0
+  fi
+  rm -f "$rd_out"
 fi
 if [ "$reviewer_ok" -eq 1 ]; then
   echo "ok"

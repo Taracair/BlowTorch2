@@ -21,8 +21,8 @@ REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
 REVIEW_DIFF_NOTE = (
     "[BlowTorch] Do not dump whole-tree `git diff`. In Full Repository Path "
     "run `scripts/review-diff.sh` (uncommitted) or `scripts/review-diff.sh HEAD` "
-    "(already committed). For TOO LARGE or remaining files: "
-    "`git diff -- <one path>` or `git diff -U0 -- <path>`.\n\n"
+    "(already committed). Then Read every `.scratch/review-diff/page-NN.txt` "
+    "the script lists. Do not Read a 4000-line class hunting for the hunk.\n\n"
 )
 
 # Cursor pins the `bugbot` *type* to Composer 2.5 and ignores `model`. We do
@@ -258,6 +258,9 @@ def _self_test() -> int:
             if "review-diff.sh" not in prompt:
                 print(f"FAIL missing review-diff recipe: {inp!r}", file=sys.stderr)
                 failed += 1
+            if "scratch/review-diff" not in prompt:
+                print(f"FAIL missing review-diff pages: {inp!r}", file=sys.stderr)
+                failed += 1
             if inp.get("subagent_type") == "bugbot" and "Composer 2.5" not in prompt:
                 print(f"FAIL missing composer-type note: {inp!r}", file=sys.stderr)
                 failed += 1
@@ -313,7 +316,12 @@ def _self_test() -> int:
         },
     })
     inj = inject.get("updated_input") if isinstance(inject.get("updated_input"), dict) else {}
-    if inject.get("permission") != "allow" or "review-diff.sh" not in (inj.get("prompt") or ""):
+    inj_prompt = inj.get("prompt") or ""
+    if (
+        inject.get("permission") != "allow"
+        or "review-diff.sh" not in inj_prompt
+        or "scratch/review-diff" not in inj_prompt
+    ):
         print(f"FAIL recipe inject on correct-model Bugbot: {inject!r}", file=sys.stderr)
         failed += 1
 

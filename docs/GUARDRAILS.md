@@ -31,7 +31,7 @@ new opportunity for the two copies to disagree.
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
 | Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
-| Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script |
+| Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script and `.scratch/review-diff` |
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
 | Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
 | Wrap-up omitted "what was not verified" | Claude Code `Stop` (`claude-stop-reminder.sh`) | Continues the turn once; Cursor cannot do this |
@@ -115,7 +115,7 @@ scripts/guards/          rules, one file each, exit-code based
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
   task_model.py          reviewer Task is Grok, not Composer-pinned bugbot
-scripts/review-diff.sh   per-file review bundle; whole-tree git diff truncates
+scripts/review-diff.sh   index on stdout; hunks in .scratch/review-diff/page-NN.txt
 scripts/hooks/
   pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest
   commit-msg             git hook: the probe check, which needs the real message
