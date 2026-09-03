@@ -48,8 +48,8 @@ public class TriggerSampleHitsTest {
 				"CORPCHAT: Name opens north", cands, TriggerSampleHits.MAIN_PLUGIN,
 				Collections.singletonList("_opens"), 8);
 		assertEquals(1, hits.size());
-		assertEquals("_channel", hits.get(0));
-		assertEquals("Also matches: _channel", TriggerSampleHits.formatHits(hits));
+		assertEquals("_channel (10)", hits.get(0));
+		assertEquals("Also matches: _channel (10)", TriggerSampleHits.formatHits(hits));
 	}
 
 	@Test
@@ -63,7 +63,7 @@ public class TriggerSampleHitsTest {
 		List<String> hits = TriggerSampleHits.matchingLabels(
 				"CORPCHAT: Name opens north", cands, TriggerSampleHits.MAIN_PLUGIN,
 				Arrays.asList("_opens_v2", "_opens"), 8);
-		assertEquals(Collections.singletonList("_channel"), hits);
+		assertEquals(Collections.singletonList("_channel (10)"), hits);
 	}
 
 	@Test
@@ -100,6 +100,21 @@ public class TriggerSampleHitsTest {
 		TriggerData t = line("_opens", "opens", true);
 		TriggerSampleHits.Candidate c = TriggerSampleHits.Candidate.tryCreate(
 				"pack-a", t);
-		assertEquals("pack-a: _opens", c.label());
+		assertEquals("pack-a: _opens (10)", c.label());
+	}
+
+	@Test
+	public void labelsIncludeSequenceSoReplaceVsColourIsVisible() {
+		TriggerData channel = line("_channel", "CORPCHAT:", true);
+		channel.setSequence(10);
+		TriggerData colour = line("_colour", "opens", true);
+		colour.setSequence(11);
+		List<TriggerSampleHits.Candidate> cands =
+				new ArrayList<TriggerSampleHits.Candidate>();
+		cands.add(TriggerSampleHits.Candidate.tryCreate(TriggerSampleHits.MAIN_PLUGIN, colour));
+		cands.add(TriggerSampleHits.Candidate.tryCreate(TriggerSampleHits.MAIN_PLUGIN, channel));
+		List<String> hits = TriggerSampleHits.matchingLabels(
+				"CORPCHAT: Name opens north", cands, null, null, 8);
+		assertEquals(Arrays.asList("_channel (10)", "_colour (11)"), hits);
 	}
 }

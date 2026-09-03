@@ -46,10 +46,11 @@ public final class TriggerSampleHits {
 		}
 
 		public String label() {
+			String seq = " (" + sequence + ")";
 			if (isMainPlugin(plugin)) {
-				return name;
+				return name + seq;
 			}
-			return plugin + ": " + name;
+			return plugin + ": " + name + seq;
 		}
 
 		/**

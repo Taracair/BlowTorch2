@@ -15,7 +15,7 @@ package com.resurrection.blowtorch2.lib.service;
  * from the standalone-5 path, not {@link #apply(int)}.
  *
  * <p>SGR 21 is double underline (ECMA-48). It is not xterm bold-off; that is
- * 22. Paint still sets a single underline plus a second hairline.
+ * 22. Paint draws two equal hairlines (not the system underline plus a bar).
  */
 public final class SgrStyle {
 

@@ -158,6 +158,31 @@ public final class EditorHelp {
 			+ "A trigger can use an alias's text as its pattern, so one alias is the "
 			+ "single place a word is written down. See the ? in the trigger editor.";
 
+	/**
+	 * Order / Who else fires. Shared by the Triggers list {@code ?} and the
+	 * trigger editor {@code ?}, which is the screen that has the Order box.
+	 */
+	public static final String TRIGGER_ORDER =
+			"ORDER\n"
+			+ "Smaller number runs first. 10 is the default for every new trigger, "
+			+ "so a replace you never numbered is at 10. 9 is not \"on top\": it "
+			+ "runs before that replace, and the replace can wipe the colour. A "
+			+ "colour at 11 already runs after a default replace; 20 is only a gap "
+			+ "so you can slot something in between. A channel rewrite at 10 and a "
+			+ "word colour at 11: CORPCHAT: Name opens north keeps the channel "
+			+ "colour except opens is yellow. Two triggers with the same number run "
+			+ "A to Z by name, and the editor says when they share it — split the "
+			+ "numbers if that order is wrong. Keep going? does not set this order.\n\n"
+			+ "The Triggers list shows the number on each row. Options (=) can sort "
+			+ "by sequence instead of group, name. Sorting All by sequence is not "
+			+ "the same as fire order (main runs, then each plugin). The Order "
+			+ "sentence is inside one plugin — Fires first means first in that set.\n\n"
+			+ "WHO ELSE FIRES\n"
+			+ "Type a game line under Order. Other enabled triggers that also match "
+			+ "that line are listed with their numbers, so you can see the replace "
+			+ "is at 10 and put the colour at 11. It tries one line; it does not "
+			+ "compare patterns.\n\n";
+
 	public static final String TRIGGERS =
 			"A trigger matches a line the GAME sent, and runs its actions. It never "
 			+ "sees what you type -- that is an alias.\n\n"
@@ -209,22 +234,7 @@ public final class EditorHelp {
 			+ "On by default. Every trigger that matches the line still runs, so one "
 			+ "can rewrite a channel tag and another can gag the spam inside it. "
 			+ "Untick Keep going? on a trigger to stop later ones on that line.\n\n"
-			+ "ORDER\n"
-			+ "Smaller number runs first. 10 is the default. 9 is not \"on top\": it "
-			+ "runs before a replace at 10, and the replace can wipe the colour. Put "
-			+ "the colour after the replace (20) if the word should stay tinted. A "
-			+ "channel rewrite at 10 and a word colour at 20: CORPCHAT: Name opens "
-			+ "north keeps the channel colour except opens is yellow. Two triggers "
-			+ "with the same number run A to Z by name, and the editor says when they "
-			+ "share it — split the numbers if that order is wrong. Keep going? does "
-			+ "not set this order.\n\n"
-			+ "The Triggers list shows the number on each row. Options (=) can sort "
-			+ "by sequence instead of group, name. Sorting All by sequence is not "
-			+ "the same as fire order (main runs, then each plugin). The Order "
-			+ "sentence is inside one plugin — Fires first means first in that set.\n\n"
-			+ "WHO ELSE FIRES\n"
-			+ "Type a game line under Order. Other enabled triggers that also match "
-			+ "that line are listed. It tries one line; it does not compare patterns.\n\n"
+			+ TRIGGER_ORDER
 			+ "A DOLLAR IN THE GAME TEXT\n"
 			+ "In a regular expression $ is end of line, not a price. earned $70 "
 			+ "needs earned \\$70.\n\n"

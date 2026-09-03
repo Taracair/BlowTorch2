@@ -553,10 +553,12 @@ In the trigger editor:
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
   Off → after this trigger fires, later triggers are not tried on this line.  
-- **Order** → smaller number runs first (default **10**). **9 is not "on
-  top"**: it runs *before* a replace at 10, and the replace can wipe the
-  colour. Put the colour after the replace (**20**) if the word should stay
-  tinted. A channel rewrite at 10 and a word colour at 20: `CORPCHAT: Name
+- **Order** → smaller number runs first (default **10** for every new
+  trigger, so a replace you never numbered is at 10). **9 is not "on
+  top"**: it runs *before* that replace, and the replace can wipe the
+  colour. A colour at **11** already runs after a default replace; **20**
+  is only a gap so you can slot something in between. A channel rewrite
+  at 10 and a word colour at 11: `CORPCHAT: Name
   opens north` stays channel colour except `opens` is yellow. Off-channel,
   `Name opens north` is yellow throughout that word. Two triggers with the
   same number run A→Z by name;
@@ -566,8 +568,9 @@ In the trigger editor:
   default). Sorting **All** by sequence is not fire order: main runs, then
   each plugin.  
 - **Who else fires** → type a game line under Order. Other enabled triggers
-  that also match that line are listed. It tries one line; it does not
-  compare patterns.  
+  that also match that line are listed **with their numbers**, so you can
+  see the replace is at 10 and put the colour at 11. It tries one line; it
+  does not compare patterns.  
 - **Preview** under the pattern box is three lines; **Show all** / **Show less**
   opens the rest (what the pattern will really match, alias paste, compile).
   **New Action** stays pinned above Cancel / ? / Done.  
@@ -2339,7 +2342,10 @@ is kept when you close the world.
 
 ## Colours the world sends
 
-Bold is the **bright palette** (SGR 1), not a heavier typeface. Italic (3),
+Bold is the **bright palette** (SGR 1), not a heavier typeface: a bold
+letter that grew wider would bend the column grid (maps, prompts). The
+window Font option can still pick a bold face for the whole window.
+Italic (3),
 underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
 sends `[3mlook[23m` shows `look` slanted; `[4m` puts a line under the word;
 `[9m` a line through it; `[7m` swaps ink and paper; `[2m` is dimmer.

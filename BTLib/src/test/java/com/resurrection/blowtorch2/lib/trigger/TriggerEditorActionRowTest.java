@@ -63,6 +63,9 @@ public class TriggerEditorActionRowTest {
 	public void editorHelpMergesPatternAndConditions() {
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("LITERAL?"));
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("KEEP GOING"));
+		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("ORDER"));
+		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("not \"on top\""));
+		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("WHO ELSE FIRES"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
 	}

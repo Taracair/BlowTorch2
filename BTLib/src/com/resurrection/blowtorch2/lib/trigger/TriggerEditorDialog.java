@@ -794,6 +794,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "FIRE ONCE?\n"
 			+ "Fires the first time and then stays quiet until the trigger is enabled "
 			+ "again.\n\n"
+			+ com.resurrection.blowtorch2.lib.window.EditorHelp.TRIGGER_ORDER
 			+ "A DOLLAR IN THE GAME TEXT\n"
 			+ "In a regular expression $ means end of line, not a price. To match "
 			+ "earned $70 write earned \\$70.";

@@ -18,6 +18,8 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.TRIGGERS.contains("KEEP GOING"));
 		assertTrue(EditorHelp.TRIGGERS.contains("ORDER"));
 		assertTrue(EditorHelp.TRIGGERS.contains("not \"on top\""));
+		assertTrue(EditorHelp.TRIGGER_ORDER.contains("colour at 11"));
+		assertTrue(EditorHelp.TRIGGERS.contains(EditorHelp.TRIGGER_ORDER));
 		assertTrue(EditorHelp.TRIGGERS.contains("WHO ELSE FIRES"));
 		assertTrue(EditorHelp.TIMERS.contains("CONDITIONS"));
 	}

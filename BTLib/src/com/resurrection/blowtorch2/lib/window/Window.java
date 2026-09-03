@@ -1568,9 +1568,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (!mSgr.doubleUnderline() || width <= 0f || c == null || paint == null) {
 			return;
 		}
-		final float thickness = Math.max(1f, mDensity);
-		final float top = screenBaselineY(y) + 3f * thickness;
-		c.drawRect(x, top, x + width, top + thickness, paint);
+		// Two equal hairlines. A density-tall rect under Paint's native underline
+		// was one thin stroke plus a bar (measured on the baudtest Doubleul row).
+		final float stroke = Math.max(1f, mDensity * 0.35f);
+		final float gap = Math.max(2f, mDensity);
+		final float y1 = screenBaselineY(y) + Math.max(1f, mDensity);
+		final float y2 = y1 + stroke + gap;
+		c.drawRect(x, y1, x + width, y1 + stroke, paint);
+		c.drawRect(x, y2, x + width, y2 + stroke, paint);
 	}
 
 	private void scheduleBlinkIfNeeded() {
@@ -4667,7 +4672,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * {@link Typeface#ITALIC} — {@code ensureGridCache} keys typeface+size.
 	 */
 	private void applySgrDecorations(final Paint textPaint) {
-		textPaint.setUnderlineText(mSgr.underline());
+		textPaint.setUnderlineText(mSgr.underline() && !mSgr.doubleUnderline());
 		textPaint.setStrikeThruText(mSgr.strike());
 		textPaint.setTextSkewX(mSgr.italic() ? SgrStyle.ITALIC_SKEW : 0f);
 	}
@@ -6187,7 +6192,7 @@ end
 		try {
 			// Bundled assets: "fonts/DejaVuSansMono.ttf"
 			if (name.startsWith("fonts/") && name.endsWith(".ttf")) {
-				return Typeface.createFromAsset(getContext().getAssets(), name);
+				return typefaceFromAssetWithEmojiFallback(name);
 			}
 			if(name.contains("/")) {
 				if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
@@ -6218,9 +6223,9 @@ end
 	 * then a real system mono TTF, then {@link Typeface#MONOSPACE}.
 	 */
 	private Typeface loadBundledOrSystemMonospace() {
-		try {
-			return Typeface.createFromAsset(getContext().getAssets(), "fonts/DejaVuSansMono.ttf");
-		} catch (RuntimeException ignored) {
+		Typeface bundled = typefaceFromAssetWithEmojiFallback("fonts/DejaVuSansMono.ttf");
+		if (bundled != null) {
+			return bundled;
 		}
 		String[] candidates = new String[] {
 				"/system/fonts/DroidSansMono.ttf",
@@ -6239,6 +6244,68 @@ end
 			}
 		}
 		return Typeface.MONOSPACE;
+	}
+
+	/**
+	 * DejaVu from assets does not pick up the system emoji chain by itself, so
+	 * missing glyphs become tofu (measured on baudtest U+1F400 and the
+	 * LociTerm line). API 29+ chains Noto Color Emoji as a fallback for holes
+	 * only; Block Elements stay DejaVu.
+	 */
+	private Typeface typefaceFromAssetWithEmojiFallback(final String assetPath) {
+		if (android.os.Build.VERSION.SDK_INT >= 29) {
+			Typeface chained = typefaceApi29WithEmoji(assetPath);
+			if (chained != null) {
+				return chained;
+			}
+		}
+		try {
+			return Typeface.createFromAsset(getContext().getAssets(), assetPath);
+		} catch (RuntimeException ignored) {
+			return null;
+		}
+	}
+
+	@android.annotation.TargetApi(29)
+	private Typeface typefaceApi29WithEmoji(final String assetPath) {
+		try {
+			android.graphics.fonts.Font monoFont = new android.graphics.fonts.Font.Builder(
+					getContext().getAssets(), assetPath).build();
+			android.graphics.fonts.FontFamily monoFamily =
+					new android.graphics.fonts.FontFamily.Builder(monoFont).build();
+			Typeface.CustomFallbackBuilder builder =
+					new Typeface.CustomFallbackBuilder(monoFamily);
+			addSystemEmojiFallback(builder);
+			return builder.build();
+		} catch (java.io.IOException e) {
+			return null;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	@android.annotation.TargetApi(29)
+	private void addSystemEmojiFallback(final Typeface.CustomFallbackBuilder builder) {
+		String[] paths = {
+				"/system/fonts/NotoColorEmoji.ttf",
+				"/system/fonts/NotoColorEmojiFlags.ttf",
+		};
+		for (String path : paths) {
+			java.io.File f = new java.io.File(path);
+			if (!f.isFile()) {
+				continue;
+			}
+			try {
+				android.graphics.fonts.Font font =
+						new android.graphics.fonts.Font.Builder(f).build();
+				android.graphics.fonts.FontFamily family =
+						new android.graphics.fonts.FontFamily.Builder(font).build();
+				builder.addCustomFallback(family);
+			} catch (java.io.IOException ignored) {
+			} catch (IllegalArgumentException ignored) {
+				return;
+			}
+		}
 	}
 	
 	private View.OnTouchListener textSelectionTouchHandler = new View.OnTouchListener() {
