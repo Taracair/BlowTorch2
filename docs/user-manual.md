@@ -553,10 +553,13 @@ In the trigger editor:
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
   Off → after this trigger fires, later triggers are not tried on this line.  
-- **Order** → smaller number runs first (default **10**). A channel rewrite
-  at 10 and a word colour at 20: `CORPCHAT: Name opens north` stays channel
-  colour except `opens` is yellow. Off-channel, `Name opens north` is yellow
-  throughout that word. Two triggers with the same number run A→Z by name;
+- **Order** → smaller number runs first (default **10**). **9 is not "on
+  top"**: it runs *before* a replace at 10, and the replace can wipe the
+  colour. Put the colour after the replace (**20**) if the word should stay
+  tinted. A channel rewrite at 10 and a word colour at 20: `CORPCHAT: Name
+  opens north` stays channel colour except `opens` is yellow. Off-channel,
+  `Name opens north` is yellow throughout that word. Two triggers with the
+  same number run A→Z by name;
   the editor says when they share a number — split them if that order is
   wrong. Keep going? does not set this order. The list shows the number on
   each row. Options (`=`) can sort by sequence instead of group, name (the
