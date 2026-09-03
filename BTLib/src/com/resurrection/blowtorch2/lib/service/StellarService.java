@@ -322,10 +322,17 @@ public class StellarService extends Service {
 					// the map is non-empty and the lookup misses instead.
 					// Crashed here 31 July 2026, 14:44 (getWindowTokens from
 					// MainWindow.onServiceConnected).
+					boolean hadOpenWorld = !mConnections.isEmpty();
 					c = new Connection(display, host, port, useTls, StellarService.this);
 					mConnections.put(display, c);
 					mConnectionClutch = display;
 					c.initWindows();
+					// First world is registerCallback → setConnectionData →
+					// initWindows → reloadWindows. A second world needs switchTo
+					// so the already-initialized UI marks dirty and loads B.
+					if (hadOpenWorld) {
+						switchTo(display);
+					}
 				}
 				break;
 			case MESSAGE_SWITCH:

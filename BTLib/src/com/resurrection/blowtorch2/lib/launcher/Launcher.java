@@ -1752,6 +1752,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     	// the one authoritative carrier of it. Everything downstream either
     	// forwards it or falls back to the CONNECT_TO prefs written from here.
     	the_intent.putExtra(EXTRA_TLS, launch.isUseTls());
+    	the_intent.putExtra(EXTRA_LAUNCH_FROM_SHORTCUT, true);
     	
     	//write out the intent to the service so it can do some lookup work in advance of the connection, such as loading the settings wad
     	//SharedPreferences prefs = Launcher.this.getSharedPreferences("SERVICE_INFO",0);

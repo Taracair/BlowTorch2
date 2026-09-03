@@ -58,6 +58,8 @@ public class LauncherFavoriteXmlTest {
 		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
 		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP) != 0);
 		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0);
+		assertEquals("pins must stay in Recents with the game task",
+				0, flags & android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
 	}
 
 	@Test

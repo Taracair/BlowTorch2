@@ -22,6 +22,11 @@ import com.resurrection.blowtorch2.lib.window.MainWindow;
  * home screen uses to bring an existing app task to the front as-is. On a
  * pin, the existing task is often the server list, so the player never left
  * it. Notifications keep that flag because they mean "resume this session".
+ *
+ * <p>The trampoline uses a separate taskAffinity and is not
+ * excludeFromRecents: that attribute on the root of a new task hid the
+ * whole game from Recents. noHistory still drops the trampoline from the
+ * back stack.
  */
 public final class WorldLaunch {
 
@@ -107,6 +112,7 @@ public final class WorldLaunch {
 		if (LauncherShortcutExtras.hasTls(source)) {
 			world.putExtra(LauncherShortcutExtras.TLS, tls);
 		}
+		world.putExtra(LauncherShortcutExtras.LAUNCH_FROM_SHORTCUT, true);
 		// Application context so the trampoline can finish (windowNoDisplay)
 		// without cancelling this start.
 		Context start = ctx.getApplicationContext();

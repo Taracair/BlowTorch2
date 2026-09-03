@@ -131,6 +131,8 @@ import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
+import com.resurrection.blowtorch2.lib.launcher.LauncherShortcutExtras;
+import com.resurrection.blowtorch2.lib.launcher.PinLaunch;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
@@ -355,6 +357,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String mPendingChatThread;
 	/** World that extra belongs to; do not open the drawer on another clutch. */
 	private String mPendingChatDisplay;
+	/**
+	 * Pin / list tap asked for a different DISPLAY this resume cycle. Cleared
+	 * at the end of {@link #onResume} so screen-off still trusts the clutch.
+	 */
+	private boolean mPinLaunchPending;
 	/** Overlay gauges over the game; see ensureGaugeWidgets(). */
 	private GaugeWidgetController gaugeWidgets;
 	/** Floating button copies over the game; see ensureFloatingButtons(). */
@@ -4905,15 +4912,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// Exception: a chat-notification tap already set the
 						// Intent to the destination and posted switchTo; the
 						// clutch has not moved yet. Reverting would open the
-						// thread on the wrong world.
+						// thread on the wrong world. Same for a pin this cycle:
+						// setConnectionData has not created the world yet.
 						boolean chatNotifyPending = mPendingChatThread != null
 								&& mPendingChatThread.length() > 0
 								&& display != null
 								&& display.equals(mPendingChatDisplay);
+						boolean pinLaunchPending = mPinLaunchPending;
 						if (!connected.equals(display)) {
 							if (chatNotifyPending) {
 								Log.i("BlowTorch", "onResume: keep Intent "
 										+ display + " (chat notify; clutch "
+										+ connected + ")");
+							} else if (pinLaunchPending) {
+								Log.i("BlowTorch", "onResume: keep Intent "
+										+ display + " (pin launch; clutch "
 										+ connected + ")");
 							} else {
 								Log.i("BlowTorch", "onResume: rebuild onto clutch "
@@ -4930,6 +4943,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e);
+			} finally {
+				// One resume cycle. Screen-off must trust the clutch again.
+				mPinLaunchPending = false;
 			}
 			
 			
@@ -8967,7 +8983,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		try {
 			String display = i.getStringExtra("DISPLAY");
 			if (service != null && display != null) {
-				if (!service.getConnectedTo().equals(display)) {
+				boolean fromPin = i.getBooleanExtra(
+						LauncherShortcutExtras.LAUNCH_FROM_SHORTCUT, false);
+				if (fromPin) {
+					String clutch = service.getConnectedTo();
+					boolean alreadyOpen = service.isConnectedTo(display);
+					PinLaunch.Action action = PinLaunch.decide(display, clutch,
+							alreadyOpen);
+					if (action == PinLaunch.Action.SWITCH_EXISTING) {
+						service.switchTo(display);
+						switched = true;
+						mPinLaunchPending = true;
+						rememberForegroundConnection(display);
+					} else if (action == PinLaunch.Action.OPEN_NEW) {
+						service.setConnectionData(getConnectionHost(),
+								getConnectionPort(), getConnectionTls(),
+								display);
+						mPinLaunchPending = true;
+						rememberForegroundConnection(display);
+					}
+				} else if (!service.getConnectedTo().equals(display)) {
 					if (service.isConnectedTo(display)) {
 						service.switchTo(display);
 						switched = true;

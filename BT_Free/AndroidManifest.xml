@@ -68,7 +68,7 @@
         <activity android:name="com.resurrection.blowtorch2.lib.launcher.WorldLaunchActivity"
                   android:theme="@style/BlowTorch.Invisible"
                   android:exported="true"
-                  android:excludeFromRecents="true"
+                  android:taskAffinity="${applicationId}.worldlaunch"
                   android:noHistory="true">
             <intent-filter>
                 <action android:name="com.resurrection.blowtorch2.LAUNCH_WORLD" />
