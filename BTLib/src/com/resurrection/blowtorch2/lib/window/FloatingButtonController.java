@@ -25,25 +25,11 @@ import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 /**
- * Floating button copies over the game: reads button snapshots from UI Lua,
- * hosts {@link FloatingButtonView}s in a {@link FloatingLayer}, writes
- * {@code floatX}/{@code floatY} back on drag drop. Shape mirrors
- * {@link ExtraTextOverlayController}.
- *
- * <p><b>Two hosting modes.</b> With {@code SYSTEM_ALERT_WINDOW} granted each
- * button gets its own {@code TYPE_APPLICATION_OVERLAY} window and therefore
- * draws <em>over</em> the keyboard, staying wherever it was put. Without the
- * grant the buttons live in a {@link FloatingLayer} inside
- * {@code window_container}, which the window manager stacks below the IME — so
- * there they can only be kept clear of the keys, never on top of them.
- *
- * <p>Overlay mode uses <b>two</b> windows per button, not one full-screen
- * window: a button-sized touchable window (presses/drags) and a larger
- * {@code FLAG_NOT_TOUCHABLE} window that only draws the gesture-hint padding.
- * A single padded touchable window would swallow keyboard taps in that band —
- * {@code FLAG_NOT_TOUCH_MODAL} only passes touches <em>outside</em> the window
- * rectangle, and returning {@code false} from a view does not. A full-screen
- * overlay would eat the keyboard outright.
+ * Floating copies of grid buttons. With {@code SYSTEM_ALERT_WINDOW}, each
+ * button is two overlay windows: a button-sized touch proxy and a larger
+ * {@code FLAG_NOT_TOUCHABLE} hint surface — one padded touchable window would
+ * swallow IME taps in the hint band. Without the grant, a {@link FloatingLayer}
+ * inside {@code window_container} sits below the IME.
  */
 public class FloatingButtonController {
 

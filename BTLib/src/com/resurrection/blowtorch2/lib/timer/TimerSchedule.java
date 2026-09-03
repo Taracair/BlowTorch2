@@ -1,33 +1,10 @@
 package com.resurrection.blowtorch2.lib.timer;
 
 /**
- * The arithmetic between a {@link TimerData} and {@code java.util.Timer}.
- *
- * <p>Extracted for the same reason {@link TimerDuration}, {@code AliasPattern} and
- * {@code TriggerPattern} were: {@code Plugin} cannot be tested on the JVM — it needs
- * {@code Handler}, {@code SystemClock} and a live scheduler — so any sum left inside it
- * is a sum nothing checks.
- *
- * <p>The sums here are not cosmetic. {@code Timer.schedule} throws
- * {@code IllegalArgumentException} on a negative delay or a non-positive period, and
- * {@code Plugin.startTimer} is reached from {@code ConnectionBinderFacade.startTimer},
- * which is a <em>synchronous</em> UI→service binder call with no {@code catch} anywhere
- * in the facade. An exception there is parcelled back and re-thrown in the UI process,
- * i.e. it kills the window. Two things used to feed it a negative number:
- *
- * <ul>
- * <li>{@code pauseTimer} stored {@code seconds - elapsed} unclamped. The task start is
- *     stamped with {@code elapsedRealtime()}, which counts through doze, while
- *     {@code java.util.Timer} does not fire while the device sleeps — so a 10 s repeat
- *     timer and an hour in a pocket left {@code remainingTime} at about -3590.
- * <li>{@code updateTimerProgress} wrote the same subtraction, and it runs on a binder
- *     thread out of {@code getTimers()} — opening the timer list was enough.
- * </ul>
- *
- * <p>So a stored remaining time is treated as untrusted here, and every value handed to
- * the scheduler is clamped at the point it is produced. A remaining time that is not a
- * sane fraction of the duration means the run is over rather than paused part-way, and a
- * fresh full-length run is the answer that cannot surprise the player.
+ * Delay and period for {@code java.util.Timer}, clamped before they leave here.
+ * A negative value on the binder ({@code Plugin.startTimer}) kills the UI.
+ * Remaining time is untrusted: {@code elapsedRealtime()} counts through doze,
+ * {@code Timer} does not, so pause can store a large negative.
  */
 public final class TimerSchedule {
 

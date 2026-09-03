@@ -479,27 +479,10 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * Show a suggestion after the caret, in dimmed type.
-	 *
-	 * <p><b>Drawn, never inserted.</b> Putting the ghost in the Editable with a
-	 * span would mean every TextWatcher on this field sees it — including the
-	 * Keep Last one — {@code wordBefore} would start completing the ghost itself,
-	 * and one missed strip on send would put a word the player never typed on the
-	 * wire. Drawing it keeps the text exactly what was typed, so there is nothing
-	 * to strip and nothing to get wrong.
-	 *
-	 * <p>The cost is still that it takes part in no measurement: the ghost never
-	 * makes the bar taller or wider. What it does now, rather than give up, is
-	 * use the room that is there — the rest of the line, then the next line if
-	 * the view already has one, and failing both an ellipsis. Something dimmed is
-	 * always visible, which is what makes it tappable.
-	 *
-	 * @param drawn what to show after the caret; null or empty clears the ghost.
-	 * @param word the whole completion a tap should insert. When the suggestion
-	 *        continues what was typed this is {@code typed + drawn}; for a
-	 *        forgiven typo the letters differ, which is exactly why the tap
-	 *        carries the word instead of re-deriving it from what is on screen.
-	 * @param number which suggestion this is, counting from 1; 0 draws no marker.
+	 * Ghost after the caret, drawn not inserted — a span would be seen by Keep
+	 * Last and {@code wordBefore}, and a missed strip would send untyped text.
+	 * Never grows the bar. {@code word} is what a tap inserts (may differ from
+	 * {@code drawn} on a forgiven typo).
 	 */
 	public void setGhostCompletion(String drawn, String word, int number) {
 		String next = drawn == null || drawn.length() == 0 ? null : drawn;

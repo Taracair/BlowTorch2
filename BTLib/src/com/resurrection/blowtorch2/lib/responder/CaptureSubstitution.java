@@ -5,18 +5,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Substitutes {@code $1}, {@code $2}, … in responder text with the pieces a
- * trigger or alias captured.
- *
- * <p>Every responder runs through here — Ack, Toast, Notification, Set Variable,
- * Replace — and so do the anchored alias forms, which makes it one of the most
- * used functions in the app. It had no tests, because it lived as an instance
- * method on an Android {@code Parcelable}.
- *
- * <p>It also kept its {@link Matcher} and output buffer in instance fields
- * shared by every call on that responder. Triggers fire on the connection
- * thread and timers on a timer thread, so that was a data race waiting for the
- * right pair of events. Everything here is local, so there is nothing to share.
+ * {@code $1}, {@code $2}, … from the match. Matcher and buffer are local —
+ * responders share threads with timers. Unmatched {@code $n} stays as written.
  */
 public final class CaptureSubstitution {
 

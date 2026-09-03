@@ -1,38 +1,10 @@
 package com.resurrection.blowtorch2.lib.service;
 
 /**
- * The marker that puts a picture in the game text.
- *
- * <p>A picture the server sent can go in a window of its own, or it can go into
- * the text where it was sent — beside the room description it belongs to,
- * scrolling away with it. The second one needs the text buffer to know a
- * picture belongs at a particular place in the scrollback, and the text buffer
- * only ever sees bytes.
- *
- * <p>So the service writes a marker into the stream and the buffer's parser
- * picks it up:
- *
- * <pre>
- * ESC ] BTIMG ; &lt;key&gt; ; &lt;lines&gt; BEL
- * </pre>
- *
- * <p>This is an OSC sequence — the same shape a terminal uses for "set the
- * window title" and friends. That is not decoration. {@code TextTree} already
- * recognises OSC and skips it, so a marker that reaches a build without this
- * feature, or a copy of the text pasted somewhere else, vanishes instead of
- * printing rubbish. The failure mode of the whole mechanism is a blank space.
- *
- * <p>The marker carries a <b>key</b>, not the picture and not a URL. The key
- * names an entry in the UI process's image store, which is where the picture
- * actually lives; the store is told separately, by a {@link FrameEvent} with
- * {@link FrameEvent#OP_INLINE}. Two reasons: a URL in the text stream would be
- * picked up by the client's own link detection, and a base64 payload would put
- * tens of kilobytes into the scrollback for every redraw to walk past.
- *
- * <p>The key is generated here, never taken from the server. Frame ids are the
- * server's to choose and one of the ones already tested contains a double
- * quote; a server id inside a delimited marker is a parsing bug waiting to be
- * written.
+ * Inline picture marker: {@code ESC ] BTIMG ; key ; lines BEL}.
+ * OSC so {@code TextTree} skips an unknown marker instead of printing it.
+ * The key is generated here (not a server id or URL) and names a UI-side store
+ * entry sent separately via {@link FrameEvent#OP_INLINE}.
  */
 public final class InlineImageMarker {
 

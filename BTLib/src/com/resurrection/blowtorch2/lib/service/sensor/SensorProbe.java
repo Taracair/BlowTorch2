@@ -18,21 +18,8 @@ import android.os.Handler;
 import android.os.HandlerThread;
 
 /**
- * What this particular phone's sensors are, and what they actually deliver.
- *
- * <p><b>Why this exists.</b> Every design for gesture input has to answer two
- * questions first, and neither can be answered by reading code: does this device
- * have the sensor at all, and does it deliver to <i>this process</i>? Sensor
- * hardware differs between models more than any other part of the platform —
- * plenty of recent phones report no discrete proximity sensor — and responders
- * run in {@code :stellar}, not in the UI process, so "the accelerometer works"
- * is not the same claim as "the accelerometer works where the responders are".
- *
- * <p>A player-run measurement, not instrumentation: nothing is registered until
- * the command is typed, everything is unregistered when it finishes, and the
- * answer is printed into the game window rather than into a log nobody will
- * fetch off a phone. That is why it stays in tracked code, the same argument
- * {@code ProbeCommand} makes for {@code .probe lines}.
+ * Measure whether this process actually receives a sensor. Registers only for
+ * the command, prints into the game window. Responders run in {@code :stellar}.
  */
 public final class SensorProbe {
 

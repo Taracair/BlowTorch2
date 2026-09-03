@@ -27,26 +27,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 /**
- * Teach the app how hard <em>you</em> shake this phone.
- *
- * <p><b>Why this is not a number in a settings box.</b> The shake threshold is
- * the one value here that cannot be right for everybody: it depends on the
- * sensor, on how the phone is held, and on how vigorously its owner shakes it.
- * Measured on one phone at a desk, a shake peaked at 27.7 m/s² and a quiet
- * baseline at 10.4 — but neither number means anything on someone else's phone,
- * and the maintainer's own runs were simulated. So the app ships a starting
- * value and this screen replaces it with a measurement.
- *
- * <p><b>Two halves, and the second is the one people skip.</b> Shaking sets a
- * floor; carrying the phone about sets a ceiling. A threshold that catches your
- * shake but also catches your walk to the shop will send commands to the game
- * from your pocket, so the walk is measured too and the result is only accepted
- * when the two do not overlap.
- *
- * <p>Runs in the UI process on purpose: the player is looking at the screen, the
- * reading has to move while they shake, and nothing here needs the service until
- * a number has been chosen. The chosen number is handed over as a command, which
- * is also how anybody can set it by hand.
+ * Measure shake vs walk on this phone; both halves required so pocket motion
+ * does not fire. Desk sample: shake 27.7 m/s², quiet 10.4 — not portable.
+ * Runs in the UI process; the chosen number is sent as a command.
  */
 public class ShakeCalibrationDialog extends Dialog {
 

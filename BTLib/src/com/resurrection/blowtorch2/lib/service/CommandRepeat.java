@@ -6,23 +6,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The multiplier prefix: {@code #5 north} sends {@code north} five times.
- *
- * <p>This runs on the command segments that come out of the semicolon split,
- * <b>before</b> alias replacement, so {@code #3 kk troll} is three of whatever
- * {@code kk troll} expands to rather than one expansion repeated as text. That
- * is the order a player expects: the multiplier counts the thing they typed.
- *
- * <p>There is no timing here. Five copies go into the outgoing batch at once,
- * exactly as if the player had typed {@code north;north;north;north;north}. A
- * repeat that paces itself would need a queue on the connection thread and a
- * way to cancel it; a burst needs neither, and every MUD already has to cope
- * with a pasted block of commands.
- *
- * <p><b>Escape.</b> Some worlds use {@code #} for their own commands, so a
- * doubled hash sends one literal hash and no repeat: {@code ##5 north} reaches
- * the game as {@code #5 north}. This mirrors {@code ..} for dot commands rather
- * than inventing a second convention.
+ * {@code #5 north} before alias replacement, so {@code #3 kk troll} is three
+ * expansions. {@code ##} sends a literal hash. Burst, not paced.
  */
 public final class CommandRepeat {
 

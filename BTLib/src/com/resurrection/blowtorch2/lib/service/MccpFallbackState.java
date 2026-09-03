@@ -4,19 +4,10 @@
 package com.resurrection.blowtorch2.lib.service;
 
 /**
- * Whether this connection should accept MCCP2, and whether the automatic
- * fallback has already fired.
- *
- * <p>Kept out of {@link Connection} because the interesting part is one rule
- * that is easy to get wrong and impossible to unit-test inside a god class:
- * <b>the profile being replayed is not a player decision</b>.
- * {@code initSettings()} hands every option back through the same setter on
- * every {@code doStartup()}, so a fallback that cleared itself on "use_mccp is
- * true" re-enabled compression on the reconnect it had just triggered, failed
- * the same way, and reconnected forever.
- *
- * <p>Synchronized: the handler thread reads it while a settings change can arrive
- * on a binder thread (UI → service calls are synchronous).
+ * MCCP2 on for this connection. Replaying the profile through
+ * {@code initSettings()} is not a player decision — clearing fallback when
+ * {@code use_mccp} is true re-enabled compression, failed, and reconnected
+ * forever. Synchronized: handler thread vs binder settings.
  */
 final class MccpFallbackState {
 

@@ -14,7 +14,9 @@ import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 
 /**
- * {@code .sensor} — what hardware this phone has, and what to do with its readings.
+ * {@code .sensor} — hardware readings as triggers. Not button-chrome gestures.
+ * {@code Connection.processCommand} resolves aliases first, so an alias named
+ * {@code sensor} hides this command with no message.
  *
  * <pre>
  * .sensor                    what is set up on this phone
@@ -24,22 +26,6 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerData;
  * .sensor wave on|off
  * .sensor fire wave          try it now, without moving the phone
  * </pre>
- *
- * <p><b>Not button gestures.</b> Swipes and holds on the input bar and chrome
- * are configured in the button editor. This command is about the phone's own
- * hardware — proximity, motion, light, charging, headphones, battery — as triggers,
- * conditions and timers already understand them.
- *
- * <p><b>Why {@code .sensor wave look} looks like an alias.</b> Setting an alias
- * is {@code .name text} and has been for years; pointing a sensor reading at a
- * command is the same kind of thing, so it is set the same way from the input
- * bar. What it writes is an ordinary trigger, so scripts, sounds, speech and
- * conditions sit alongside the command.
- *
- * <p><b>The trap this inherits.</b> {@code Connection.processCommand} looks up
- * the player's aliases <em>before</em> the built-in commands, so an alias named
- * {@code sensor} would hide this whole command with no message at all. Nothing
- * can be done about that here; it is why the manual says so out loud.
  */
 public class SensorCommand extends SpecialCommand {
 

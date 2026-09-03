@@ -6,20 +6,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Decide whether a long-press near tappable words should open the command
- * menu or a magnifier to pick one word.
- *
- * <p>No View or Canvas: the window supplies boxes and the finger, and this
- * returns which overlay to show. Boxes with the same commands that touch are
- * one word — a colour change mid-word is still one candidate.
- *
- * <p>A loupe is not only "finger circle covers two boxes". Trigger Tappable
- * Words are often a whole capture ({@code a rusty sword}) sitting one space
- * from the next; the circle then stays inside the first box. Same-line
- * neighbours within {@code radius} join the cluster. Two matches stacked in
- * the same column stay two words (padded hitboxes overlap) and also loupe.
- * OSC 8 / MXP short links already fall in the circle; this is the wide-word
- * and stacked-word case.
+ * Long-press: menu vs loupe. Same-command touching boxes are one word.
+ * Neighbours within {@code radius} on the same line join even if the circle
+ * stays inside a wide capture. Stacked matches in one column also loupe.
  */
 public final class TapLoupe {
 
@@ -92,11 +81,9 @@ public final class TapLoupe {
 	}
 
 	/**
-	 * Collapse boxes that are the same word split across runs (colour change,
-	 * wrap on the same line). Different command lists stay separate even if
-	 * the rects overlap. Two matches on consecutive lines stay two words —
-	 * padded hitboxes overlap, but that is FlugHammer under FlugHammer, not
-	 * a colour split.
+	 * Merge boxes that are the same word split across runs. Different command
+	 * lists stay separate. Two matches on consecutive lines stay two words
+	 * (padded hitboxes overlap).
 	 */
 	public static List<Target> merge(final List<Target> boxes,
 			final int lineHeight) {
@@ -192,9 +179,8 @@ public final class TapLoupe {
 		}
 		List<Target> cluster = expandSameLine(merged, rowSeeds, radius,
 				lineHeight);
-		// Same column, next line: padded boxes overlap, so a hold on
-		// FlugHammer sits in two hitboxes. Do not grow that other row
-		// sideways — only the stacked neighbour.
+		// Same column, next line: padded boxes overlap. Do not grow that
+		// other row sideways — only the stacked neighbour.
 		if (merged != null && seed != null) {
 			for (int i = 0; i < merged.size(); i++) {
 				Target t = merged.get(i);

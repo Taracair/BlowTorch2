@@ -1395,7 +1395,7 @@ public class TextTree {
 		
 		/**
 		 * True when the current unbroken segment contains Unicode Block Elements.
-		 * Soft-wrapping those lines at spaces destroys Eden-style ANSI maps.
+		 * Soft-wrapping those lines at spaces destroys ANSI maps.
 		 */
 		private boolean segmentLooksLikeAnsiMap() {
 			int idx = theIterator.nextIndex();

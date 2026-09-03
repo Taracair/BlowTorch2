@@ -6,29 +6,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The gestures a player can pick from, and what each one can be measured with.
- *
- * <p><b>The player picks a gesture, never a sensor.</b> "Wave your hand over the
- * screen" is a thing a person does; {@code TYPE_PROXIMITY} is a part number that
- * half the phones on the market do not have. So every gesture here carries an
- * ordered list of ways to measure it, and the device decides which one it can
- * honour — see {@code GestureAvailability}. A gesture no sensor on this phone
- * can provide is shown as unavailable with the reason, never silently offered.
- *
- * <p><b>Why the pattern looks like {@code !wave}.</b> A device gesture is stored
- * as an ordinary trigger, so every action a trigger has — send a command, run
- * Lua, play a sound, speak, set a variable, enable another trigger — works with
- * it for free, and any action added later does too. The reserved prefix is how
- * {@code Connection.isMatchableTrigger} keeps these out of the text-matching
- * pattern, exactly as {@code %} does for GMCP and {@code @} for MCP. The player
- * never types it: the editor offers a list.
- *
- * <p>Only a prefix <em>plus a known gesture name</em> is reserved. A literal
- * trigger watching for {@code !!!} keeps working as text, because {@code !!!} is
- * not a gesture in this catalogue.
- *
- * <p>No Android types: this half is testable, and the sensor numbers live on the
- * other side of {@code GestureAvailability}.
+ * Player-facing gestures and how each can be measured. Stored as ordinary
+ * triggers with a {@code !name} prefix ({@code %} GMCP, {@code @} MCP). Only
+ * prefix plus a known name is reserved — {@code !!!} stays literal text.
  */
 public final class GestureCatalog {
 

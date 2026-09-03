@@ -10,8 +10,8 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 
 /**
- * Enable and disable aliases from the input bar, the way {@code .trigger} and
- * {@code .timer} already work.
+ * Enable/disable aliases from the input bar. Unqualified names: main settings
+ * first, then a unique plugin match; {@code plugin:name} when it is ambiguous.
  *
  * <pre>
  * .alias
@@ -21,12 +21,6 @@ import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
  * .alias list
  * .alias all on|off
  * </pre>
- *
- * <p>There was Lua {@code EnableAlias} and nothing to type, which broke the
- * pattern every other kind of thing in this client follows.
- *
- * <p>Unqualified names resolve main settings first, then a unique plugin match;
- * use {@code plugin:name} when the same name exists in more than one place.
  */
 public class AliasCommand extends SpecialCommand {
 

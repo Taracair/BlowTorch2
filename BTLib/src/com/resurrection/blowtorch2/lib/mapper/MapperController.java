@@ -113,8 +113,8 @@ public class MapperController {
 	/** Match/create tiles by GMCP room num/id/vnum when present. */
 	private boolean mGmcpUseNum = true;
 	/**
-	 * Place/move tiles using absolute GMCP x/y. Off (default) = grow by exits /
-	 * near the previous room — better when coords skip cells (Eden).
+	 * Place/move tiles using absolute GMCP x/y. Off (default) = grow by exits
+	 * / near the previous room — better when coords skip cells.
 	 */
 	private boolean mGmcpUseCoords = false;
 	/** Create neighbor stubs for exits listed in Room.Info. */
@@ -2615,7 +2615,7 @@ public class MapperController {
 
 	/**
 	 * Absolute coords are usable when there is no previous room, or the jump is
-	 * at most one cell (true grid MUDs). Larger jumps (Eden world coords) grow
+	 * at most one cell (true grid MUDs). Larger jumps (world coords) grow
 	 * topologically instead — avoids long W/E arrows across the screen.
 	 */
 	private boolean canPlaceAtAbsolute(final MapTile from, final int gx, final int gy) {
@@ -4112,18 +4112,8 @@ public class MapperController {
 	}
 
 	/**
-	 * Drop invented exits the room's own list does not have.
-	 *
-	 * The mapper adds a reverse exit whenever the player walks into a room,
-	 * which is a fair guess and often right. When it is wrong the map grows a
-	 * way through that does not exist -- Training Ground gained an n back to
-	 * Beehives because s led there, while the room only ever offered E and W --
-	 * and the invented exit then misleads the map, the path finder and the
-	 * player equally.
-	 *
-	 * Only guesses are withdrawn, and only when the game has actually told us
-	 * what the room offers. Exits the player walked, linked by hand or that the
-	 * game listed are never touched.
+	 * Drop guessed reverse exits the room's own list does not have. Only
+	 * guesses; walked, hand-linked, or game-listed exits stay.
 	 */
 	private List<MapExit> guessedExitsContradictedBy(final MapTile tile,
 			final List<String> exits) {

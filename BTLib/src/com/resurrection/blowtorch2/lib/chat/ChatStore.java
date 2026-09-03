@@ -16,20 +16,9 @@ import com.resurrection.blowtorch2.lib.util.AtomicFiles;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 /**
- * Durable per-world chat inbox.
- *
- * <p>One JSON file next to the world profile
- * ({@code sanitizedDisplay + ".chat.json"}). Triggers on the connection thread
- * {@link #append} a copy of a MUD line; the line itself stays in the game
- * window. After a successful write, {@link StellarService#notifyChatInboxUpdated}
- * tells the UI process the file changed — no AIDL getter.
- *
- * <p>A {@code static} cache lives twice (UI process and {@code :stellar}).
- * Writes take a process-shared file lock, reload the JSON, mutate, then
- * persist, so a UI {@code markSeen} and a service {@code append} do not
- * clobber each other. {@link #attach} is only called from
- * {@code StellarService.onCreate}, so notify runs in the service. The file is
- * the copy both sides can read.
+ * Per-world chat inbox JSON beside the profile. {@code static} cache exists in
+ * both processes; writers take a shared file lock, reload, mutate, persist.
+ * {@link #attach} is service-only so notify stays there.
  */
 public final class ChatStore {
 

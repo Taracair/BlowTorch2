@@ -5,18 +5,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Substitutes {@code ${name}} in alias and responder text with session
- * variables.
- *
- * <p>Variables could be set — by the Set Variable responder or Lua
- * {@code SetVariable} — and then only read back by a trigger condition or by
- * Lua. There was no way to put one into text that gets sent to the game, which
- * is the obvious thing to want: a trigger captures a target's name, and an
- * alias uses it.
- *
- * <p>Braces are required, so this cannot collide with the numeric {@code $1}
- * captures handled by {@link CaptureSubstitution}, and a bare dollar in game
- * text is never mistaken for a variable.
+ * {@code ${name}} after {@code $1}. Braces required so {@code $1} is never
+ * touched. Unset left as written.
  */
 public final class VariableSubstitution {
 

@@ -26,26 +26,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Teach the app what <em>dark</em> and <em>bright</em> mean where you play.
- *
- * <p><b>Why this cannot be a shipped number.</b> Lux readings are not comparable
- * between phones — the sensor sits under different glass, with different
- * coatings — and they are not comparable between rooms either. Measured on one
- * Pixel 9a: an unlit room read 0 and an ordinary lit room 150 to 350. A player
- * whose "dark" is a lit hallway at night needs a different line from one who
- * plays in a blackout, and neither of them should have to learn what a lux is.
- *
- * <p>So the player stands where it is dark and taps a button, then where it is
- * bright and taps again. The two thresholds are placed between the readings,
- * with a band in the middle that is neither — a room sitting exactly on a single
- * line would otherwise flip between dark and bright as a cloud went past, and
- * every trigger gated on it would fire each time.
- *
- * <p><b>Reading it live matters here more than for shake.</b> This sensor is
- * on-change: a still phone in steady light reports once and then says nothing at
- * all, which looks exactly like a broken sensor. Showing the last reading, and
- * saying that few readings are normal, is the difference between a screen people
- * trust and one they report as faulty.
+ * Two lux captures on this phone, with a dead band between so a cloud does not
+ * flip the gate. Light is on-change: a still reading looks like a dead sensor.
+ * Measured on one device: unlit 0, ordinary room 150–350.
  */
 public class LightCalibrationDialog extends Dialog {
 

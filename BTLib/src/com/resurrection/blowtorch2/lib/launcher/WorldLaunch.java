@@ -10,23 +10,10 @@ import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 
 /**
- * Open a world from a home-screen pin without showing the server list.
- *
- * <p>The pin targets {@link WorldLaunchActivity} (exported, not the
- * {@code MAIN}/{@code LAUNCHER} component). Starting {@code MainWindow}
- * in-process means an already-running session gets {@code onNewIntent} /
- * {@code switchTo} instead of a second task that is just the launcher list.
- *
- * <p>{@link #MAIN_WINDOW_LAUNCH_FLAGS} must not include
- * {@link Intent#FLAG_ACTIVITY_RESET_TASK_IF_NEEDED}. That flag is what the
- * home screen uses to bring an existing app task to the front as-is. On a
- * pin, the existing task is often the server list, so the player never left
- * it. Notifications keep that flag because they mean "resume this session".
- *
- * <p>The trampoline uses a separate taskAffinity and is not
- * excludeFromRecents: that attribute on the root of a new task hid the
- * whole game from Recents. noHistory still drops the trampoline from the
- * back stack.
+ * Open a world from a home-screen pin. Do not set
+ * {@link Intent#FLAG_ACTIVITY_RESET_TASK_IF_NEEDED} — that flag brings the
+ * server list forward as-is. Trampoline is not {@code excludeFromRecents}
+ * (that hid the game); {@code noHistory} still drops it from the back stack.
  */
 public final class WorldLaunch {
 

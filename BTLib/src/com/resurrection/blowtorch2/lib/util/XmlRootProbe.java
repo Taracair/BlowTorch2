@@ -9,19 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Reads the name and attributes of a document's root element, and nothing else.
- *
- * <p>Settings files are identified by their root element: {@code <root>} is the
- * version 1 format, {@code <blowtorch xmlversion="2">} the current one. Finding
- * that out used to mean handing the whole file to a SAX parser — twice, once per
- * question — and a real profile is a quarter of a megabyte. This stops at the
- * first start tag, so it reads a few hundred bytes instead.
- *
- * <p>It is a scanner, not a parser: it understands the xml declaration,
- * comments, doctypes and quoted attribute values well enough to find the root
- * element, and it deliberately does not validate anything after it. Anything it
- * cannot make sense of comes back as a root with a null name, which callers
- * treat the way they treated a parser exception before.
+ * Root element name and attributes only. A live profile is ~250 KB; SAX used
+ * to parse it twice. Unparseable prolog → null name, same as a parser exception.
  */
 public final class XmlRootProbe {
 

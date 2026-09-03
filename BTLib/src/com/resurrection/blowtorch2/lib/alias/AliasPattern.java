@@ -8,19 +8,9 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * The combined regular expression that matches every enabled alias at once, and
- * the map from capture-group number back to the alias that owns it.
- *
- * <p>Extracted from {@code Plugin.buildAliases} so it can be tested. That method
- * has no Lua and no Android in it, but it lived inside a class that needs both,
- * which is why the trickiest arithmetic in the alias system had no coverage: an
- * alias pattern may contain its own groups, so an alias's outer group number
- * depends on how many groups every alias before it declared. Get that wrong and
- * a match is attributed to the wrong alias, which sends the wrong command.
- *
- * <p>Behaviour is preserved exactly, including the order of alternatives and the
- * word-boundary wrapping, because the regex this produces has to keep matching
- * what it always matched.
+ * Joined alias alternation plus capture-group → alias. Outer group numbers
+ * depend on groups declared before; wrong numbering sends the wrong command.
+ * Word-boundary wrapping and alternative order are load-bearing.
  */
 public final class AliasPattern {
 

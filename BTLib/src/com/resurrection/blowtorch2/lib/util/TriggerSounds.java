@@ -11,19 +11,9 @@ import android.net.Uri;
 import android.os.SystemClock;
 
 /**
- * Short sounds fired by triggers and timers.
- *
- * <p>Separate from {@link NotificationSounds#play}, which builds a
- * {@code Ringtone} or a {@code MediaPlayer} per sound. That is fine for a
- * notification, which happens once; it is the wrong shape for a combat alert
- * that can fire six times a second, because preparing a player costs tens of
- * milliseconds on the thread the game text is being processed on. A
- * {@link SoundPool} decodes each sound once and every later firing is a
- * pointer.
- *
- * <p>Lives in whichever process the responder runs in, which is {@code :stellar}
- * — the same reason the speech engine lives there. A sound you cannot hear while
- * the screen is off is not an alert.
+ * Combat-rate sounds via {@link SoundPool} in {@code :stellar}.
+ * {@link NotificationSounds#play} builds a player per shot — tens of ms on
+ * the connection thread.
  */
 public final class TriggerSounds {
 

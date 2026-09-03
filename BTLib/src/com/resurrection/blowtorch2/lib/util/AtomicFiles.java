@@ -8,28 +8,9 @@ import java.io.IOException;
 import android.content.Context;
 
 /**
- * Writing a file the app cannot afford to lose.
- *
- * <p>Everything here exists because {@code openFileOutput} truncates the target before
- * a single byte of the new content arrives. For a settings file — every alias, trigger,
- * button and colour a player has — that means dying part way through leaves nothing to
- * come back to.
- *
- * <p>Two separate protections, against two separate losses:
- *
- * <ul>
- * <li><b>Staging and rename</b> guards against a <em>truncated</em> file. The content
- * goes to a sibling and is renamed into place, which within one directory is atomic:
- * a reader sees the old file or the new one, never half of either.</li>
- * <li><b>The .bak copy</b> guards against a <em>complete but wrong</em> file. A save
- * that succeeds while writing nonsense is a real failure mode here — it is how a whole
- * button set quietly went back to factory colours — and no amount of atomicity helps,
- * because the bad write is perfectly well-formed.</li>
- * </ul>
- *
- * <p>The backup keeps one generation, like the launcher list has always done. Two bad
- * saves in a row still lose the good copy; anything better needs timestamped history,
- * which is a bigger decision than this class should be making.
+ * Replace a file without truncating it first ({@code openFileOutput} does).
+ * Staging rename: old or new, never half. {@code .bak} is the previous complete
+ * write — atomicity does not help a well-formed wrong file. One generation only.
  */
 public final class AtomicFiles {
 

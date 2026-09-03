@@ -24,21 +24,9 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 
 /**
- * Keeps {@link DeviceState} up to date and pushes it into the worlds that asked
- * for it.
- *
- * <p><b>Where this runs.</b> In the service process, alongside the responders —
- * measured on 8 Aug 2026, not assumed: {@code .probe sensors shake} reported
- * {@code registration: accepted in the service process (:stellar)} and 605
- * readings in ten seconds. So there is no binder crossing here and no dependence
- * on a window being open.
- *
- * <p><b>What it costs.</b> The three broadcasts are free — the system sends them
- * whether we listen or not, and none of them holds a wake lock. Proximity is a
- * registered sensor and therefore is not free, so it is registered only while at
- * least one connection has the setting on, and released the moment none does. A
- * listener that outlives its reason is the battery drain a player blames on the
- * whole app.
+ * Push {@link DeviceState} into worlds that asked. Runs in {@code :stellar}
+ * (measured 8 Aug 2026: {@code .probe sensors shake} accepted there, 605
+ * readings / 10 s). Proximity is registered only while a connection wants it.
  */
 public final class DeviceStateWatcher {
 

@@ -33,26 +33,10 @@ import androidx.documentfile.provider.DocumentFile;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 
 /**
- * Incremental plain-text session log (append-only). Default directory is
- * {@code /BlowTorch/session_logs/} (see {@link SDCardUtils}).
- *
- * <p><b>All file work happens on one daemon thread.</b> Callers stamp what they
- * need and enqueue; the writer opens, appends, rotates, flushes and closes.
- *
- * <p><b>Measured, 30 July 2026.</b> This class used to do that work on whatever
- * thread called it, and its callers are the {@code :stellar} main thread —
- * {@code Connection.dispatch} (per packet), {@code Processor.logGmcp} and
- * {@code McpEngine.logDir} (per marker). StrictMode on the test build recorded
- * <b>522 blocking-disk violations through {@code flushLocked}, about 8 s of
- * main-thread disk in total and up to 301 ms in one hit</b>, which makes it the
- * largest single main-thread disk source in the app after directory resolution.
- * Only 45 of those came from the old main-looper flush {@code Handler}; the rest
- * were the marker and packet paths flushing inline, so moving the timer alone
- * would have fixed under a tenth of it. There is no {@code Handler} here any
- * more — the writer does its own timed flush.
- *
- * <p>Writes reach the OS within {@link #FLUSH_INTERVAL_MS} (or sooner, once a
- * few KB accumulate), so a file manager still sees near-live growth.
+ * Append-only session log. All file work on one daemon thread.
+ * Measured 30 July 2026: 522 StrictMode disk hits through {@code flushLocked}
+ * (~8 s total, worst 301 ms) on {@code :stellar}'s main thread. Flush at
+ * {@link #FLUSH_INTERVAL_MS} or sooner once a few KB accumulate.
  */
 public final class SessionLogger {
 

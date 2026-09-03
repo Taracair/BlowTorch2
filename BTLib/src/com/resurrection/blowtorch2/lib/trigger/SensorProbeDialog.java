@@ -34,30 +34,9 @@ import android.widget.Button;
 import android.widget.TextView;
 
 /**
- * Does this phone actually see it? Test, on a row of the Sensors list.
- *
- * <p><b>The question this answers, and the one it does not.</b> Firing a
- * reading with {@code .sensor fire} proves the <em>actions</em> — it runs them
- * without anybody moving the phone. It says nothing about whether the phone can
- * see you wave, which on Android is a real question: sensor hardware differs by
- * model, a proximity sensor may be under the screen or absent, and a reading
- * that is listed as available can still sit there reporting nothing. This
- * screen watches the sensor live and shows what it reports while you do the
- * gesture.
- *
- * <p><b>Where it runs, and why that is allowed.</b> In the UI process, like
- * {@link ShakeCalibrationDialog} and for the same reason: the player is looking
- * at the screen, the number has to move while they move, and nothing here needs
- * the service. Every listener is released in {@link #dismiss()}. The detector
- * that fires real triggers is untouched and still lives in the service.
- *
- * <p><b>What it will not claim.</b> Shake and the two light readings are
- * decided by thresholds a player calibrates, and those are written by the
- * service process into preferences this process may hold a stale copy of. So
- * this screen shows the raw reading for those two and points at Calibrate
- * rather than announcing a verdict it cannot stand behind. Everything else —
- * near and far, which way up, the one-shot sensors, the system events — is
- * decided by the same shared code the real detector uses.
+ * Live sensor probe for one Sensors-list row. {@code .sensor fire} only proves
+ * actions. Shake and light show the raw reading, not a verdict — those
+ * thresholds live in the service. Listeners are released in {@link #dismiss()}.
  */
 public class SensorProbeDialog extends Dialog {
 

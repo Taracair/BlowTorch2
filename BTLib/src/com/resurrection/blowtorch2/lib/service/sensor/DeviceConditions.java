@@ -5,23 +5,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The states of the phone a player can gate a trigger on, in words.
- *
- * <p><b>Why a list and not a text box.</b> The condition editor can already test
- * a session variable, and the device state is written into session variables —
- * so the machinery was there, but using it meant knowing to type
- * {@code device.facing} and then knowing that the answer is spelled {@code down}
- * rather than {@code no} or {@code false}. That is a memory test, not a feature.
- * This turns it into a list: "Phone is face down".
- *
- * <p><b>These names are ours, not the phone's.</b> Sensor hardware differs
- * wildly between models, but {@code device.facing} means the same thing on every
- * one of them, because BlowTorch is what writes it. So a picker is safe here in
- * a way that a list of raw sensor names never would be: what differs between
- * phones is only whether a value ever gets set, and the entry says which sensor
- * it needs.
- *
- * <p>No Android types — the UI and the manual both read this list.
+ * Picker labels for {@code device.*} conditions. Values are ours, not sensor
+ * names; a missing sensor leaves the variable unset.
  */
 public final class DeviceConditions {
 

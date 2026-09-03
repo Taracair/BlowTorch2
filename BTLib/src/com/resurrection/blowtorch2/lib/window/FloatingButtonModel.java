@@ -6,25 +6,10 @@ import org.json.JSONObject;
 import com.resurrection.blowtorch2.lib.window.SuperButtonGestures.BoundSwipes;
 
 /**
- * Snapshot of one floating button pushed from UI Lua ({@code buttonwindow})
- * into {@link FloatingButtonController}. Positions live on the button data
- * ({@code floatX}/{@code floatY}); identity is the 1-based Lua index in the
- * active set — not a renameable name (ORCHESTRATION trap: do not key state
- * on a name that can change).
- *
- * <p>A button carries <em>two</em> stored positions, one per orientation:
- * {@code floatX}/{@code floatY} for portrait and {@code floatXLand}/
- * {@code floatYLand} for landscape. The activity handles orientation itself
- * ({@code configChanges="orientation"}), so nothing re-lays buttons out on a
- * turn; with a single stored pair a button dragged in portrait followed the
- * portrait coordinates into landscape. {@link #floatX}/{@link #floatY} are the
- * pair for the orientation this snapshot was built for, so every caller keeps
- * reading one position and does not have to know which one it is.
- *
- * <p>A missing landscape pair reads as {@link FloatingLayerGeometry#UNPLACED},
- * which is the same "never dragged" state a new floating button starts in — so
- * an existing profile keeps its portrait layout and gets its landscape one
- * seeded from the grid.
+ * Snapshot of one floating button from UI Lua. Identity is the 1-based set
+ * index, not a renameable name. Portrait and landscape each have a stored pair;
+ * {@link #floatX}/{@link #floatY} are the pair for this snapshot's orientation.
+ * A missing landscape pair is {@link FloatingLayerGeometry#UNPLACED}.
  */
 public final class FloatingButtonModel {
 

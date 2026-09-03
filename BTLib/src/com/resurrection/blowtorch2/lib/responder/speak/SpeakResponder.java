@@ -17,19 +17,8 @@ import com.resurrection.blowtorch2.lib.util.SpeechEngine;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 
 /**
- * Say something out loud when the trigger fires.
- *
- * <p>For the line you must not miss while looking at something else: a tell, a
- * warning, a health threshold. The phone's own speech engine does the talking,
- * so this costs the app nothing to carry.
- *
- * <p>The message is a template like the toast one — {@code $1}, {@code $word}
- * and variables are filled in from the match — so a trigger on
- * {@code (\w+) tells you} can say the name.
- *
- * <p>Runs in {@code :stellar} with the rest of the trigger, which is what lets
- * it be heard while the game window is in the background. That is the point of
- * an alert.
+ * TTS template ({@code $1} / {@code $word}) via {@link SpeechEngine} in
+ * {@code :stellar}.
  */
 public class SpeakResponder extends TriggerResponder implements Parcelable {
 

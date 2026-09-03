@@ -16,16 +16,11 @@ import com.resurrection.blowtorch2.lib.launcher.MudConnection;
 import com.resurrection.blowtorch2.lib.launcher.ServerAccount;
 
 /**
- * Native handler for GMCP Char.Login (password-credentials). OAuth is not implemented.
- * <p>
- * Per <a href="https://wiki.mudlet.org/w/Standards:GMCP_Authentication">GMCP Authentication</a>,
- * after {@code Char.Login.Default} with {@code password-credentials} the client
- * <b>must</b> reply with either filled {@code Char.Login.Credentials} or an empty
- * {@code Char.Login.Credentials {}} (cancel / hand off to in-band login). Silent
- * ignore leaves servers such as Eden waiting on the GMCP password prompt.
- * <p>
- * Filled credentials are delayed briefly so servers that still probe telnet
- * capabilities (e.g. Eden / GraphicMUD) are less likely to reject an early packet.
+ * GMCP Char.Login (password-credentials). After {@code Char.Login.Default}
+ * the client must send filled {@code Char.Login.Credentials} or empty
+ * {@code {}} (cancel). Silent ignore leaves the server on the GMCP prompt.
+ * Filled credentials are delayed so a telnet probe is less likely to reject
+ * an early packet.
  */
 public final class GmcpCharLogin {
 

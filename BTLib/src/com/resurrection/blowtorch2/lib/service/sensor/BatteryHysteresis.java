@@ -1,18 +1,8 @@
 package com.resurrection.blowtorch2.lib.service.sensor;
 
 /**
- * When charge <em>crosses</em> a line, not every percent along the way.
- *
- * <p>One threshold would flap: 21% → 19% → 21% would fire low, ok, low. Two
- * states and a gap between them — low at or under 20, recovered at or over 35
- * by default — mean sitting at 18 then 19 does nothing, and oscillating 19–21
- * stays low until charge actually climbs out.
- *
- * <p>The first reading is where the phone already was, never a fire. Same hole
- * as the sticky charger broadcast: treating "already at 15%" as "just went low"
- * would run the player's command every time the watcher is picked up.
- *
- * <p>No Android types: the watcher feeds it a percent, tests feed it a percent.
+ * Charge crossing a line, not every percent. First reading is where the phone
+ * already was, never a fire (same trap as the sticky charger broadcast).
  */
 public final class BatteryHysteresis {
 

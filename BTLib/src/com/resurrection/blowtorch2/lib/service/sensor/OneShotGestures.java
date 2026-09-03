@@ -12,22 +12,8 @@ import android.hardware.TriggerEvent;
 import android.hardware.TriggerEventListener;
 
 /**
- * The hardware gestures that fire once and then switch themselves off.
- *
- * <p><b>A different API, and that is the whole reason this class exists.</b>
- * Picking the phone up, starting to move, and going still are one-shot sensors:
- * they are armed with {@code requestTriggerSensor}, they report through
- * {@link TriggerEventListener} rather than a {@code SensorEventListener}, and
- * <b>after each firing they are disarmed</b>. Anything that treats them like a
- * normal sensor works exactly once and then goes quiet for ever — which is the
- * kind of fault a player reports as "it worked yesterday".
- *
- * <p>So every firing re-arms, and the re-arm is what keeps the gesture alive.
- *
- * <p>They cost very little: the hardware watches for the condition itself and
- * wakes the phone only when it is met, rather than streaming readings for us to
- * sift. That is also why they are the right answer for "picked the phone up" and
- * the accelerometer is not.
+ * Significant-motion / pickup / still: {@code requestTriggerSensor}, then
+ * re-arm after each fire. Treating them as a streaming sensor works once.
  */
 public final class OneShotGestures {
 

@@ -7,23 +7,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * One thing that happened to a {@code mudstd.frame} frame, on its way from the
- * service process to the UI process.
- *
- * <p>The protocol arrives in {@code :stellar} and the window that shows it lives
- * in the UI process, so something has to cross the binder. This is that
- * something: a flat value with no Android in it, encoded as a JSON array the
- * same way the mapper snapshot is.
- *
- * <p>Events are queued and taken in a batch rather than delivered one per
- * binder call. A server opening a frame and filling it sends {@code open} and
- * {@code image} back to back, and the UI redrawing twice for that is work for
- * nothing.
- *
- * <p><b>The image field is not the image.</b> It is what the server put in the
- * {@code image} field: a URL, or {@code base64:…}. Fetching a URL is the UI
- * side's job precisely because it must not happen on a main thread, and the one
- * in the service is the thread that reads the socket.
+ * One {@code mudstd.frame} event as a JSON array across the binder. Batched:
+ * {@code open} then {@code image} must not be two UI redraws. {@code image} is
+ * a URL or {@code base64:}, fetched on the UI side — not on the socket thread.
  */
 public final class FrameEvent {
 

@@ -1,27 +1,8 @@
 package com.resurrection.blowtorch2.lib.service;
 
 /**
- * How the game's text is cut up by the time triggers see it.
- *
- * <p><b>Why this exists.</b> A multi-line trigger — one pattern that has to
- * match three consecutive lines of a room description — is nearly free on the
- * pattern side: the cascade is already compiled with
- * {@code Pattern.MULTILINE} and already matched against the whole incoming
- * chunk, not line by line. What is not known is whether those three lines
- * reliably arrive <i>in the same chunk</i>. If a world usually splits a room
- * description across two TCP reads, a multi-line trigger would fail every time
- * it happened, and a trigger that misses one time in twenty is worse than no
- * trigger at all.
- *
- * <p>So this counts, and the answer decides whether multi-line triggers can be
- * built on what is here or need a sliding buffer of the last N lines first.
- * Per the project's first rule: the device is the authority, and this is how it
- * gets asked.
- *
- * <p>Deliberately cheap: a handful of int increments and one scan of a string
- * the caller has already built. Nothing is stored per line, nothing is
- * allocated per chunk, and the whole object is only reached when the player has
- * turned it on.
+ * Lines-per-chunk and mid-line endings. A multi-line trigger only works if
+ * those lines usually arrive in one TCP chunk. Cheap ints; only when enabled.
  */
 public final class ChunkStats {
 

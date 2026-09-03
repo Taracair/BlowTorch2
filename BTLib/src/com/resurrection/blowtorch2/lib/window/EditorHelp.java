@@ -17,21 +17,8 @@ import android.widget.TextView;
 import androidx.core.content.ContextCompat;
 
 /**
- * The {@code ?} beside the buttons: what this list is for, in the words the
- * manual uses.
- *
- * <p>Three of the things a player has to keep apart are told apart by which
- * way they face, and nothing on the screen says so. An <em>alias</em> rewrites
- * a line you type before it leaves the phone. A <em>trigger</em> matches a line
- * the game sent. A <em>timer</em> waits and then acts, with nothing having
- * happened at all. The three lists look alike, so the difference has to be
- * written down where the lists are.
- *
- * <p>These texts are the Aliases / Triggers / Timers sections of
- * {@code docs/user-manual.md} boiled down to what fits on a phone, with the
- * same examples, so a player who reads one and then the other is not told two
- * different things. When one changes, change the other: the manual is the long
- * form and this is the reminder.
+ * {@code ?} help for the alias / trigger / timer lists. Keep in step with
+ * {@code docs/user-manual.md}; this is the short form.
  */
 public final class EditorHelp {
 

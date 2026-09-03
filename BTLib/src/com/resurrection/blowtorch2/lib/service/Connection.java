@@ -1278,26 +1278,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Keep text for a window whose UI is not on screen, instead of pushing it.
-	 *
-	 * <p>Both callers write the same bytes into the window's own service-side
-	 * buffer *before* calling here, so nothing is lost by not delivering: this
-	 * only exists so the UI's in-process copy can be caught up on return.
-	 *
-	 * <p>Why hold at all, now that IWindowCallback is oneway and can no longer
-	 * kill a frozen process: a one-way transaction to a frozen process sits in
-	 * that process's async binder buffer, which is roughly half a megabyte and
-	 * shared process-wide. A chatty MUD and a long idle would fill it, and the
-	 * overflow arrives as a plain RemoteException — text dropped, with the UI
-	 * copy silently short of the buffer it is supposed to mirror.
-	 *
-	 * <p>Past {@link #MAX_REPLAY_BYTES} we stop accumulating and mark the window
-	 * for a full reset instead. That bounds what an overnight idle costs in the
-	 * service, and by then almost everything on screen is new text anyway.
-	 *
-	 * @param window Name of the target window.
-	 * @param data The bytes that would have been pushed.
-	 * @return true when the bytes were held and must not be delivered now.
+	/** Hold bytes for a hidden UI instead of a one-way binder push.
+	 * A frozen process's async binder buffer is ~0.5 MB process-wide; overflow
+	 * is a RemoteException and a silently short UI copy. Past
+	 * {@link #MAX_REPLAY_BYTES}, mark a full reset. Callers already wrote the
+	 * service-side buffer.
 	 */
 	private boolean holdWhileHidden(final String window, final byte[] data) {
 		if (window == null || data == null || data.length == 0) {
@@ -3261,31 +3246,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
-	/** Sends bytes to the main output window, and keeps them.
-	 *
-	 * <p><b>The buffer write is the point.</b> This used to hand the bytes
-	 * straight to the live callback and nothing else, so everything written
-	 * through here existed only in the UI process's copy of the text: the yellow
-	 * GMCP notices, reconnect countdowns, MCP notices, Lua errors, and every
-	 * {@code .command} reply. The main window's content is not kept by the UI —
-	 * {@code MainWindow.initWindow} does {@code tmp.setBuffer(w.getBuffer())},
-	 * i.e. it adopts the service-side {@link WindowToken} buffer wholesale. So
-	 * anything that skipped that buffer vanished the moment the window was
-	 * rebuilt, which is what switching between two live worlds does
-	 * ({@code StellarService.switchTo} → {@code loadWindowSettings}). Reported as
-	 * "switching worlds wipes the yellow GMCP notices"; the cause was one missing
-	 * line and the notices were only the most visible casualty.
-	 *
-	 * <p>The raw bytes go to the buffer, not a re-encoded copy: {@code dispatch}
-	 * writes the same bytes the same way ({@code addBytesImplSimple}), and
-	 * routing them through a temporary TextTree first — as {@code lineToWindow}
-	 * does — would re-normalise what the UI receives and could move colour or
-	 * line breaks.
-	 *
-	 * <p>Callers that have already written to the buffer themselves must use
-	 * {@link #notifyMainWindow} instead, or the text is added twice.
-	 *
-	 * @param data The bytes to send.
+	/** Send bytes to the main window via the service-side {@link WindowToken} buffer.
+	 * Skipping it meant GMCP/MCP/Lua notices vanished on {@code switchTo}
+	 * ({@code MainWindow.initWindow} adopts that buffer wholesale). Write the
+	 * same raw bytes {@code dispatch} uses — a TextTree round-trip can move colour.
+	 * Callers that already wrote the buffer must use {@link #notifyMainWindow}.
 	 */
 	public final void sendBytesToWindow(final byte[] data) {
 		if (data == null || data.length == 0) {
@@ -6648,7 +6613,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/**
 	 * Live window size from the UI. Never report more columns/rows than the screen
-	 * can show. Rows are capped — absurd heights (100+) have dropped Eden links.
+	 * can show. Rows are capped — absurd heights (100+) have dropped hyperlinks.
 	 * Columns follow the real screen so ANSI maps match the draw grid.
 	 */
 	/** Soft ceiling for NAWS rows (tall phones exceed the old hard 24). */
@@ -6700,7 +6665,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			useRows = Math.min(cfgRows, rows);
 		}
 		// Match real screen columns so ANSI maps are not pre-wrapped for a different width.
-		// Only cap rows — absurd heights (100+) have been observed to drop Eden links.
+		// Only cap rows — absurd heights (100+) have dropped hyperlinks.
 		if (useCols < 20) {
 			useCols = Math.max(20, Math.min(cols, 40));
 		}
@@ -6724,7 +6689,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		final boolean changed = (useCols != mLastSentNawsCols) || (useRows != mLastSentNawsRows);
 		mProcessor.setDisplayDimensions(useRows, useCols);
 		if (mIsConnected && changed) {
-			// Debounce: layout/IME fires this many times per second; NAWS floods freeze Eden.
+			// Debounce: layout/IME fires this many times per second; NAWS floods freeze a live world.
 			if (mHandler != null) {
 				mHandler.removeMessages(MESSAGE_SEND_NAWS);
 				mHandler.sendEmptyMessageDelayed(MESSAGE_SEND_NAWS, 350);

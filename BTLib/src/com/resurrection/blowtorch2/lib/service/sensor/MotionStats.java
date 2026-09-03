@@ -4,30 +4,9 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * What a motion sensor actually delivered, and what a shake detector built on
- * it would have counted.
- *
- * <p><b>Why this exists.</b> "Shake the phone to flee" needs a threshold, and a
- * threshold written from a desk is a threshold for one phone. Two numbers decide
- * it, and neither can be read out of the code: how hard this player shakes this
- * device, and how hard the same device is thrown around by a walk to the shop.
- * A useful threshold is one that counts three shakes as three and ten seconds of
- * walking as zero.
- *
- * <p>So this records magnitudes with the timestamps the sensor supplied and
- * reports, for a row of candidate thresholds, <b>how many separate gestures a
- * detector would have fired</b> — not how many samples crossed the line, which
- * is a much bigger and much less useful number. Run it once while shaking and
- * once while walking and the two reports are directly comparable.
- *
- * <p>It also reports the delivery gaps. Sample rate is a hint on Android, not a
- * contract, and sensors with a hardware FIFO can hand over a batch of readings
- * at once with old timestamps. A detector that assumes "now" would see one shake
- * as five. Whether that happens on a given device is measurable here and
- * guessable nowhere.
- *
- * <p>No Android types on purpose: this is the half that can be tested on the
- * JVM, the same split {@code ChunkStats} uses.
+ * Motion samples and how many separate shakes a threshold would have fired —
+ * not how many samples crossed it. Also reports delivery gaps (FIFO batches).
+ * No Android types.
  */
 public final class MotionStats {
 

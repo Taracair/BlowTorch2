@@ -17,23 +17,9 @@ import com.resurrection.blowtorch2.lib.util.TriggerSounds;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 
 /**
- * Play a short sound when the trigger fires.
- *
- * <p>The other half of the Speak action, and in a fight the better half: a ping
- * is over in 200 ms where a sentence takes two seconds. At six lines a second
- * speech is useless and a sound is not.
- *
- * <p>Each responder carries its own sound, so a tell and a critical hit do not
- * have to make the same noise — which is the one thing {@code .dobell} cannot
- * do, since that is a single reaction for the whole profile.
- *
- * <p>The sound is either one bundled with the app ({@code bundled:key}) or a
- * file of the player's own. A file is remembered by its path, so moving or
- * deleting it makes the trigger go quiet; that case is written to the error log
- * rather than passed over, and the editor says so next to the name.
- *
- * <p>Runs in {@code :stellar} with the rest of the trigger, so it is heard with
- * the game window in the background. That is the point of an alert.
+ * Per-trigger sound ({@code bundled:key} or a file path). Runs in
+ * {@code :stellar}. A missing file is logged, not silent. {@code .dobell} is
+ * one profile-wide reaction; this is not.
  */
 public class SoundResponder extends TriggerResponder implements Parcelable {
 
@@ -173,24 +159,8 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 	}
 
 	/**
-	 * What the gap is counted against.
-	 *
-	 * <p>The trigger by name, and the world it is in: two triggers sharing one
-	 * sound file must not silence each other, and the same trigger on two worlds
-	 * is two separate alerts.
-	 *
-	 * <p>It used to be keyed on the {@code triggernumber} the responder is
-	 * handed, which reads like an identity and is not one:
-	 * {@code StellarService.getNotificationId()} increments on every call, so
-	 * every firing got a key of its own and the gap never suppressed anything.
-	 * A trigger fires once per <em>match</em>, not once per line — three
-	 * FlugHammers in one inventory listing played the sound three times on top of
-	 * itself. The name is stable, so the gap now does what its description always
-	 * claimed.
-	 *
-	 * @param displayname the world.
-	 * @param name the trigger's own name.
-	 * @return a key for {@link TriggerSounds}.
+	 * Rate-limit key is world|trigger name. {@code getNotificationId()}
+	 * increments per fire, so it never suppressed. A trigger fires per match.
 	 */
 	static String rateKey(final String displayname, final String name) {
 		return (displayname == null ? "" : displayname)

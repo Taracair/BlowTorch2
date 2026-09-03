@@ -178,8 +178,8 @@ public class OptionNegotiator {
 	    			break;
 	    		case TC.ECHO:
 	    			// RFC 857: the server will echo, so we stop showing what is typed.
-	    			// On a MUD that is the password prompt — eden-test sends it, Achaea
-	    			// does not. Refusing left the password on screen and in the log.
+	    			// On a MUD that is the password prompt — some worlds send it,
+	    			// others do not. Refusing left the password on screen and in the log.
 	    			response = IAC_DO;
 	    			mServerEcho = true;
 	    			break;

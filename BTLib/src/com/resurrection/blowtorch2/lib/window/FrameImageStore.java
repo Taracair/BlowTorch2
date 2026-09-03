@@ -23,24 +23,9 @@ import android.util.Base64;
 import android.util.LruCache;
 
 /**
- * Pictures a server sent, decoded and kept where the UI can draw them.
- *
- * <p>A {@code mudstd.frame} image arrives as a URL or as {@code base64:…}. Both
- * take real time to turn into a {@link Bitmap} — one is a network round trip,
- * the other is a decode of tens of kilobytes — and neither may happen on a main
- * thread. So every load runs on one background thread and the result comes back
- * on the main looper.
- *
- * <p><b>This is UI-process state.</b> A {@code static} field exists once per
- * process in this app and the two copies never see each other; that is fine
- * here because nothing in {@code :stellar} has a canvas to draw on. The service
- * hands over the <i>spec</i> — the URL or the base64 — and the picture itself
- * never crosses the binder.
- *
- * <p>Callers ask by key. A frame's key is its id, so a server replacing a map
- * replaces the picture under the same key; an image dropped into the game text
- * gets a key of its own, because that one has to stay put in the scrollback
- * while the frame's picture moves on.
+ * Decode URL / {@code base64:} pictures off the main thread. UI-process only —
+ * the bitmap never crosses the binder. Frame id is the key so a replace updates
+ * in place; inline text images get their own key so scrollback stays put.
  */
 public final class FrameImageStore {
 

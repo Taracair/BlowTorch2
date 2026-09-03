@@ -1,35 +1,10 @@
 package com.resurrection.blowtorch2.lib.service;
 
 /**
- * Holds back the half-line at the end of a chunk until the rest of it arrives.
- *
- * <p><b>The problem.</b> Text is matched against triggers one TCP chunk at a
- * time, and roughly one chunk in ten ends in the middle of a line (measured on
- * a live world: 11 of 105). A pattern then matches half a line, and a gag deletes
- * that half out of the chunk before it is ever drawn — so the head vanishes and
- * the tail arrives in the next chunk with nothing left to match it. That is the
- * `ys, "sleeby"` fragment: the head of a `[chatnet]` line was gagged, its tail
- * was not.
- *
- * <p>Joining the two for matching alone does not fix it. A gag works by removing
- * a line from the per-chunk buffer <i>before</i> it is emitted, so once the head
- * has gone out there is no taking it back. The half-line has to be held back
- * from the display too, which is what this does.
- *
- * <p><b>Why there is a timeout.</b> A prompt is a line with no newline that is
- * never completed — {@code [HP 450/500] >} sits there waiting for you. Holding
- * every incomplete line without a deadline would mean prompts never appear at
- * all, which is a far worse bug than the one being fixed. So the caller arms a
- * short timer and flushes whatever is held when it expires. The timer is a
- * ceiling on a fragment, not a delay on the stream: nine chunks in ten end on a
- * newline and hold nothing, and a held fragment is normally released by the next
- * packet a few milliseconds later. Only a genuine prompt waits out the full
- * timeout.
- *
- * <p>Bytes, not characters, on purpose: this sits after the telnet layer
- * ({@code Processor.rawProcess}) but before any decoding, and a multi-byte
- * character can no more contain a {@code 0x0A} than an ANSI escape can, so
- * splitting on the last newline cannot cut either in half.
+ * Hold a mid-chunk half-line from matching <em>and</em> from the display until
+ * the rest arrives (measured 11 of 105 chunks on a live world). Flush on a
+ * timeout so prompts appear. Bytes, after telnet and before decode: {@code 0x0A}
+ * cannot sit inside a multi-byte character or an ANSI escape.
  */
 public final class IncomingLineHoldover {
 

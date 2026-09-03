@@ -8,21 +8,10 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.responder.CaptureSubstitution;
 
 /**
- * The second half of alias replacement: keep re-matching the text an alias
- * produced until no alias matches it any more.
- *
- * <p>Lifted out of {@code Plugin.doAliasReplacementImpl} unchanged, quirks and
- * all, so that it can be tested without a device. The three branches, the
- * semicolon split, and the sticky {@code eatTail} flag below all behave exactly
- * as they did inline; see the tests for the ones that look like mistakes.
- *
- * <p>The one deliberate difference is {@link #DEFAULT_MAX_PASSES}. The original
- * loop had no bound at all: it repeated until a pass matched nothing. An alias
- * whose replacement still contains its own trigger as a whole word — {@code kk}
- * expanding to {@code kk goblin} — grew the buffer forever on the connection
- * thread, and so did any two aliases that expand into each other. Unanchored
- * patterns are wrapped in {@code \b} by {@link AliasPattern}, so a substring
- * like {@code n} inside {@code north} is not enough to trigger it.
+ * Re-apply aliases until none match. {@link #DEFAULT_MAX_PASSES} bounds a loop
+ * ({@code kk} → {@code kk goblin}). Unanchored patterns get {@code \b} in
+ * {@link AliasPattern}. {@code eatTail} and the semicolon split match the old
+ * inline path.
  */
 public final class AliasRecursion {
 

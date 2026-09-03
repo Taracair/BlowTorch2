@@ -1,26 +1,11 @@
 package com.resurrection.blowtorch2.lib.window;
 
 /**
- * Pure swipe / hold timing for floating buttons, matched to
- * {@code buttonwindow.lua} ({@code classifySwipe}, {@code classifySwipe8},
- * {@code resolveSwipeDirection}).
- *
- * <p>No Android imports: extract → test → rewire (ORCHESTRATION Part 3.12).
- *
- * <p><b>Hold vs move on floating views.</b> The grid fires {@code holdCommand}
- * at {@link #HOLD_DELAY_MS} during the press. Floating views must instead:
- * defer hold until {@code ACTION_UP} when the press duration is in
- * [{@link #HOLD_DELAY_MS}, {@link #MOVE_HOLD_MS}); at {@link #MOVE_HOLD_MS}
- * enter move mode without firing hold. Movement past
- * {@link #HOLD_CANCEL_MOVE_DP} (scaled by density) cancels hold, matching the
- * grid. A stationary press that ends before move-arm therefore still sends
- * hold on release; one that reaches move-arm never does.
- *
- * <p>Flip is not hard-gated by “any swipe configured”. Release order matches
- * the grid: if {@link #resolveSwipeDirection} returns a bound direction, that
- * swipe fires; otherwise tap (inside) or flip (outside). Preview and release
- * both call {@link #resolveSwipeDirection} so the arrow cannot disagree with
- * what fires.
+ * Swipe/hold timing matching {@code buttonwindow.lua}. On floating views, hold
+ * fires on {@code ACTION_UP} in [{@link #HOLD_DELAY_MS}, {@link #MOVE_HOLD_MS});
+ * at {@link #MOVE_HOLD_MS} enter move without firing hold. Travel past
+ * {@link #HOLD_CANCEL_MOVE_DP} cancels hold. Swipe from {@link #resolveSwipeDirection}
+ * wins over tap/flip.
  */
 public final class SuperButtonGestures {
 

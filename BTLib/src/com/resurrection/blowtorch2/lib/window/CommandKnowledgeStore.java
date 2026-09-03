@@ -11,23 +11,9 @@ import android.content.Context;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 /**
- * Where what the player's commands taught is kept between sessions.
- *
- * <p>One file per world in the app's settings folder. Two reasons for that
- * folder rather than a private preferences file:
- *
- * <ul>
- * <li>the world backup already zips every {@code .xml} in it and restores them
- *     the same way, so exporting a world takes its learned pairings with it and
- *     importing one brings them back — without a second export to remember;</li>
- * <li>a world's own settings live beside it, which is where a player would
- *     expect to find this if they ever went looking.</li>
- * </ul>
- *
- * <p>The file is small: the pairings are capped at
- * {@link WordSuggestions#MAX_VERBS_PAIRED} verbs by
- * {@link WordSuggestions#MAX_OBJECTS_PER_VERB} targets, so the worst case is
- * around a hundred kilobytes per world and ordinary play is a few.
+ * Per-world learned command pairings, as {@code .xml} beside the world's
+ * settings so backup/restore takes them. Prefixed so the launcher cannot
+ * mistake the file for a world.
  */
 public final class CommandKnowledgeStore {
 

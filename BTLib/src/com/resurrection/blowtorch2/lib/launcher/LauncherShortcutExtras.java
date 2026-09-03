@@ -4,17 +4,10 @@ import android.content.Intent;
 import android.net.Uri;
 
 /**
- * Extras and URI on a home-screen pin. Kept off {@link Launcher} so the
- * trampolines can forward them without resolving AppCompat types.
- *
- * <p>Do not pin {@code ACTION_MAIN} + {@code CATEGORY_LAUNCHER}, and do not
- * target {@code FreeLauncher}: that is the app-icon component, and home
- * screens drop extras or resume the existing task as-is, so the player
- * lands on the server list. {@link #ACTION_LAUNCH_WORLD} plus a
- * {@code blowtorch://world?n=} URI, aimed at {@link WorldLaunchActivity},
- * survive that. Host, port and TLS also live on the URI ({@code h},
- * {@code p}, {@code tls}) because extras-drop would otherwise open a TLS
- * world in the clear.
+ * Pin extras/URI, kept off {@link Launcher} so trampolines need no AppCompat.
+ * Do not pin {@code MAIN}/{@code LAUNCHER} or {@code FreeLauncher} — home
+ * drops extras. Host/port/TLS live on the URI so extras-drop cannot open a
+ * TLS world in the clear.
  */
 public final class LauncherShortcutExtras {
 

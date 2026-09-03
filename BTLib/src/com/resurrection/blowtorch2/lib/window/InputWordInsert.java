@@ -1,22 +1,8 @@
 package com.resurrection.blowtorch2.lib.window;
 
 /**
- * Where a tapped word lands in the input bar, and what spacing it needs.
- *
- * <p>Pure string work with no view in it, so the fiddly part — the four
- * combinations of "is there text before the caret" and "is there text after
- * it" — can be tested on the JVM instead of by retyping on a phone.
- *
- * <p>The rule is the one a player would describe: put the word where the caret
- * is, with exactly one space on each side that needs one, and leave the caret
- * after the word ready for the next thing they type. Typing {@code k}, tapping
- * <i>grizzled</i> and tapping <i>troll</i> has to produce {@code k grizzled
- * troll} and not {@code kgrizzledtroll} or {@code k  grizzled  troll}.
- *
- * <p>Punctuation is the exception. Closers and sentence marks attach to the
- * preceding word ({@code slowo} + {@code ,} → {@code slowo, }), and openers /
- * prefix sigils leave the next tap glued on ({@code (} + {@code foo} →
- * {@code (foo}).
+ * Insert a tapped word at the caret: one space where needed, none for glue
+ * punctuation. {@code k} + grizzled + troll → {@code k grizzled troll}.
  */
 public final class InputWordInsert {
 

@@ -4,27 +4,10 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * One tappable-word rule, in the form that crosses the binder.
- *
- * <p>The window needs four things to mark a word and act on a tap: what to
- * look for, what to send, how to draw it and which part of the match is the
- * word. This carries exactly those, and nothing else.
- *
- * <p>It exists because the UI used to build the rules itself out of
- * {@code getTriggerData()} — the whole trigger map, every responder and every
- * condition of every trigger, pulled across the binder on the UI thread. That
- * was one dialog opening; then a trigger rebuild started notifying the window,
- * so it became something that ran while the player was playing, and a trigger
- * that enables another trigger can rebuild several times a second. A profile
- * of a couple of hundred triggers is also within reach of the binder's
- * transaction limit, and the failure there is silent: the exception is caught
- * and words simply stop lighting up.
- *
- * <p>The pattern travels as text and is compiled on the other side. It is
- * {@code TriggerData.getCompiledPattern().pattern()}, i.e. already quoted for a
- * literal trigger and already the alias-resolved form, so recompiling it with
- * no flags is the same pattern the trigger itself matches with — compiling the
- * player's raw text here would turn a literal trigger into a regex.
+ * Tappable-word rule for the binder. Pattern is already
+ * {@code TriggerData.getCompiledPattern().pattern()} — compiling the player's
+ * raw text here would turn a literal trigger into a regex. Do not send the
+ * whole trigger map; a rebuild can hit the transaction limit silently.
  */
 public class TapRuleData implements Parcelable {
 

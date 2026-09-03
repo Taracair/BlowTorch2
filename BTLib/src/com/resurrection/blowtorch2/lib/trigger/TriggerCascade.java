@@ -7,25 +7,11 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Match every enabled line-trigger against a chunk, in list order, instead of
- * joining them into one alternation.
- *
- * <p>The combined regex ({@link TriggerPattern}) is leftmost-first: at column 0
- * a broad pattern consumes the line and a later, more specific one never
- * {@code find()}s. Players write two triggers for the same line on purpose —
- * rewrite the channel tag, gag the spam inside it — and both have to run.
- *
- * <p>Compiled {@code MULTILINE}, not {@code DOTALL}, same flags as the old join.
- * {@link TriggerData#getMatcher()} stays flags {@code 0} for the editor preview.
- * Each entry has its own {@link Matcher}; the connection thread must not share
- * {@code TriggerData.getMatcher()} with the UI (responders already learned that
- * the hard way).
- *
- * <p>Pull-based: {@link #nextHit()} rather than a precomputed list, because a
- * responder can rebuild the trigger set mid-chunk. {@link #stop()} aborts the
- * whole remaining walk; Keep going? off is not that — the caller skips later
- * hits on the same line and lets other lines continue. This class does not
- * read {@code keepEvaluating}, so a condition failure is not treated as a fire.
+ * Match enabled line-triggers in list order, not as one leftmost-first join.
+ * {@code MULTILINE} not {@code DOTALL}; each entry has its own {@link Matcher}
+ * — do not share {@code TriggerData.getMatcher()} with the UI. Pull-based:
+ * {@link #nextHit()} because a responder can rebuild mid-chunk. Does not read
+ * {@code keepEvaluating}.
  */
 public final class TriggerCascade {
 

@@ -179,35 +179,10 @@ public class MapperOverlayController
 	private boolean visibilityRestored;
 
 	/**
-	 * Which world these preferences belong to.
-	 *
-	 * <p>This used to be the map's name, on the reasoning that there is one map
-	 * per world. Two things were wrong with that.
-	 *
-	 * <p><b>The name arrives too late to be useful.</b> In this process the map
-	 * is only known once a snapshot comes back from {@code :stellar}, and the
-	 * snapshot is pulled when the overlay opens. So {@link #restoreVisibility}
-	 * ran with no key, deferred itself, and was never reached again while the
-	 * map stayed shut — the map could not be put back because putting it back
-	 * was what would have told us to. The player had to open it by hand on every
-	 * connect, which is the decision this preference exists to remember.
-	 *
-	 * <p><b>The name is not stable.</b> Loading another map, renaming one, or
-	 * {@code openMapForHost} adopting a legacy file all change it, and geometry
-	 * saved under the old name is then never found again.
-	 *
-	 * <p>The host is the world's identity: it is on the intent before anything
-	 * has connected, and it does not move. Per world for the same reason as
-	 * before — a map open on one MUD should not open it on every other.
-	 *
-	 * <p>The {@code @} keeps these apart from the old name-keyed entries, since
-	 * maps are commonly named after their host. Those old entries are left where
-	 * they are rather than migrated: the geometry among them was never restored
-	 * anyway, and one preference re-learned the first time the player moves or
-	 * closes the map is cheaper than a migration that has to guess which map
-	 * name belonged to which world.
-	 *
-	 * @return Per-world key, or null when the host is unknown.
+	 * Per-world visibility key from the host, not the map name. The name arrives
+	 * only after a snapshot (too late for restore while shut) and changes on
+	 * rename/adopt. {@code @} separates these from leftover name-keyed entries;
+	 * those are not migrated.
 	 */
 	private String visibilityKeyForWorld() {
 		String mudHost = host != null ? host.getConnectionHost() : null;

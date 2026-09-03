@@ -1,19 +1,9 @@
 package com.resurrection.blowtorch2.lib.window;
 
 /**
- * Whether the IME inset should count as "keyboard is up" for floating buttons.
- *
- * <p>No Android. The chrome listener is the authority for lift in px and for
- * {@code isVisible(ime)}; this only turns those readings into a boolean. A hard
- * 120dp floor (the old test) toggled twice when the keyboard animation dipped
- * under the floor and climbed again — attach, detach, attach, which is the
- * double blink on Mode A overlay windows.
- *
- * <p>{@link #SETTLE_MS} matches the inset burst measured in
- * {@code ChromeController} (a retracted event lands within ~150ms). The game
- * window still follows every inset so the slide stays smooth. Overlay windows
- * wait that long only when <em>appearing</em>; taking them down is immediate,
- * otherwise they hang in the air for the whole hide animation plus the settle.
+ * IME "up" for floating buttons. A hard 120dp floor blinked twice during the
+ * animation. {@link #SETTLE_MS} matches ChromeController (~150 ms). Wait only
+ * when appearing; hide is immediate so overlays do not hang in the air.
  */
 public final class SoftKeyboardCoverage {
 

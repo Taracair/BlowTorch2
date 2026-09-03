@@ -23,20 +23,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * How low is low, as two percents on this phone.
- *
- * <p>Unlike shake and light, charge is already a percent, so this is a pair of
- * numbers rather than a trip somewhere dark. The two values still belong to
- * the device: a profile that travelled with "low means 20%" would be right
- * everywhere, but the player who wants 15/40 should not have that choice
- * overwritten by an import. Same file as the other gesture tunings,
- * {@code bt_gesture_tuning}, never exported.
- *
- * <p>The detector runs in the service process. This dialog must not read or
- * write {@link GestureTuning} from the UI — that process has its own prefs
- * cache, so a pair set with {@code .sensor threshold battery} would still show
- * here as 20/35, and Save would send that stale pair back. Fields start at the
- * shipped defaults. Save only sends the command, like shake and light.
+ * Battery low/ok percents for this device ({@code bt_gesture_tuning}, never
+ * exported). Do not read {@link GestureTuning} from the UI — that process has
+ * a stale prefs cache. Fields start at shipped defaults; Save sends a command.
  */
 public class BatteryThresholdDialog extends Dialog {
 

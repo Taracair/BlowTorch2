@@ -84,26 +84,11 @@ public final class ChromeController {
 	 * do not pad for IME (that resizes Lua button_window). Lift via translation.
 	 */
 	/**
-	 * How long a new keyboard height or status-bar height has to stand before
-	 * anything is moved for it.
-	 *
-	 * <p>Measured on the device. Coming back from another app, the system sends
-	 * this in the space of 150 ms:
-	 *
-	 * <pre>
-	 *   +90 ms   ime=0,   status bar present   (neither is true)
-	 *   +150 ms  ime=970, status bar gone      (both are)
-	 * </pre>
-	 *
-	 * <p>The first of those was believed at once, and everything downstream made
-	 * the full move and made it back: the game window dropped to the bottom and
-	 * rose again, the button grid slid down by the status-bar height and back,
-	 * and the floating buttons came down and went up. Three visible faults, one
-	 * event that was retracted before anyone could read it.
-	 *
-	 * <p>Short enough to sit inside the keyboard's own slide — the keys take
-	 * about a quarter of a second to arrive, so the lift still lands while they
-	 * are moving and nothing looks late.
+	 * How long a new keyboard or status-bar height must stand before layout
+	 * moves. Measured: at +90 ms ime=0 and status bar present (both false);
+	 * at +150 ms the real values. Believing the first bounce moved the game
+	 * window, grid, and floating buttons twice. 180 ms sits inside the keyboard
+	 * slide (~250 ms).
 	 */
 	private static final long INSET_SETTLE_MS = 180;
 

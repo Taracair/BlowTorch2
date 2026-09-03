@@ -425,25 +425,10 @@ public final class MapStore {
 	}
 
 	/**
-	 * Serialize the map now, put it on disk later.
-	 *
-	 * <p>For the autosave, which fires after every move the player makes and was
-	 * writing the whole map on the caller's thread -- the {@code :stellar} main
-	 * thread, the one carrying text to the window. StrictMode measured 174
-	 * violations through {@code writeFile} in one session; each one is small (15
-	 * ms at worst, 346 ms over the session) so this was never a freeze, but it is
-	 * disk on that thread once per room entered, and there is no reason for it.
-	 *
-	 * <p>The JSON is built here, on the calling thread, on purpose. Handing the
-	 * live {@link MudMap} to another thread would race the mapper mutating it --
-	 * the same mutation that asked for this save. Building the text is memory
-	 * work; only the file open goes elsewhere.
-	 *
-	 * <p>Repeated saves of one map coalesce: a burst of moves costs one write of
-	 * the newest state, not one write per move.
-	 *
-	 * @param context Used to find the maps directory; a null map is ignored.
-	 * @param map The map to persist.
+	 * Build JSON on the caller (live {@link MudMap} must not race a writer).
+	 * File open on a daemon. Autosave was on {@code :stellar} main: StrictMode
+	 * 174 {@code writeFile} hits / session, worst 15 ms. Repeated saves of one
+	 * map coalesce.
 	 */
 	public static void saveAsync(Context context, MudMap map) throws JSONException {
 		if (map == null) {
@@ -838,29 +823,11 @@ public final class MapStore {
 	}
 
 	/**
-	 * Write {@code content} to {@code file} so that a reader ever only sees the
-	 * whole old file or the whole new one.
-	 * <p>
-	 * {@code new FileOutputStream(file)} truncates the target before the first
-	 * byte of the new content is written, so a process death anywhere in between
-	 * — and this process is killed routinely, see the freezer notes in
-	 * ORCHESTRATION — left a half-written or empty map that no longer parses.
-	 * Staging file, then rename. The staging file is a <em>sibling</em> on
-	 * purpose: {@code renameTo} is only atomic within one filesystem, which is
-	 * why {@link com.resurrection.blowtorch2.lib.service.ConnectionSettingsIO}
-	 * needed a copy fallback for a staging file in the cache directory. A
-	 * leftover {@code .tmp} from a kill is invisible to {@code listMaps}, which
-	 * only accepts {@code .json}.
-	 * <p>
-	 * <b>No {@code fsync} here, deliberately.</b> A killed process leaves its
-	 * dirty pages in the page cache and the kernel writes them back, so the
-	 * rename alone closes the window this is about. {@code fsync} would only add
-	 * power-loss and panic protection, and it is the expensive half — a real
-	 * flash flush. Most writes land on the {@code bt-map-save} daemon where that
-	 * would be affordable, but {@code flushPendingWrites} is synchronous by
-	 * design and {@code StellarService.onTaskRemoved} calls it on the service
-	 * main thread, with the system waiting. {@code ConnectionSettingsIO} does
-	 * fsync, and that write is the disconnect stall.
+	 * Staging sibling then rename: {@code FileOutputStream} truncates first, and
+	 * this process is killed routinely. Sibling so {@code renameTo} stays on one
+	 * filesystem. No {@code fsync}: {@code flushPendingWrites} /
+	 * {@code onTaskRemoved} run on the service main thread; that fsync is the
+	 * disconnect stall in {@code ConnectionSettingsIO}.
 	 */
 	private static void writeFile(File file, String content) throws IOException {
 		File parent = file.getParentFile();

@@ -8,21 +8,10 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 
 /**
- * {@code .dobell} — fire the bell reaction now.
- *
- * <p>This is how a trigger makes a noise: a Script action of {@code .dobell}
- * rings whatever Options → Bell has turned on. Worth knowing, because the
- * trigger action list has no "play a sound" entry and this is easy to miss.
- *
- * <p>No arguments honors those Options. {@code .dobell vibrate} and
- * {@code .dobell alert} fire that one reaction now even if the matching
- * option is off — so you can check the phone without turning Display Bell or
- * Notification on.
- *
- * <p>The three reactions are settings, and all three can be off — the
- * notification and the on-screen bell are off by default. Until now that case
- * was a command that did nothing, said nothing, and gave a player building a
- * combat alert no way to tell a broken trigger from a silent one.
+ * {@code .dobell} — fire Options → Bell now. Script {@code .dobell} is the
+ * trigger path with no dedicated sound action. {@code vibrate}/{@code alert}
+ * fire even if that option is off. All three off used to be silent with no
+ * message; that is indistinguishable from a broken trigger.
  */
 public class BellCommand extends SpecialCommand {
 

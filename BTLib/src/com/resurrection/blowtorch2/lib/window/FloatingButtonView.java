@@ -65,27 +65,11 @@ public class FloatingButtonView extends View {
 	}
 
 	/**
-	 * Room reserved outside the visible button for gesture hints, mirroring
-	 * {@code BUTTON:drawGestureIndicators} / {@code drawGestureLabel} on the
-	 * grid — there they draw on a shared full-window canvas that nothing
-	 * clips. A floating button instead gets its own overlay windows
-	 * ({@code TYPE_APPLICATION_OVERLAY}), so anything drawn past a
-	 * button-sized window used to be clipped. The view is therefore larger
-	 * than the button and draws hints in the margin.
-	 *
-	 * <p>In overlay mode the controller hosts this padded view in a
-	 * {@code FLAG_NOT_TOUCHABLE} window and a separate button-sized touchable
-	 * proxy — a single padded touchable window would swallow keyboard taps in
-	 * the hint band ({@code FLAG_NOT_TOUCH_MODAL} only passes touches outside
-	 * the window rectangle). In the in-app {@link FloatingLayer} the padded
-	 * view is the only child and returning {@code false} from
-	 * {@link #onTouchEvent} lets the layer pass padding taps through.
-	 *
-	 * <p>Left/right are equal on purpose: it keeps every "horizontal centre of
-	 * the button" calculation ({@code getWidth() / 2f}) correct without a
-	 * separate button-centre offset. Top is much larger than the sides because
-	 * it also has to fit the press callout box above the button, not just an
-	 * edge letter.
+	 * Margin around the visible tile for gesture hints. Overlay: padded view in
+	 * a {@code FLAG_NOT_TOUCHABLE} window plus a button-sized touch proxy — one
+	 * padded touchable window swallows IME taps in the hint band. Equal left/
+	 * right so {@code getWidth()/2} is the button centre; top is larger for the
+	 * press callout.
 	 */
 	private static final float HINT_PAD_SIDE_DP = 14f;
 	private static final float HINT_PAD_BOTTOM_DP = 18f;

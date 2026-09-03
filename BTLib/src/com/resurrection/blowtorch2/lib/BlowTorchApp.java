@@ -25,22 +25,9 @@ public class BlowTorchApp extends Application {
 	}
 
 	/**
-	 * Write a crash to the error log before the process dies.
-	 *
-	 * <p>Until now nothing did. The only handler in the tree was a commented-out
-	 * line in MainWindow naming a CrashReporter class that does not exist, so an
-	 * uncaught exception took the app down leaving nothing behind but a logcat
-	 * entry that the ring buffer eventually ate. The maintainer's error log
-	 * looked quiet because crashes never reached it, not because there were none.
-	 *
-	 * <p>This records and then hands over to the handler that was already
-	 * installed, so the app still dies exactly as it did. Swallowing the throw
-	 * would leave the process alive in a state nobody designed for, which is a
-	 * worse failure than the crash: a gate belongs where the bad value enters,
-	 * not around the whole application.
-	 *
-	 * <p>Installed per process, since {@code :stellar} crashes independently of
-	 * the UI and its failures are the ones nobody is looking at.
+	 * Write a crash to the error log, then hand off to the previous handler so
+	 * the process still dies. Installed per process ({@code :stellar} crashes
+	 * independently). Swallowing would leave a process nobody designed for.
 	 */
 	private void recordUncaughtExceptions() {
 		final Thread.UncaughtExceptionHandler previous =

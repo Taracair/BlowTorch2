@@ -265,19 +265,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	/**
-	 * What this trigger fires on: a line from the world, or something the phone
-	 * itself felt.
-	 *
-	 * <p>A device gesture is stored as a pattern like {@code !wave}, but nobody
-	 * should ever have to know that, and nobody should be able to break it by
-	 * editing the field by hand — one stray keystroke and Done would turn the
-	 * gesture into a trigger watching the game for the literal text "!wave",
-	 * silently and for ever. So picking a gesture fills the pattern in and locks
-	 * the field; picking "a line from the world" hands it back.
-	 *
-	 * <p>Gestures this phone has no sensor for are listed and marked rather than
-	 * hidden: a profile is a thing people share, and one built for a phone with a
-	 * proximity sensor should be readable on a phone without one.
+	 * Line vs gesture source. Gesture locks the pattern so Done cannot turn
+	 * {@code !wave} into a text trigger. Unavailable sensors stay listed
+	 * (shared profiles).
 	 */
 	private void setupSourcePicker(final EditText pattern, final CheckBox literal,
 			final EditText title) {
@@ -687,24 +677,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	/**
-	 * What the pattern field is actually going to do, in the editor, before the
-	 * trigger is saved.
-	 *
-	 * <p>Three things were invisible and each cost a session to find out the
-	 * hard way. A regex that does not compile is not rejected -- {@code
-	 * TriggerData.buildData} falls back to matching the text literally, on
-	 * purpose -- so a mistyped bracket produced a trigger that simply never
-	 * fired, with the reason recorded in {@code getPatternError()} and shown
-	 * nowhere. An alias's text is pasted in before the pattern is compiled --
-	 * whether the whole pattern is the alias's name or it was named inside a
-	 * longer one -- and a pattern that quietly stopped meaning what it says is
-	 * exactly the thing that has to be said out loud, here, while it can still
-	 * be changed. And an alias whose text cannot stand in a pattern is refused
-	 * rather than pasted, which is only fair to say too.
-	 *
-	 * @param patternText The raw contents of the pattern field.
-	 * @param isLiteral Whether the literal-text checkbox is ticked.
-	 * @return Lines to append to the preview, each starting with a newline.
+	 * Editor preview of what the pattern will actually match: regex compile
+	 * fallback to literal ({@code getPatternError()} was nowhere in the UI),
+	 * alias paste, refused alias body.
 	 */
 	private String patternStatus(final String patternText, final boolean isLiteral) {
 		StringBuilder out = new StringBuilder();

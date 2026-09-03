@@ -17,21 +17,9 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 
 /**
- * Makes what the trigger matched tappable: the player touches the word and the
- * command goes to the game, with {@code $word} replaced by the text that was
- * hit.
- *
- * <p><b>Why this responder does nothing when it fires.</b> A colour trigger
- * works by putting an ANSI code into the byte stream, and the window rebuilds
- * the colour from those bytes on the other side of the binder. "This word is
- * tappable" has no byte to carry it, so marking the text here would mark a
- * buffer the window never sees — the window builds its own from the bytes.
- *
- * <p>So the rule travels instead of the mark. The window reads the trigger list
- * over the binder it already has, keeps the ones carrying a TapAction, and
- * matches the pattern itself while drawing — the same place it already finds
- * links. That also means a tappable word stays tappable for as long as the line
- * is in the buffer, instead of only at the instant the trigger fired.
+ * Tappable match: the rule travels over the binder; the window marks while
+ * drawing. There is no ANSI byte for "tappable", so firing here cannot mark
+ * a buffer the window never sees. {@code $word} is the tapped text.
  */
 public class TapAction extends TriggerResponder implements Parcelable {
 

@@ -77,24 +77,11 @@ public final class BlowTorchLogger {
 	}
 
 	/**
-	 * Cached because the two probes above are shared-storage disk on whatever
-	 * thread is writing a log line, and every writer, reader and rotation goes
-	 * through here. StrictMode on the test build measured 33 stalls and 3.8 s of
-	 * main-thread disk in one session through this method alone, worst single
-	 * hit 514 ms.
-	 *
-	 * <p>Deliberately keyed on the shared directory rather than invalidated by
-	 * hand. The check exists for a real reason -- the shared tree belongs to
-	 * whichever flavour created it, and the test build silently could not write
-	 * into a directory the production build owned, which is how the log stopped
-	 * growing without anyone noticing. A cache that had to be told when that
-	 * changed would reproduce the bug documented on {@code SDCardUtils.sRootCache}:
-	 * statics exist once per process, so clearing this in the UI would leave
-	 * {@code :stellar} -- where connection and settings errors are logged --
-	 * pointing at the old place forever. {@code resolveBlowTorchSubdir} already
-	 * re-derives itself when the storage grant changes, so when the root moves
-	 * the source path changes, this misses, and both processes correct
-	 * themselves without being told.
+	 * Cached: the probes are shared-storage disk on the logging thread.
+	 * Measured 33 stalls / 3.8 s main-thread disk, worst 514 ms. Keyed on the
+	 * directory path so a flavour-owned tree is not written by the other
+	 * flavour. Do not invalidate by hand — {@code :stellar} would keep the old
+	 * path ({@code SDCardUtils.sRootCache}).
 	 */
 	private static volatile LogDir sLogDir;
 
@@ -307,30 +294,10 @@ public final class BlowTorchLogger {
 	private static boolean gmcpQueueWasFull;
 
 	/**
-	 * Append one GMCP packet to its own trace file, off whatever thread called.
-	 *
-	 * <p>Deliberately not the crash log. A busy world sends GMCP constantly, and
-	 * putting that in {@code blowtorch2.log} rolled the error history away under
-	 * it — the reason the trace was pulled out of there in the first place. The
-	 * player still gets a file they can read and send, just not that one.
-	 *
-	 * <p><b>Measured, 30 July 2026.</b> This used to open, append and close the
-	 * file on the calling thread, once per packet. The caller is
-	 * {@code Processor.logGmcp}, which runs on the {@code :stellar} main thread —
-	 * the same handler that carries text to the UI. StrictMode on the test build
-	 * recorded <b>60–80 ms of blocking disk per packet</b> (pid 9054, tid 9054),
-	 * 94 violations through this method in one eden-test session, and the connect
-	 * burst was visibly frozen. Turning "Log GMCP?" on was therefore a way to make
-	 * the client stutter, which is not what a diagnostic should cost.
-	 *
-	 * <p>So the caller now only stamps and enqueues. One low-priority daemon
-	 * drains the queue and folds whatever is waiting into a single file open,
-	 * which turns a connect burst of ten packets into one. The stamp is taken
-	 * here, at the moment the packet arrived, not when the disk got round to it —
-	 * a trace with rearranged times would be worse than no trace.
-	 *
-	 * @param context Application context; a null context is ignored.
-	 * @param line Already-redacted packet text.
+	 * Append one GMCP packet to its own trace file (not the crash log).
+	 * Measured 30 July 2026: 60–80 ms blocking disk per packet on {@code :stellar}
+	 * main ({@code Processor.logGmcp}), 94 violations in one session. Caller
+	 * stamps and enqueues; one daemon batches opens. Stamp at arrival, not at disk.
 	 */
 	public static void logGmcpTrace(final Context context, final String line) {
 		if (context == null || line == null) {

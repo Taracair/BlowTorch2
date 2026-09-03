@@ -44,36 +44,17 @@ public class LuaDialog extends Dialog {
 	/** Bottom-sheet only: true = see grid above panel; false = opaque fullscreen frame. */
 	private boolean mPresentationOverGrid = false;
 	/**
-	 * Opt-in: react to the soft keyboard so focused fields in scrollable dialog
-	 * content stay visible. Off by default — every Lua dialog hosts through this
-	 * class, and bottom-sheet / compact modes must not inherit a resize path.
-	 *
-	 * <p>What this actually does (LAYOUT_FULLSCREEN — the button editor):
-	 * <ul>
-	 *   <li>{@code SOFT_INPUT_ADJUST_RESIZE} on the dialog window. This is the
-	 *       real path on minSdk 28 through targetSdk 36. It is deprecated at 30
-	 *       but only <em>ignored</em> when the window has
-	 *       {@code setDecorFitsSystemWindows(false)}; this class calls that only
-	 *       for {@link #LAYOUT_BOTTOM_SHEET}, never for fullscreen, so resize
-	 *       still applies here.
-	 *   <li>Skip {@code FLAG_FULLSCREEN} when the status bar is hidden. That flag
-	 *       suppresses soft-input resize. Side effect: for a player who hides the
-	 *       status bar, the editor opens with the status bar showing. A covered
-	 *       field is worse than a visible status bar; stated so it is not found
-	 *       by the maintainer on the phone.
-	 *   <li>Also {@code Math.max} the content bottom padding with
-	 *       {@link WindowInsetsCompat.Type#ime()}. With decor-fits true and
-	 *       ADJUST_RESIZE active the window shrinks out from under the keyboard,
-	 *       so {@code ime().bottom} is expected to read 0 and this branch is a
-	 *       no-op — belt-and-braces whose inset was never measured on a device.
-	 *       Do not treat the comment as evidence that the inset does work.
-	 * </ul>
+	 * Opt-in IME resize for fullscreen Lua dialogs (button editor). Off by
+	 * default so bottom-sheet/compact modes do not inherit it.
+	 * {@code SOFT_INPUT_ADJUST_RESIZE} still applies because fullscreen never
+	 * calls {@code setDecorFitsSystemWindows(false)}. Skip {@code FLAG_FULLSCREEN}
+	 * when the status bar is hidden — that flag kills resize. IME inset padding
+	 * was never measured; do not treat it as proven.
 	 */
 	private boolean mAdjustForIme = false;
 	
 	public LuaDialog(Context context) {
 		super(context);
-		// TODO Auto-generated constructor stub
 	}
 	
 	public LuaDialog(Context context,View v,boolean title,Drawable border) {

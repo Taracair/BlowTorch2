@@ -31,33 +31,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Every sensor reading this phone can deliver, and what each one drives.
- *
- * <p><b>Why this exists.</b> A sensor trigger is stored as an ordinary trigger,
- * which is right for the engine and wrong for finding it afterwards: a player
- * who set one up with {@code .sensor facedown afk} had nowhere to look except a
- * list of dozens of triggers watching for game text. This is the place to look.
- * Options → Device → Sensors opens it.
- *
- * <p>It also answers what happens when a gesture has <em>more</em> than one
- * thing hanging off it. Every trigger with that gesture's pattern fires, so this
- * lists them all and says so, rather than pretending a gesture owns exactly one
- * action. Editing goes to the ordinary trigger editor, because that is where
- * scripts, sounds, speech and conditions already live.
- *
- * <p><b>What the screen is for.</b> Sixteen readings, of which a player wants
- * one. So they are grouped under the four headings in {@code GestureCatalog},
- * the ones this handset cannot provide are folded away at the bottom rather
- * than greyed in place, and a row is two lines: what it is, and one line of
- * state. The resolved sensor's model name is not on the row — it answers a
- * question nobody asked while scrolling, and {@code .sensor caps} still prints
- * it for the one person who wants it.
- *
- * <p>The chrome is the Alias / Trigger / Timer chooser's, down to the row
- * selector and the play / pencil icons, because this is another list of things
- * that fire and it should not be a screen of its own invention. What the list
- * is for lives behind the {@code ?} in the button bar, which is where those
- * three keep it.
+ * Options → Device → Sensors. One gesture can have several triggers; edit goes
+ * to the ordinary trigger editor. Unavailable readings are folded away.
  */
 public class GestureListDialog extends Dialog {
 

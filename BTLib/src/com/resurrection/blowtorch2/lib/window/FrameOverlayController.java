@@ -24,24 +24,10 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 /**
- * Windows for {@code mudstd.frame} image frames.
- *
- * <p>Built on the same idea as {@link ExtraTextOverlayController}: one overlay
- * per frame on {@code window_container}, under {@code gameplay_chrome_overlay},
- * in one of two shapes — a floating window the player drags and resizes, or a
- * drawer down from the top of the screen. The difference is what is inside:
- * a picture from {@link FrameImageStore} instead of a text {@link Window}.
- *
- * <p><b>The shape is the player's choice, not the server's.</b> A server asks
- * for {@code type: "floating"} or {@code "docked"} and we honour the request as
- * a starting point, but the player can move a frame between the two shapes and
- * that choice sticks. It is their screen.
- *
- * <p>Geometry is remembered as one default rather than per frame id. Frame ids
- * are chosen by the server — two worlds both calling a frame {@code map} is
- * likely, not exotic — so keying saved positions on the id would have one
- * world's map open where another world's map was left. What is saved is "where
- * this player likes a frame to sit", which is the thing that is actually stable.
+ * {@code mudstd.frame} image windows. Server {@code type} is a starting point;
+ * the player's shape sticks. Geometry is one default, not per frame id (ids
+ * collide across worlds). Resize is debounced at {@link #RESIZE_DEBOUNCE_MS}
+ * so a drag is not dozens of {@code frame.resized} events.
  */
 public class FrameOverlayController implements FrameImageStore.Listener {
 

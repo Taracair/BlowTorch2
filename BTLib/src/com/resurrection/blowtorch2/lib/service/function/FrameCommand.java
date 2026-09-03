@@ -9,21 +9,8 @@ import com.resurrection.blowtorch2.lib.service.MudstdFrame;
 import com.resurrection.blowtorch2.lib.service.Processor;
 
 /**
- * The player's half of the {@code mudstd.frame} package.
- *
- * <p>The specification has {@code frame.closed} with {@code reason: "user"} —
- * the player shut the frame — and until now BlowTorch could never send it. A
- * server could open a frame here and never learn the person reading it was
- * done. That is the missing half this command supplies.
- *
- * <p>An image frame now has a close button of its own, and it sends this same
- * event — the command was written first, deliberately, so that the half a
- * server author writes against did not change when the button appeared. The
- * command stays because it also closes frames that have no window: text
- * content, and anything a server opened that never sent content at all.
- *
- * <p>{@code .window hide/show} is a different thing entirely — that is our own
- * extra text windows, not server-opened frames.
+ * Player half of {@code mudstd.frame}: send {@code frame.closed}. Not
+ * {@code .window hide} (extra text windows). Also closes frames with no window.
  *
  * <pre>
  * .frame

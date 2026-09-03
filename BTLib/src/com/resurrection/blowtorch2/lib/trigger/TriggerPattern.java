@@ -7,41 +7,11 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * The combined regular expression that matches every enabled trigger at once,
- * and the map from capture-group number back to the trigger that owns it.
- *
- * <p>The counterpart of {@link com.resurrection.blowtorch2.lib.alias.AliasPattern}
- * for triggers. That class was extracted from {@code Plugin.buildAliases} because
- * one joined alternation over player-supplied patterns is the trickiest thing in
- * the system: a pattern may declare its own groups, so a trigger's outer group
- * number depends on how many groups every trigger before it declared. Get it
- * wrong and a match is attributed to the wrong trigger, which runs the wrong
- * responders. {@code Connection.buildTriggerSystem} was the identical construct
- * and kept building the alternation by hand, which cost it three things this
- * class fixes:
- *
- * <ul>
- * <li>It appended the <em>raw</em> {@code getPattern()} field, so the fallback
- *     {@link TriggerData#buildData} installs for a pattern that will not compile
- *     was bypassed and the raw broken pattern reached {@code Pattern.compile}.
- * <li>It hand-built the {@code \Q...\E} span, the exact thing {@code TriggerData}
- *     moved to {@code Pattern.quote} because a literal trigger containing
- *     {@code \E} ended the quoted span early.
- * <li>It compiled the join unguarded, out of methods reachable from the binder,
- *     so a {@code PatternSyntaxException} travelled back and killed the UI
- *     process.
- * </ul>
- *
- * <p>Building from {@link TriggerData#getCompiledPattern()} means there is
- * exactly one sanitisation point, in {@code TriggerData}, and every alternative
- * here is known to compile on its own before it is joined.
- *
- * <p>This is a builder rather than a static factory because a connection draws
- * its triggers from several sources -- its own settings and every enabled plugin
- * -- and the group numbering has to run continuously across all of them. The
- * caller also has to remember which plugin owns which group, which is why
- * {@link #add} hands the assigned number back instead of keeping an owner map
- * of its own; a plugin is a service-side object and has no business in here.
+ * Joined alternation of every enabled trigger, plus capture-group → trigger.
+ * Alternatives come from {@link TriggerData#getCompiledPattern()} only — raw
+ * {@code getPattern()} bypasses the compile fallback and can kill the UI via
+ * the binder. Builder so group numbers continue across plugins; {@link #add}
+ * returns the assigned group rather than owning a plugin map.
  */
 public final class TriggerPattern {
 

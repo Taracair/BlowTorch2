@@ -4,23 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * What the phone is doing, as session variables a trigger can already read.
- *
- * <p><b>Why this shape.</b> Conditions on triggers and timers already resolve
- * {@code variableEquals} against the connection's session variables — see
- * {@code ConditionEvaluator}. So the cheapest useful half of "sensors" is not a
- * new kind of trigger at all: it is writing the phone's state into the variables
- * that already gate everything. "Only shout when the phone is face up" then
- * costs one condition the player can add today, and Lua reads the same values
- * through {@code GetVariable}.
- *
- * <p>Names are prefixed {@code device.} so they cannot collide with a player's
- * own variables. A value that this device cannot know is <b>absent</b>, not
- * {@code no}: a phone with no proximity sensor never sets {@code device.covered},
- * and a condition testing it is false rather than quietly true. That asymmetry
- * is deliberate and it is what makes a profile safe to move between phones.
- *
- * <p>No Android types here on purpose — this is the half that can be tested.
+ * Phone state as {@code device.*} session variables. Unknown hardware leaves
+ * the key absent, not {@code no}, so a moved profile does not fire by accident.
  */
 public final class DeviceState {
 

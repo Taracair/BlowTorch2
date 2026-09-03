@@ -558,7 +558,7 @@ public class Processor {
 			// rawProcess is called from that handler's dispatch(), and a normal
 			// sendMessage would sit *behind* the current turn — so the prompt
 			// text from this same packet reached the input bar before the mask
-			// flipped. On eden-test that meant: nickname still dotted (WONT
+			// flipped. On a live world that meant: nickname still dotted (WONT
 			// arrived after "What is your name?"), password still clear (WILL
 			// arrived after the password prompt). Measured 11 Aug 2026.
 			Message echoMsg = mReportTo.obtainMessage(
@@ -572,7 +572,7 @@ public class Processor {
 
 		if (action == TC.WILL && option == TC.CHARSET) {
 			// Agree to CHARSET and prefer UTF-8, but do NOT send a client REQUEST.
-			// Some MUDs (incl. eden-test) treat an unsolicited REQUEST poorly.
+			// Some MUDs treat an unsolicited REQUEST poorly.
 			setEncoding("UTF-8");
 			mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_CHARSET, "UTF-8"));
 		}
@@ -1026,7 +1026,7 @@ public class Processor {
 			// with frame.resized once it has measured itself.
 			//
 			// Two spellings are read. The package page calls the field sizeValue;
-			// eden-test sends size (seen in logs/gmcp.log, 30 July 08:12). Reading
+			// a live world sends size (measured 30 July). Reading
 			// both costs nothing and means the server author is not debugging a
 			// width of zero that came from a field name.
 			int cols = 0;

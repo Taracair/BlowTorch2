@@ -182,18 +182,9 @@ public final class UpdateChecker {
 	private static final String KEY_ENABLED = "enabled";
 
 	/**
-	 * Whether the automatic check is on.
-	 *
-	 * <p>Stored app-wide rather than in a connection profile. Whether this app
-	 * looks for its own updates is a property of the install, not of the MUD you
-	 * happen to have open — as a per-profile setting it meant "check for updates
-	 * when connected to Eden but not elsewhere", which is not a thing anyone
-	 * wants. The toggle is in the launcher's ⋮ menu.
-	 *
-	 * @param context Any context.
-	 * @return true when the automatic check should run. GitHub production
-	 *     defaults on; an F-Droid build ({@code -Pblowtorch.fdroid}) defaults
-	 *     off. A player who has used the ⋮ toggle is stored either way.
+	 * Whether the automatic check is on. App-wide, not per profile — a per-world
+	 * toggle made the check depend on which MUD was open. GitHub production
+	 * defaults on; F-Droid ({@code -Pblowtorch.fdroid}) defaults off.
 	 */
 	public static boolean isEnabled(final Context context) {
 		if (context == null) {

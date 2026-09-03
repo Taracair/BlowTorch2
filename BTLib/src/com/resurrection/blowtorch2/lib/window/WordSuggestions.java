@@ -8,29 +8,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Words the game has just used, offered back while you type.
- *
- * <p><b>Why this is not the keyboard's job.</b> Gboard completes from a language
- * dictionary and from what you have typed before, and it has no idea what is on
- * screen. The words that are slow to type in a MUD are exactly the ones it will
- * never know: a mob called <i>grizzled</i>, a player called <i>Tonkatsu</i>, an
- * item called <i>gnarled oaken staff</i>. Worse, it actively corrects them into
- * English — type "grizz" and it offers "grid", "grim", "grip".
- *
- * <p>So this keeps a small, recent vocabulary of what the world actually said,
- * and completes from that. Type {@code k gri} and it offers {@code grizzled},
- * because the mob walked in three lines ago.
- *
- * <p>Newest first, deliberately: the thing that just arrived is nearly always
- * the thing you are about to name. A bounded store, because this lives in the UI
- * process for the length of a session.
- *
- * <p><b>What "recent" counts in.</b> Lines, not words. A word count is a poor
- * proxy: a quiet hour of a few lines keeps names from hours ago alive, while one
- * noisy room description evicts everything you were just looking at. The window
- * is the last {@link #DEFAULT_MAX_LINES} lines the world sent, so "recent" means
- * the same thing here as it does on screen. The word cap below is only a memory
- * backstop for a world that sends very wide lines.
+ * Completions from recent game text, newest first. Window is the last
+ * {@link #DEFAULT_MAX_LINES} lines, not a word count. Gboard cannot know mob
+ * names and will "correct" them.
  */
 public final class WordSuggestions {
 

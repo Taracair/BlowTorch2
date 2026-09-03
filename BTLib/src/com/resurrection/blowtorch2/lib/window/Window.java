@@ -74,9 +74,8 @@ import com.resurrection.blowtorch2.lib.window.TextTree.SelectionCursor;
 import com.resurrection.blowtorch2.lib.window.TextTree.Unit;
 
 
-/** \brief Window
- *
- *  The Window.java class is the programmable mini-window that also houses the ansi drawing routine.
+/**
+ * Programmable mini-window and ANSI drawing.
  */
 
 @SuppressWarnings("deprecation")

@@ -7,25 +7,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * The shape of a GMCP packet body, decided before anything tries to use it.
- *
- * <p>GMCP is <code>Module.Name</code> followed by an optional JSON value. The
- * decode path here used to assume that value was always a JSON <em>object</em>
- * and called <code>new JSONObject(body)</code> on it, so a server sending an
- * array got a red <code>[GMCP ERR] parse failed</code> line and had its packet
- * dropped. We send <code>core.supports.set ["Char 1", …]</code> as an array
- * ourselves, so that rejected a shape we rely on.
- *
- * <p>Classification is by first character and then a strict check, deliberately
- * <em>not</em> by handing the text to {@link org.json.JSONTokener} and seeing
- * what falls out. Both org.json implementations in play here — Android's on the
- * device, the reference one on the JVM test classpath — are lenient enough to
- * turn <code>()</code> into the string <code>"()"</code>, which would classify
- * every piece of garbage as a legal scalar and silence the error path
- * altogether. The point of this class is to narrow what counts as an error, not
- * to remove it.
- *
- * <p>Nothing here touches Android, so it is covered by {@code GmcpBodyTest}.
+ * Classify a GMCP body by first character, then a strict check.
+ * Do not use {@code JSONTokener}: both org.json copies here turn {@code ()}
+ * into {@code "()"} and would silence the error path. Array bodies are legal.
  */
 public final class GmcpBody {
 

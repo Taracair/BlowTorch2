@@ -1,23 +1,9 @@
 package com.resurrection.blowtorch2.lib.service.sensor;
 
 /**
- * Which way up the phone is, and when that counts as having been turned over.
- *
- * <p><b>Three rules, and all three are needed.</b> Gravity on the screen's axis
- * says up, down or neither ({@link DeviceState#classifyFacing}). A reading has
- * to hold for {@link #SETTLE_MILLIS} before it is believed, because turning a
- * phone over passes through every angle on the way and the trip would otherwise
- * fire halfway. And the first settled reading after the sensor is picked up is
- * where the phone was already lying, not something anybody did.
- *
- * <p><b>Why it is a class of its own.</b> {@code DeviceStateWatcher} runs this
- * in the service to fire real triggers, and the Sensors probe runs it in the UI
- * to tell the player whether their phone saw them. Written twice, the screen
- * that says "seen it" would say so at a moment when nothing fired — which is a
- * worse answer than no screen at all.
- *
- * <p>No Android types, so the rules above are tested rather than asserted. Not
- * thread-safe: each owner keeps its own and feeds it from one sensor callback.
+ * Facing from gravity on the screen axis, after {@link #SETTLE_MILLIS},
+ * ignoring the first settled reading (the phone was already there). Shared by
+ * the service detector and the UI probe so they agree. Not thread-safe.
  */
 public final class FacingDetector {
 

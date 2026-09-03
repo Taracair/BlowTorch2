@@ -10,26 +10,8 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 
 /**
- * One connection to the phone's speech engine, for triggers that speak.
- *
- * <p><b>Costs nothing to ship.</b> {@link TextToSpeech} is a platform API and
- * the voices belong to whatever engine the phone already has. There is no model
- * to bundle, so this adds no weight to the APK.
- *
- * <p><b>One instance, made on first use.</b> Binding to the engine is a service
- * connection, not a call, so it is opened once and kept — one per utterance
- * would spend most of a fight connecting. It is never opened at all until a
- * trigger actually speaks, so a player who does not use this pays nothing.
- *
- * <p><b>The queue is the hard part, not the speaking.</b> A MUD prints several
- * lines a second in a fight. Plain {@code QUEUE_ADD} leaves the speech a minute
- * behind what is on screen and useless; plain {@code QUEUE_FLUSH} means only
- * the last line of any burst is ever heard. So: a short queue, and when it
- * overflows the newest line wins and the backlog is dropped. What you hear is
- * always about now.
- *
- * <p>Owned by the process the triggers run in ({@code :stellar}), which is also
- * what lets an alert be heard while the game window is in the background.
+ * One TTS engine, opened on first speak, owned by {@code :stellar}.
+ * Short queue; overflow drops the backlog so speech stays on the current burst.
  */
 public final class SpeechEngine {
 

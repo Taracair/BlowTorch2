@@ -8,18 +8,10 @@ import com.resurrection.blowtorch2.lib.window.TextTree.NewLine;
 import com.resurrection.blowtorch2.lib.window.TextTree.Unit;
 
 /**
- * Closes the colour a colour trigger left running.
- *
- * <p>A colour trigger paints by putting a colour code into the stream, and a
- * code runs until the next one. When the match reaches the end of the text that
- * has arrived, {@code ColorAction} deliberately leaves its colour open: the rest
- * of that line can still be in the next TCP packet, and it belongs to the match.
- * The line's end is where that stops being true.
- *
- * <p>The line is not always finished in the same dispatch that coloured it —
- * that is the whole point — and the working buffer is emptied after each one, so
- * "a colour is still open" is state of the connection rather than of a buffer.
- * One of these per connection.
+ * Close a colour trigger left open across a TCP split. {@code ColorAction}
+ * leaves colour running so the rest of the line in the next packet still
+ * matches; the line end is where that stops. Per connection: the working
+ * buffer is emptied after each dispatch.
  */
 public final class TriggerColorState {
 

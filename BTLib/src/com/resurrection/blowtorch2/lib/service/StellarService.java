@@ -2369,29 +2369,11 @@ public class StellarService extends Service {
 	}
 
 	/**
-	 * Ask the foreground activity to re-read connection options (e.g. floating
-	 * buttons), coalescing the requests that arrive together.
-	 *
-	 * <p><b>Measured, 8 August, entering a world on the phone.</b> Loading a
-	 * profile ends in {@code Connection.initSetting}, which walks the whole
-	 * settings tree and calls {@code updateSetting} for every key; twelve of
-	 * those keys ask for this broadcast. The UI answered each one by calling
-	 * {@code getSettings} and applying everything again — {@code setupEditor},
-	 * {@code imm.restartInput}, the suggestion bar, the extra-text overlays.
-	 * Twelve passes at ~160 ms each: <b>1.9 s of solid main-thread work</b> right
-	 * after the game window appeared, logged as {@code Skipped 192 frames}.
-	 *
-	 * <p>The parcel was never the problem — {@code getSettings} measured 7-11 ms.
-	 * Applying the same settings twelve times was.
-	 *
-	 * <p><b>Why coalescing cannot lose a change, which is the question worth
-	 * asking:</b> this carries no payload. It says "re-read", and the reader
-	 * reads the whole tree from the service's live state. Twelve of them and one
-	 * of them therefore end in the same place, as long as the one lands after the
-	 * last change — which a delayed message on this handler does, because every
-	 * {@code updateSetting} has already written its value into that state before
-	 * asking. What a player can notice is a setting applying up to
-	 * {@link #ASK_LOADSETTINGS_COALESCE_MS} later than it used to.
+	 * Ask the UI to re-read options, coalesced. Measured 8 Aug: twelve
+	 * {@code updateSetting} broadcasts × ~160 ms = 1.9 s / Skipped 192 frames.
+	 * Parcel was 7–11 ms; applying twelve times was the cost. No payload: one
+	 * delayed re-read after the last write cannot drop an edit. Latency up to
+	 * {@link #ASK_LOADSETTINGS_COALESCE_MS}.
 	 */
 	public final void doExecuteRequestLoadSettings() {
 		if (mHandler == null) {

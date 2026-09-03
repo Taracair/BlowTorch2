@@ -10,53 +10,9 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 
 /**
- * An alias named in a trigger's pattern, so the trigger watches for the alias's
- * text instead of its name.
- *
- * <p>An alias and a trigger face opposite ways. An alias expands a line the
- * player <em>types</em>; a trigger matches a line the game <em>sends</em>. So
- * writing an alias's name in the pattern field, which is what the maintainer
- * tried, produces a trigger that sits waiting for the game to print the letters
- * {@code _tappable1}. This class is the bridge that was missing, and it is
- * deliberately a narrow one: the alias's body is pasted into the pattern as
- * text, once, when the trigger system is built. Nothing about the alias's own
- * behaviour comes along.
- *
- * <p>There are two ways to name one, and the plain one is the one to reach for:
- *
- * <ul>
- * <li><b>The whole pattern is the alias's name.</b> Type {@code _tappable1} in
- *     the pattern box and the trigger watches for {@code circuit}. This is what
- *     the maintainer tried before there was anything to make it work, and
- *     asking a player to write punctuation for it was rejected as too
- *     technical.
- * <li><b>{@code $alias&#123;name&#125;} inside a longer pattern</b>, where the
- *     alias is one word of it: {@code You see a $alias&#123;spares&#125; here}.
- *     There is nothing else the whole-pattern form could do here.
- * </ul>
- *
- * <p>The first form does mean a trigger whose pattern is exactly an alias's
- * name can no longer watch for that text literally, and that a new alias can
- * change what an existing trigger watches for. Across the seven profiles on the
- * maintainer's phone -- 143 aliases against 214 triggers -- exactly one pattern
- * is an alias name, and it is {@code _tappable1}, the one this was asked for.
- * The escape, when it is needed, is that the whole pattern has to be
- * <em>exactly</em> the name: in regex mode {@code ^Ch$} names no alias.
- *
- * <p>Three kinds of reference are refused, and a refused reference is left in
- * the pattern exactly as written -- the same choice
- * {@code VariableSubstitution} makes for an unset variable, and for the same
- * reason: a trigger that visibly watches for {@code $alias{x}} and never fires
- * is easier to understand than one that quietly watches for something else.
- *
- * <ul>
- * <li>No alias of that name.
- * <li>A body that is several commands ({@code a;b}) or wants typed captures
- *     ({@code get $1 from bag}). Neither is one piece of text the game could
- *     print.
- * <li>A body naming another alias. One level only, so a pair of aliases
- *     naming each other cannot loop.
- * </ul>
+ * Paste an alias body into a trigger pattern: the whole pattern is the alias
+ * name, or {@code $alias{name}} inside a longer one. Refused references stay as
+ * written. One expansion level. Exact name match only — {@code ^Ch$} is literal.
  */
 public final class TriggerAliasReference {
 

@@ -991,43 +991,15 @@ public class MapperView extends View {
 	static final int LABEL_ATTEMPTS = 7;
 
 	/**
-	 * Where along its own line a direction label sits, from the tile the command
-	 * is typed in towards the tile it leads to.
-	 *
-	 * <p>The two directions of a link used to both want the exact middle. Their
-	 * lines run parallel about 10*scale apart, closer than a label is tall, so
-	 * they always collided and the loser was pushed off its line by the
-	 * collision search — sideways, or diagonally once the map got busy. No
-	 * amount of tuning the search fixed that, because the search was never the
-	 * problem: two labels were competing for one spot.
-	 *
-	 * <p>Biasing each towards its own source separates them by construction.
-	 * They land at opposite ends of their own lines, the search stops firing for
-	 * the common case, and "w" now sits next to the room you type w in.
+	 * Where a direction label sits on its line (source toward destination).
+	 * Both directions used to share the midpoint and always collided; the
+	 * search then pushed the loser off the line. Bias separates them.
 	 */
 	private static final float LINK_LABEL_T = 0.30f;
 
 	/**
-	 * Offset for the n-th attempt at placing a link label.
-	 *
-	 * <p>Order matters more than coverage here. The old version only stepped
-	 * <em>away</em> from the link, widening by a whole label height each time,
-	 * so in a crowded corner a label ended up two or three heights out and read
-	 * as belonging to some other link — the "w" and "e" between Beehives and
-	 * Herb Garden floated up above the tiles.
-	 *
-	 * <p>Now it slides <em>along</em> the link first, which keeps the label
-	 * visibly attached to the line it names, and only then steps to the side.
-	 * Nothing ever goes further than one step out and one along, so a label can
-	 * no longer detach from its arrow. Sides alternate so a fan stays
-	 * symmetrical rather than drifting one way.
-	 *
-	 * @param attempt Zero-based try number.
-	 * @param stepX Perpendicular step, x.
-	 * @param stepY Perpendicular step, y.
-	 * @param alongX Along-link step, x.
-	 * @param alongY Along-link step, y.
-	 * @return {@code [dx, dy]} to add to the link midpoint.
+	 * N-th label placement: slide along the link first, then one step aside.
+	 * Stepping only away put labels two heights out, looking like another link.
 	 */
 	static float[] labelNudge(int attempt, float stepX, float stepY,
 			float alongX, float alongY) {
@@ -1206,14 +1178,9 @@ public class MapperView extends View {
 	}
 
 	/**
-	 * Does the line we are about to draw mean what the command means?
-	 *
-	 * Honest when at least one command on the link is a compass move whose grid
-	 * step points the way the line points. Beehive sits down and to the left of
-	 * Herb Garden, but the command is {@code w}: the diagonal is where the room
-	 * had to be put, not a southwest exit, and saying so is the whole point of
-	 * marking it. Commands that are not compass moves at all -- enter, climb --
-	 * never match, which is right: they have no direction to disagree with.
+	 * True when a compass command on the link steps the same way the line is
+	 * drawn. A diagonal placement is not a southwest exit. Non-compass commands
+	 * never match.
 	 */
 	private static boolean linkDrawnAsCommanded(MapTile from, MapTile to,
 			List<String> forward, List<String> back) {
@@ -1269,12 +1236,8 @@ public class MapperView extends View {
 	}
 
 	/**
-	 * Commands on a link, with the ones nobody has walked in brackets.
-	 *
-	 * The brackets are per command, not per link, because the two directions are
-	 * separate claims: walking e from Beehives into Herb Garden proves that
-	 * step and says nothing about w coming back. So a link can read {@code e ·
-	 * (w)} until the way back has been tried too.
+	 * Link label: unwalked commands in brackets, per direction. Walking one way
+	 * does not prove the reverse.
 	 */
 	private static String formatLinkLabel(List<String> cmds, Set<String> walkedCmds) {
 		if (cmds.size() <= MAX_VISIBLE_LINK_LABELS) {
