@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.2
+• Trigger Order: channel replace at 10, word colour at 11
+• Color action: 256 grid, RGB wheel, styles; italic/underline from the world
+• Home pin opens a world that is not already running

@@ -59,7 +59,7 @@ public class Processor {
 	/** List of GMCP Triggers. */
 	private HashMap<String, ArrayList<GMCPWatcher>> mGMCPTriggers = new HashMap<String, ArrayList<GMCPWatcher>>();
 	/** GMCP Hello string (version filled from package versionName). */
-	private String mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"2.4.1\"}";
+	private String mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"2.4.2\"}";
 	/** Tracker for weather or not the use GMCP. */
 	private Boolean mUseGMCP = false;
 	/**
@@ -102,7 +102,7 @@ public class Processor {
 	}
 
 	private String packageVersion() {
-		String ver = "2.4.1";
+		String ver = "2.4.2";
 		if (mContext != null) {
 			try {
 				ver = mContext.getPackageManager()
@@ -111,14 +111,14 @@ public class Processor {
 			}
 		}
 		if (ver == null || ver.length() == 0) {
-			ver = "2.4.1";
+			ver = "2.4.2";
 		}
 		return ver;
 	}
 
 	/** Refresh Core.Hello version from the installed APK versionName. */
 	private void rebuildGmcpHello() {
-		String ver = "2.4.1";
+		String ver = "2.4.2";
 		if (mContext != null) {
 			try {
 				ver = mContext.getPackageManager()
@@ -127,7 +127,7 @@ public class Processor {
 			}
 		}
 		if (ver == null || ver.length() == 0) {
-			ver = "2.4.1";
+			ver = "2.4.2";
 		}
 		mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"" + ver + "\"}";
 	}

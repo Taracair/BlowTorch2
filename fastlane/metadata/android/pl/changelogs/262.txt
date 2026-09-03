@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.2
+• Kolejność triggerów: podmiana kanału na 10, kolor słowa na 11
+• Akcja Color: siatka 256, koło RGB, style; kursywa/podkreślenie ze świata
+• Pin na pulpicie otwiera świat, którego jeszcze nie ma w sesji
