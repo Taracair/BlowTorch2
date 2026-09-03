@@ -5,15 +5,17 @@ package com.resurrection.blowtorch2.lib.service;
 
 /**
  * SGR attributes that are not a colour index. One bitset, painted by
- * {@code Window}: italic, underline, strike, reverse, faint.
+ * {@code Window}: italic, underline, strike, reverse, faint, blink,
+ * double underline.
  *
  * <p>SGR 1 (bold/bright), 2 (faint vs truecolor), 5 ({@code 38;5;n} vs blink)
  * and 22 (normal intensity) stay {@link Colorizer.COLOR_TYPE} so the xterm
  * payload is still consumed before this class sees a number. Call
- * {@link #setFaint(boolean)} from the DIM / 22 path, not {@link #apply(int)}.
+ * {@link #setFaint(boolean)} from the DIM / 22 path and {@link #setBlink(boolean)}
+ * from the standalone-5 path, not {@link #apply(int)}.
  *
- * <p>SGR 21 is underline on (ECMA-48 double underline). It is not xterm
- * bold-off; that is 22.
+ * <p>SGR 21 is double underline (ECMA-48). It is not xterm bold-off; that is
+ * 22. Paint still sets a single underline plus a second hairline.
  */
 public final class SgrStyle {
 
@@ -22,12 +24,20 @@ public final class SgrStyle {
 	public static final int STRIKE = 4;
 	public static final int REVERSE = 8;
 	public static final int FAINT = 16;
+	public static final int BLINK = 32;
+	public static final int FAST_BLINK = 64;
+	public static final int DOUBLE_UNDERLINE = 128;
 
 	/** Mix FG this far toward the paper. Same 50 as the default repeated-line dim. */
 	public static final int FAINT_DIM_PERCENT = 50;
 
 	/** Italic paint skew. Not {@code Typeface.ITALIC} — that would miss the grid cache. */
 	public static final float ITALIC_SKEW = -0.25f;
+
+	/** Slow blink half-period (hide or show). Full cycle is 1 Hz. */
+	public static final long BLINK_SLOW_MS = 500L;
+	/** Fast blink half-period. Full cycle is 2 Hz. */
+	public static final long BLINK_FAST_MS = 250L;
 
 	private int bits;
 
@@ -63,6 +73,18 @@ public final class SgrStyle {
 		return (bits & FAINT) != 0;
 	}
 
+	public boolean blink() {
+		return (bits & BLINK) != 0;
+	}
+
+	public boolean fastBlink() {
+		return (bits & FAST_BLINK) != 0;
+	}
+
+	public boolean doubleUnderline() {
+		return (bits & DOUBLE_UNDERLINE) != 0;
+	}
+
 	public void setFaint(final boolean on) {
 		if (on) {
 			bits |= FAINT;
@@ -76,19 +98,34 @@ public final class SgrStyle {
 	}
 
 	/**
+	 * Standalone SGR 5 (not {@code 38;5;n}). Last of slow vs fast wins so the
+	 * painter has one period.
+	 */
+	public void setBlink(final boolean on) {
+		if (on) {
+			bits |= BLINK;
+			bits &= ~FAST_BLINK;
+		} else {
+			bits &= ~BLINK;
+		}
+	}
+
+	/**
 	 * True for the codes this bitset owns. Not 1, 2, 5 or 22 — those must
 	 * stay their existing {@link Colorizer.COLOR_TYPE} so {@code 38;5;3} is
-	 * colour index 3, not italic.
+	 * colour index 3, not italic or blink.
 	 */
 	public static boolean isCode(final int value) {
 		switch (value) {
 		case 3:
 		case 4:
+		case 6:
 		case 7:
 		case 9:
 		case 21:
 		case 23:
 		case 24:
+		case 25:
 		case 27:
 		case 29:
 			return true;
@@ -106,11 +143,14 @@ public final class SgrStyle {
 			bits &= ~ITALIC;
 			break;
 		case 4:
-		case 21:
 			bits |= UNDERLINE;
+			bits &= ~DOUBLE_UNDERLINE;
+			break;
+		case 21:
+			bits |= UNDERLINE | DOUBLE_UNDERLINE;
 			break;
 		case 24:
-			bits &= ~UNDERLINE;
+			bits &= ~(UNDERLINE | DOUBLE_UNDERLINE);
 			break;
 		case 9:
 			bits |= STRIKE;
@@ -123,6 +163,13 @@ public final class SgrStyle {
 			break;
 		case 27:
 			bits &= ~REVERSE;
+			break;
+		case 6:
+			bits |= FAST_BLINK;
+			bits &= ~BLINK;
+			break;
+		case 25:
+			bits &= ~(BLINK | FAST_BLINK);
 			break;
 		default:
 			break;

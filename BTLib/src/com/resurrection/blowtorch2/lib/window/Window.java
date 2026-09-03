@@ -48,6 +48,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.text.ClipboardManager;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -260,8 +261,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Integer mSelectedColor = Integer.valueOf(37);
 	/** ANSI Drawing routine current brightness register. */
 	private Integer mSelectedBright = Integer.valueOf(0);
-	/** Italic / underline / strike / reverse / faint. Not a typeface. */
+	/** Italic / underline / strike / reverse / faint / blink. Not a typeface. */
 	private final SgrStyle mSgr = new SgrStyle();
+	/** Slow/fast blink hide-phase for this frame (clock, not cached RGB). */
+	private boolean mBlinkHiddenSlow;
+	private boolean mBlinkHiddenFast;
+	private boolean mBlinkSawThisFrame;
+	private boolean mBlinkFastSawThisFrame;
+	private boolean mBlinkPosted;
+	private final Runnable mBlinkInvalidate = new Runnable() {
+		@Override
+		public void run() {
+			mBlinkPosted = false;
+			if (windowShowing) {
+				invalidate();
+			}
+		}
+	};
 	/** ANSI Drawing routine current background color. */
 	private Integer mSelectedBackground = Integer.valueOf(60);
 	/** Utility variable that is used by the ANSI drawing routine to properly handle xterm 256 colors. */
@@ -494,6 +510,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			FrameImageStore.get().removeListener(mInlineImageRepaint);
 			mInlineImageListening = false;
 		}
+		removeCallbacks(mBlinkInvalidate);
+		mBlinkPosted = false;
 	}
 	
 
@@ -1393,6 +1411,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
 
+		if (blinkGlyphsHiddenThisUnit()) {
+			return gridAdvance(s);
+		}
+
 		// A space paints nothing, so the only reason to hand one to the canvas is a
 		// decoration that spans it. Backgrounds, selection and search matches are all
 		// drawn as their own rectangles by the caller, which leaves underline. About
@@ -1400,7 +1422,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// unit -- so skipping them halves the number of draw calls a line costs.
 		final int spaceLen = s.length();
 		if (isAllSpaces(s, spaceLen)
-				&& !paint.isUnderlineText() && !paint.isStrikeThruText()) {
+				&& !paint.isUnderlineText() && !paint.isStrikeThruText()
+				&& !mSgr.doubleUnderline()) {
 			return cell * spaceLen;
 		}
 
@@ -1411,7 +1434,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// clip: draw the whole unit in one call.
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			c.drawText(s, 0, s.length(), x, baseline, paint);
-			return cell * s.length();
+			final float asciiWidth = cell * s.length();
+			drawDoubleUnderlineHairline(c, x, y, asciiWidth, paint);
+			return asciiWidth;
 		}
 
 		final Paint.FontMetrics fm = mGridFontMetrics;
@@ -1510,7 +1535,59 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (runStart >= 0) {
 			c.drawText(s, runStart, len, runX, baseline, paint);
 		}
-		return cursor - x;
+		final float mixedWidth = cursor - x;
+		drawDoubleUnderlineHairline(c, x, y, mixedWidth, paint);
+		return mixedWidth;
+	}
+
+	private float gridAdvance(final String s) {
+		if (s == null || s.length() == 0) {
+			return 0f;
+		}
+		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
+			return mOneCharWidth * s.length();
+		}
+		return mOneCharWidth * CellWidth.cells(s);
+	}
+
+	private boolean blinkGlyphsHiddenThisUnit() {
+		if (mSgr.fastBlink()) {
+			mBlinkSawThisFrame = true;
+			mBlinkFastSawThisFrame = true;
+			return mBlinkHiddenFast;
+		}
+		if (mSgr.blink()) {
+			mBlinkSawThisFrame = true;
+			return mBlinkHiddenSlow;
+		}
+		return false;
+	}
+
+	private void drawDoubleUnderlineHairline(final Canvas c, final float x, final float y,
+			final float width, final Paint paint) {
+		if (!mSgr.doubleUnderline() || width <= 0f || c == null || paint == null) {
+			return;
+		}
+		final float thickness = Math.max(1f, mDensity);
+		final float top = screenBaselineY(y) + 3f * thickness;
+		c.drawRect(x, top, x + width, top + thickness, paint);
+	}
+
+	private void scheduleBlinkIfNeeded() {
+		final boolean scrollingNow = mFingerDown
+				|| Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY;
+		if (!mBlinkSawThisFrame || !windowShowing || scrollingNow) {
+			removeCallbacks(mBlinkInvalidate);
+			mBlinkPosted = false;
+			return;
+		}
+		if (mBlinkPosted) {
+			return;
+		}
+		mBlinkPosted = true;
+		final long delay = mBlinkFastSawThisFrame ? SgrStyle.BLINK_FAST_MS
+				: SgrStyle.BLINK_SLOW_MS;
+		postDelayed(mBlinkInvalidate, delay);
 	}
 
 	/** Reused by {@link #drawInlineImage}; onDraw must not allocate per frame. */
@@ -2272,6 +2349,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public final void onDraw(final Canvas c) {
+		mBlinkSawThisFrame = false;
+		mBlinkFastSawThisFrame = false;
+		final long blinkNow = SystemClock.uptimeMillis();
+		mBlinkHiddenSlow = ((blinkNow / SgrStyle.BLINK_SLOW_MS) & 1L) == 1L;
+		mBlinkHiddenFast = ((blinkNow / SgrStyle.BLINK_FAST_MS) & 1L) == 1L;
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);
@@ -2963,6 +3045,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		c.restore();
 		drawLoupe(c);
+		scheduleBlinkIfNeeded();
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
@@ -4442,7 +4525,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if(mXterm256BGStart || mXterm256FGStart) {
 				mXterm256Color = true;
 			} else {
-				//this would be a "blink" command, but blink sucks, so do nothing.
+				mSgr.setBlink(true);
 			}
 			break;
 		default:

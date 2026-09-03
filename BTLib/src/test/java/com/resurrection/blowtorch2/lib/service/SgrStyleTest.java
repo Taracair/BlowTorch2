@@ -7,7 +7,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * SGR 3/4/7/9/21 and their offs. 5 and 2 must not land here — they are
+ * SGR 3/4/6/7/9/21/25 and their offs. 5 and 2 must not land here — they are
  * {@code 38;5;n} / truecolor / faint via {@link Colorizer.COLOR_TYPE}.
  */
 public class SgrStyleTest {
@@ -26,10 +26,35 @@ public class SgrStyleTest {
 		SgrStyle s = new SgrStyle();
 		s.apply(4);
 		assertTrue(s.underline());
+		assertFalse(s.doubleUnderline());
 		s.apply(24);
 		assertFalse(s.underline());
 		s.apply(21);
 		assertTrue(s.underline());
+		assertTrue(s.doubleUnderline());
+		s.apply(4);
+		assertTrue(s.underline());
+		assertFalse(s.doubleUnderline());
+	}
+
+	@Test
+	public void blinkSlowAndFastLastWins() {
+		SgrStyle s = new SgrStyle();
+		assertFalse(SgrStyle.isCode(5));
+		s.apply(5);
+		assertEquals(0, s.bits());
+		s.setBlink(true);
+		assertTrue(s.blink());
+		assertFalse(s.fastBlink());
+		s.apply(6);
+		assertTrue(s.fastBlink());
+		assertFalse(s.blink());
+		s.setBlink(true);
+		assertTrue(s.blink());
+		assertFalse(s.fastBlink());
+		s.apply(25);
+		assertFalse(s.blink());
+		assertFalse(s.fastBlink());
 	}
 
 	@Test
@@ -65,9 +90,11 @@ public class SgrStyleTest {
 		assertTrue(SgrStyle.isCode(4));
 		assertTrue(SgrStyle.isCode(7));
 		assertTrue(SgrStyle.isCode(9));
+		assertTrue(SgrStyle.isCode(6));
 		assertTrue(SgrStyle.isCode(21));
 		assertTrue(SgrStyle.isCode(23));
 		assertTrue(SgrStyle.isCode(24));
+		assertTrue(SgrStyle.isCode(25));
 		assertTrue(SgrStyle.isCode(27));
 		assertTrue(SgrStyle.isCode(29));
 	}
@@ -80,8 +107,10 @@ public class SgrStyleTest {
 		s.apply(7);
 		s.apply(9);
 		s.setFaint(true);
+		s.setBlink(true);
 		s.apply(0);
 		assertTrue(s.italic());
+		assertTrue(s.blink());
 		s.clear();
 		assertEquals(0, s.bits());
 	}
@@ -103,11 +132,13 @@ public class SgrStyleTest {
 		SgrStyle s = new SgrStyle();
 		s.apply(3);
 		s.setFaint(true);
+		s.setBlink(true);
 		int stored = s.bits();
 		SgrStyle other = new SgrStyle();
 		other.setBits(stored);
 		assertTrue(other.italic());
 		assertTrue(other.faint());
+		assertTrue(other.blink());
 		assertFalse(other.underline());
 	}
 }

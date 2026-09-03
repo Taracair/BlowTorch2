@@ -43,11 +43,13 @@ public class ColorizerCharacterizationTest {
 		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_FIVE, Colorizer.getColorType(5));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(3));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(4));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(6));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(7));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(9));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(21));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(23));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(24));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(25));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(27));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(29));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(90));
@@ -62,6 +64,8 @@ public class ColorizerCharacterizationTest {
 		assertEquals(Colorizer.COLOR_TYPE.NORMAL_INTENSITY, Colorizer.getColorType("22"));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType("3"));
 		assertEquals(Colorizer.COLOR_TYPE.XTERM_256_FIVE, Colorizer.getColorType("5"));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType("6"));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType("25"));
 		assertEquals(Colorizer.COLOR_TYPE.NOT_A_COLOR, Colorizer.getColorType("nope"));
 	}
 
@@ -70,7 +74,7 @@ public class ColorizerCharacterizationTest {
 	 * If the bleed search stopped on them it would never find the real
 	 * foreground further back. Background codes already skip for the same
 	 * reason. SGR 5 stays {@code XTERM_256_FIVE} and still stops (or starts
-	 * 256-colour) — it is not style.
+	 * 256-colour) — it is not style. Standalone 6 is style (fast blink).
 	 */
 	@Test
 	public void bleedSearchDoesNotStopOnIntensityAlone() {

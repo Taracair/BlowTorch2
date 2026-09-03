@@ -113,6 +113,14 @@ public class TextTreeXtermColorTest {
 				firstColorOps(ESC + "[3m"));
 	}
 
+	@Test
+	public void xtermIndex5IsPaletteNotBlink() throws Exception {
+		assertEquals(Arrays.asList(38, 5, 5),
+				firstColorOps(ESC + "[38;5;5m"));
+		assertEquals(Arrays.asList(5),
+				firstColorOps(ESC + "[5m"));
+	}
+
 	/** Tempest Season login banner (measured 16 Aug 2026, no TTYPE). */
 	@Test
 	public void tempestSeasonBannerCyanSplits() throws Exception {
