@@ -799,15 +799,6 @@ public class TextTree {
 							break;
 						}
 						int ub = b & 0xFF;
-						// A MUD line break is not a CSI parameter. Swallowing it
-						// glued the next row onto this one; flying-map `;:` and
-						// lmap `[` then looked like CSI and vanished.
-						if (ub == 0x0A || ub == 0x0D) {
-							done = true;
-							cb.rewind();
-							i = j - 1;
-							break;
-						}
 						if (ub >= 0x40 && ub <= 0x7E) {
 							done = true;
 							cb.rewind();
@@ -818,7 +809,16 @@ public class TextTree {
 							}
 							break;
 						}
-						cb.put(b);
+						// Parameter bytes are 0x30-0x3F (0-9 ; : ?). Space,
+						// '(' ')' '/' and a newline are map tiles, not CSI.
+						if (ub >= 0x30 && ub <= 0x3F) {
+							cb.put(b);
+							continue;
+						}
+						done = true;
+						cb.rewind();
+						i = j - 1;
+						break;
 					}
 					if(!done) {
 						int mtmpsz = cb.position();

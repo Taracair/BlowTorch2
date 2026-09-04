@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.window;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -106,5 +107,32 @@ public class TextTreeCsiAsciiMapTest {
 	public void oTilesAreNotCsiFinals() throws Exception {
 		TextTree tree = feed(ESC + "[46oOoO\n");
 		assertEquals("oOoO\\n", joined(tree));
+	}
+
+	@Test
+	public void playerTokenAfterBrokenSgrIsNotSwallowed() throws Exception {
+		assertEquals("| ( ) :|\\n", joined(feed(ESC + "[| ( ) :|\n")));
+		assertEquals("| ( ) :|\\n", joined(feed(ESC + "[38;5;46| ( ) :|\n")));
+		assertEquals(" ( ) :|\\n", joined(feed(ESC + "[ ( ) :|\n")));
+		assertEquals(" ( ) :|\\n", joined(feed(ESC + "[38;5;46 ( ) :|\n")));
+		assertEquals("( ) :|\\n", joined(feed(ESC + "[38;5;46( ) :|\n")));
+	}
+
+	@Test
+	public void fiveRowMiniMapKeepsTheCentrePlayerRow() throws Exception {
+		TextTree tree = feed("oOoO\noOoO\n" + ESC + "[38;5;46 ( ) :|\noOoO\noOoO\n");
+		List<String> rows = render(tree);
+		assertEquals("five rows, not four", 5, rows.size());
+		assertTrue("player token must stay on the centre row",
+				rows.get(2).contains("( )"));
+	}
+
+	@Test
+	public void privateModeAndIndexedColourStillParse() throws Exception {
+		assertEquals("visible\\n", joined(feed(ESC + "[?25hvisible\n")));
+		assertEquals("| ( ) :|\\n",
+				joined(feed(ESC + "[38;5;46m| ( ) :|\n")));
+		assertEquals("| ( ) :|\\n",
+				joined(feed(ESC + "[38:5:46m| ( ) :|\n")));
 	}
 }
