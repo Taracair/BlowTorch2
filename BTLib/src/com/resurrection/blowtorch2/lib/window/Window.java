@@ -753,7 +753,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
 		
 		mPrefFont = loadFontFromName((String) fontpath.getValue());
-		p.setTypeface(mPrefFont);
+		setGridTypeface(p);
 		
 		int bufferLines = (Integer) buffersize.getValue();
 		// Legacy default was 300; raise once so existing profiles get usable scrollback.
@@ -1239,6 +1239,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mCalculatedLinesInWindow = (int) (contentHeight() / mPrefLineSize);
 		
 		featurePaint.setTypeface(mPrefFont);
+		applyTerminalFontFeatures(featurePaint);
 		featurePaint.setTextSize(mPrefFontSize);
 		// Use the wider of common mono glyphs so proportional fallbacks still grid.
 		float w = featurePaint.measureText("W");
@@ -1269,6 +1270,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		mSelectionIndicatorPaint.setTextSize(mSelectionIndicatorFontSize);
 		mSelectionIndicatorPaint.setTypeface(mPrefFont);
+		applyTerminalFontFeatures(mSelectionIndicatorPaint);
 		mSelectionIndicatorPaint.setAntiAlias(true);
 		mSelectionCharacterWidth = (int) Math.ceil(mSelectionIndicatorPaint.measureText("W"));
 		selectionIndicatorVectorX = mOneCharWidth + mSelectionIndicatorHalfDimension;
@@ -1431,12 +1433,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
-		// Ordinary output is printable ASCII in a monospaced font, which the probe has
-		// already shown lands one glyph per cell. Nothing to measure and nothing to
-		// clip: draw the whole unit in one call.
+		// Place each glyph on the cell origin. A batched drawText of the unit
+		// follows the typeface's advances; after emoji fallback was chained the
+		// ASCII probe still reported uniform widths and map columns drifted.
+		// Clip the run so a wide fallback cannot spill into the next unit.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
-			c.drawText(s, 0, s.length(), x, baseline, paint);
+			final Paint.FontMetrics fm = mGridFontMetrics;
+			final float textTop = baseline + fm.ascent;
+			final float textBot = baseline + fm.descent + 1f;
+			c.save();
+			c.clipRect(x, textTop, x + s.length() * cell, textBot);
+			for (int i = 0; i < s.length(); i++) {
+				c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
+			}
+			c.restore();
 			drawnWidth = cell * s.length();
 		} else {
 
@@ -1454,22 +1465,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			paint.getTextWidths(s, mGridWidths);
 
-			// Draw a run in one call only when the font's own advance matches the cell
-			// exactly; otherwise place each glyph on the grid itself.
-			//
-			// Every glyph used to get its own save/clipRect/drawText/restore — four
-			// canvas ops each, five figures per frame on a full screen, and clipRect
-			// in particular breaks up draw batching. The clip only matters for glyphs
-			// that would spill outside their cell, so ordinary text is drawn without
-			// one either way.
-			//
-			// The run path is guarded because mOneCharWidth is a ceil() of the glyph
-			// advance: if the two differ, a run drifts off the grid a fraction of a
-			// pixel per character and the columns visibly bend. Same-position output
-			// is worth more than the extra batching.
 			float cursor = x;
-			int runStart = -1;
-			float runX = x;
 			float lastGlyphX = x;
 			int lastGlyphCols = 1;
 			int i = 0;
@@ -1481,10 +1477,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				final float w = mGridWidths[i];
 
 				if (cols == 0) {
-					if (runStart >= 0) {
-						c.drawText(s, runStart, i, runX, baseline, paint);
-						runStart = -1;
-					}
 					c.save();
 					c.clipRect(lastGlyphX, textTop,
 							lastGlyphX + lastGlyphCols * cell, textBot);
@@ -1494,49 +1486,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					continue;
 				}
 
-				// Wide glyphs are never "exact one cell" even when the font reports
-				// a 1-cell advance — that was the emoji sliver.
 				final boolean exactCell = cols == 1 && !isBlock && Math.abs(w - cell) < 0.01f;
 				final boolean fitsCell = cols == 1 && !isBlock && w > 0f && w <= cell + 0.5f;
 
-				if (exactCell) {
-					if (runStart < 0) {
-						runStart = i;
-						runX = cursor;
+				if (exactCell || fitsCell) {
+					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+				} else if (cols == 2) {
+					c.save();
+					c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
+					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					c.restore();
+				} else if (isBlock) {
+					if (!overlayPass) {
+						c.save();
+						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
+						drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+						c.restore();
 					}
 				} else {
-					if (runStart >= 0) {
-						c.drawText(s, runStart, i, runX, baseline, paint);
-						runStart = -1;
-					}
-					if (cols == 2) {
-						c.save();
-						c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
-						c.drawText(s, i, i + charCount, cursor, baseline, paint);
-						c.restore();
-					} else if (fitsCell) {
-						c.drawText(s, i, i + charCount, cursor, baseline, paint);
-					} else if (isBlock) {
-						if (!overlayPass) {
-							c.save();
-							c.clipRect(cursor, lineTop, cursor + cell, lineBot);
-							drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
-							c.restore();
-						}
-					} else {
-						c.save();
-						c.clipRect(cursor, textTop, cursor + cell, textBot);
-						c.drawText(s, i, i + charCount, cursor, baseline, paint);
-						c.restore();
-					}
+					c.save();
+					c.clipRect(cursor, textTop, cursor + cell, textBot);
+					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					c.restore();
 				}
 				lastGlyphX = cursor;
 				lastGlyphCols = cols;
 				cursor += cols * cell;
 				i += charCount;
-			}
-			if (runStart >= 0) {
-				c.drawText(s, runStart, len, runX, baseline, paint);
 			}
 			drawnWidth = cursor - x;
 		}
@@ -1548,6 +1524,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mWeightPaint.setAntiAlias(true);
 			mWeightPaint.setColor(paint.getColor());
 			mWeightPaint.setTypeface(Typeface.create(mPrefFont, Typeface.BOLD));
+			applyTerminalFontFeatures(mWeightPaint);
 			mWeightPaint.setFakeBoldText(true);
 			mWeightPaint.setTextSkewX(paint.getTextSkewX());
 			drawTextOnGrid(c, s, x, y, mWeightPaint);
@@ -2469,6 +2446,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			c.drawRect(0, 0, mClipRect.right - mClipRect.left, mClipRect.top - mClipRect.bottom, b);
 			p.setTypeface(mPrefFont);
+			applyTerminalFontFeatures(p);
 			p.setAntiAlias(true);
 			p.setTextSize(mPrefFontSize);
 			p.setColor(0xFFFFFFFF);
@@ -2897,6 +2875,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 							linkColor.setStrikeThruText(p.isStrikeThruText());
 							linkColor.setTextSkewX(p.getTextSkewX());
+							applyTerminalFontFeatures(linkColor);
 							if (p.isUnderlineText()) {
 								linkColor.setUnderlineText(true);
 							}
@@ -3471,10 +3450,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				|| unitStr == null || unitStr.length() == 0) {
 			return;
 		}
-		final float baseline = screenBaselineY(y);
 		int unitLen = unitStr.length();
 		mSearchMatchTextPaint.setTextSize(p.getTextSize());
 		mSearchMatchTextPaint.setTypeface(p.getTypeface());
+		applyTerminalFontFeatures(mSearchMatchTextPaint);
 		for (int mi = 0; mi < mSearchMatchStarts.size(); mi++) {
 			int matchStart = mSearchMatchStarts.get(mi).intValue();
 			int matchEnd = matchStart + mSearchMatchLen;
@@ -3486,7 +3465,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int localStart = overlapStart - unitPlainStart;
 			int localEnd = overlapEnd - unitPlainStart;
 			float left = x + cellWidthPrefix(unitStr, localStart);
-			c.drawText(unitStr.substring(localStart, localEnd), left, baseline, mSearchMatchTextPaint);
+			drawTextOnGrid(c, unitStr.substring(localStart, localEnd), left, y,
+					mSearchMatchTextPaint);
 		}
 	}
 
@@ -3575,10 +3555,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	public void setBold(boolean bold) {
 		if(bold) {
 			mPrefFont = Typeface.create(mPrefFont, Typeface.BOLD);
-			p.setTypeface(mPrefFont);
+			setGridTypeface(p);
 		} else {
 			mPrefFont = Typeface.create(mPrefFont, Typeface.NORMAL);
-			p.setTypeface(mPrefFont);
+			setGridTypeface(p);
 		}
 	}
 	
@@ -4021,6 +4001,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mTapTextPaint.setAntiAlias(true);
 			mTapTextPaint.setColor(p.getColor());
 			mTapTextPaint.setTypeface(bold ? Typeface.create(mPrefFont, Typeface.BOLD) : mPrefFont);
+			applyTerminalFontFeatures(mTapTextPaint);
 			mTapTextPaint.setFakeBoldText(bold);
 			drawTextOnGrid(c, source.substring(start, end), left, y, mTapTextPaint);
 		}
@@ -4201,6 +4182,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		float textSize = Math.max(mPrefLineSize * 1.6f, 18f * mDensity);
 		mLoupeTextPaint.setTextSize(textSize);
 		mLoupeTextPaint.setTypeface(mPrefFont);
+		applyTerminalFontFeatures(mLoupeTextPaint);
 		float pad = 8f * mDensity;
 		float tw = mLoupeTextPaint.measureText(label);
 		float panelW = tw + pad * 2f;
@@ -6147,7 +6129,7 @@ end
 				break;
 			case font_path:
 				mPrefFont = loadFontFromName((String)o.getValue());
-				p.setTypeface(mPrefFont);
+				setGridTypeface(p);
 				this.invalidate();
 				break;
 			case tap_dismiss_keyboard:
@@ -6214,7 +6196,26 @@ end
 		font_path,
 		tap_dismiss_keyboard
 	}
-	
+
+	/**
+	 * Turn off liga/kern/calt on grid paints. The typeface's own advances are
+	 * not the cell grid (batched drawText drifted after emoji fallback; the
+	 * ASCII probe still reported uniform widths).
+	 */
+	private static final String TERMINAL_FONT_FEATURES =
+			"'liga' 0,'dlig' 0,'clig' 0,'calt' 0,'kern' 0";
+
+	private void setGridTypeface(final Paint paint) {
+		paint.setTypeface(mPrefFont);
+		applyTerminalFontFeatures(paint);
+	}
+
+	private static void applyTerminalFontFeatures(final Paint paint) {
+		if (paint == null) {
+			return;
+		}
+		paint.setFontFeatureSettings(TERMINAL_FONT_FEATURES);
+	}
 
 	private Typeface loadFontFromName(String name) {
 		Typeface font = loadBundledOrSystemMonospace();

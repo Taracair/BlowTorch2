@@ -258,6 +258,7 @@ Do not re-derive these.
 | Does SGR 22 turn off bold? | Yes (29 Aug 2026). It used to classify as `NOT_A_COLOR`, so leftover SGR 1 painted default grey (`#BBBBBB`) as bright white (`#FFFFFF`). `38;5;22` is still xterm olive: the xterm branch consumes the index before `getColorType`. |
 | How are SGR italic/underline/strike/reverse/faint painted? | Skew −0.25 (not `Typeface.ITALIC` — that misses the grid cache), underline, strike-through, swap FG/BG after LightPaper remap, dim 50% toward paper. SGR 21 is underline, not xterm bold-off. SGR 5 stays `38;5;n`; blink is ignored. |
 | Do emoji occupy two wrap columns? | No. Paint only: `CellWidth` is 2 cells on the canvas, clip to the line box. Wrap, NAWS and `charcount` still count one code point. ASCII maps stay 1. |
+| Does Word Wrap break ASCII maps? | It used to, at the spaces inside `[ ]-[ ]` tiles. Those lines (and box-drawing / Block Element maps) hard-break at the column. Glyphs are placed per cell; a batched `drawText` run follows the typeface and bends the grid. |
 | Is `wait(5)` in `Window.onDraw` a real hot spot? | No, dead code from a threading model that no longer exists. Removed |
 | Does reloading `button.lua` per set switch cost much? | No, 1 to 8ms measured |
 | What made button set switching take 1.1s? | A settings save queued ahead of the payload on the same handler, slow because it threw about 45 exceptions |

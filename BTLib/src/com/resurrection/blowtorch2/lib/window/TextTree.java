@@ -1354,8 +1354,9 @@ public class TextTree {
 							charsinline = 0;
 						
 						} else {
-							// Hard break: no whitespace yet, or this segment is an ANSI/Unicode map
-							// (Block Elements) — soft-wrapping at colored spaces shreds the grid.
+							// Hard break: no whitespace yet, or this segment is a cell map
+							// (Block Elements, box drawing, `[ ]-[ ]`) — soft-wrapping at
+							// those spaces shreds the grid.
 							int pos = u.charcount - (u.charcount-amount);
 							pos += 1;
 							pos -= 1;
@@ -1394,13 +1395,14 @@ public class TextTree {
 		}
 		
 		/**
-		 * True when the current unbroken segment contains Unicode Block Elements.
-		 * Soft-wrapping those lines at spaces destroys ANSI maps.
+		 * True when wrapping this segment at spaces would shred a cell map
+		 * ({@code [ ]-[ ]}, Block Elements, box drawing).
 		 */
 		private boolean segmentLooksLikeAnsiMap() {
 			int idx = theIterator.nextIndex();
 			ListIterator<Unit> scan = mData.listIterator(idx);
 			int checked = 0;
+			StringBuilder sb = new StringBuilder(128);
 			while (scan.hasPrevious() && checked < 64) {
 				Unit tmp = scan.previous();
 				if (tmp instanceof Break || tmp instanceof NewLine) {
@@ -1408,22 +1410,13 @@ public class TextTree {
 				}
 				if (tmp instanceof Text) {
 					String s = ((Text) tmp).getString();
-					if (s != null) {
-						for (int i = 0; i < s.length(); ) {
-							int cp = s.codePointAt(i);
-							// Block Elements, Braille, Symbols for Legacy Computing (sextants etc.)
-							if ((cp >= 0x2580 && cp <= 0x259F)
-									|| (cp >= 0x2800 && cp <= 0x28FF)
-									|| (cp >= 0x1FB00 && cp <= 0x1FBFF)) {
-								return true;
-							}
-							i += Character.charCount(cp);
-						}
+					if (s != null && s.length() > 0) {
+						sb.append(s);
 					}
 				}
 				checked++;
 			}
-			return false;
+			return looksLikeCellMap(sb);
 		}
 
 		public ListIterator<Unit> getIterator() {
@@ -2083,6 +2076,66 @@ public class TextTree {
 
 	public boolean isWordWrap() {
 		return wordWrap;
+	}
+
+	/**
+	 * True when wrapping {@code s} at spaces would shred a character-cell map.
+	 * Block Elements, braille, sextants and box drawing are enough on their own;
+	 * ASCII maps need a cluster of {@code []#<>} etc. so "You hit [the wolf]"
+	 * still word-wraps.
+	 */
+	static boolean looksLikeCellMap(final CharSequence s) {
+		if (s == null || s.length() == 0) {
+			return false;
+		}
+		int mapPunct = 0;
+		int letters = 0;
+		final int len = s.length();
+		int i = 0;
+		while (i < len) {
+			final int cp = Character.codePointAt(s, i);
+			if (isCellMapGlyph(cp)) {
+				return true;
+			}
+			if (isAsciiMapPunct(cp)) {
+				mapPunct++;
+			} else if (Character.isLetter(cp)) {
+				letters++;
+			}
+			i += Character.charCount(cp);
+		}
+		return mapPunct >= 6 && mapPunct >= letters;
+	}
+
+	static boolean isCellMapGlyph(final int cp) {
+		return (cp >= 0x2500 && cp <= 0x257F)
+				|| (cp >= 0x2580 && cp <= 0x259F)
+				|| (cp >= 0x2800 && cp <= 0x28FF)
+				|| (cp >= 0x1FB00 && cp <= 0x1FBFF);
+	}
+
+	static boolean isAsciiMapPunct(final int cp) {
+		switch (cp) {
+		case '#':
+		case '[':
+		case ']':
+		case '{':
+		case '}':
+		case '(':
+		case ')':
+		case '<':
+		case '>':
+		case '|':
+		case '/':
+		case '\\':
+		case '+':
+		case '*':
+		case '=':
+		case '-':
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	public void setCullExtraneous(boolean cullExtraneous) {
