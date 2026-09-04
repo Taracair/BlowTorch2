@@ -109,8 +109,21 @@ public class TriggerColorPaintTest {
 		styled.setStyle(TriggerColorPaint.STYLE_STRIKE, true);
 		styled.setStyle(TriggerColorPaint.STYLE_REVERSE, true);
 		styled.setStyle(TriggerColorPaint.STYLE_FAINT, true);
-		assertEquals(Arrays.asList(1, 2, 3, 4, 7, 9), ints(styled.toSgrOps()));
-		assertEquals(Arrays.asList(22, 23, 24, 27, 29), ints(styled.toStyleOffOps()));
+		assertEquals(Arrays.asList(66, 2, 3, 4, 7, 9), ints(styled.toSgrOps()));
+		assertEquals(Arrays.asList(67, 22, 23, 24, 27, 29), ints(styled.toStyleOffOps()));
+	}
+
+	@Test
+	public void boldOnlyUsesPrivateWeightCodesNotBright() {
+		TriggerColorPaint bold = TriggerColorPaint.legacyDefaults();
+		bold.setForegroundKeep();
+		bold.setBackgroundKeep();
+		bold.setStyle(TriggerColorPaint.STYLE_BOLD, true);
+		assertEquals(Arrays.asList(66), ints(bold.toStyleOnOps()));
+		assertEquals(Arrays.asList(67), ints(bold.toStyleOffOps()));
+		assertFalse(ints(bold.toStyleOnOps()).contains(Integer.valueOf(1)));
+		assertFalse(ints(bold.toStyleOffOps()).contains(Integer.valueOf(1)));
+		assertFalse(ints(bold.toStyleOffOps()).contains(Integer.valueOf(22)));
 	}
 
 	@Test

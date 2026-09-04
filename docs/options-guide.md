@@ -8,7 +8,7 @@ bottom of Options filters as you type; tap a result to jump to that page.
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
 | **Window** | Per-window text: font, buffer, word wrap, **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
-| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
+| **Service** | Encoding, **Heavier MUD bold (SGR 1)?** (off; world's `[1m` also heavier), background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Chat** | Unread mark on ⋮, a line in the game window, Android notifications, keep-at-most-N messages |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
@@ -203,6 +203,10 @@ browser, ▲/▼/◆ badges, ↑/↓ nests), the movement lexicon (`.map dirs`),
 full `.map` command list. Capture uses **Options → Mapper** regexes via
 `.map capture preview|apply`, or `.map capture` for a one-off edit of those
 patterns.
+
+## Service
+
+**Heavier MUD bold (SGR 1)?** is off by default. When on, a world `[1m` still uses the bright palette and also redraws heavier (the same overlay as trigger Color Bold). Glyphs can spill; bold can look messy.
 
 ## Session log
 

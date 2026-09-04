@@ -4974,6 +4974,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	private int orientation;
 	private Boolean mShowRegexWarning;
+	private boolean mSgr1Weight = false;
+
+	boolean isSgr1Weight() {
+		return mSgr1Weight;
+	}
+
 	private void loadSettings() {
 		//TODO: NEW LOAD SETTINGS PLACE
 		//if(!isResumed || !screen2.loaded()) {
@@ -5009,6 +5015,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			
 			mShowRegexWarning = (Boolean)((BaseOption)(group.findOptionByKey("show_regex_warning"))).getValue();
+			BaseOption sgr1WeightOpt = (BaseOption) group.findOptionByKey("sgr1_weight");
+			mSgr1Weight = sgr1WeightOpt != null
+					&& sgr1WeightOpt.getValue() instanceof Boolean
+					&& (Boolean) sgr1WeightOpt.getValue();
 			
 			//
 
@@ -5263,6 +5273,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			refreshExtraTextSlotsFromSettings(group);
 			ensureExtraTextOverlays();
 			ensureGaugeWidgets();
+			if (windowMap != null) {
+				for (com.resurrection.blowtorch2.lib.window.Window w : windowMap.values()) {
+					if (w != null) {
+						w.setSgr1Weight(mSgr1Weight);
+					}
+				}
+			}
 			
 		} catch (RemoteException e1) {
 			throw new RuntimeException(e1);
@@ -7091,6 +7108,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//}
 			Log.e("WINDOW","INITIALIZING WINDOW: " + w.getName() + " id:" + w.getId());
 			com.resurrection.blowtorch2.lib.window.Window tmp = new com.resurrection.blowtorch2.lib.window.Window(dataDir,this,w.getName(),w.getPluginName(),myhandler,w.getSettings(),this);
+			tmp.setSgr1Weight(mSgr1Weight);
 			
 			//determine the appropriate layout group to load.
 			int screenLayout = this.getResources().getConfiguration().screenLayout;
@@ -7160,6 +7178,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			long dur = System.currentTimeMillis() - start;
 			Log.e("WINDOW","Init Window ("+w.getName()+"): took:" + dur + " millis.");
+		} else if (v instanceof com.resurrection.blowtorch2.lib.window.Window) {
+			((com.resurrection.blowtorch2.lib.window.Window) v).setSgr1Weight(mSgr1Weight);
 		}
 		// Overlays set to "same as main window" read their speed off the main
 		// Window, which only just entered windowMap. Any sync() that ran before

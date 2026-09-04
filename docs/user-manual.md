@@ -1112,6 +1112,12 @@ On a trigger:
 - **Color** action — recolour the matching text. xterm 256 or truecolor
   (`#RRGGBB`), independently for text and background, and styles (bold,
   italic, underline, …). Old saved triggers keep their numbers.
+  Tick **Bold** and the match is drawn heavier — a second pass, the same
+  overlay as Tappable Word Bold, so cells do not move. It does not send
+  `[1m`. A Color on `fox` with Bold ticked makes `fox` heavier; a grey
+  `fox` stays grey rather than turning white. The world's `[1m` is still
+  the bright palette unless you turn on Options → Service → Heavier MUD
+  bold (SGR 1)?.
 - **Gag** action — hide it entirely (optional **retarget** sends the line to
   an extra text window instead of discarding it).
 - **Replace** action — swap text in it, `$1` works here too (also has
@@ -1163,8 +1169,9 @@ what lights up, and tapping it sends a command.
   you can slide to the one you meant. A long capture such as "a rusty sword"
   next to "a leather bag" still opens the loupe if you hold on the first word.
   Two matches stacked (the hitboxes overlap) do the same.
-- **Underline / Bold / Frame** — any combination, or none. Colour is not here:
-  put a **Color** action on the same trigger.
+- **Underline / Bold / Frame** — any combination, or none. **Bold** is
+  heavier glyphs (a second draw; cells do not move), the same overlay as
+  Color Bold. Colour is not here: put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
   sets of commands, and the look comes from the first of them — including
   whether a tap sends.
@@ -2344,9 +2351,24 @@ is kept when you close the world.
 
 ## Colours the world sends
 
-Bold is the **bright palette** (SGR 1), not a heavier typeface: a bold
-letter that grew wider would bend the column grid (maps, prompts). The
-window Font option can still pick a bold face for the whole window.
+A world that sends `[1m` (SGR 1) still uses the **bright palette** by
+default, not a heavier typeface: grey `#BBBBBB` becomes white `#FFFFFF` on
+the 16-color set. xterm 256 and truecolor ignore that bright step. You see
+`[1mHP: 12[22m` and the digits go white; they do not get heavier. A letter
+that grew wider would bend the column grid (maps, prompts). The window Font
+option can still pick a bold face for the whole window.
+
+**Options → Service → Heavier MUD bold (SGR 1)?** is off by default. Turn
+it on and `[1m` also redraws heavier — the same second-draw overlay as
+trigger Color Bold and Tappable Word Bold, so cells do not move — *in
+addition* to the bright palette, not instead of it. Glyphs can spill into
+the next cell; bold can look messy.
+
+Trigger Color **Bold** is a different tick: it always paints heavier glyphs
+and never sends `[1m`. A Color on `fox` with Bold ticked makes `fox`
+heavier; the world's `[1m` on the rest of the line is still bright unless
+that Service box is on.
+
 Italic (3),
 underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
 sends `[3mlook[23m` shows `look` slanted; `[4m` puts a line under the word;

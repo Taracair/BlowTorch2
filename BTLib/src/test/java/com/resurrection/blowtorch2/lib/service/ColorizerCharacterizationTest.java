@@ -52,6 +52,10 @@ public class ColorizerCharacterizationTest {
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(25));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(27));
 		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(29));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(66));
+		assertEquals(Colorizer.COLOR_TYPE.SGR_STYLE, Colorizer.getColorType(67));
+		assertEquals(Colorizer.COLOR_TYPE.BRIGHT_CODE, Colorizer.getColorType(1));
+		assertEquals(Colorizer.COLOR_TYPE.NORMAL_INTENSITY, Colorizer.getColorType(22));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(90));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(91));
 		assertEquals(Colorizer.COLOR_TYPE.BACKGROUND, Colorizer.getColorType(101));

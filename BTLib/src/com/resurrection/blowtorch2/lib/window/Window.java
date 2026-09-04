@@ -262,6 +262,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Integer mSelectedBright = Integer.valueOf(0);
 	/** Italic / underline / strike / reverse / faint / blink. Not a typeface. */
 	private final SgrStyle mSgr = new SgrStyle();
+	/** When true, MUD SGR 1 also sets {@link SgrStyle#weight()}. */
+	private boolean mSgr1Weight;
 	/** Slow/fast blink hide-phase for this frame (clock, not cached RGB). */
 	private boolean mBlinkHiddenSlow;
 	private boolean mBlinkHiddenFast;
@@ -1427,116 +1429,130 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		ensureGridCache(paint);
+		final boolean overlayPass = paint == mWeightPaint;
 
 		// Ordinary output is printable ASCII in a monospaced font, which the probe has
 		// already shown lands one glyph per cell. Nothing to measure and nothing to
 		// clip: draw the whole unit in one call.
+		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			c.drawText(s, 0, s.length(), x, baseline, paint);
-			final float asciiWidth = cell * s.length();
-			drawDoubleUnderlineHairline(c, x, y, asciiWidth, paint);
-			return asciiWidth;
-		}
+			drawnWidth = cell * s.length();
+		} else {
 
-		final Paint.FontMetrics fm = mGridFontMetrics;
-		// Block fills use the full line box; text must keep room below the baseline
-		// for descenders (y, g, j, p) — clipping to baseline cut them off.
-		final float lineTop = baseline - mPrefLineSize + Math.max(0, mPrefLineExtra);
-		final float lineBot = baseline + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
-		final float textTop = baseline + fm.ascent;
-		final float textBot = baseline + fm.descent + 1f;
+			final Paint.FontMetrics fm = mGridFontMetrics;
+			// Block fills use the full line box; text must keep room below the baseline
+			// for descenders (y, g, j, p) — clipping to baseline cut them off.
+			final float lineTop = baseline - mPrefLineSize + Math.max(0, mPrefLineExtra);
+			final float lineBot = baseline + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
+			final float textTop = baseline + fm.ascent;
+			final float textBot = baseline + fm.descent + 1f;
 
-		final int len = s.length();
-		if (mGridWidths.length < len) {
-			mGridWidths = new float[len];
-		}
-		paint.getTextWidths(s, mGridWidths);
-
-		// Draw a run in one call only when the font's own advance matches the cell
-		// exactly; otherwise place each glyph on the grid itself.
-		//
-		// Every glyph used to get its own save/clipRect/drawText/restore — four
-		// canvas ops each, five figures per frame on a full screen, and clipRect
-		// in particular breaks up draw batching. The clip only matters for glyphs
-		// that would spill outside their cell, so ordinary text is drawn without
-		// one either way.
-		//
-		// The run path is guarded because mOneCharWidth is a ceil() of the glyph
-		// advance: if the two differ, a run drifts off the grid a fraction of a
-		// pixel per character and the columns visibly bend. Same-position output
-		// is worth more than the extra batching.
-		float cursor = x;
-		int runStart = -1;
-		float runX = x;
-		float lastGlyphX = x;
-		int lastGlyphCols = 1;
-		int i = 0;
-		while (i < len) {
-			final int cp = s.codePointAt(i);
-			final int charCount = Character.charCount(cp);
-			final int cols = CellWidth.cells(cp);
-			final boolean isBlock = cp >= 0x2580 && cp <= 0x259F;
-			final float w = mGridWidths[i];
-
-			if (cols == 0) {
-				if (runStart >= 0) {
-					c.drawText(s, runStart, i, runX, baseline, paint);
-					runStart = -1;
-				}
-				c.save();
-				c.clipRect(lastGlyphX, textTop,
-						lastGlyphX + lastGlyphCols * cell, textBot);
-				c.drawText(s, i, i + charCount, lastGlyphX, baseline, paint);
-				c.restore();
-				i += charCount;
-				continue;
+			final int len = s.length();
+			if (mGridWidths.length < len) {
+				mGridWidths = new float[len];
 			}
+			paint.getTextWidths(s, mGridWidths);
 
-			// Wide glyphs are never "exact one cell" even when the font reports
-			// a 1-cell advance — that was the emoji sliver.
-			final boolean exactCell = cols == 1 && !isBlock && Math.abs(w - cell) < 0.01f;
-			final boolean fitsCell = cols == 1 && !isBlock && w > 0f && w <= cell + 0.5f;
+			// Draw a run in one call only when the font's own advance matches the cell
+			// exactly; otherwise place each glyph on the grid itself.
+			//
+			// Every glyph used to get its own save/clipRect/drawText/restore — four
+			// canvas ops each, five figures per frame on a full screen, and clipRect
+			// in particular breaks up draw batching. The clip only matters for glyphs
+			// that would spill outside their cell, so ordinary text is drawn without
+			// one either way.
+			//
+			// The run path is guarded because mOneCharWidth is a ceil() of the glyph
+			// advance: if the two differ, a run drifts off the grid a fraction of a
+			// pixel per character and the columns visibly bend. Same-position output
+			// is worth more than the extra batching.
+			float cursor = x;
+			int runStart = -1;
+			float runX = x;
+			float lastGlyphX = x;
+			int lastGlyphCols = 1;
+			int i = 0;
+			while (i < len) {
+				final int cp = s.codePointAt(i);
+				final int charCount = Character.charCount(cp);
+				final int cols = CellWidth.cells(cp);
+				final boolean isBlock = cp >= 0x2580 && cp <= 0x259F;
+				final float w = mGridWidths[i];
 
-			if (exactCell) {
-				if (runStart < 0) {
-					runStart = i;
-					runX = cursor;
-				}
-			} else {
-				if (runStart >= 0) {
-					c.drawText(s, runStart, i, runX, baseline, paint);
-					runStart = -1;
-				}
-				if (cols == 2) {
+				if (cols == 0) {
+					if (runStart >= 0) {
+						c.drawText(s, runStart, i, runX, baseline, paint);
+						runStart = -1;
+					}
 					c.save();
-					c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
-					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					c.clipRect(lastGlyphX, textTop,
+							lastGlyphX + lastGlyphCols * cell, textBot);
+					c.drawText(s, i, i + charCount, lastGlyphX, baseline, paint);
 					c.restore();
-				} else if (fitsCell) {
-					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					i += charCount;
+					continue;
+				}
+
+				// Wide glyphs are never "exact one cell" even when the font reports
+				// a 1-cell advance — that was the emoji sliver.
+				final boolean exactCell = cols == 1 && !isBlock && Math.abs(w - cell) < 0.01f;
+				final boolean fitsCell = cols == 1 && !isBlock && w > 0f && w <= cell + 0.5f;
+
+				if (exactCell) {
+					if (runStart < 0) {
+						runStart = i;
+						runX = cursor;
+					}
 				} else {
-					c.save();
-					if (isBlock) {
-						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
-						drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+					if (runStart >= 0) {
+						c.drawText(s, runStart, i, runX, baseline, paint);
+						runStart = -1;
+					}
+					if (cols == 2) {
+						c.save();
+						c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
+						c.drawText(s, i, i + charCount, cursor, baseline, paint);
+						c.restore();
+					} else if (fitsCell) {
+						c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					} else if (isBlock) {
+						if (!overlayPass) {
+							c.save();
+							c.clipRect(cursor, lineTop, cursor + cell, lineBot);
+							drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+							c.restore();
+						}
 					} else {
+						c.save();
 						c.clipRect(cursor, textTop, cursor + cell, textBot);
 						c.drawText(s, i, i + charCount, cursor, baseline, paint);
+						c.restore();
 					}
-					c.restore();
 				}
+				lastGlyphX = cursor;
+				lastGlyphCols = cols;
+				cursor += cols * cell;
+				i += charCount;
 			}
-			lastGlyphX = cursor;
-			lastGlyphCols = cols;
-			cursor += cols * cell;
-			i += charCount;
+			if (runStart >= 0) {
+				c.drawText(s, runStart, len, runX, baseline, paint);
+			}
+			drawnWidth = cursor - x;
 		}
-		if (runStart >= 0) {
-			c.drawText(s, runStart, len, runX, baseline, paint);
+		if (!overlayPass) {
+			drawDoubleUnderlineHairline(c, x, y, drawnWidth, paint);
 		}
-		final float mixedWidth = cursor - x;
-		drawDoubleUnderlineHairline(c, x, y, mixedWidth, paint);
-		return mixedWidth;
+		if (paintWeight() && !overlayPass) {
+			mWeightPaint.setTextSize(paint.getTextSize());
+			mWeightPaint.setAntiAlias(true);
+			mWeightPaint.setColor(paint.getColor());
+			mWeightPaint.setTypeface(Typeface.create(mPrefFont, Typeface.BOLD));
+			mWeightPaint.setFakeBoldText(true);
+			mWeightPaint.setTextSkewX(paint.getTextSkewX());
+			drawTextOnGrid(c, s, x, y, mWeightPaint);
+		}
+		return drawnWidth;
 	}
 
 	private float gridAdvance(final String s) {
@@ -2205,6 +2221,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		mLightPaperShade = next;
 		invalidate();
+	}
+
+	public void setSgr1Weight(boolean on) {
+		if (mSgr1Weight == on) {
+			return;
+		}
+		mSgr1Weight = on;
+		invalidate();
+	}
+
+	/** Trigger 66/67, or MUD SGR 1 when the Service box is on. 67 must not pop the latter. */
+	private boolean paintWeight() {
+		return mSgr.weight()
+				|| (mSgr1Weight && mSelectedBright != null && mSelectedBright.intValue() == 1);
 	}
 
 	/**
@@ -3632,6 +3662,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mTapLongPressFired = false;
 	private final Paint mTapUnderlinePaint = new Paint();
 	private final Paint mTapTextPaint = new Paint();
+	private final Paint mWeightPaint = new Paint();
 	private final Paint mLoupeHighlightPaint = new Paint();
 	private final Paint mLoupePanelPaint = new Paint();
 	private final Paint mLoupeTextPaint = new Paint();
@@ -4481,6 +4512,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// default grey (#BBBBBB) paints as bright white (#FFFFFF).
 			mSelectedBright = 0;
 			mSgr.clearFaint();
+			mSgr.clearWeight();
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
@@ -4552,6 +4584,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ (mTrueColorFG ? 4 : 0) + (mTrueColorBG ? 8 : 0);
 		h = 31 * h + (mLightPaper ? 16 : 0) + mLightPaperShade;
 		h = 31 * h + mSgr.bits();
+		h = 31 * h + (mSgr1Weight ? 32 : 0);
 		return h;
 	}
 

@@ -564,7 +564,7 @@ comment set; this section is the maintained summary.
 | `send` | `text` |
 | `gag` | `output`, `log`, `retarget` |
 | `replace` | `text`, `retarget` |
-| `color` | `foreground`, `background`: xterm number, `#RRGGBB`, `false`/`"keep"`, `"default"` (background RESET), `{ xterm = n }`, `{ rgb = "#rrggbb" }` or `{ r=, g=, b= }`. Absent keys keep defaults (fg 256, bg 232). Styles: `bold`, `faint`, `italic`, `underline`, `reverse`, `strike`. `backgroundMode = "xterm"` paints a numeric background including 0/16/231. |
+| `color` | `foreground`, `background`: xterm number, `#RRGGBB`, `false`/`"keep"`, `"default"` (background RESET), `{ xterm = n }`, `{ rgb = "#rrggbb" }` or `{ r=, g=, b= }`. Absent keys keep defaults (fg 256, bg 232). Styles: `bold` (heavier glyphs — same overlay as the Color Bold checkbox, not SGR 1 / bright), `faint`, `italic`, `underline`, `reverse`, `strike`. `backgroundMode = "xterm"` paints a numeric background including 0/16/231. |
 | `script` | Lua function name (via XML responder; see also script responder in XML) |
 
 Example:
@@ -575,7 +575,7 @@ NewTrigger("fox_color", "fox", { regex = false },
   { type = "send", text = "listen fox" })
 ```
 
-The matched word is orange and bold; the MUD background stays. Old xterm still works: `{ type = "color", foreground = 36, background = 75 }`.
+The matched word is orange and heavier; the MUD background stays. `bold = true` is that Color Bold checkbox, not MUD `[1m`. Old xterm still works: `{ type = "color", foreground = 36, background = 75 }`.
 
 ### 6.6 Inspect (player main sets — read-only)
 

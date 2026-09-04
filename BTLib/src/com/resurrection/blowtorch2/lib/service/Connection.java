@@ -5534,6 +5534,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// Drawn by the UI process and nowhere else.
 				mService.doExecuteRequestLoadSettings();
 				break;
+			case sgr1_weight:
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case trigger_sound_stream:
 			case trigger_sound_warn_silent:
 				// Trigger sounds are played in whichever process the responder runs
@@ -6824,6 +6827,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		trigger_sound_warn_silent,
 		/** How solid the menu a tapped word opens is. */
 		tap_menu_opacity,
+		/** Draw ESC[1m heavier, same overlay as tappable-word Bold. */
+		sgr1_weight,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
 		/** Triggers that speak keep quiet while a command is being composed. */

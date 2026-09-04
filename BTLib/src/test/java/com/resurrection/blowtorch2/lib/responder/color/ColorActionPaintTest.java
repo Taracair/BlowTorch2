@@ -60,9 +60,11 @@ public class ColorActionPaintTest {
 		action.setPaint(spec);
 		String dumped = paint("fox", action);
 		assertTrue("bold+underline unit: " + visible(dumped),
-				dumped.contains(ESC + "[1;4m"));
+				dumped.contains(ESC + "[66;4m"));
 		assertTrue("style must close: " + visible(dumped),
-				dumped.contains("22") && dumped.contains("24"));
+				dumped.contains("67") && dumped.contains("24"));
+		assertFalse("bold off must not emit 22: " + visible(dumped),
+				dumped.contains("22"));
 	}
 
 	private static ColorAction rgbKeep(String hex) {

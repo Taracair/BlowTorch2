@@ -84,6 +84,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		auto_reconnect_limit,
 		cull_extraneous_color,
 		debug_telnet,
+		sgr1_weight,
 		bell_vibrate,
 		trigger_sound_stream,
 		trigger_sound_warn_silent,
@@ -694,6 +695,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case debug_telnet:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case sgr1_weight:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import com.resurrection.blowtorch2.lib.service.SgrStyle;
+
 /**
  * What a colour trigger paints: per-channel mode (keep / xterm / rgb / reset
  * background), optional SGR styles. Old profiles store two xterm ints;
@@ -269,7 +271,7 @@ public final class TriggerColorPaint {
 	public List<Integer> toStyleOnOps() {
 		ArrayList<Integer> ops = new ArrayList<Integer>();
 		if (hasStyle(STYLE_BOLD)) {
-			ops.add(Integer.valueOf(1));
+			ops.add(Integer.valueOf(SgrStyle.WEIGHT_ON_CODE));
 		}
 		if (hasStyle(STYLE_FAINT)) {
 			ops.add(Integer.valueOf(2));
@@ -299,7 +301,10 @@ public final class TriggerColorPaint {
 
 	public List<Integer> toStyleOffOps() {
 		ArrayList<Integer> ops = new ArrayList<Integer>();
-		if (hasStyle(STYLE_BOLD) || hasStyle(STYLE_FAINT)) {
+		if (hasStyle(STYLE_BOLD)) {
+			ops.add(Integer.valueOf(SgrStyle.WEIGHT_OFF_CODE));
+		}
+		if (hasStyle(STYLE_FAINT)) {
 			ops.add(Integer.valueOf(22));
 		}
 		if (hasStyle(STYLE_ITALIC)) {

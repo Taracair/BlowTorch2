@@ -463,6 +463,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		debug_telnet.setKey("debug_telnet");
 		debug_telnet.setValue(false);
 		servOptions.addOption(debug_telnet);
+
+		BooleanOption sgr1_weight = new BooleanOption();
+		sgr1_weight.setTitle("Heavier MUD bold (SGR 1)?");
+		sgr1_weight.setDescription("Off by default. The world’s [1m stays the bright palette. Tick this to also redraw those letters heavier (same overlay as tappable-word Bold). Glyphs can spill into the next cell, so bold can look messy. Color-trigger Bold always uses the heavier overlay, whether this box is on or off.");
+		sgr1_weight.setKey("sgr1_weight");
+		sgr1_weight.setValue(false);
+		servOptions.addOption(sgr1_weight);
 		
 		BooleanOption show_regex_warning = new BooleanOption();
 		show_regex_warning.setTitle("Regular Expression Warning?");

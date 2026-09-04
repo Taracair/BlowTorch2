@@ -80,6 +80,7 @@ public class SgrStyleTest {
 		SgrStyle s = new SgrStyle();
 		s.apply(5);
 		s.apply(2);
+		s.apply(1);
 		s.apply(22);
 		assertEquals(0, s.bits());
 	}
@@ -97,6 +98,9 @@ public class SgrStyleTest {
 		assertTrue(SgrStyle.isCode(25));
 		assertTrue(SgrStyle.isCode(27));
 		assertTrue(SgrStyle.isCode(29));
+		assertTrue(SgrStyle.isCode(SgrStyle.WEIGHT_ON_CODE));
+		assertTrue(SgrStyle.isCode(SgrStyle.WEIGHT_OFF_CODE));
+		assertFalse(SgrStyle.isCode(1));
 	}
 
 	@Test
@@ -108,11 +112,14 @@ public class SgrStyleTest {
 		s.apply(9);
 		s.setFaint(true);
 		s.setBlink(true);
+		s.setWeight(true);
 		s.apply(0);
 		assertTrue(s.italic());
 		assertTrue(s.blink());
+		assertTrue(s.weight());
 		s.clear();
 		assertEquals(0, s.bits());
+		assertFalse(s.weight());
 	}
 
 	@Test
@@ -133,12 +140,31 @@ public class SgrStyleTest {
 		s.apply(3);
 		s.setFaint(true);
 		s.setBlink(true);
+		s.setWeight(true);
 		int stored = s.bits();
 		SgrStyle other = new SgrStyle();
 		other.setBits(stored);
 		assertTrue(other.italic());
 		assertTrue(other.faint());
 		assertTrue(other.blink());
+		assertTrue(other.weight());
 		assertFalse(other.underline());
+	}
+
+	@Test
+	public void weightOnOffViaPrivateSgr() {
+		SgrStyle s = new SgrStyle();
+		assertFalse(s.weight());
+		s.apply(SgrStyle.WEIGHT_ON_CODE);
+		assertTrue(s.weight());
+		s.apply(SgrStyle.WEIGHT_OFF_CODE);
+		assertFalse(s.weight());
+		s.setWeight(true);
+		assertTrue(s.weight());
+		s.clearWeight();
+		assertFalse(s.weight());
+		s.apply(1);
+		assertFalse(s.weight());
+		assertEquals(0, s.bits());
 	}
 }

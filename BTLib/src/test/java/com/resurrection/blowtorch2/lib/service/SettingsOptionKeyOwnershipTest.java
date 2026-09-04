@@ -105,6 +105,14 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void sgr1WeightIsConnectionOwnedNotWindow() {
+		assertTrue("sgr1_weight must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("sgr1_weight"));
+		assertFalse("sgr1_weight must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("sgr1_weight"));
+	}
+
+	@Test
 	public void chatKeysAreConnectionOwnedNotWindow() {
 		String[] chatKeys = { "chat_unread_dot", "chat_announce",
 				"chat_announce_seconds", "chat_android_notify",

@@ -6,7 +6,7 @@ package com.resurrection.blowtorch2.lib.service;
 /**
  * SGR attributes that are not a colour index. One bitset, painted by
  * {@code Window}: italic, underline, strike, reverse, faint, blink,
- * double underline.
+ * double underline, weight.
  *
  * <p>SGR 1 (bold/bright), 2 (faint vs truecolor), 5 ({@code 38;5;n} vs blink)
  * and 22 (normal intensity) stay {@link Colorizer.COLOR_TYPE} so the xterm
@@ -27,6 +27,14 @@ public final class SgrStyle {
 	public static final int BLINK = 32;
 	public static final int FAST_BLINK = 64;
 	public static final int DOUBLE_UNDERLINE = 128;
+	public static final int WEIGHT = 256;
+
+	/**
+	 * BlowTorch-private; not ECMA. Used so trigger Color Bold round-trips in
+	 * Color.bin without SGR 1 (bright) or 22 (normal intensity).
+	 */
+	public static final int WEIGHT_ON_CODE = 66;
+	public static final int WEIGHT_OFF_CODE = 67;
 
 	/** Mix FG this far toward the paper. Same 50 as the default repeated-line dim. */
 	public static final int FAINT_DIM_PERCENT = 50;
@@ -85,6 +93,22 @@ public final class SgrStyle {
 		return (bits & DOUBLE_UNDERLINE) != 0;
 	}
 
+	public boolean weight() {
+		return (bits & WEIGHT) != 0;
+	}
+
+	public void setWeight(final boolean on) {
+		if (on) {
+			bits |= WEIGHT;
+		} else {
+			bits &= ~WEIGHT;
+		}
+	}
+
+	public void clearWeight() {
+		bits &= ~WEIGHT;
+	}
+
 	public void setFaint(final boolean on) {
 		if (on) {
 			bits |= FAINT;
@@ -128,6 +152,8 @@ public final class SgrStyle {
 		case 25:
 		case 27:
 		case 29:
+		case WEIGHT_ON_CODE:
+		case WEIGHT_OFF_CODE:
 			return true;
 		default:
 			return false;
@@ -170,6 +196,12 @@ public final class SgrStyle {
 			break;
 		case 25:
 			bits &= ~(BLINK | FAST_BLINK);
+			break;
+		case WEIGHT_ON_CODE:
+			bits |= WEIGHT;
+			break;
+		case WEIGHT_OFF_CODE:
+			bits &= ~WEIGHT;
 			break;
 		default:
 			break;
