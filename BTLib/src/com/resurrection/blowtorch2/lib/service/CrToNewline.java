@@ -3,12 +3,8 @@ package com.resurrection.blowtorch2.lib.service;
 /**
  * Telnet text is not a terminal: {@code \\r} does not move to column 0.
  * Processor used to drop every CR, so {@code \\r\\n} still became a newline
- * but a bare CR between map rows concatenated them. 4 Sep 2026: a flying
- * mini-map arrived as three 10-cell rows joined by CR into one 30-character
- * sky line.
- *
- * <p>A CR at the end of a chunk is held in case the next chunk is the LF of
- * a CRLF pair split across packets.
+ * but a bare CR between two rows vanished and concatenated them. A CR at the
+ * end of a chunk is held in case the next chunk is the LF of a CRLF pair.
  */
 public final class CrToNewline {
 

@@ -1434,8 +1434,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final boolean overlayPass = paint == mWeightPaint;
 
 		// Place each glyph on the cell origin. Clip the run so a wide fallback
-		// cannot spill into the next unit. 4 Sep 2026: flying-map column stretch
-		// was extra tiles glued by dropped CR, not typeface advance.
+		// cannot spill into the next unit.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final Paint.FontMetrics fm = mGridFontMetrics;
