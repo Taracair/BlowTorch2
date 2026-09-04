@@ -64,7 +64,8 @@ public class ColorActionPaintTest {
 		assertTrue("style must close: " + visible(dumped),
 				dumped.contains("67") && dumped.contains("24"));
 		assertFalse("bold off must not emit 22: " + visible(dumped),
-				dumped.contains("22"));
+				dumped.contains(ESC + "[22") || dumped.contains(";22m")
+						|| dumped.contains(";22;"));
 	}
 
 	private static ColorAction rgbKeep(String hex) {
