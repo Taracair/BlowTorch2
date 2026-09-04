@@ -1433,10 +1433,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
-		// Place each glyph on the cell origin. A batched drawText of the unit
-		// follows the typeface's advances; after emoji fallback was chained the
-		// ASCII probe still reported uniform widths and map columns drifted.
-		// Clip the run so a wide fallback cannot spill into the next unit.
+		// Place each glyph on the cell origin. Clip the run so a wide fallback
+		// cannot spill into the next unit. 4 Sep 2026: flying-map column stretch
+		// was extra tiles glued by dropped CR, not typeface advance.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final Paint.FontMetrics fm = mGridFontMetrics;

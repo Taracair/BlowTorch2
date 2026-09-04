@@ -54,6 +54,8 @@ public class Processor {
 	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */
 	private byte[] mHoldover = null;
+	/** Bare CR → newline; CRLF across packets stays one LF. */
+	private final CrToNewline mCrToNewline = new CrToNewline();
 	/** GMCP Data holder object. */
 	private GMCPData mGMCP = null;
 	/** List of GMCP Triggers. */
@@ -326,7 +328,7 @@ public class Processor {
 			case TC.IAC:
 				if (i + 1 >= input.length) {
 					mHoldover = new byte[] { TC.IAC };
-					return truncBuffer(buff, count);
+					return finishText(buff, count);
 				}
 				if ((input[i + 1] >= TC.WILL && input[i + 1] <= TC.DONT)
 						|| input[i + 1] == TC.SB) {
@@ -334,12 +336,12 @@ public class Processor {
 						// Need at least IAC SB <option>
 						if (i + 2 >= input.length) {
 							mHoldover = Arrays.copyOfRange(input, i, input.length);
-							return truncBuffer(buff, count);
+							return finishText(buff, count);
 						}
 						int j = findSubnegotiationEnd(input, i);
 						if (j < 0) {
 							mHoldover = Arrays.copyOfRange(input, i, input.length);
-							return truncBuffer(buff, count);
+							return finishText(buff, count);
 						}
 						opbuf = ByteBuffer.allocate(j - (i + SKIP_BYTES) + PAYLOAD_BYTES);
 						opbuf.put(TC.IAC);
@@ -364,7 +366,7 @@ public class Processor {
 								String message = "\n" + Colorizer.getTeloptStartColor() + "IN:[IAC SB COMPRESS2 IAC SE] -BEGIN COMPRESSION-" + Colorizer.getResetColor() + "\n";
 								mReportTo.sendMessageDelayed(mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message), 1);
 							}
-							return truncBuffer(buff, count);
+							return finishText(buff, count);
 
 						} else {
 							// Advance past IAC SE (for-loop will i++).
@@ -374,7 +376,7 @@ public class Processor {
 						// WILL/WONT/DO/DONT require the option byte.
 						if (i + 2 >= input.length) {
 							mHoldover = Arrays.copyOfRange(input, i, input.length);
-							return truncBuffer(buff, count);
+							return finishText(buff, count);
 						}
 						dispatchIAC(input[i + 1], input[i + 2]);
 						i = i + 2;
@@ -426,9 +428,6 @@ public class Processor {
 			case TC.BELL:
 				mReportTo.sendEmptyMessage(Connection.MESSAGE_BELLINC);
 				break;
-			case TC.CARRIAGE:
-				//strip carriage returns
-				break;
 			default:
 				buff.put(input[i]);
 				count++;
@@ -437,7 +436,7 @@ public class Processor {
 
 		}
 		
-		return truncBuffer(buff, count);
+		return finishText(buff, count);
 		
 	}
 
@@ -493,6 +492,11 @@ public class Processor {
 			return new byte[0];
 		}
 		return Arrays.copyOfRange(input, start, input.length);
+	}
+
+	/** Copy the first {@code count} bytes out of {@code buff}, then turn bare CR into LF. */
+	private byte[] finishText(final ByteBuffer buff, final int count) {
+		return mCrToNewline.apply(truncBuffer(buff, count));
 	}
 
 	/** Copy the first {@code count} bytes out of {@code buff}. */
