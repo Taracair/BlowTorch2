@@ -16,7 +16,6 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.service.mxp.MxpEngine;
 import com.resurrection.blowtorch2.lib.service.mxp.MxpSound;
 
-import com.resurrection.blowtorch2.lib.window.MapSwallowProbe;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -1747,9 +1746,7 @@ public class Processor {
 		if (raw == null || !mOptionHandler.isUseMXP()) {
 			return raw;
 		}
-		byte[] out = mMxp.process(raw);
-		MapSwallowProbe.onMxp(raw, out);
-		return out;
+		return mMxp.process(raw);
 	}
 
 	public final boolean isUseMCCP() {
