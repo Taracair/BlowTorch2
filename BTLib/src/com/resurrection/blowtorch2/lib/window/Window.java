@@ -1282,7 +1282,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mBuffer.getBrokenLineCount() == 0) {
 			jumpToZero();
 		}
-		
+		// TEMPORARY PROBE
+		try {
+			probeGridHeartbeat(SystemClock.uptimeMillis(), featurePaint);
+		} catch (RuntimeException e) {
+			Log.i("BTPROF", "TEMPORARY PROBE grid fail " + e);
+		}
 	}
 
 	/** Pixel width of {@code charCount} terminal cells (ANSI maps need a fixed grid). */
@@ -1353,6 +1358,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private float mGridCacheTextSize = -1f;
 	private int mGridCacheCell = -1;
 	private boolean mGridAsciiUniform = false;
+
+	// TEMPORARY PROBE
+	private long mProbeHbAt;
+	private int mProbeMapDumps;
+	private float mProbeWorstDw;
 
 	/**
 	 * Refresh the cached font metrics and the "all printable ASCII is exactly one cell
@@ -2634,9 +2644,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				tapBoxes.clear();
 				tapCommands.clear();
 			}
+
+			// TEMPORARY PROBE
+			final long probeNow = SystemClock.uptimeMillis();
+			try {
+				if (probeNow - mProbeHbAt >= 2000L) {
+					mProbeHbAt = probeNow;
+					mProbeMapDumps = 0;
+					probeGridHeartbeat(probeNow, p);
+				}
+			} catch (RuntimeException e) {
+				Log.i("BTPROF", "TEMPORARY PROBE hb fail " + e);
+			}
 			
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
+				// TEMPORARY PROBE
+				try {
+					if (mProbeMapDumps < 16 && probeLineLooksMapped(l)) {
+						mProbeMapDumps++;
+						probeDumpLine(l, p, probeNow);
+					}
+				} catch (RuntimeException e) {
+					Log.i("BTPROF", "TEMPORARY PROBE line fail " + e);
+				}
 				int searchPlainPos = 0;
 				mPaintingDimLine = mDimRepeatedLines && l.isDimRepeated();
 				applyRepeatedLineForeground(p);
@@ -6215,6 +6246,169 @@ end
 			return;
 		}
 		paint.setFontFeatureSettings(TERMINAL_FONT_FEATURES);
+	}
+
+	// TEMPORARY PROBE
+	private void probeGridHeartbeat(final long now, final Paint paint) {
+		if (paint != null) {
+			ensureGridCache(paint);
+		}
+		String fontPath = "?";
+		if (mSettings != null) {
+			Object o = mSettings.findOptionByKey("font_path");
+			if (o instanceof FileOption) {
+				fontPath = String.valueOf(((FileOption) o).getValue());
+			}
+		}
+		StringBuilder sb = new StringBuilder(384);
+		sb.append("TEMPORARY PROBE grid t=").append(now)
+				.append(" cell=").append(mOneCharWidth)
+				.append(" wrapCol=").append(mWrapColumns)
+				.append(" wordWrap=").append(mBuffer != null && mBuffer.isWordWrap())
+				.append(" fontSz=").append(mPrefFontSize)
+				.append(" asciiU=").append(mGridAsciiUniform)
+				.append(" path=").append(fontPath)
+				.append(" tf=").append(mPrefFont);
+		if (paint != null) {
+			char[] sample = { 'W', ' ', '0', 'o', 'O', '#', '[', ']', '(', ')', '<', '.', '\'', ':', '|', '-', '+' };
+			for (int i = 0; i < sample.length; i++) {
+				float mw = paint.measureText(String.valueOf(sample[i]));
+				float dw = Math.abs(mw - (float) mOneCharWidth);
+				if (dw > mProbeWorstDw) {
+					mProbeWorstDw = dw;
+				}
+				sb.append(' ').append(sample[i]).append('=').append(mw);
+			}
+		}
+		sb.append(" worstDw=").append(mProbeWorstDw);
+		if (!mGridAsciiUniform && mGridWidths != null && ASCII_PROBE.length() <= mGridWidths.length) {
+			for (int i = 0; i < ASCII_PROBE.length(); i++) {
+				if (Math.abs(mGridWidths[i] - mOneCharWidth) >= 0.01f) {
+					sb.append(" firstOff=").append(Integer.toHexString(ASCII_PROBE.charAt(i)))
+							.append('@').append(mGridWidths[i]);
+					break;
+				}
+			}
+		}
+		Log.i("BTPROF", sb.toString());
+	}
+
+	// TEMPORARY PROBE
+	private static boolean probeLineLooksMapped(final TextTree.Line l) {
+		if (l == null || l.getData() == null) {
+			return false;
+		}
+		int colors = 0;
+		int units = 0;
+		boolean nonAscii = false;
+		for (TextTree.Unit u : l.getData()) {
+			units++;
+			if (u instanceof TextTree.Color) {
+				colors++;
+			} else if (u instanceof TextTree.Text) {
+				String s = ((TextTree.Text) u).getString();
+				if (s != null) {
+					for (int i = 0; i < s.length(); i++) {
+						char ch = s.charAt(i);
+						if (ch < 0x20 || ch > 0x7E) {
+							nonAscii = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (colors >= 3 || nonAscii || units >= 8) {
+			return true;
+		}
+		if (l.breaks > 0 && l.charcount <= 80) {
+			return true;
+		}
+		return TextTree.looksLikeCellMap(TextTree.deColorLine(l));
+	}
+
+	// TEMPORARY PROBE
+	private static void probeAppendCpHex(final StringBuilder sb, final String s, final int maxCp) {
+		if (s == null || s.length() == 0) {
+			sb.append('-');
+			return;
+		}
+		int n = 0;
+		for (int i = 0; i < s.length() && n < maxCp; ) {
+			int cp = s.codePointAt(i);
+			if (n > 0) {
+				sb.append(' ');
+			}
+			sb.append(Integer.toHexString(cp));
+			i += Character.charCount(cp);
+			n++;
+		}
+	}
+
+	// TEMPORARY PROBE
+	private void probeDumpLine(final TextTree.Line l, final Paint paint, final long now) {
+		StringBuilder sb = new StringBuilder(512);
+		sb.append("TEMPORARY PROBE line t=").append(now)
+				.append(" breaks=").append(l.breaks)
+				.append(" chars=").append(l.charcount)
+				.append(" map=").append(TextTree.looksLikeCellMap(TextTree.deColorLine(l)))
+				.append(" |");
+		int n = 0;
+		for (TextTree.Unit u : l.getData()) {
+			if (n >= 18) {
+				sb.append(" ...");
+				break;
+			}
+			if (u instanceof TextTree.Color) {
+				sb.append(" C");
+			} else if (u instanceof TextTree.Break) {
+				sb.append(" B");
+			} else if (u instanceof TextTree.NewLine) {
+				sb.append(" NL");
+			} else if (u instanceof TextTree.WhiteSpace) {
+				String s = ((TextTree.WhiteSpace) u).getString();
+				sb.append(" WS(").append(s == null ? 0 : s.length()).append(')');
+			} else if (u instanceof TextTree.Text) {
+				String s = ((TextTree.Text) u).getString();
+				int cells = s == null ? 0 : CellWidth.cells(s);
+				int cps = s == null ? 0 : s.codePointCount(0, s.length());
+				sb.append(" T(c=").append(cps).append(",w=").append(cells).append(',');
+				probeAppendCpHex(sb, s, 12);
+				sb.append(')');
+			}
+			n++;
+		}
+		Log.i("BTPROF", sb.toString());
+		if (paint == null) {
+			return;
+		}
+		String plain = TextTree.deColorLine(l).toString();
+		StringBuilder ms = new StringBuilder(320);
+		ms.append("TEMPORARY PROBE meas t=").append(now);
+		int[] uniq = new int[20];
+		int nu = 0;
+		int seen = 0;
+		for (int i = 0; i < plain.length() && seen < 32 && nu < uniq.length; ) {
+			int cp = Character.codePointAt(plain, i);
+			boolean have = false;
+			for (int j = 0; j < nu; j++) {
+				if (uniq[j] == cp) {
+					have = true;
+					break;
+				}
+			}
+			if (!have) {
+				uniq[nu++] = cp;
+				String g = new String(Character.toChars(cp));
+				float mw = paint.measureText(g);
+				ms.append(' ').append(Integer.toHexString(cp)).append('=').append(mw)
+						.append("/").append(mOneCharWidth)
+						.append("/cw").append(CellWidth.cells(cp));
+			}
+			i += Character.charCount(cp);
+			seen++;
+		}
+		Log.i("BTPROF", ms.toString());
 	}
 
 	private Typeface loadFontFromName(String name) {
