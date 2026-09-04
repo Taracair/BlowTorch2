@@ -246,7 +246,7 @@ Each cost real time or real data.
 | Wrote a plausible mechanism for a measured number without checking it | Record the number, mark the mechanism unverified |
 | Four commits guessing Mode A IME height on `getWindowVisibleDisplayFrame` under `adjustNothing` (always 0); a fifth and sixth finally read the API | Second failed attempt means read the API. If that still fails, ask the maintainer whether the goal is what they want and what you understood |
 | Commit message claimed "loadPlugins already rebuilt the trigger tables"; true for the paths that reach `loadPlugins`, not for the two catch branches that fall through | A commit message is a claim. Go and look, and say how you know |
-| Commit message claimed ":stellar reads these once at construction"; those two keys have no live reader at all | Same |
+| Several commits treated a 5-row flying mini-map becoming 4 as CSI, wrap, or CR. BTPROF 4 Sep 2026: parse `abort=0` `lost=0`, then `LINE_GONE` on a line that contained `--` | Probe gag vs parse before guessing the parser. An unanchored `--` in a regex gag matches those glyphs as map tiles |
 
 ## Questions already answered
 
@@ -259,7 +259,8 @@ Do not re-derive these.
 | How are SGR italic/underline/strike/reverse/faint painted? | Skew −0.25 (not `Typeface.ITALIC` — that misses the grid cache), underline, strike-through, swap FG/BG after LightPaper remap, dim 50% toward paper. SGR 21 is underline, not xterm bold-off. SGR 5 stays `38;5;n`; blink is ignored. |
 | Do emoji occupy two wrap columns? | No. Paint only: `CellWidth` is 2 cells on the canvas, clip to the line box. Wrap, NAWS and `charcount` still count one code point. ASCII maps stay 1. |
 | Does Word Wrap break ASCII maps? | It used to, at the spaces inside `[ ]-[ ]` tiles. Hard-break at the column (box drawing and Block Elements too). A legend of letters on the same line (`AB: Offices`) used to look like prose, so wrap still shredded the grid; flying `oO` tiles were letters and missed the detector. 4 Sep 2026: Liberation Mono 28, cell=17, wrapCol=85. A live world's flying `map` rows were already 30 characters with LF, not CR-glued. |
-| Does CSI eat ASCII map tiles? | It did, when a colour code had no `m` yet. Finals `@`-`~` include `[ ] | \\ ` o O @`. Intermediates `0x20-0x2F` include space and `( )` — the flying player token. Those bytes were stored as CSI, so a 5-row mini-map became 4. 4 Sep 2026: parameter bytes are only `0x30-0x3F`; other bytes abort and are reprocessed as text. SGR `m` still colours; cursor/erase/MXP `z` still skip. |
+| Does CSI eat ASCII map tiles? | It can, when a colour code has no `m` yet. Finals `@`-`~` include `[ ] \| \\ ` o O @`. Intermediates `0x20-0x2F` include space and `( )`. 4 Sep 2026: parameter bytes are only `0x30-0x3F`; other bytes abort and are reprocessed as text. Tests in `TextTreeCsiAsciiMapTest`. A later BTPROF on a live flying map showed `abort=0` and `lost=0` — that session's missing row was a gag, not CSI |
+| Can a regex gag delete an ASCII map row? | Yes. The gag removes the whole line the match sat on. An unanchored `--` (or `\|`) matches those characters as tiles. 4 Sep 2026: the centre flying-map row contained `--`; `LINE_GONE`; working 11 lines, finished 10; the UI never saw it. `lmap` lost two rows that also contained `--` |
 | Is `wait(5)` in `Window.onDraw` a real hot spot? | No, dead code from a threading model that no longer exists. Removed |
 | Does reloading `button.lua` per set switch cost much? | No, 1 to 8ms measured |
 | What made button set switching take 1.1s? | A settings save queued ahead of the payload on the same handler, slow because it threw about 45 exceptions |
