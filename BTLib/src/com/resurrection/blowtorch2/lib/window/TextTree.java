@@ -506,6 +506,42 @@ public class TextTree {
 	private final static byte SEMI = (byte)0x3B;
 	/** ITU T.416 / ISO-8613-6 SGR subparameter separator. */
 	private final static byte COLON = (byte)0x3A;
+
+	/**
+	 * CSI finals we consume (cursor, erase, MXP {@code z}). Map tiles use the
+	 * rest of {@code 0x40-0x7E} ({@code [ ] | ` \\ o O}) as characters.
+	 */
+	private static boolean csiFinalIsCommand(final int ub) {
+		switch (ub) {
+		case 'A':
+		case 'B':
+		case 'C':
+		case 'D':
+		case 'E':
+		case 'F':
+		case 'G':
+		case 'H':
+		case 'J':
+		case 'K':
+		case 'L':
+		case 'M':
+		case 'P':
+		case 'S':
+		case 'T':
+		case 'X':
+		case 'f':
+		case 'h':
+		case 'l':
+		case 'n':
+		case 'r':
+		case 's':
+		case 'u':
+		case 'z':
+			return true;
+		default:
+			return false;
+		}
+	}
 	
 	private final static byte b0 = (byte)0x30;
 	private final static byte b1 = (byte)0x31;
@@ -762,12 +798,24 @@ public class TextTree {
 							i = j;
 							break;
 						}
-						// Any CSI final byte (@ through ~) terminates the sequence.
 						int ub = b & 0xFF;
-						if(ub >= 0x40 && ub <= 0x7E) {
+						// A MUD line break is not a CSI parameter. Swallowing it
+						// glued the next row onto this one; flying-map `;:` and
+						// lmap `[` then looked like CSI and vanished.
+						if (ub == 0x0A || ub == 0x0D) {
 							done = true;
 							cb.rewind();
-							i = j;
+							i = j - 1;
+							break;
+						}
+						if (ub >= 0x40 && ub <= 0x7E) {
+							done = true;
+							cb.rewind();
+							if (csiFinalIsCommand(ub)) {
+								i = j;
+							} else {
+								i = j - 1;
+							}
 							break;
 						}
 						cb.put(b);
