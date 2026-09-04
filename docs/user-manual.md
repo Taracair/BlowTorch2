@@ -453,7 +453,7 @@ front of the alias (`#3 kk troll`), not inside it.
 
 **No pause between them.** All the copies go out at once, exactly as if you had
 typed `north;north;north;north;north`. This is not a way to pace commands — for
-that, use a timer.
+that, use `.wait` (below) or a named timer.
 
 **Limit: 1 to 100.** Anything outside that is refused and the line is left
 exactly as you typed it, with a red note saying so. `#500 north` is nearly
@@ -463,6 +463,37 @@ always a slip, and a world may read the flood as an attack.
 the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
 as `#5 north`. A `#` that is not a number followed by a space is never touched,
 so `#help` and `say cost is #3 gold` go out unchanged.
+
+## Waiting between commands (`.wait` / `#wait`)
+
+A wait pauses **the rest of that same line**, then sends what follows. Incoming
+game text still prints, and a different trigger can still send immediately.
+
+    north;.wait 2s;south
+    #wait 5m10s;look
+    get all;.wait 500ms;i
+
+`.wait` and `#wait` are the same command. Units are `h`, `m`, `s`, `ms`, in any
+order: `5s5m` is the same as `5m5s`. A bare number is seconds (`.wait 5` is five
+seconds). Longest wait is **one hour**; longer is refused with a note.
+
+Examples:
+
+    .wait 50s
+    #wait 5m10s
+    .wait 1h
+    .wait 1.5s
+
+`.wait stop` or `#wait 0` cancels a wait that has not finished yet, so the
+commands after it are not sent. A new line you type while a wait is running
+goes out straight away — it does not sit behind the wait.
+
+This is not a Lua sleep and not a named `.timer`. A lone `.wait 5s` with nothing
+after it on that line delays nothing later: put the wait **between** the
+commands, on one line, including in a trigger action or on a button.
+
+Worlds that have their own `#wait` should use `.wait` on the client side.
+`##wait` is unescaped to `#wait` by the repeat command, so it is still a wait.
 
 ## Aliases and triggers (patterns / `$1`)
 
@@ -1445,6 +1476,7 @@ is enabled; `.alias list` shows every alias at once.
     `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
     `.timer duration <name>`   Same as `.timer info <name>`
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
+    `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins

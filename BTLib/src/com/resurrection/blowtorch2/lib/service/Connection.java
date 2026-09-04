@@ -68,6 +68,7 @@ import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
+import com.resurrection.blowtorch2.lib.service.function.WaitCommand;
 import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
@@ -312,6 +313,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public static final int MESSAGE_FLUSH_LINE_HOLDOVER = 54;
 
+	/** Resume the rest of a {@code .wait} / {@code #wait} batch. obj is {@link PausedOutbound}. */
+	public static final int MESSAGE_WAIT_RESUME = 55;
+
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
 	/** Very large value. */
@@ -541,6 +545,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** The map of special commands. */
 	private HashMap<String, SpecialCommand> mSpecialCommands = new HashMap<String, SpecialCommand>();
 
+	/** Remainder of a {@code .wait} batch, armed after the prefix is flushed. */
+	private PausedOutbound mJustPaused = null;
+
+	/** Scheduled {@link #MESSAGE_WAIT_RESUME} payloads still in flight. */
+	private final ArrayList<PausedOutbound> mCommandWaits = new ArrayList<PausedOutbound>();
+
 	/** Constant for the status bar height, useful for plugins, hard to get. */
 	private int mStatusBarHeight;
 	
@@ -576,6 +586,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(colordebug.commandName, colordebug);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
 		mSpecialCommands.put(timercmd.commandName, timercmd);
+		WaitCommand waitcmd = new WaitCommand();
+		mSpecialCommands.put(waitcmd.commandName, waitcmd);
 		mSpecialCommands.put(bellcmd.commandName, bellcmd);
 		mSpecialCommands.put(fscmd.commandName, fscmd);
 		mSpecialCommands.put(mKeyboardCommand.commandName, mKeyboardCommand);
@@ -768,6 +780,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mLineHoldover.clear();
 					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
 							"Connection.flushLineHoldover", bad);
+				}
+				break;
+			case MESSAGE_WAIT_RESUME:
+				if (msg.obj instanceof PausedOutbound) {
+					resumeCommandWait((PausedOutbound) msg.obj);
 				}
 				break;
 			case MESSAGE_TIMERSTOP:
@@ -1048,6 +1065,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				break;
 			case MESSAGE_DISCONNECTED:
+				cancelCommandWaits();
 				clearStartupInProgress();
 				killNetThreads(true);
 				doDisconnect(false);
@@ -2501,6 +2519,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	protected final void killNetThreads(final boolean noreconnect) {
 		
 		if (mPump == null) {
+			cancelCommandWaits();
 			clearStartupInProgress();
 			return;
 		}
@@ -2509,6 +2528,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// it — the last thing a server says before dropping you is often the
 		// reason it dropped you, and it frequently has no newline after it.
 		mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		cancelCommandWaits();
 		if (mLineHoldover.hasHeld()) {
 			try {
 				flushLineHoldover();
@@ -3670,7 +3690,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// Policy for a ~ holdover chain. ~ segments must still consume their
 		// queued policy or the deque desyncs against later commands.
 		AliasLocalEcho holdoverPolicy = null;
-		
+		return processPreparedSegments(list, inheritedEcho, holdover, holdoverPolicy);
+	}
+
+	/**
+	 * Walk an already-split outbound list. Used for a fresh line and for
+	 * resuming after {@code .wait} so aliases and {@code #N} are not applied twice.
+	 */
+	private Data processPreparedSegments(final List<String> list,
+			final ArrayDeque<AliasLocalEcho> inheritedEcho,
+			final StringBuffer holdover,
+			AliasLocalEcho holdoverPolicy) throws UnsupportedEncodingException {
+		mDataToServer.setLength(0);
+		mDataToWindow.setLength(0);
+		if (list == null) {
+			Data empty = new Data();
+			empty.mCmdString = "";
+			empty.mVisString = "";
+			return empty;
+		}
 		ListIterator<String> iterator = list.listIterator();
 		while (iterator.hasNext()) {
 			String cmd = iterator.next();
@@ -3678,6 +3716,47 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// password mask so a capital in a password is not rewritten.
 			cmd = CommandCase.softenForSend(cmd,
 					readBoolOption("lowercase_command_start", false), mLocalEcho);
+
+			CommandWait.Result waitTok = CommandWait.parseSegment(cmd);
+			if (waitTok.kind != CommandWait.Kind.NOT_WAIT) {
+				if (!inheritedEcho.isEmpty()) {
+					inheritedEcho.removeFirst();
+				}
+				if (waitTok.kind == CommandWait.Kind.ERROR) {
+					sendDataToWindow(SpecialCommand.getErrorMessage(
+							"Wait command:",
+							waitTok.message == null ? CommandWait.USAGE : waitTok.message));
+					break;
+				}
+				if (waitTok.kind == CommandWait.Kind.STOP) {
+					cancelCommandWaits();
+					sendDataToWindow("\n" + Colorizer.getWhiteColor()
+							+ "[wait cancelled]\n");
+					continue;
+				}
+				sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+						+ CommandWait.format(waitTok.delayMs) + "]"
+						+ Colorizer.getWhiteColor() + "\n");
+				PausedOutbound paused = new PausedOutbound();
+				paused.delayMs = waitTok.delayMs;
+				paused.holdover = holdover.toString();
+				paused.holdoverPolicy = holdoverPolicy;
+				holdover.setLength(0);
+				holdoverPolicy = null;
+				while (iterator.hasNext()) {
+					paused.segments.add(iterator.next());
+				}
+				paused.inheritedEcho.addAll(inheritedEcho);
+				inheritedEcho.clear();
+				if (!paused.segments.isEmpty() || paused.holdover.length() > 0) {
+					mJustPaused = paused;
+				} else {
+					sendDataToWindow("\n" + Colorizer.getWhiteColor()
+							+ "Nothing after wait on this line — later commands are not delayed. "
+							+ "Use north;.wait 5s;south\n");
+				}
+				break;
+			}
 			
 			if (cmd.endsWith("~")) {
 				if (!inheritedEcho.isEmpty()) {
@@ -3827,6 +3906,53 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			d.mVisString = d.mVisString + mCRLF;
 		}
 		return d;
+	}
+
+	/** Drop every in-flight {@code .wait} remainder. {@code .wait stop} / {@code #wait 0}. */
+	public final void cancelCommandWaits() {
+		mJustPaused = null;
+		if (mHandler != null) {
+			mHandler.removeMessages(MESSAGE_WAIT_RESUME);
+		}
+		mCommandWaits.clear();
+	}
+
+	private void armPendingWait() {
+		PausedOutbound paused = mJustPaused;
+		mJustPaused = null;
+		if (paused == null || mHandler == null) {
+			return;
+		}
+		mCommandWaits.add(paused);
+		mHandler.sendMessageDelayed(
+				mHandler.obtainMessage(MESSAGE_WAIT_RESUME, paused), paused.delayMs);
+	}
+
+	private void resumeCommandWait(final PausedOutbound paused) {
+		if (paused == null || !mCommandWaits.remove(paused)) {
+			return;
+		}
+		try {
+			StringBuffer holdover = new StringBuffer();
+			if (paused.holdover != null && paused.holdover.length() > 0) {
+				holdover.append(paused.holdover);
+			}
+			Data d = processPreparedSegments(paused.segments, paused.inheritedEcho,
+					holdover, paused.holdoverPolicy);
+			emitOutbound(d);
+			armPendingWait();
+		} catch (Exception e) {
+			reportRuntimeError("wait resume", e);
+		}
+	}
+
+	/** Remainder of one outbound batch, scheduled after {@code .wait}. */
+	private static final class PausedOutbound {
+		final ArrayList<String> segments = new ArrayList<String>();
+		final ArrayDeque<AliasLocalEcho> inheritedEcho = new ArrayDeque<AliasLocalEcho>();
+		String holdover = "";
+		AliasLocalEcho holdoverPolicy = null;
+		long delayMs;
 	}
 
 	/**
@@ -6989,15 +7115,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		if (d == null) {
+			armPendingWait();
 			return;
 		}
-		
+		try {
+			emitOutbound(d);
+		} catch (IOException e) {
+			cancelCommandWaits();
+			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
+			return;
+		}
+		armPendingWait();
+	}
+
+	/**
+	 * Socket write + local echo for a batch that {@link #processOutputData} or a
+	 * {@code .wait} resume already finished walking.
+	 */
+	private void emitOutbound(final Data d) throws IOException {
+		if (d == null) {
+			return;
+		}
 		if (d.mCmdString.equals("") && (d.mVisString != null && d.mVisString.replaceAll("\\s", "").equals(""))) {
 			return;
 		}
-		
+
 		String nosemidata = null;
-		try {
 			
 			if (d.mCmdString != null && !d.mCmdString.equals("")) {
 				nosemidata = d.mCmdString;
@@ -7072,9 +7215,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					sendBytesToWindow(d.mVisString.getBytes(mSettings.getEncoding()));
 				}
 			}
-		} catch (IOException e) {
-			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
-		}
 	}
 
 	/** Possibly Deprecated. Sets the buffer size for a target window in a target plugin.

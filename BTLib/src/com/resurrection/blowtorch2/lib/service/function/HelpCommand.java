@@ -98,6 +98,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("trigger", "Triggers and scripts", "list, enable and disable triggers");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
 		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
+		cmd("wait", "Triggers and scripts",
+				"pause the rest of this line (.wait 5s / #wait 5m10s); .wait stop cancels");
 		cmd("sound", "Triggers and scripts",
 				"which volume a trigger's sound uses, and warning when it is off");
 		cmd("dobell", "Triggers and scripts",
@@ -429,6 +431,15 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .timer duration <name>            status (same as info)\n"
 					+ "  .timer duration <name> <seconds> [silent]\n"
 					+ "  .timer dump / .timer list / .timer info   every timer, in the window\n";
+		}
+		if (filter.equals("wait")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .wait:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .wait 5s | #wait 5m10s | .wait 500ms\n"
+					+ "  Units h, m, s, ms in any order (5s5m is the same as 5m5s).\n"
+					+ "  A bare number is seconds. Max 1h. .wait stop / #wait 0 cancels.\n"
+					+ "  Only the rest of this line waits: north;.wait 2s;south\n";
 		}
 		if (filter.equals("map")) {
 			return "\n"
