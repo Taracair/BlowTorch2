@@ -1443,7 +1443,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			c.save();
 			c.clipRect(x, textTop, x + s.length() * cell, textBot);
 			for (int i = 0; i < s.length(); i++) {
+				c.save();
+				c.clipRect(x + i * cell, textTop, x + (i + 1) * cell, textBot);
 				c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
+				c.restore();
 			}
 			c.restore();
 			drawnWidth = cell * s.length();

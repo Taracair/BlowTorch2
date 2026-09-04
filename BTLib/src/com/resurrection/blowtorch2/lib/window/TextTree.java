@@ -1395,26 +1395,20 @@ public class TextTree {
 		}
 		
 		/**
-		 * True when wrapping this segment at spaces would shred a cell map
-		 * ({@code [ ]-[ ]}, Block Elements, box drawing).
+		 * True when wrapping this line at spaces would shred a cell map.
+		 * Walks the whole line: a 64-unit backward scan reversed the text and
+		 * stopped in the legend, so {@code [ ]-[ ]} with {@code AB: Offices} on
+		 * the right looked like prose.
 		 */
 		private boolean segmentLooksLikeAnsiMap() {
-			int idx = theIterator.nextIndex();
-			ListIterator<Unit> scan = mData.listIterator(idx);
-			int checked = 0;
 			StringBuilder sb = new StringBuilder(128);
-			while (scan.hasPrevious() && checked < 64) {
-				Unit tmp = scan.previous();
-				if (tmp instanceof Break || tmp instanceof NewLine) {
-					break;
-				}
-				if (tmp instanceof Text) {
-					String s = ((Text) tmp).getString();
+			for (Unit u : mData) {
+				if (u instanceof Text) {
+					String s = ((Text) u).getString();
 					if (s != null && s.length() > 0) {
 						sb.append(s);
 					}
 				}
-				checked++;
 			}
 			return looksLikeCellMap(sb);
 		}
@@ -2080,9 +2074,10 @@ public class TextTree {
 
 	/**
 	 * True when wrapping {@code s} at spaces would shred a character-cell map.
-	 * Block Elements, braille, sextants and box drawing are enough on their own;
-	 * ASCII maps need a cluster of {@code []#<>} etc. so "You hit [the wolf]"
-	 * still word-wraps.
+	 * Block Elements, braille, sextants and box drawing are enough on their own.
+	 * ASCII maps: a cluster of {@code []#<>} etc., four {@code [} tiles (so a
+	 * legend of letters on the same line does not look like prose), or three
+	 * {@code oO} sky tiles. "You hit [the wolf]" still word-wraps.
 	 */
 	static boolean looksLikeCellMap(final CharSequence s) {
 		if (s == null || s.length() == 0) {
@@ -2090,19 +2085,32 @@ public class TextTree {
 		}
 		int mapPunct = 0;
 		int letters = 0;
+		int brackets = 0;
+		int ooPairs = 0;
 		final int len = s.length();
 		int i = 0;
+		char prev = 0;
 		while (i < len) {
 			final int cp = Character.codePointAt(s, i);
 			if (isCellMapGlyph(cp)) {
 				return true;
+			}
+			if (cp == '[') {
+				brackets++;
 			}
 			if (isAsciiMapPunct(cp)) {
 				mapPunct++;
 			} else if (Character.isLetter(cp)) {
 				letters++;
 			}
+			if ((prev == 'o' && cp == 'O') || (prev == 'O' && cp == 'o')) {
+				ooPairs++;
+			}
+			prev = cp > 0xFFFF ? 0 : (char) cp;
 			i += Character.charCount(cp);
+		}
+		if (ooPairs >= 3 || brackets >= 4) {
+			return true;
 		}
 		return mapPunct >= 6 && mapPunct >= letters;
 	}

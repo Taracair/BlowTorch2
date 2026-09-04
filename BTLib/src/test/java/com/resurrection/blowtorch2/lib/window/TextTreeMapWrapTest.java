@@ -50,6 +50,14 @@ public class TextTreeMapWrapTest {
 	}
 
 	@Test
+	public void flyingOTilesAndLmapLegendAreCellMaps() {
+		assertTrue(TextTree.looksLikeCellMap("oOoOoO      skies above the river (sky) 1:38pm"));
+		assertTrue(TextTree.looksLikeCellMap("oOoOoOoOoOoOoO                "));
+		assertTrue(TextTree.looksLikeCellMap(
+				". .  . .  [||] . .  [AB]-[CD]+[||] . .  . .    AB: Example Offices       "));
+	}
+
+	@Test
 	public void proseIsNotACellMap() {
 		assertFalse(TextTree.looksLikeCellMap("The quick brown fox jumps over the lazy dog"));
 		assertFalse(TextTree.looksLikeCellMap("You slash [the wolf] with <sword>."));
@@ -67,6 +75,31 @@ public class TextTreeMapWrapTest {
 		assertTrue("expected a wrap of the 48-char map", rows.size() >= 2);
 		assertEquals("hard wrap, not a space inside [ ]", 20, rows.get(0).length());
 		assertEquals('[', rows.get(1).charAt(0));
+	}
+
+	@Test
+	public void lmapLegendHardWrapsInsteadOfBreakingInsideTiles() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setWordWrap(true);
+		tree.setLineBreakAt(40);
+		String line = ". .  . .  [||] . .  [AB]-[CD]+[||] . .  . .    AB: Example Offices       ";
+		feed(tree, line + "\n");
+		List<String> rows = visualRows(tree.getLines().getFirst());
+		assertTrue("expected a wrap of the map+legend line", rows.size() >= 2);
+		assertEquals("hard wrap at the column, not a space inside [ ]", 40, rows.get(0).length());
+		assertFalse("soft wrap leaves a dangling [", rows.get(0).endsWith("[ "));
+	}
+
+	@Test
+	public void flyingOTilesHardWrapAtColumn() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setWordWrap(true);
+		tree.setLineBreakAt(20);
+		feed(tree, "oOoOoO      skies above the river (sky) 1:38pm\n");
+		List<String> rows = visualRows(tree.getLines().getFirst());
+		assertTrue("expected a wrap of the flying-tile line", rows.size() >= 2);
+		assertEquals("hard wrap at the column, not at the space after skies",
+				20, rows.get(0).length());
 	}
 
 	@Test
