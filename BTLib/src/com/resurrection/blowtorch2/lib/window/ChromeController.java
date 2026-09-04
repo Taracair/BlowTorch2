@@ -11,7 +11,9 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.RelativeLayout;
 
 import androidx.core.graphics.Insets;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
@@ -120,7 +122,9 @@ public final class ChromeController {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
 		Insets cutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
-		view.setPadding(cutout.left, 0, cutout.right, bars.bottom);
+		int left = Math.max(cutout.left, bars.left);
+		int right = Math.max(cutout.right, bars.right);
+		view.setPadding(left, 0, right, bars.bottom);
 		// The one authority for how tall the keyboard is.
 		//
 		// This used to be second-guessed by an estimator built on
@@ -240,6 +244,26 @@ public final class ChromeController {
 
 	void setFullScreen(boolean fullScreen) {
 		isFullScreen = fullScreen;
+	}
+
+	/**
+	 * Hide the 3-button / gesture navigation bar while playing. Swipe from the
+	 * edge brings it back briefly ({@code BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE}).
+	 * Status-bar hiding stays on the fullscreen option.
+	 */
+	void hideGameplayNavigation() {
+		android.view.Window w = activity.getWindow();
+		if (w == null) {
+			return;
+		}
+		WindowInsetsControllerCompat controller =
+				WindowCompat.getInsetsController(w, w.getDecorView());
+		if (controller == null) {
+			return;
+		}
+		controller.setSystemBarsBehavior(
+				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+		controller.hide(WindowInsetsCompat.Type.navigationBars());
 	}
 
 	View findGameplayInputBar(RelativeLayout rl) {
@@ -503,7 +527,9 @@ public final class ChromeController {
 							int oldLeft, int oldTop, int oldRight, int oldBottom) {
 						int oldH = oldBottom - oldTop;
 						int newH = bottom - top;
-						if (oldH != newH) {
+						int oldW = oldRight - oldLeft;
+						int newW = right - left;
+						if (oldH != newH || oldW != newW) {
 							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal);
 						}
 					}
@@ -546,16 +572,18 @@ public final class ChromeController {
 			return;
 		}
 		int navPad = 0;
+		int navEnd = 0;
 		View container = activity.findViewById(R.id.window_container);
 		if (container != null) {
 			navPad = container.getPaddingBottom();
+			navEnd = container.getPaddingRight();
 		}
 		int bottomInset = inputH + navPad + margin;
 		android.widget.FrameLayout.LayoutParams stripLp =
 				new android.widget.FrameLayout.LayoutParams(
 						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
 		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-		stripLp.setMargins(0, 0, margin, bottomInset);
+		stripLp.setMargins(0, 0, margin + navEnd, bottomInset);
 		fabStrip.setLayoutParams(stripLp);
 		fabStrip.setTranslationY(inputbar.getTranslationY());
 	}

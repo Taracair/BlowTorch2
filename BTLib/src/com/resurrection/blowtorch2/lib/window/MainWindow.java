@@ -612,6 +612,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				chrome.onApplyWindowInsets(view, windowInsets));
 		chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		chrome.updateMenuChrome();
+		chrome.hideGameplayNavigation();
 
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
@@ -1174,6 +1175,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 					if(needschange) {
 						refreshGameChrome();
+						chrome.hideGameplayNavigation();
 						final View chromeRootRefresh = findViewById(R.id.window_container);
 						if (chromeRootRefresh != null) {
 							ViewCompat.requestApplyInsets(chromeRootRefresh);
@@ -4821,11 +4823,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		isResumed = false;
 		super.onPause();
 	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		if (hasFocus && chrome != null) {
+			chrome.hideGameplayNavigation();
+		}
+	}
+
 	public void onResume() {
 		super.onResume();
 		// The insets that follow a resume are the ones that get retracted, so
 		// tell the chrome to let them settle before it moves anything.
 		chrome.onResume();
+		chrome.hideGameplayNavigation();
 		//Log.e("window","start onResume()");
 		//windowShowing = true;
 		if (floatingButtons != null) {
@@ -5026,6 +5038,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			chrome.setFullScreen(fullscreen);
 			applyOverflowAppearance(group);
 			refreshGameChrome();
+			chrome.hideGameplayNavigation();
 			final View chromeRootRefresh = findViewById(R.id.window_container);
 			if (chromeRootRefresh != null) {
 				ViewCompat.requestApplyInsets(chromeRootRefresh);
