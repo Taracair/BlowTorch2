@@ -93,6 +93,7 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
+import com.resurrection.blowtorch2.lib.window.MapSwallowProbe;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
@@ -2861,6 +2862,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
+		MapSwallowProbe.onDispatch(raw, stripped);
+		MapSwallowProbe.onTree("working", mWorking);
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
 		// Measured here rather than anywhere else on purpose: this is the exact
 		// string the trigger cascade is matched against, so it is the
@@ -3004,6 +3007,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 									lineGone = true;
 									markRemovedSpan(removedLines, originalLine, matched);
 									lineMods.drop(originalLine);
+									MapSwallowProbe.onLineGone(
+											TextTree.deColorLine(l).toString());
 									it = e1.getIterator();
 									mWorking.setModCount(0);
 									if (it.hasPrevious()) {
@@ -3075,7 +3080,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mColourBleed.recordDispatchDump(mDisplay, mFinished);
 		}
 
+		MapSwallowProbe.onTree("finished", mFinished);
 		byte[] proc = mFinished.dumpToBytes(false);
+		MapSwallowProbe.onDump(proc);
 		
 		buffer.addBytesImplSimple(proc);
 		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own

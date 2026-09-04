@@ -2366,6 +2366,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final long blinkNow = SystemClock.uptimeMillis();
 		mBlinkHiddenSlow = ((blinkNow / SgrStyle.BLINK_SLOW_MS) & 1L) == 1L;
 		mBlinkHiddenFast = ((blinkNow / SgrStyle.BLINK_FAST_MS) & 1L) == 1L;
+		MapSwallowProbe.onDraw(mName, mBuffer);
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);

@@ -656,6 +656,9 @@ public class TextTree {
 			data = b.array();
 			holdover = null;
 		}
+
+		MapSwallowProbe.beginAddBytes(data);
+		try {
 		
 		// A line is finished when the newline that closed it is its last unit, and
 		// every path that closes one puts the NewLine there last. Asking the last
@@ -796,13 +799,17 @@ public class TextTree {
 
 							cb.rewind();
 							i = j;
+							MapSwallowProbe.csiM();
 							break;
 						}
 						int ub = b & 0xFF;
 						if (ub >= 0x40 && ub <= 0x7E) {
 							done = true;
+							byte[] seq = csiProbeSeq(cb);
 							cb.rewind();
-							if (csiFinalIsCommand(ub)) {
+							boolean cmd = csiFinalIsCommand(ub);
+							MapSwallowProbe.csiFinal(ub, cmd, seq);
+							if (cmd) {
 								i = j;
 							} else {
 								i = j - 1;
@@ -816,7 +823,9 @@ public class TextTree {
 							continue;
 						}
 						done = true;
+						byte[] abortSeq = csiProbeSeq(cb);
 						cb.rewind();
+						MapSwallowProbe.csiAbort(ub, abortSeq);
 						i = j - 1;
 						break;
 					}
@@ -867,6 +876,7 @@ public class TextTree {
 									|| next == (byte)0x5F || next == (byte)0x5E) {
 								done = true;
 								payloadEnd = j;
+								MapSwallowProbe.oscAbort("nested", next & 0xFF);
 								i = j - 1; // re-process this ESC as a new sequence
 								break;
 							}
@@ -876,12 +886,14 @@ public class TextTree {
 						if(data[j] == NEWLINE) {
 							done = true;
 							payloadEnd = j;
+							MapSwallowProbe.oscAbort("nl", NEWLINE);
 							i = j - 1;
 							break;
 						}
 						if((j - oscPayloadStart) >= MAX_OSC_PAYLOAD_BYTES) {
 							done = true;
 							payloadEnd = j;
+							MapSwallowProbe.oscAbort("max", data[j] & 0xFF);
 							i = j - 1;
 							break;
 						}
@@ -943,6 +955,7 @@ public class TextTree {
 				}
 
 				// Two-byte ESC sequences (ESC 7/8/c/D/E/H/M/…): consume and ignore.
+				MapSwallowProbe.twoByteEsc(intro & 0xFF);
 				i = i + 1;
 				break;
 			case TAB:
@@ -1073,6 +1086,19 @@ public class TextTree {
 		prune();
 		
 		return endcount - startcount;
+		} finally {
+			MapSwallowProbe.endAddBytes(holdover);
+		}
+	}
+
+	/** TEMPORARY PROBE — CSI bytes accumulated so far, without moving the buffer. */
+	private static byte[] csiProbeSeq(final ByteBuffer cb) {
+		int n = cb.position();
+		byte[] seq = new byte[n];
+		if (n > 0) {
+			System.arraycopy(cb.array(), 0, seq, 0, n);
+		}
+		return seq;
 	}
 	
 	/**
@@ -1185,6 +1211,7 @@ public class TextTree {
 		brokenLineCount += l.breaks + 1;
 		totalbytes += l.bytes;
 		markDimRepeatedIfFinished(l);
+		MapSwallowProbe.onAddLine(l);
 		//Log.e("TREE","A:" + deColorLine(l));
 		mLines.add(0,l);
 	}
