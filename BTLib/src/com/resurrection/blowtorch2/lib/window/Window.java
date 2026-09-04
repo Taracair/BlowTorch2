@@ -1443,10 +1443,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
-		// Place each glyph on the cell origin. A batched drawText of the unit
-		// follows the typeface's advances; after emoji fallback was chained the
-		// ASCII probe still reported uniform widths and map columns drifted.
-		// Clip the run so a wide fallback cannot spill into the next unit.
+		// Place each glyph on the cell origin. Clip the run so a wide fallback
+		// cannot spill into the next unit. 4 Sep 2026 phone: Liberation Mono 28,
+		// cell=17, every sampled ASCII glyph measureText=17, asciiU=true,
+		// worstDw=0, wrapCol=85, mini-map breaks=0. Column drift on a live
+		// world is not typeface advance or word-wrap.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final Paint.FontMetrics fm = mGridFontMetrics;
@@ -6355,12 +6356,22 @@ end
 				.append(" |");
 		int n = 0;
 		for (TextTree.Unit u : l.getData()) {
-			if (n >= 18) {
+			if (n >= 40) {
 				sb.append(" ...");
 				break;
 			}
 			if (u instanceof TextTree.Color) {
-				sb.append(" C");
+				sb.append(" C[");
+				java.util.ArrayList<Integer> ops = ((TextTree.Color) u).getOperations();
+				if (ops != null) {
+					for (int oi = 0, on = ops.size(); oi < on; oi++) {
+						if (oi > 0) {
+							sb.append(',');
+						}
+						sb.append(ops.get(oi));
+					}
+				}
+				sb.append(']');
 			} else if (u instanceof TextTree.Break) {
 				sb.append(" B");
 			} else if (u instanceof TextTree.NewLine) {
