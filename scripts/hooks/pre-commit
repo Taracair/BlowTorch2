@@ -90,6 +90,14 @@ if printf '%s\n' "$staged" | grep -q 'AndroidManifest.xml'; then
   fi
 fi
 
+# --- commit author is GitHub noreply (GH007) -------------------------------
+ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
+if ! printf '%s' "$ident" | grep -qE '<[^[:space:]]+@users\.noreply\.github\.com>'; then
+  say "BLOCKED: commit author must be GitHub noreply. A personal inbox is rejected on push (GH007)."
+  echo "git -c user.name=Taracair -c user.email=Taracair@users.noreply.github.com commit ..."
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\npre-commit FAILED. Fix the above, or commit with --no-verify if you know why.\n'
   exit 1

@@ -1,0 +1,24 @@
+---
+description: Git commits use GitHub noreply, never a personal inbox
+alwaysApply: true
+---
+
+# Commit author is GitHub noreply
+
+Do not put a personal inbox in `user.email`, `GIT_AUTHOR_EMAIL`,
+`GIT_COMMITTER_EMAIL`, or `git commit --author`. GitHub rejects the push
+(GH007) when the address is marked private.
+
+## Do
+
+```sh
+git -c user.name=Taracair -c user.email=Taracair@users.noreply.github.com commit
+```
+
+`git -c` is per command. Do not run `git config user.email`.
+
+## Do not
+
+- Gmail, or any other personal inbox, as author or committer
+- Rewrite old commits to change the email unless the maintainer asks
+- `--no-verify` to skip the hook that checks this
