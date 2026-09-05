@@ -124,6 +124,9 @@ public class UserManualIndexTest {
 		assertTrue(sections.size() > 10);
 		boolean sawServerList = false;
 		boolean sawPadding = false;
+		boolean sawSemicolon = false;
+		boolean sawChatDrawer = false;
+		boolean sawChatLogsHeading = false;
 		for (int i = 0; i < sections.size(); i++) {
 			UserManualIndex.Section s = sections.get(i);
 			if ("The server list".equals(s.title)) {
@@ -134,10 +137,23 @@ public class UserManualIndexTest {
 			if ("Before you start".equals(s.title)) {
 				assertTrue(!s.body.contains("On the server list"));
 				assertTrue(!s.body.contains("Session logs"));
+				assertTrue(s.body.contains("Edit buttons"));
+				assertTrue(s.body.contains("LOOK"));
 			}
 			if ("Chat, logs, and Options search".equals(s.title)) {
-				assertEquals(UserManualIndex.CATEGORY_START, s.category);
-				assertTrue(s.body.contains("Session logs"));
+				sawChatLogsHeading = true;
+			}
+			if ("Several commands on one line (`;`)".equals(s.title)) {
+				sawSemicolon = true;
+				assertEquals(UserManualIndex.CATEGORY_PLAYING, s.category);
+				assertTrue(s.body.contains("#;"));
+			}
+			if ("Chat drawer".equals(s.title)) {
+				sawChatDrawer = true;
+				assertEquals(UserManualIndex.CATEGORY_WINDOW, s.category);
+			}
+			if ("Extra text windows".equals(s.title)) {
+				assertTrue(s.body.contains("not the chat drawer"));
 			}
 			if ("Newest text at top".equals(s.title)) {
 				assertTrue(!s.body.contains("Top padding (px)"));
@@ -154,6 +170,21 @@ public class UserManualIndexTest {
 		}
 		assertTrue("The server list heading", sawServerList);
 		assertTrue("Padding heading", sawPadding);
+		assertTrue("semicolon heading", sawSemicolon);
+		assertTrue("Chat drawer heading", sawChatDrawer);
+		assertTrue("Chat, logs heading must be gone", !sawChatLogsHeading);
+	}
+
+	@Test
+	public void firstOpenExpandsBeforeYouStartAndServerList() {
+		java.util.HashSet<String> cats = new java.util.HashSet<String>();
+		java.util.HashSet<String> leaves = new java.util.HashSet<String>();
+		UserManualIndex.seedFirstOpen(cats, leaves);
+		assertEquals(1, cats.size());
+		assertTrue(cats.contains(UserManualIndex.CATEGORY_START));
+		assertTrue(leaves.contains("Before you start"));
+		assertTrue(leaves.contains("The server list"));
+		assertEquals(2, leaves.size());
 	}
 
 	@Test

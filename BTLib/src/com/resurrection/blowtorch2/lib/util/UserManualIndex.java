@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Splits the packaged user manual on {@code ##} headings and maps them onto
@@ -68,9 +69,9 @@ public final class UserManualIndex {
 		LinkedHashMap<String, String> m = new LinkedHashMap<String, String>();
 		m.put("Before you start", CATEGORY_START);
 		m.put("The server list", CATEGORY_START);
-		m.put("Chat, logs, and Options search", CATEGORY_START);
 		m.put("Encrypted connections (TLS)", CATEGORY_PLAYING);
 		m.put("Dot commands", CATEGORY_PLAYING);
+		m.put("Several commands on one line (`;`)", CATEGORY_PLAYING);
 		m.put("Repeating a command (`#5 north`)", CATEGORY_PLAYING);
 		m.put("Waiting between commands (`.wait` / `#wait`)", CATEGORY_PLAYING);
 		m.put("Passwords are hidden while the MUD asks for them", CATEGORY_PLAYING);
@@ -224,6 +225,17 @@ public final class UserManualIndex {
 			from = at + needle.length();
 		}
 		return hits;
+	}
+
+	/** First Help open: Before you start category, both starter leaves expanded. */
+	public static void seedFirstOpen(final Set<String> categories,
+			final Set<String> leaves) {
+		if (categories == null || leaves == null) {
+			return;
+		}
+		categories.add(CATEGORY_START);
+		leaves.add("Before you start");
+		leaves.add("The server list");
 	}
 
 	public static String categoryForTitle(final String title) {

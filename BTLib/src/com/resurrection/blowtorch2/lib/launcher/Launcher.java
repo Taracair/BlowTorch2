@@ -151,6 +151,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_CHECK_FOR_UPDATES = 114;
 	protected static final int MENU_CHECK_UPDATES_NOW = 115;
 	protected static final int MENU_WELCOME_NOTICE = 116;
+	protected static final int MENU_HELP = 117;
 	
 	private IConnectionBinder service = null;
 	
@@ -2171,6 +2172,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0, MENU_CHECK_UPDATES_NOW, 0, R.string.launcher_menu_check_updates_now);
 		menu.add(0, MENU_WELCOME_NOTICE, 0, R.string.launcher_menu_welcome);
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
+		menu.add(0, MENU_HELP, 0, R.string.launcher_menu_help);
 
 		return true;
 
@@ -2339,6 +2341,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		case MENU_ABOUT:
 			showAboutDialog();
+			break;
+		case MENU_HELP:
+			new com.resurrection.blowtorch2.lib.window.HelpDialog(this).show();
 			break;
 
 		default:

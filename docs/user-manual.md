@@ -5,6 +5,16 @@ Source of truth for in-app **Help**. Keep this file in sync with
 
 ## Before you start
 
+**Options, Help, Chat, and the rest** live behind the three dots (⋮) at the
+top of the game window. Tap ⋮ → **Options** for settings. Options has a
+search field at the bottom; type `font` (or any other word) and tap a hit
+to jump to that page. ⋮ → **Help** is this guide. From the launcher,
+**Help** is also a button at the bottom and an item in that screen's ⋮
+menu.
+
+**Edit buttons:** long-press ⋮, or ⋮ → **Edit buttons**. Tap an empty
+cell, type `LOOK`, then **Done**. That puts a LOOK button on the pad.
+
 Because BlowTorch has a lot of features and tries to cover what many different
 players need, this guide (and the Starter Tutorial) may occasionally be
 slightly out of date in a few places. When that happens, the app itself — what
@@ -19,13 +29,6 @@ the list; the star does not launch anything. **Pin to home** asks Android
 to put a shortcut on the home screen, labelled with that world's name.
 Tapping the shortcut opens that world and connects, even if the app was
 not running. Some home screens cannot pin; the app says so.
-
-## Chat, logs, and Options search
-
-Options has a search field at the bottom; tap a hit to jump to that page.
-⋮ → **Chat** (or `.chat`) is a left-hand drawer for tells and channels, not
-an extra-text pane. ⋮ → **Session logs** browses this world's saved `.txt`
-files.
 
 ## Encrypted connections (TLS)
 
@@ -436,6 +439,26 @@ again.
 Registrations live in `Connection` (built-ins) and Lua
 `RegisterSpecialCommand(...)` (plugins).
 
+## Several commands on one line (`;`)
+
+When **Options → Service → Process Semicolons?** is on (the default), a
+`;` splits what you send into several commands. You type `look;score` and
+the game receives `look`, then `score`, the same as two Enter presses.
+
+A semicolon the *game* should see is written as `#;` — a whole segment
+that is just those two characters:
+
+    look;#;say hi           sends look, then ;, then say hi
+    #;                      sends one semicolon (same as a line that is only `;;`)
+
+Inside one command, `;;` is still a literal semicolon in that command
+(`say hello;;world` sends `say hello;world`). `#;;` is a literal `#;`
+sent as one command, not a split. `#;` is not a repeat (`#5 north`) and
+not a wait (`#wait 5s`).
+
+Turn **Process Semicolons?** off if this world uses `;` in its own
+commands and you never want the split.
+
 ## Repeating a command (`#5 north`)
 
 A line that starts with `#` and a number sends the rest of the line that many
@@ -467,7 +490,8 @@ always a slip, and a world may read the flood as an attack.
 **Worlds that use `#` themselves.** Two hashes send one literal hash and skip
 the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
 as `#5 north`. A `#` that is not a number followed by a space is never touched,
-so `#help` and `say cost is #3 gold` go out unchanged.
+so `#help` and `say cost is #3 gold` go out unchanged. `#;` is a
+semicolon (see **Several commands on one line** above), not a repeat.
 
 ## Waiting between commands (`.wait` / `#wait`)
 
@@ -1993,85 +2017,6 @@ Example: you are looking for a fight from earlier this week. `.search logs 7 gob
 will find “goblin” in the current scrollback, then in this world's log files
 touched in the last 7 days.
 
-## Chat drawer
-
-⋮ → **Chat**, or `.chat`. A panel slides in from the left — not a
-permanent bar, and not an extra-text window (recipe 8). **Send to thread**
-(above) copies a matching line into a named conversation; the line also
-stays in the game window.
-
-### `.chat` forms
-
-```
-.chat
-.chat open
-.chat close | hide
-.chat <name>
-.chat help
-```
-
-Empty argument and `open` slide the chat drawer in from the left (toggles if
-it is already open — there is no separate close binder). `close` and `hide`
-are the same toggle. ✕, the dim area, or Back also close it. Overflow
-**Chat** always opens it.
-
-`.chat <name>` opens that conversation. The name matches the thread id or
-the title shown in the list, case-insensitive — `.chat ooc` if the list
-says ooc.
-
-A thread is one conversation. Tap it to read history and reply. Send fills
-`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set
-the template on the trigger's Send to thread action, or **Reply** under ⚙
-while that conversation is open.
-
-⚙ in an open conversation:
-
-- **My lines** — tap the row for the submenu. The name the world prints
-  when you speak, not the channel tag and not a pasted whole line. Worlds
-  print chat differently (start of line, after a `]` or `)`, `You say`).
-  `[ooc] Ada says, "hi"` is yours if My lines is `Ada`; `[ooc] Bob says,
-  "hi Ada"` is not. A one-word name already matches says and asks. Verb
-  phrases: one form per line, or `Ada says; Ada asks`. Kept in the chat
-  file, so those bubbles stay yours after you leave the app. Colour chips
-  in the submenu are this chat only.
-- **Reply** — tap the same submenu. The command sent to the world;
-  `$text` is the reply box. Example: `tell Bob $text`, `ooc $text`, or
-  `$text` alone. A lone `$1` is treated as `$text` (`C $1` → `C hello`).
-  `tell $1 $text` is the trigger's capture form, not a Send template —
-  Send refuses leftover `$1`. Tap **?** in the submenu for both fields.
-- **Notify** — which Android channel this conversation uses: **Tells**,
-  **Channels**, **Auction**, or **Other** (default). Four channels, not
-  one per name. Mute auction without muting tells in Android Settings →
-  Notifications. Chat used to share the alerts channel with the bell;
-  after this update, pick sound per bucket there (the old alerts
-  setting does not follow chat). The master switch is still
-  **Options → Chat → Android notification** (off by default).
-- Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
-  face. **Find in this thread** stays visible; ‹ › step through matches
-  like `.search` and do not hide other messages.
-- **Save** writes My lines and Reply, and updates a matching Send to thread
-  trigger whose Thread field is this conversation's id.
-- **Delete conversation** (confirm) removes stored messages. It does not
-  delete the trigger. Use this when a thread exists with no trigger
-  attached (orphan). Long-press a thread in the list also deletes.
-
-**Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default);
-keep at most N messages (default 4000, 0 = no practical limit). Tap the
-shade to open that conversation. ⚙ **Notify** picks the system channel
-for that conversation (Tells / Channels / Auction / Other). Digest waits
-the interval, then the cyan line is how many arrived (five tells → 5,
-not 1); the notification count updates on each message. That cyan line
-is its own line in the window.
-The unread disc on ⋮ is brighter while there is unread and the drawer is
-closed. In-game line example (cyan client text, not sent to the MUD):
-`Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
-the messages and keeps the trigger.
-
-Send from the drawer paints an own-bubble immediately. Dual display (main
-window and the drawer) is the trigger's job; the drawer only shows what
-was stored.
-
 ## Mapper
 
 Built-in room map (not the legacy ForgeMap plugin). Open from overflow **Map**,
@@ -2613,6 +2558,11 @@ past the status bar — for a punch-hole that already sits in that bar, use
 **Top padding (px)** as well. Turn an option off to use the pixels under the
 hole (text may sit under the camera).
 
+The on-screen **keyboard is a separate system window**. Turning
+avoid-cutout off lets *this app's* map and text use that strip; Gboard
+still leaves a gap the width of the hole. That is the keyboard, not a
+padding setting in BlowTorch.
+
 **Options → Window → Top padding (px)** is extra empty space above game text
 on top of that (on-screen buttons are unaffected). Try values like `40`–`80`
 if the automatic inset is not enough.
@@ -2759,7 +2709,11 @@ are fine. **Always visible** works everywhere.
 
 ## Extra text windows
 
-Optional top-drawer or floating panes (chat, tells, combat, …) beside the main game
+This is not the chat drawer (⋮ → **Chat** / `.chat`) — that is a left-hand
+conversation list, described after this section. Extra text windows are named
+slots you create (chat, tells, combat, …) beside the main game output.
+
+Optional top-drawer or floating panes beside the main game
 output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
 slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
 
@@ -2912,6 +2866,85 @@ that decide whether they fire at all, edited in their own editors. Aliases
 themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
 on or off; a trigger condition can *read* that on/off state or the alias
 **With** text.
+
+## Chat drawer
+
+⋮ → **Chat**, or `.chat`. A panel slides in from the left — not a
+permanent bar, and not an extra-text window (recipe 8). A trigger
+**Send to thread** action copies a matching line into a named conversation;
+the line also stays in the game window.
+
+### `.chat` forms
+
+```
+.chat
+.chat open
+.chat close | hide
+.chat <name>
+.chat help
+```
+
+Empty argument and `open` slide the chat drawer in from the left (toggles if
+it is already open — there is no separate close binder). `close` and `hide`
+are the same toggle. ✕, the dim area, or Back also close it. Overflow
+**Chat** always opens it.
+
+`.chat <name>` opens that conversation. The name matches the thread id or
+the title shown in the list, case-insensitive — `.chat ooc` if the list
+says ooc.
+
+A thread is one conversation. Tap it to read history and reply. Send fills
+`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set
+the template on the trigger's Send to thread action, or **Reply** under ⚙
+while that conversation is open.
+
+⚙ in an open conversation:
+
+- **My lines** — tap the row for the submenu. The name the world prints
+  when you speak, not the channel tag and not a pasted whole line. Worlds
+  print chat differently (start of line, after a `]` or `)`, `You say`).
+  `[ooc] Ada says, "hi"` is yours if My lines is `Ada`; `[ooc] Bob says,
+  "hi Ada"` is not. A one-word name already matches says and asks. Verb
+  phrases: one form per line, or `Ada says; Ada asks`. Kept in the chat
+  file, so those bubbles stay yours after you leave the app. Colour chips
+  in the submenu are this chat only.
+- **Reply** — tap the same submenu. The command sent to the world;
+  `$text` is the reply box. Example: `tell Bob $text`, `ooc $text`, or
+  `$text` alone. A lone `$1` is treated as `$text` (`C $1` → `C hello`).
+  `tell $1 $text` is the trigger's capture form, not a Send template —
+  Send refuses leftover `$1`. Tap **?** in the submenu for both fields.
+- **Notify** — which Android channel this conversation uses: **Tells**,
+  **Channels**, **Auction**, or **Other** (default). Four channels, not
+  one per name. Mute auction without muting tells in Android Settings →
+  Notifications. Chat used to share the alerts channel with the bell;
+  after this update, pick sound per bucket there (the old alerts
+  setting does not follow chat). The master switch is still
+  **Options → Chat → Android notification** (off by default).
+- Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
+  face. **Find in this thread** stays visible; ‹ › step through matches
+  like `.search` and do not hide other messages.
+- **Save** writes My lines and Reply, and updates a matching Send to thread
+  trigger whose Thread field is this conversation's id.
+- **Delete conversation** (confirm) removes stored messages. It does not
+  delete the trigger. Use this when a thread exists with no trigger
+  attached (orphan). Long-press a thread in the list also deletes.
+
+**Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
+message / Digest + interval; Android notification (off by default);
+keep at most N messages (default 4000, 0 = no practical limit). Tap the
+shade to open that conversation. ⚙ **Notify** picks the system channel
+for that conversation (Tells / Channels / Auction / Other). Digest waits
+the interval, then the cyan line is how many arrived (five tells → 5,
+not 1); the notification count updates on each message. That cyan line
+is its own line in the window.
+The unread disc on ⋮ is brighter while there is unread and the drawer is
+closed. In-game line example (cyan client text, not sent to the MUD):
+`Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
+the messages and keeps the trigger.
+
+Send from the drawer paints an own-bubble immediately. Dual display (main
+window and the drawer) is the trigger's job; the drawer only shows what
+was stored.
 
 ## Overlay gauges (`.widget` / `.gauge`)
 
@@ -3176,7 +3209,8 @@ In order, as the menu builds them (all under ⋮):
 
 1. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
    is **Options → Button → Load button set from wizard**)
-2. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
+2. **Aliases** / **Triggers** / **Timers** / **Options** — the editors.
+   Options has a search field at the bottom; tap a hit to jump to that page.
 3. **Edit buttons** — enter button layout edit mode
 4. **Speedwalk Directions** — the direction letters `.run` uses
 5. **Map** — open the built-in mapper (same as `.map open`)

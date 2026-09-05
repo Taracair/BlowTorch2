@@ -345,9 +345,8 @@ public class HelpDialog extends Dialog {
 		mOpenCategories.clear();
 		mOpenLeaves.clear();
 		mMatchIndex = -1;
-		if (!isSearching() && !mAll.isEmpty()) {
-			mOpenCategories.add(mAll.get(0).category);
-			mOpenLeaves.add(mAll.get(0).title);
+		if (!isSearching()) {
+			UserManualIndex.seedFirstOpen(mOpenCategories, mOpenLeaves);
 		}
 	}
 
