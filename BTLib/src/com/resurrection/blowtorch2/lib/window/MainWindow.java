@@ -591,8 +591,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
 			WindowManager.LayoutParams cutoutLp = getWindow().getAttributes();
-			cutoutLp.layoutInDisplayCutoutMode =
-					WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+				cutoutLp.layoutInDisplayCutoutMode =
+						WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+			} else {
+				cutoutLp.layoutInDisplayCutoutMode =
+						WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+			}
 			getWindow().setAttributes(cutoutLp);
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
