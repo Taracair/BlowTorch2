@@ -11,15 +11,20 @@ slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
 [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
 
+## The server list
+
 On the server list, long-press a world. The star is **Add to favorites** /
 **Remove from favorites** — starred worlds sit under Starter Tutorial on
 the list; the star does not launch anything. **Pin to home** asks Android
 to put a shortcut on the home screen, labelled with that world's name.
 Tapping the shortcut opens that world and connects, even if the app was
-not running. Some home screens cannot pin; the app says so. Options has
-a search field at the bottom; tap a hit to jump to that page. ⋮ →
-**Chat** (or `.chat`) is a left-hand drawer for tells and channels, not an
-extra-text pane. ⋮ → **Session logs** browses this world's saved `.txt`
+not running. Some home screens cannot pin; the app says so.
+
+## Chat, logs, and Options search
+
+Options has a search field at the bottom; tap a hit to jump to that page.
+⋮ → **Chat** (or `.chat`) is a left-hand drawer for tells and channels, not
+an extra-text pane. ⋮ → **Session logs** browses this world's saved `.txt`
 files.
 
 ## Encrypted connections (TLS)
@@ -2595,9 +2600,10 @@ the bottom edge. Drag **up** to dig into history; the home chevron stays in the
 
 **Caveat:** this reverses the on-screen order of consecutive lines. MUD maps,
 room diagrams, and other ASCII graphics drawn line-by-line will appear
-**upside down**. Leave the option off for those games (or use **Top padding** /
-**Keep text still with keyboard?** instead to keep buttons usable without
-flipping text).
+**upside down**. Leave the option off for those games. To keep buttons usable
+without flipping text, see **Padding, notch, and the keyboard**.
+
+## Padding, notch, and the keyboard
 
 **Options → Window → Top padding (px)** leaves empty space above game text for
 notch/camera cutouts (on-screen buttons are unaffected). Try values like

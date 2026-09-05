@@ -67,6 +67,8 @@ public final class UserManualIndex {
 	static {
 		LinkedHashMap<String, String> m = new LinkedHashMap<String, String>();
 		m.put("Before you start", CATEGORY_START);
+		m.put("The server list", CATEGORY_START);
+		m.put("Chat, logs, and Options search", CATEGORY_START);
 		m.put("Encrypted connections (TLS)", CATEGORY_PLAYING);
 		m.put("Dot commands", CATEGORY_PLAYING);
 		m.put("Repeating a command (`#5 north`)", CATEGORY_PLAYING);
@@ -88,6 +90,7 @@ public final class UserManualIndex {
 		m.put("Light theme", CATEGORY_WINDOW);
 		m.put("Scroll dates", CATEGORY_WINDOW);
 		m.put("Newest text at top", CATEGORY_WINDOW);
+		m.put("Padding, notch, and the keyboard", CATEGORY_WINDOW);
 		m.put("Extra text windows", CATEGORY_WINDOW);
 		m.put("Overlay gauges (`.widget` / `.gauge`)", CATEGORY_WINDOW);
 		m.put("On-screen buttons: swipe + accordion", CATEGORY_BUTTONS);
@@ -146,12 +149,58 @@ public final class UserManualIndex {
 		ArrayList<Section> out = new ArrayList<Section>();
 		for (int i = 0; i < sections.size(); i++) {
 			Section s = sections.get(i);
-			if (s.title.toLowerCase(Locale.US).contains(needle)
-					|| s.body.toLowerCase(Locale.US).contains(needle)) {
+			String title = UserManualMarkdown.render(s.title).text;
+			if (title.length() == 0) {
+				title = s.title;
+			}
+			String body = UserManualMarkdown.render(s.body).text;
+			if (title.toLowerCase(Locale.US).contains(needle)
+					|| body.toLowerCase(Locale.US).contains(needle)) {
 				out.add(s);
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Categories in {@link #CATEGORY_ORDER}, then any unknown category, then the
+	 * sections that landed in each. Empty buckets are present so Help can skip
+	 * them in the same order it paints.
+	 */
+	public static LinkedHashMap<String, List<Section>> groupByCategory(
+			final List<Section> sections) {
+		LinkedHashMap<String, List<Section>> byCat =
+				new LinkedHashMap<String, List<Section>>();
+		for (int i = 0; i < CATEGORY_ORDER.length; i++) {
+			byCat.put(CATEGORY_ORDER[i], new ArrayList<Section>());
+		}
+		if (sections == null) {
+			return byCat;
+		}
+		for (int i = 0; i < sections.size(); i++) {
+			Section s = sections.get(i);
+			List<Section> bucket = byCat.get(s.category);
+			if (bucket == null) {
+				bucket = new ArrayList<Section>();
+				byCat.put(s.category, bucket);
+			}
+			bucket.add(s);
+		}
+		return byCat;
+	}
+
+	/** How many non-overlapping hits of {@code query} sit in title plus rendered body. */
+	public static int hitCount(final Section section, final String query) {
+		if (section == null) {
+			return 0;
+		}
+		String title = UserManualMarkdown.render(section.title).text;
+		if (title.length() == 0) {
+			title = section.title;
+		}
+		String body = UserManualMarkdown.render(section.body).text;
+		return highlightRanges(title, query).size()
+				+ highlightRanges(body, query).size();
 	}
 
 	public static List<Hit> highlightRanges(final String text, final String query) {

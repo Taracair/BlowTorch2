@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Test;
@@ -121,12 +122,71 @@ public class UserManualIndexTest {
 		}
 		List<UserManualIndex.Section> sections = UserManualIndex.parse(sb.toString());
 		assertTrue(sections.size() > 10);
+		boolean sawServerList = false;
+		boolean sawPadding = false;
 		for (int i = 0; i < sections.size(); i++) {
 			UserManualIndex.Section s = sections.get(i);
+			if ("The server list".equals(s.title)) {
+				sawServerList = true;
+				assertEquals(UserManualIndex.CATEGORY_START, s.category);
+				assertTrue(s.body.contains("On the server list"));
+			}
+			if ("Before you start".equals(s.title)) {
+				assertTrue(!s.body.contains("On the server list"));
+				assertTrue(!s.body.contains("Session logs"));
+			}
+			if ("Chat, logs, and Options search".equals(s.title)) {
+				assertEquals(UserManualIndex.CATEGORY_START, s.category);
+				assertTrue(s.body.contains("Session logs"));
+			}
+			if ("Newest text at top".equals(s.title)) {
+				assertTrue(!s.body.contains("Top padding (px)"));
+			}
+			if ("Padding, notch, and the keyboard".equals(s.title)) {
+				sawPadding = true;
+				assertEquals(UserManualIndex.CATEGORY_WINDOW, s.category);
+				assertTrue(s.body.contains("Top padding (px)"));
+			}
 			if (UserManualIndex.CATEGORY_OTHER.equals(s.category)
 					&& !"Related docs".equals(s.title)) {
 				fail("unmapped Help heading: " + s.title);
 			}
 		}
+		assertTrue("The server list heading", sawServerList);
+		assertTrue("Padding heading", sawPadding);
+	}
+
+	@Test
+	public void hitCountIsTitlePlusBody() {
+		UserManualIndex.Section s = new UserManualIndex.Section(
+				UserManualIndex.CATEGORY_TRIGGERS, "Aliases and triggers",
+				"A trigger fires. Another trigger.");
+		assertEquals(3, UserManualIndex.hitCount(s, "trigger"));
+	}
+
+	@Test
+	public void hitCountUsesRenderedBodyNotMarkers() {
+		UserManualIndex.Section s = new UserManualIndex.Section(
+				UserManualIndex.CATEGORY_TRIGGERS, "Aliases",
+				"A **trigger** fires.");
+		assertEquals(1, UserManualIndex.hitCount(s, "trigger"));
+		assertEquals(0, UserManualIndex.hitCount(s, "**"));
+	}
+
+	@Test
+	public void paintOrderFollowsCategoriesNotFileOrder() {
+		List<UserManualIndex.Section> fileOrder = new ArrayList<UserManualIndex.Section>();
+		fileOrder.add(new UserManualIndex.Section(
+				UserManualIndex.CATEGORY_INPUT, "Suggestions", "chip"));
+		fileOrder.add(new UserManualIndex.Section(
+				UserManualIndex.CATEGORY_PLAYING, "Dot commands", "north"));
+		List<UserManualIndex.Section> painted = new ArrayList<UserManualIndex.Section>();
+		java.util.LinkedHashMap<String, List<UserManualIndex.Section>> byCat =
+				UserManualIndex.groupByCategory(fileOrder);
+		for (java.util.Map.Entry<String, List<UserManualIndex.Section>> e : byCat.entrySet()) {
+			painted.addAll(e.getValue());
+		}
+		assertEquals("Dot commands", painted.get(0).title);
+		assertEquals("Suggestions", painted.get(1).title);
 	}
 }
