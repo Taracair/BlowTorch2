@@ -408,6 +408,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private ColourBleedProbe mColourBleed = null;
 	private ColourBleedProbe mColourBleedHeld = null;
+
+	// TEMPORARY PROBE: dump + binder notify after triggers.
+	private static final long PROF_HEARTBEAT_MS = 2000L;
+	private long mProfDumpHbAt;
+	private long mProfDumpWorstMs;
+	private long mProfNotifyWorstMs;
+	private long mProfChunkWorstMs;
+	private int mProfDumpCalls;
+	private int mProfDumpOver16;
+	private long mProfDumpBytes;
+	private int mProfDumpMaxBytes;
 	/**
 	 * The half-line at the end of a chunk waits here for the rest of itself, so
 	 * that triggers, gags and the display only ever see finished lines.
@@ -2856,6 +2867,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void dispatchWholeLines(final byte[] raw)
 			throws UnsupportedEncodingException {
+		final long chunkT0 = SystemClock.uptimeMillis(); // TEMPORARY PROBE
 		TextTree buffer = null;
 		for (WindowToken w : mWindows) {
 			if (w.getName().equals(MAIN_WINDOW)) {
@@ -3089,12 +3101,54 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mColourBleed.recordDispatchDump(mDisplay, mFinished);
 		}
 
+		final long dumpT0 = SystemClock.uptimeMillis(); // TEMPORARY PROBE
 		byte[] proc = mFinished.dumpToBytes(false);
+		final long dumpMs = SystemClock.uptimeMillis() - dumpT0;
 		
+		final long notifyT0 = SystemClock.uptimeMillis();
 		buffer.addBytesImplSimple(proc);
 		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own
 		// TextTree and the line above already holds the text.
 		notifyMainWindow(proc);
+		final long notifyMs = SystemClock.uptimeMillis() - notifyT0;
+		final long chunkMs = SystemClock.uptimeMillis() - chunkT0;
+		mProfDumpCalls++;
+		mProfDumpBytes += proc.length;
+		if (proc.length > mProfDumpMaxBytes) {
+			mProfDumpMaxBytes = proc.length;
+		}
+		if (dumpMs > mProfDumpWorstMs) {
+			mProfDumpWorstMs = dumpMs;
+		}
+		if (notifyMs > mProfNotifyWorstMs) {
+			mProfNotifyWorstMs = notifyMs;
+		}
+		if (chunkMs > mProfChunkWorstMs) {
+			mProfChunkWorstMs = chunkMs;
+		}
+		if (chunkMs >= 16L) {
+			mProfDumpOver16++;
+		}
+		final long now = SystemClock.uptimeMillis();
+		if (mProfDumpHbAt == 0L) {
+			mProfDumpHbAt = now;
+		} else if (now - mProfDumpHbAt >= PROF_HEARTBEAT_MS) {
+			Log.i("BTPROF", "dump calls=" + mProfDumpCalls
+					+ " worstDumpMs=" + mProfDumpWorstMs
+					+ " worstNotifyMs=" + mProfNotifyWorstMs
+					+ " worstChunkMs=" + mProfChunkWorstMs
+					+ " over16=" + mProfDumpOver16
+					+ " bytes=" + mProfDumpBytes
+					+ " maxBytes=" + mProfDumpMaxBytes);
+			mProfDumpHbAt = now;
+			mProfDumpWorstMs = 0L;
+			mProfNotifyWorstMs = 0L;
+			mProfChunkWorstMs = 0L;
+			mProfDumpCalls = 0;
+			mProfDumpOver16 = 0;
+			mProfDumpBytes = 0L;
+			mProfDumpMaxBytes = 0;
+		}
 		} finally {
 			ColourBleedProbe.unbind();
 		}

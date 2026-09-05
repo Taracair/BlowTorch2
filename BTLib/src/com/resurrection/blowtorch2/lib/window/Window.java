@@ -281,6 +281,185 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 	};
+
+	// TEMPORARY PROBE: paint/scroll budget. Rolling worst so silence is a result.
+	private static final long PROF_HEARTBEAT_MS = 2000L;
+	private long mProfHbAt;
+	private long mProfWorstDrawMs;
+	private long mProfSumDrawMs;
+	private int mProfFrames;
+	private int mProfOver16;
+	private int mProfOver32;
+	private long mProfWorstAddMs;
+	private long mProfSumAddMs;
+	private int mProfAddCalls;
+	private int mProfIncomingLines;
+	private int mProfIncomingBytes;
+	private long mProfGridNs;
+	private long mProfColorNs;
+	private long mProfBleedNs;
+	private long mProfIterNs;
+	private int mProfGridDepth;
+	private int mProfAsciiGlyphs;
+	private int mProfOtherGlyphs;
+	private int mProfClips;
+	private int mProfSkipSp;
+	private int mProfWeightRedraws;
+	private int mProfGridCacheRebuilds;
+	private int mProfColorHit;
+	private int mProfColorMiss;
+	private int mProfColorUnits;
+	private int mProfTextUnits;
+	private int mProfSgrUnits;
+	private int mProfDrawnLines;
+	private int mProfBleedLines;
+	private int mProfFlingFrames;
+	private int mProfSnapAscii;
+	private int mProfSnapOther;
+	private int mProfSnapClips;
+	private int mProfSnapSkipSp;
+	private int mProfSnapWeight;
+	private int mProfSnapCacheRebuild;
+	private int mProfSnapColorN;
+	private int mProfSnapHit;
+	private int mProfSnapMiss;
+	private int mProfSnapLines;
+	private int mProfSnapTextU;
+	private int mProfSnapSgrU;
+	private int mProfSnapBleedN;
+	private long mProfSnapGridMs;
+	private long mProfSnapColorMs;
+	private long mProfSnapBleedMs;
+	private long mProfSnapIterMs;
+
+	private void profResetFrame() {
+		mProfGridNs = 0L;
+		mProfColorNs = 0L;
+		mProfBleedNs = 0L;
+		mProfIterNs = 0L;
+		mProfGridDepth = 0;
+		mProfAsciiGlyphs = 0;
+		mProfOtherGlyphs = 0;
+		mProfClips = 0;
+		mProfSkipSp = 0;
+		mProfWeightRedraws = 0;
+		mProfGridCacheRebuilds = 0;
+		mProfColorHit = 0;
+		mProfColorMiss = 0;
+		mProfColorUnits = 0;
+		mProfTextUnits = 0;
+		mProfSgrUnits = 0;
+		mProfDrawnLines = 0;
+		mProfBleedLines = 0;
+	}
+
+	private float profGridDone(final long t0, final float result) {
+		if (mProfGridDepth == 1) {
+			mProfGridNs += SystemClock.elapsedRealtimeNanos() - t0;
+		}
+		mProfGridDepth--;
+		return result;
+	}
+
+	private void profColorDone(final long t0, final boolean cacheHit) {
+		mProfColorNs += SystemClock.elapsedRealtimeNanos() - t0;
+		mProfColorUnits++;
+		if (cacheHit) {
+			mProfColorHit++;
+		} else {
+			mProfColorMiss++;
+		}
+		if (mSgr.italic() || mSgr.underline() || mSgr.strike() || mSgr.weight()
+				|| mSgr.doubleUnderline() || mSgr.reverse() || mSgr.faint()) {
+			mProfSgrUnits++;
+		}
+	}
+
+	private void profFinishDraw(final long t0Ms) {
+		final long dt = SystemClock.uptimeMillis() - t0Ms;
+		mProfFrames++;
+		mProfSumDrawMs += dt;
+		if (dt > mProfWorstDrawMs) {
+			mProfWorstDrawMs = dt;
+			mProfSnapGridMs = mProfGridNs / 1000000L;
+			mProfSnapColorMs = mProfColorNs / 1000000L;
+			mProfSnapBleedMs = mProfBleedNs / 1000000L;
+			mProfSnapIterMs = mProfIterNs / 1000000L;
+			mProfSnapAscii = mProfAsciiGlyphs;
+			mProfSnapOther = mProfOtherGlyphs;
+			mProfSnapClips = mProfClips;
+			mProfSnapSkipSp = mProfSkipSp;
+			mProfSnapWeight = mProfWeightRedraws;
+			mProfSnapCacheRebuild = mProfGridCacheRebuilds;
+			mProfSnapColorN = mProfColorUnits;
+			mProfSnapHit = mProfColorHit;
+			mProfSnapMiss = mProfColorMiss;
+			mProfSnapLines = mProfDrawnLines;
+			mProfSnapTextU = mProfTextUnits;
+			mProfSnapSgrU = mProfSgrUnits;
+			mProfSnapBleedN = mProfBleedLines;
+		}
+		if (dt >= 16L) {
+			mProfOver16++;
+		}
+		if (dt >= 32L) {
+			mProfOver32++;
+		}
+		if (mFingerDown || Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
+			mProfFlingFrames++;
+		}
+		final long now = SystemClock.uptimeMillis();
+		if (mProfHbAt == 0L) {
+			mProfHbAt = now;
+			return;
+		}
+		if (now - mProfHbAt < PROF_HEARTBEAT_MS) {
+			return;
+		}
+		final long avg = mProfFrames > 0 ? mProfSumDrawMs / mProfFrames : 0L;
+		Log.i("BTPROF", "draw win=" + mName
+				+ " frames=" + mProfFrames
+				+ " over16=" + mProfOver16
+				+ " over32=" + mProfOver32
+				+ " worstMs=" + mProfWorstDrawMs
+				+ " avgMs=" + avg
+				+ " gridMs=" + mProfSnapGridMs
+				+ " colorMs=" + mProfSnapColorMs
+				+ " bleedMs=" + mProfSnapBleedMs
+				+ " iterMs=" + mProfSnapIterMs
+				+ " addMs=" + mProfWorstAddMs
+				+ " addCalls=" + mProfAddCalls
+				+ " inLines=" + mProfIncomingLines
+				+ " inBytes=" + mProfIncomingBytes
+				+ " glyphs=" + (mProfSnapAscii + mProfSnapOther)
+				+ " ascii=" + mProfSnapAscii
+				+ " other=" + mProfSnapOther
+				+ " clips=" + mProfSnapClips
+				+ " skipSp=" + mProfSnapSkipSp
+				+ " colorN=" + mProfSnapColorN
+				+ " hit=" + mProfSnapHit
+				+ " miss=" + mProfSnapMiss
+				+ " weight=" + mProfSnapWeight
+				+ " cacheRebuild=" + mProfSnapCacheRebuild
+				+ " lines=" + mProfSnapLines
+				+ " textU=" + mProfSnapTextU
+				+ " sgrU=" + mProfSnapSgrU
+				+ " bleedN=" + mProfSnapBleedN
+				+ " fling=" + mProfFlingFrames
+				+ " lastMs=" + dt);
+		mProfHbAt = now;
+		mProfWorstDrawMs = 0L;
+		mProfSumDrawMs = 0L;
+		mProfFrames = 0;
+		mProfOver16 = 0;
+		mProfOver32 = 0;
+		mProfWorstAddMs = 0L;
+		mProfSumAddMs = 0L;
+		mProfAddCalls = 0;
+		mProfIncomingLines = 0;
+		mProfIncomingBytes = 0;
+		mProfFlingFrames = 0;
+	}
 	/** ANSI Drawing routine current background color. */
 	private Integer mSelectedBackground = Integer.valueOf(60);
 	/** Utility variable that is used by the ANSI drawing routine to properly handle xterm 256 colors. */
@@ -1376,6 +1555,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (tf == mGridCacheTypeface && ts == mGridCacheTextSize && mOneCharWidth == mGridCacheCell) {
 			return;
 		}
+		mProfGridCacheRebuilds++; // TEMPORARY PROBE
 		mGridCacheTypeface = tf;
 		mGridCacheTextSize = ts;
 		mGridCacheCell = mOneCharWidth;
@@ -1421,11 +1601,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s == null || s.length() == 0) {
 			return 0f;
 		}
+		final long t0 = SystemClock.elapsedRealtimeNanos(); // TEMPORARY PROBE
+		mProfGridDepth++;
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
 
 		if (blinkGlyphsHiddenThisUnit()) {
-			return gridAdvance(s);
+			return profGridDone(t0, gridAdvance(s));
 		}
 
 		// A space paints nothing, so the only reason to hand one to the canvas is a
@@ -1437,7 +1619,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (isAllSpaces(s, spaceLen)
 				&& !paint.isUnderlineText() && !paint.isStrikeThruText()
 				&& !mSgr.doubleUnderline()) {
-			return cell * spaceLen;
+			mProfSkipSp += spaceLen;
+			return profGridDone(t0, cell * spaceLen);
 		}
 
 		ensureGridCache(paint);
@@ -1459,6 +1642,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				c.restore();
 			}
 			c.restore();
+			mProfAsciiGlyphs += s.length();
+			mProfClips += s.length() + 1;
 			drawnWidth = cell * s.length();
 		} else {
 
@@ -1493,6 +1678,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							lastGlyphX + lastGlyphCols * cell, textBot);
 					c.drawText(s, i, i + charCount, lastGlyphX, baseline, paint);
 					c.restore();
+					mProfOtherGlyphs++;
+					mProfClips++;
 					i += charCount;
 					continue;
 				}
@@ -1507,19 +1694,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					c.clipRect(cursor, lineTop, cursor + 2f * cell, lineBot);
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
 					c.restore();
+					mProfClips++;
 				} else if (isBlock) {
 					if (!overlayPass) {
 						c.save();
 						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
 						drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
 						c.restore();
+						mProfClips++;
 					}
 				} else {
 					c.save();
 					c.clipRect(cursor, textTop, cursor + cell, textBot);
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
 					c.restore();
+					mProfClips++;
 				}
+				mProfOtherGlyphs++;
 				lastGlyphX = cursor;
 				lastGlyphCols = cols;
 				cursor += cols * cell;
@@ -1531,6 +1722,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			drawDoubleUnderlineHairline(c, x, y, drawnWidth, paint);
 		}
 		if (paintWeight() && !overlayPass) {
+			mProfWeightRedraws++;
 			mWeightPaint.setTextSize(paint.getTextSize());
 			mWeightPaint.setAntiAlias(true);
 			mWeightPaint.setColor(paint.getColor());
@@ -1540,7 +1732,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mWeightPaint.setTextSkewX(paint.getTextSkewX());
 			drawTextOnGrid(c, s, x, y, mWeightPaint);
 		}
-		return drawnWidth;
+		return profGridDone(t0, drawnWidth);
 	}
 
 	private float gridAdvance(final String s) {
@@ -2374,6 +2566,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mBlinkSawThisFrame = false;
 		mBlinkFastSawThisFrame = false;
 		final long blinkNow = SystemClock.uptimeMillis();
+		profResetFrame(); // TEMPORARY PROBE
 		mBlinkHiddenSlow = ((blinkNow / SgrStyle.BLINK_SLOW_MS) & 1L) == 1L;
 		mBlinkHiddenFast = ((blinkNow / SgrStyle.BLINK_FAST_MS) & 1L) == 1L;
 		mSelectionCanvasSaved = false;
@@ -2516,6 +2709,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// the frame after this one is a better place to be than this one.
 			int maxTries = 3;
 			int tries = 0;
+			final long iterT0 = SystemClock.elapsedRealtimeNanos(); // TEMPORARY PROBE
 
 			while (!gotIt && tries < maxTries) {
 				try {
@@ -2527,16 +2721,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					Log.e("BlowTorch", "buffer changed under onDraw, try " + tries, e);
 				}
 			}
+			mProfIterNs = SystemClock.elapsedRealtimeNanos() - iterT0;
 			if (!gotIt) {
 				releaseSelectionCanvas();
 				this.invalidate();
+				profFinishDraw(blinkNow);
 				return;
 			}
 			screenIt = bundle.getI();
 			y = bundle.getOffset();
 
 			int extraLines = bundle.getExtraLines();
-			if (screenIt == null) { releaseSelectionCanvas(); return;}
+			if (screenIt == null) {
+				releaseSelectionCanvas();
+				profFinishDraw(blinkNow);
+				return;
+			}
 			
 			int startline = bundle.getStartLine();
 			int workingline = startline;
@@ -2566,6 +2766,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// scrolling was 9 lines and 2ms, because coloured output stops the scan
 			// at the first code found. The 1000 line limit only bites on a buffer
 			// with no colour at all above the screen.
+			final long bleedT0 = SystemClock.elapsedRealtimeNanos(); // TEMPORARY PROBE
 			while (screenIt.hasNext() && !bleeding && back < BLEED_SEARCH_MAX_LINES) {
 
 				Line l = screenIt.next();
@@ -2619,6 +2820,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			mResolvedFg = p.getColor();
 			mPaintingDimLine = false;
+			mProfBleedLines = back;
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
@@ -2630,6 +2832,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (screenIt.hasNext()) {
 				screenIt.next(); // the bleed/back stuff seems to be messing with my calculation
 			}
+			mProfBleedNs = SystemClock.elapsedRealtimeNanos() - bleedT0;
 			//TODO: STEP 5
 			//draw the text, from top to bottom.	
 			
@@ -2695,6 +2898,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					switch(u.type) {
 					case WHITESPACE:
 					case TEXT:
+						mProfTextUnits++;
 						TextTree.Text text = (TextTree.Text) u;
 						boolean doIndicator = false;
 						int indicatorlineoffset = 0;
@@ -3013,6 +3217,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingcol = 0;
 				l.resetIterator();
 			}
+			mProfDrawnLines = drawnlines;
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
 			}
@@ -3070,6 +3275,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		c.restore();
 		drawLoupe(c);
 		scheduleBlinkIfNeeded();
+		profFinishDraw(blinkNow); // TEMPORARY PROBE
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
@@ -4359,6 +4565,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void addBytesImpl(byte[] obj,boolean jumpToEnd) {
 		warnIfNotUiThread("addBytes");
 		if(obj.length == 0) return;
+		final long addT0 = SystemClock.uptimeMillis(); // TEMPORARY PROBE
 		
 			if(mBufferText) {
 				//synchronized(synch) {
@@ -4407,6 +4614,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				postInvalidateOnAnimation();
 			} else {
 				this.invalidate();
+			}
+			mProfAddCalls++;
+			mProfIncomingBytes += obj.length;
+			mProfIncomingLines += linesadded;
+			final long addDt = SystemClock.uptimeMillis() - addT0;
+			mProfSumAddMs += addDt;
+			if (addDt > mProfWorstAddMs) {
+				mProfWorstAddMs = addDt;
 			}
 	}
 	
@@ -4589,6 +4804,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	private void applyColorUnit(final TextTree.Color cu, final Paint textPaint,
 			final Paint bgPaint) {
+		final long t0 = SystemClock.elapsedRealtimeNanos(); // TEMPORARY PROBE
 		mXterm256Color = false;
 		mXterm256FGStart = false;
 		mXterm256BGStart = false;
@@ -4615,6 +4831,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mTrueColorBG = cu.drawCacheTrueColorBG;
 			mSgr.setBits(cu.drawCacheSgr);
 			applySgrDecorations(textPaint);
+			profColorDone(t0, true);
 			return;
 		}
 
@@ -4632,6 +4849,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			setBgPaintColor(LightPaper.remapBackground(
 					0xFF000000 | Colorizer.getColorValue(0, 40, false),
 					mLightPaper, true, mLightPaperShade));
+			profColorDone(t0, false);
 			return;
 		}
 
@@ -4649,6 +4867,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		cu.drawCacheTrueColorBG = mTrueColorBG;
 		cu.drawCacheSgr = mSgr.bits();
 		cu.drawCacheValid = true;
+		profColorDone(t0, false);
 	}
 
 	/** Apply current FG/BG registers to text and background paints. */

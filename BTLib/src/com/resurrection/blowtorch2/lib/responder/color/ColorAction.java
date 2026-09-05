@@ -17,6 +17,8 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.SystemClock;
+import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
@@ -27,6 +29,52 @@ import com.resurrection.blowtorch2.lib.window.TextTree.Text;
 import com.resurrection.blowtorch2.lib.window.TextTree.Unit;
 
 public class ColorAction extends TriggerResponder implements Parcelable {
+
+	// TEMPORARY PROBE: colour-trigger rewrite cost on the connection thread.
+	private static final long PROF_HEARTBEAT_MS = 2000L;
+	private static long sProfHbAt;
+	private static long sProfWorstNs;
+	private static long sProfSumNs;
+	private static int sProfCalls;
+	private static int sProfOver1ms;
+	private static int sProfWorstUnits;
+	private static int sProfSumUnits;
+
+	private static void profColorAction(final long t0Ns, final int units) {
+		final long dt = SystemClock.elapsedRealtimeNanos() - t0Ns;
+		sProfCalls++;
+		sProfSumNs += dt;
+		sProfSumUnits += units;
+		if (dt > sProfWorstNs) {
+			sProfWorstNs = dt;
+			sProfWorstUnits = units;
+		}
+		if (dt >= 1000000L) {
+			sProfOver1ms++;
+		}
+		final long now = SystemClock.uptimeMillis();
+		if (sProfHbAt == 0L) {
+			sProfHbAt = now;
+			return;
+		}
+		if (now - sProfHbAt < PROF_HEARTBEAT_MS) {
+			return;
+		}
+		final long avgUs = sProfCalls > 0 ? (sProfSumNs / sProfCalls) / 1000L : 0L;
+		Log.i("BTPROF", "color calls=" + sProfCalls
+				+ " worstUs=" + (sProfWorstNs / 1000L)
+				+ " avgUs=" + avgUs
+				+ " over1ms=" + sProfOver1ms
+				+ " worstUnits=" + sProfWorstUnits
+				+ " avgUnits=" + (sProfCalls > 0 ? sProfSumUnits / sProfCalls : 0));
+		sProfHbAt = now;
+		sProfWorstNs = 0L;
+		sProfSumNs = 0L;
+		sProfCalls = 0;
+		sProfOver1ms = 0;
+		sProfWorstUnits = 0;
+		sProfSumUnits = 0;
+	}
 
 	private int color = DEFAULT_COLOR; //xterm 256 color? otherwise this should be an int.
 	private int backgroundColor = DEFAULT_BACKGROUND_COLOR;
@@ -306,6 +354,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			Object source, String displayname,String host,int port, int triggernumber,
 			boolean windowIsOpen, Handler dispatcher,
 			HashMap<String, String> captureMap, LuaState L, String name,String encoding) {
+		final long profT0 = SystemClock.elapsedRealtimeNanos(); // TEMPORARY PROBE
 		//well. this is sort of duplication of effort from the replacer action. but whatever.
 		//int start = matched.start();
 		//int end = matched.end()-1;
@@ -458,6 +507,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		if (probe != null) {
 			probe.recordColor(name, matched, color, backgroundColor, bleed, restore, line);
 		}
+		profColorAction(profT0, newLine.size());
 		return false;
 	}
 
