@@ -298,7 +298,7 @@ All under `com.resurrection.blowtorch2.lib`.
 | `speedwalk/` | Speedwalk / direction data |
 | `script/` | Plugin script metadata |
 | `settings/` | `ConfigurationLoader`, legacy hyper settings helpers |
-| `launcher/` | Server list, backups, builtin tutorial, colour-test worlds, OSC 8 test world (`127.0.0.1:4445`), MXP worlds (Discworld / Threshold / Ansalon / Midnight Sun), profile discovery |
+| `launcher/` | Server list, backups, builtin tutorial (the only row added without the player asking) |
 | `service/sensor/` | Phone sensors as trigger sources (shake, wave, light, …); Options → Device → Sensors… |
 | `util/` | `AtomicFiles`, `BlowTorchLogger`, `SessionLogger`, `UpdateChecker`, … |
 | `ui/` | `SDCardUtils`, permissions, colour helpers |

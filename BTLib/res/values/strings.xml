@@ -49,7 +49,6 @@
     <string name="sdcardpermissions">To keep files that survive uninstall, grant access to shared storage.</string>
     <string name="startup_permissions_rationale">BlowTorch needs storage access to import and export profiles from /BlowTorch/ on your device. Network access (INTERNET) is granted at install time.</string>
     <string name="startup_permissions_result">Storage: %1$s. Internet access is enabled at install; restrict it in system app settings if needed.</string>
-    <string name="profiles_discovered">Found %1$d profile(s) in app storage and added to the list.</string>
     <string name="permission_required_title">Permission required</string>
     <string name="permission_open_settings">App settings</string>
     <string name="permission_try_again">Try again</string>

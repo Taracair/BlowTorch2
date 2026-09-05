@@ -410,26 +410,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			throw new RuntimeException(e);
 		}
 
-		int discovered = ProfileDiscovery.mergeDiscoveredProfiles(this, launcher_settings);
-		if (discovered > 0) {
-			launcherSaveEnabled = true;
-			saveXML();
-			Toast.makeText(this, getString(R.string.profiles_discovered, discovered), Toast.LENGTH_LONG).show();
-		}
-
 		if (BuiltinTutorial.ensureIn(launcher_settings)) {
-			launcherSaveEnabled = true;
-			saveXML();
-		}
-		if (BuiltinColorTestWorlds.seedIfNeeded(this, launcher_settings)) {
-			launcherSaveEnabled = true;
-			saveXML();
-		}
-		if (BuiltinOsc8TestWorld.seedIfNeeded(this, launcher_settings)) {
-			launcherSaveEnabled = true;
-			saveXML();
-		}
-		if (BuiltinMxpWorlds.seedIfNeeded(this, launcher_settings)) {
 			launcherSaveEnabled = true;
 			saveXML();
 		}

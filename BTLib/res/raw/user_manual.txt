@@ -25,6 +25,11 @@ it shows on screen — is the source of truth. Please report mistakes on
 
 ## The server list
 
+The list starts with the built-in **Starter Tutorial** (offline — no MUD).
+Hide it from ⋮ if you do not want it. **New MUD** is how a live world gets
+onto the list. Deleting a row keeps it gone: the client does not scan app
+storage for leftover XML, and it does not pre-fill live games.
+
 On the server list, long-press a world. The star is **Add to favorites** /
 **Remove from favorites** — starred worlds sit under Starter Tutorial on
 the list; the star does not launch anything. **Pin to home** asks Android
@@ -1674,10 +1679,6 @@ Dumps MXP SEND/colour samples into this window (already interpreted, so it does
 not need a MUD or a handshake). Tap the marked words. Turn the feature off with
 `.mxp off`.
 
-A launcher row **OSC 8 links (local test)** points at `127.0.0.1:4445`. On the
-laptop run `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`,
-then connect that world.
-
 ### `.probe sensors`
 
 ```
@@ -2533,17 +2534,6 @@ This is not OSC 8 (web links). MXP SEND is a command to the MUD.
 
 A Tappable Word trigger on the same glyph wins over MXP SEND; a web link
 still wins over both.
-
-The launcher seeds four worlds that advertise MXP (one-shot; deleting a row
-sticks). Hosts and ports come from each world's docs or MSSP listing, not from
-a handshake in this client:
-
-- **Discworld MUD (MXP)** — `discworld.starturtle.net:4242` (official page also
-  lists 23). Their `/doc/concepts/mxp` describes clickable SEND and menus. In-game
-  you may need `term mxp` or `options mxp enabled`.
-- **Threshold RPG (MXP)** — `thresholdrpg.com:3333`. MSSP: MXP=yes, MINIMUM AGE 18.
-- **Ansalon (MXP)** — `ansalon.net:8679`. Homepage lists MXP Links; MSSP MXP=yes.
-- **Midnight Sun (MXP)** — `midnightsun2.org:3000`. MSSP: MXP=yes.
 
 Without a live SEND: `.probe mxp`.
 

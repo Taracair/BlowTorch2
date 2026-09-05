@@ -286,7 +286,7 @@ public class ProbeCommand extends SpecialCommand {
 				.append("Cast Fireball")
 				.append(esc).append("]8;;").append(bel)
 				.append("\n");
-		out.append("Turn off: .osc8 off    Sample world: launcher \"OSC 8 links (local test)\"\n");
+		out.append("Turn off: .osc8 off\n");
 		return out.toString();
 	}
 
