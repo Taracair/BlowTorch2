@@ -2553,10 +2553,12 @@ past the status bar — for a punch-hole that already sits in that bar, use
 **Top padding (px)** as well. Turn an option off to use the pixels under the
 hole (text may sit under the camera).
 
-The on-screen **keyboard is a separate system window**. Turning
-avoid-cutout off lets *this app's* map and text use that strip; Gboard
-still leaves a gap the width of the hole. That is the keyboard, not a
-padding setting in BlowTorch.
+The on-screen **keyboard is a separate system window**. Gboard (and the
+AOSP keyboard from Android 15) leave a gap the width of the camera hole
+so keys are not under the lens — this app cannot stretch those keys.
+When avoid-cutout landscape is off and the keyboard is up, BlowTorch
+paints a black strip in that gap so the map is not live beside the keys.
+Above the keyboard the map can still use the hole.
 
 **Options → Window → Top padding (px)** is extra empty space above game text
 on top of that (on-screen buttons are unaffected). Try values like `40`–`80`
