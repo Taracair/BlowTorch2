@@ -11,9 +11,7 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.RelativeLayout;
 
 import androidx.core.graphics.Insets;
-import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
@@ -244,26 +242,6 @@ public final class ChromeController {
 
 	void setFullScreen(boolean fullScreen) {
 		isFullScreen = fullScreen;
-	}
-
-	/**
-	 * Hide the 3-button / gesture navigation bar while playing. Swipe from the
-	 * edge brings it back briefly ({@code BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE}).
-	 * Status-bar hiding stays on the fullscreen option.
-	 */
-	void hideGameplayNavigation() {
-		android.view.Window w = activity.getWindow();
-		if (w == null) {
-			return;
-		}
-		WindowInsetsControllerCompat controller =
-				WindowCompat.getInsetsController(w, w.getDecorView());
-		if (controller == null) {
-			return;
-		}
-		controller.setSystemBarsBehavior(
-				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-		controller.hide(WindowInsetsCompat.Type.navigationBars());
 	}
 
 	View findGameplayInputBar(RelativeLayout rl) {
