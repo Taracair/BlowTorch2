@@ -2555,10 +2555,7 @@ hole (text may sit under the camera).
 
 The on-screen **keyboard is a separate system window**. Gboard (and the
 AOSP keyboard from Android 15) leave a gap the width of the camera hole
-so keys are not under the lens — this app cannot stretch those keys.
-When avoid-cutout landscape is off and the keyboard is up, BlowTorch
-paints a black strip in that gap so the map is not live beside the keys.
-Above the keyboard the map can still use the hole.
+so keys are not under the lens. BlowTorch cannot stretch those keys.
 
 **Options → Window → Top padding (px)** is extra empty space above game text
 on top of that (on-screen buttons are unaffected). Try values like `40`–`80`

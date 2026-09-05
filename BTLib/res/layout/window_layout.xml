@@ -139,28 +139,6 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <View
-            android:id="@+id/ime_cutout_cover_start"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_gravity="bottom|start"
-            android:background="@android:color/black"
-            android:clickable="true"
-            android:focusable="false"
-            android:importantForAccessibility="no"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/ime_cutout_cover_end"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_gravity="bottom|end"
-            android:background="@android:color/black"
-            android:clickable="true"
-            android:focusable="false"
-            android:importantForAccessibility="no"
-            android:visibility="gone" />
-
         <!-- ⋮ lives in the overlay so full-screen game windows cannot cover it. -->
         <include layout="@layout/gameplay_fab_strip" />
 

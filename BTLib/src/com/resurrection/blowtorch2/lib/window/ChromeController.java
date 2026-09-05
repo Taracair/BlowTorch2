@@ -6,7 +6,6 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
@@ -20,7 +19,6 @@ import androidx.core.view.WindowInsetsCompat;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 import com.resurrection.blowtorch2.lib.util.DisplayCutoutPad;
-import com.resurrection.blowtorch2.lib.util.ImeCutoutCover;
 
 /**
  * Gameplay chrome: input bar / divider anchors, IME lift, FAB strip, toolbar
@@ -121,9 +119,6 @@ public final class ChromeController {
 	private int pendingLift;
 	private int pendingBarsTop;
 	private boolean pendingImeVisible;
-	private int pendingCoverLeft;
-	private int pendingCoverRight;
-	private int pendingCoverHeight;
 
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -161,41 +156,9 @@ public final class ChromeController {
 		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
 		boolean visible = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
-		int[] cover = ImeCutoutCover.sideCover(landscape, visible, ime.bottom,
-				activity.avoidCutoutLandscape(), cutLeft, cutRight);
 		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top),
-				visible, cover);
+				visible);
 		return windowInsets;
-	}
-
-	private void applyImeCutoutCover(final int[] cover) {
-		sizeImeCutoutCover(activity.findViewById(R.id.ime_cutout_cover_start),
-				cover[0], cover[2], Gravity.BOTTOM | Gravity.START);
-		sizeImeCutoutCover(activity.findViewById(R.id.ime_cutout_cover_end),
-				cover[1], cover[2], Gravity.BOTTOM | Gravity.END);
-	}
-
-	private void sizeImeCutoutCover(final View strip, final int width, final int height,
-			final int gravity) {
-		if (strip == null) {
-			return;
-		}
-		if (width <= 0 || height <= 0) {
-			strip.setVisibility(View.GONE);
-			return;
-		}
-		ViewGroup.LayoutParams raw = strip.getLayoutParams();
-		FrameLayout.LayoutParams lp;
-		if (raw instanceof FrameLayout.LayoutParams) {
-			lp = (FrameLayout.LayoutParams) raw;
-			lp.width = width;
-			lp.height = height;
-			lp.gravity = gravity;
-		} else {
-			lp = new FrameLayout.LayoutParams(width, height, gravity);
-		}
-		strip.setLayoutParams(lp);
-		strip.setVisibility(View.VISIBLE);
 	}
 
 	/**
@@ -231,22 +194,19 @@ public final class ChromeController {
 	 * turned one fault into three attempts.
 	 */
 	private void scheduleInsetApply(final RelativeLayout view, final int lift,
-			final int barsTop, final boolean visible, final int[] cover) {
+			final int barsTop, final boolean visible) {
 		if (android.os.SystemClock.elapsedRealtime() - resumedAt > RESUME_SETTLE_WINDOW_MS) {
 			// Ordinary running. Apply at once, exactly as before: the keyboard
 			// dispatches insets repeatedly as it slides, and the game window is
 			// supposed to travel with it. Delaying these would turn a slide into
 			// two jumps, which is a worse fault than the one being fixed and it
 			// would happen every time anybody typed.
-			applyInsets(view, lift, barsTop, visible, cover);
+			applyInsets(view, lift, barsTop, visible);
 			return;
 		}
 		pendingLift = lift;
 		pendingBarsTop = barsTop;
 		pendingImeVisible = visible;
-		pendingCoverLeft = cover[0];
-		pendingCoverRight = cover[1];
-		pendingCoverHeight = cover[2];
 		if (lift == imeLiftPx && barsTop == statusBarHeight && visible == imeVisible) {
 			// Already where this says it should be. Drop any pending change with
 			// it: that is the retraction arriving, and applying the value in
@@ -263,18 +223,14 @@ public final class ChromeController {
 		pendingInsetApply = new Runnable() {
 			public void run() {
 				pendingInsetApply = null;
-				applyInsets(view, pendingLift, pendingBarsTop, pendingImeVisible,
-						new int[] { pendingCoverLeft, pendingCoverRight,
-								pendingCoverHeight });
+				applyInsets(view, pendingLift, pendingBarsTop, pendingImeVisible);
 			}
 		};
 		insetHandler.postDelayed(pendingInsetApply, INSET_SETTLE_MS);
 	}
 
-	private void applyInsets(RelativeLayout view, int lift, int barsTop, boolean visible,
-			int[] cover) {
+	private void applyInsets(RelativeLayout view, int lift, int barsTop, boolean visible) {
 		applyImeChromeLift(view, lift);
-		applyImeCutoutCover(cover);
 		imeLiftPx = lift;
 		imeVisible = visible;
 		activity.onFloatingButtonsImeLift(lift, visible);
