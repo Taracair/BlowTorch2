@@ -481,6 +481,9 @@ public class HelpDialog extends Dialog {
 		body.setTextIsSelectable(true);
 		body.setMovementMethod(LinkMovementMethod.getInstance());
 		body.setPadding(pad, 0, pad, pad);
+		body.setLayoutParams(new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
 		body.setVisibility(open[0] ? View.VISIBLE : View.GONE);
 		if (open[0]) {
 			applyBody(body, section, searching);

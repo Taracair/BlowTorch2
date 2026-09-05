@@ -45,6 +45,148 @@ public final class UserManualMarkdown {
 		if (src == null || src.length() == 0) {
 			return new Result("", new ArrayList<Run>());
 		}
+		return renderLines(unwrapSoftBreaks(src));
+	}
+
+	/**
+	 * Join source-file hard wraps inside a paragraph. Blank lines, headings,
+	 * lists, tables, indented examples, and fenced blocks stay as line breaks.
+	 */
+	static String unwrapSoftBreaks(final String src) {
+		String[] lines = src.split("\n", -1);
+		StringBuilder out = new StringBuilder(src.length());
+		boolean inFence = false;
+		int lastKind = KIND_NONE;
+		for (int i = 0; i < lines.length; i++) {
+			String line = lines[i];
+			if (ltrim(line).startsWith("```")) {
+				inFence = !inFence;
+				lastKind = KIND_NONE;
+				appendLine(out, line);
+				continue;
+			}
+			if (inFence) {
+				lastKind = KIND_NONE;
+				appendLine(out, line);
+				continue;
+			}
+			if (line.trim().length() == 0) {
+				lastKind = KIND_NONE;
+				appendLine(out, line);
+				continue;
+			}
+			String trimmed = ltrim(line);
+			if (trimmed.startsWith(">")) {
+				if (lastKind == KIND_QUOTE) {
+					joinRest(out, quoteBody(trimmed));
+				} else {
+					appendLine(out, line);
+				}
+				lastKind = KIND_QUOTE;
+				continue;
+			}
+			if (isListMarker(trimmed)) {
+				appendLine(out, line);
+				lastKind = KIND_LIST;
+				continue;
+			}
+			if (lastKind == KIND_LIST && isListContinuation(line)) {
+				joinRest(out, trimmed);
+				continue;
+			}
+			if (isHardBreakLine(line)) {
+				lastKind = KIND_NONE;
+				appendLine(out, line);
+				continue;
+			}
+			if (lastKind == KIND_PROSE) {
+				joinRest(out, trimmed);
+			} else {
+				appendLine(out, line);
+			}
+			lastKind = KIND_PROSE;
+		}
+		return out.toString();
+	}
+
+	private static final int KIND_NONE = 0;
+	private static final int KIND_PROSE = 1;
+	private static final int KIND_LIST = 2;
+	private static final int KIND_QUOTE = 3;
+
+	private static void appendLine(final StringBuilder out, final String line) {
+		if (out.length() > 0) {
+			out.append('\n');
+		}
+		out.append(line);
+	}
+
+	private static void joinRest(final StringBuilder out, final String rest) {
+		if (out.length() > 0 && out.charAt(out.length() - 1) != ' ') {
+			out.append(' ');
+		}
+		out.append(rest);
+	}
+
+	/** Body after {@code >} or {@code > }. */
+	private static String quoteBody(final String trimmed) {
+		if (trimmed.startsWith("> ")) {
+			return trimmed.substring(2);
+		}
+		if (trimmed.startsWith(">")) {
+			return ltrim(trimmed.substring(1));
+		}
+		return trimmed;
+	}
+
+	/** Wrapped list item: 1–3 spaces, not a new marker and not a 4-space example. */
+	private static boolean isListContinuation(final String line) {
+		if (line.startsWith("    ") || line.startsWith("\t")) {
+			return false;
+		}
+		int spaces = 0;
+		while (spaces < line.length() && line.charAt(spaces) == ' ') {
+			spaces++;
+		}
+		if (spaces < 1 || spaces > 3) {
+			return false;
+		}
+		String rest = line.substring(spaces);
+		return rest.length() > 0 && !isListMarker(rest);
+	}
+
+	private static boolean isHardBreakLine(final String line) {
+		if (line.startsWith("    ") || line.startsWith("\t")) {
+			return true;
+		}
+		String t = ltrim(line);
+		if (headingLevel(t) >= 1) {
+			return true;
+		}
+		if (isRule(t)) {
+			return true;
+		}
+		if (t.startsWith("|") || t.startsWith(">")) {
+			return true;
+		}
+		return isListMarker(t);
+	}
+
+	private static boolean isListMarker(final String trimmed) {
+		if (trimmed.startsWith("- ") || trimmed.startsWith("* ")
+				|| trimmed.startsWith("+ ")) {
+			return true;
+		}
+		int i = 0;
+		while (i < trimmed.length() && trimmed.charAt(i) >= '0'
+				&& trimmed.charAt(i) <= '9') {
+			i++;
+		}
+		return i > 0 && i + 1 < trimmed.length() && trimmed.charAt(i) == '.'
+				&& trimmed.charAt(i + 1) == ' ';
+	}
+
+	private static Result renderLines(final String src) {
 		StringBuilder out = new StringBuilder(src.length());
 		ArrayList<Run> runs = new ArrayList<Run>();
 		String[] lines = src.split("\n", -1);
@@ -54,7 +196,7 @@ public final class UserManualMarkdown {
 				out.append('\n');
 			}
 			String line = lines[li];
-			if (line.startsWith("```")) {
+			if (ltrim(line).startsWith("```")) {
 				inFence = !inFence;
 				continue;
 			}
