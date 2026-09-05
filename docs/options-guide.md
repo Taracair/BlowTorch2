@@ -6,7 +6,7 @@ bottom of Options filters as you type; tap a result to jump to that page.
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Newest text at top?**, **Avoid camera cutout (portrait)?**, **Avoid camera cutout (landscape)?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
+| **Window** | Per-window text: font, buffer, word wrap, **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Newest text at top?**, **Avoid camera cutout (portrait)?**, **Avoid camera cutout (landscape)?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Android fling?** (off; coast after lift using swipe speed, like a web page; turns off **Scroll sensitivity** while on), **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, **Heavier MUD bold (SGR 1)?** (off; world's `[1m` also heavier), background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Chat** | Unread mark on ⋮, a line in the game window, Android notifications, keep-at-most-N messages |
@@ -33,10 +33,10 @@ Slot **name** is the public id shared with gag/replace retarget, Lua
 and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
 
 **Scroll speed** is per window. The first choice, *Same as main window*, is the
-default and follows **Options → Window → Scroll sensitivity** — so that one
-setting still steers every extra window at once, and a slot only breaks away
-when you set it to something specific. Changing it applies immediately; you do
-not have to reopen the window.
+default and follows **Options → Window → Scroll sensitivity** (and **Android
+fling?** when that is on) — so that one setting still steers every extra window
+at once, and a slot only breaks away when you set it to something specific.
+Changing it applies immediately; you do not have to reopen the window.
 
 **GMCP routes:** in Manage windows, pick modules (or advanced CSV e.g. `Char.Vitals, Comm.*`).
 Inbound packets for those modules appear as `[GMCP] …` in that pane and are

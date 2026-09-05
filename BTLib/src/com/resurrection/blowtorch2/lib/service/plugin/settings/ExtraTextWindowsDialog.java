@@ -261,6 +261,11 @@ public final class ExtraTextWindowsDialog {
 				? existing.getScrollSpeed() : ExtraTextSlot.SCROLL_SPEED_INHERIT);
 		form.addView(label(context, "Scroll speed"));
 		form.addView(scrollSpeed);
+		TextView scrollHint = new TextView(context);
+		scrollHint.setText("Same as main window also follows Android fling when that is on. A specific % uses the old swipe gain.");
+		scrollHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+		scrollHint.setPadding(0, 0, 0, pad / 2);
+		form.addView(scrollHint);
 
 		// Floating windows only. A drawer has no title bar and is shown or hidden
 		// by its own grab strip, so neither control has anywhere to go on one.

@@ -539,6 +539,9 @@ public class ExtraTextOverlayController {
 		}
 		e.window.applyScrollSensitivityChoice(
 				Integer.valueOf(e.slot.resolveScrollChoice(mainWindowScrollChoice())));
+		Window main = mainWindow();
+		final boolean inherit = e.slot.getScrollSpeed() == ExtraTextSlot.SCROLL_SPEED_INHERIT;
+		e.window.applyAndroidFling(inherit && main != null && main.isAndroidFling());
 	}
 
 	/** Re-apply every overlay's speed; used when the main window's choice moves. */

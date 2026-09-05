@@ -1300,6 +1300,9 @@ into history, a small day/time sits to the left of ⋮, and a mark to
 the right of the date shows where you are in the buffer. .when on|off.
 .when opacity N. .search 14:32 or 18 Aug jumps to that moment.
 Options → Window → Newest text at top?: live output appears at the top.
+Options → Window → Android fling? (off by default): after you lift your
+finger the text coasts with the swipe, like a web page. Scroll sensitivity
+(75–300%) is off while this is on.
 Options → Window → Light theme? (off by default): light paper and
 dark ink. .light on|off|1-5. Extra-text windows follow this window.
 Launcher, Options, mapper, chat and ⋮ stay dark.]])

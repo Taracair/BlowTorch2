@@ -307,6 +307,7 @@ public final class WindowTokenParser {
 					case dim_repeated_lines:
 					case light_paper:
 					case scroll_dates:
+					case android_fling:
 						// Default is false; persist only when enabled.
 						if ((Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");

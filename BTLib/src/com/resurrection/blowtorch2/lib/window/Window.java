@@ -56,9 +56,11 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.EditText;
+import android.widget.OverScroller;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
 
@@ -180,6 +182,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * choice without reading the settings tree from another process.
 	 */
 	private int mScrollSensitivityChoice = WindowToken.DEFAULT_SCROLL_SENSITIVITY;
+	/** Options → Window → Android fling? Off: the 75–300% list. On: OverScroller. */
+	private boolean mAndroidFling = false;
+	private OverScroller mFlingScroller;
+	private VelocityTracker mVelocityTracker;
 	/**
 	 * Extra insets when an extra-text drawer covers this window (push-main).
 	 * Shrinks the painted text region only — layout stays full-bleed so
@@ -759,6 +765,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mScrollSensitivityChoice = (Integer) scrollSensitivity.getValue();
 			mScrollSensitivity = scrollSensitivityFromChoice(Integer.valueOf(mScrollSensitivityChoice));
 		}
+		BooleanOption androidFling = (BooleanOption) settings.findOptionByKey("android_fling");
+		if (androidFling != null) {
+			mAndroidFling = Boolean.TRUE.equals(androidFling.getValue());
+		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
 		
@@ -1135,6 +1145,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void reflowForInsetChange() {
 		if (mWidth <= 0 || mHeight <= 0) {
 			return;
+		}
+		if (!mFingerDown) {
+			stopFling();
 		}
 		calculateCharacterFeatures(mWidth, mHeight);
 		final double slack = 5 * Window.this.getResources().getDisplayMetrics().density;
@@ -1846,7 +1859,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				&& t.getPointerCount() >= 2
 				&& mBuffer.getBrokenLineCount() != 0) {
 			mHandler.removeMessages(MESSAGE_STARTSELECTION);
-			mFlingVelocity = 0.0f;
+			stopFling();
 			// Prefer the first finger's current position (not a stale ACTION_DOWN that may
 			// have been above short text / empty padding and produced a null hit).
 			int selLine = mTouchDownLine;
@@ -1932,6 +1945,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				cancelTapLongPress();
 				mTapLongPressFired = false;
 				dismissLoupe();
+				recycleVelocityTracker();
+				stopFling();
 			}
 			if (action == MotionEvent.ACTION_DOWN) {
 				pointer = pointerId;
@@ -1942,10 +1957,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				//calculate row/col
 				float x = t.getX(index);
 				float y = t.getY(index);
-				mFlingVelocity = 0.0f;
+				stopFling();
 				mFingerDown = true;
 				finger_down_to_up = false;
 				mLastFrameTime = 0;
+				if (mAndroidFling) {
+					obtainVelocityTracker();
+					mVelocityTracker.addMovement(t);
+				}
 				
 				// Only hit-test links when idle — boxes are stale during drag/fling.
 				mTouchInLink = -1;
@@ -2040,12 +2059,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					scrollHorizontallyBy(mMoveLastX.floatValue() - nowX);
 				}
 				mMoveLastX = Float.valueOf(nowX);
-				mFlingVelocity = 0.0f;
+				stopFling();
 				mTouchInLink = -1;
 				return true;
 			}
 
 			if (action == MotionEvent.ACTION_MOVE) {
+				if (mAndroidFling && mVelocityTracker != null) {
+					mVelocityTracker.addMovement(t);
+				}
 				float nowY = t.getY(index);
 				long nowtime = t.getEventTime();
 				float time = (nowtime - mMoveLastTime) / 1000.0f;
@@ -2053,16 +2075,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					time = 0.001f;
 				}
 				float dist = nowY - mMoveLastY;
-				float velocity = dist / time;
-				// Cap what a finger can plausibly do first, then apply the sensitivity
-				// gain — clamping afterwards would make every setting above Normal
-				// saturate at the same speed and feel identical.
-				if (velocity > MAX_VELOCITY) {
-					velocity = MAX_VELOCITY;
-				} else if (velocity < -MAX_VELOCITY) {
-					velocity = -MAX_VELOCITY;
+				final float gain = mAndroidFling ? 1.0f : mScrollSensitivity;
+				if (!mAndroidFling) {
+					float velocity = dist / time;
+					// Cap what a finger can plausibly do first, then apply the sensitivity
+					// gain — clamping afterwards would make every setting above Normal
+					// saturate at the same speed and feel identical.
+					if (velocity > MAX_VELOCITY) {
+						velocity = MAX_VELOCITY;
+					} else if (velocity < -MAX_VELOCITY) {
+						velocity = -MAX_VELOCITY;
+					}
+					mFlingVelocity = velocity * mScrollSensitivity;
 				}
-				mFlingVelocity = velocity * mScrollSensitivity;
 
 				if (mStartY != null
 						&& Math.abs(nowY - mStartY) >= Math.max(mPrefLineSize * 2f, 32f * mDensity)) {
@@ -2070,7 +2095,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 
 				if (dist != 0f) {
-					final double delta = (mNewestAtTop ? -dist : dist) * mScrollSensitivity;
+					final double delta = (mNewestAtTop ? -dist : dist) * gain;
 					mScrollback = mScrollback + delta;
 					if (mScrollback < SCROLL_MIN) {
 						mScrollback = SCROLL_MIN;
@@ -2093,8 +2118,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		        mDragAxis = DRAG_UNDECIDED;
 		        mMoveLastX = null;
 		        mDownX = null;
+		        float androidFlingVy = 0f;
+		        boolean considerAndroidFling = mAndroidFling && !wasHorizontal;
+		        if (considerAndroidFling && mVelocityTracker != null) {
+		        	mVelocityTracker.addMovement(t);
+		        	final ViewConfiguration vc = ViewConfiguration.get(getContext());
+		        	mVelocityTracker.computeCurrentVelocity(1000,
+		        			vc.getScaledMaximumFlingVelocity());
+		        	androidFlingVy = mVelocityTracker.getYVelocity(pointerId);
+		        }
+		        recycleVelocityTracker();
 		        if (wasHorizontal) {
 		        	// Sideways drags end here: no fling, no tap, no keyboard dismiss.
+		        	abortAndroidFlingScroller();
 		        	this.invalidate();
 		        	return true;
 		        }
@@ -2193,6 +2229,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						}
 					}
 				}
+				if (considerAndroidFling && !smallMove) {
+					startAndroidFling(androidFlingVy);
+				} else if (mAndroidFling) {
+					stopFling();
+				}
 		        
 			}
 			
@@ -2211,11 +2252,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return false;
 	}
 	
-	/** Maps the Options -> Window "Scroll sensitivity" choice onto a gain on finger travel.
-	 *
-	 * @param choice Index into the option's item list.
-	 * @return Multiplier for scroll distance and fling speed; 1.0 tracks the finger.
-	 */
 	/** Reports, once, if this window's buffer is being changed off the UI thread.
 	 *
 	 * <p>Deliberately a loud complaint rather than a lock or a swallowed exception. The
@@ -2246,6 +2282,101 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** @return This window's {@code scroll_sensitivity} list choice. */
 	public final int getScrollSensitivityChoice() {
 		return mScrollSensitivityChoice;
+	}
+
+	/** @return Whether Options → Window → Android fling? is on. */
+	public final boolean isAndroidFling() {
+		return mAndroidFling;
+	}
+
+	/**
+	 * Coast with {@link OverScroller} after lift, like a web page. Drag stays
+	 * 1:1. Extra-text overlays are driven through here; their SettingsGroup is
+	 * not persisted.
+	 */
+	public final void applyAndroidFling(final boolean on) {
+		mAndroidFling = on;
+		stopFling();
+		if (!on) {
+			recycleVelocityTracker();
+		}
+	}
+
+	private void obtainVelocityTracker() {
+		if (mVelocityTracker == null) {
+			mVelocityTracker = VelocityTracker.obtain();
+		} else {
+			mVelocityTracker.clear();
+		}
+	}
+
+	private void recycleVelocityTracker() {
+		if (mVelocityTracker != null) {
+			mVelocityTracker.recycle();
+			mVelocityTracker = null;
+		}
+	}
+
+	private void abortAndroidFlingScroller() {
+		if (mFlingScroller != null) {
+			mFlingScroller.forceFinished(true);
+		}
+	}
+
+	/** Stop coasting: old velocity and OverScroller both. */
+	private void stopFling() {
+		abortAndroidFlingScroller();
+		mFlingVelocity = 0;
+	}
+
+	private void startAndroidFling(final float fingerVy) {
+		final ViewConfiguration vc = ViewConfiguration.get(getContext());
+		if (Math.abs(fingerVy) < vc.getScaledMinimumFlingVelocity()) {
+			stopFling();
+			return;
+		}
+		if (mFlingScroller == null) {
+			mFlingScroller = new OverScroller(getContext());
+		}
+		final int minY = SCROLL_MIN.intValue();
+		int maxY = (int) ((long) mBuffer.getBrokenLineCount() * (long) mPrefLineSize);
+		if (maxY < minY) {
+			maxY = minY;
+		}
+		final int vel = (int) (mNewestAtTop ? -fingerVy : fingerVy);
+		final int start = (int) Math.round(mScrollback);
+		mFlingScroller.fling(0, start, 0, vel, 0, 0, minY, maxY, 0, 0);
+		mFlingVelocity = vel;
+	}
+
+	/**
+	 * Advance {@link OverScroller} one frame. Returns true when that path owns
+	 * the scroll so the constant-deceleration fling must not also run.
+	 */
+	private boolean stepAndroidFling() {
+		if (!mAndroidFling || mFingerDown || mFlingScroller == null
+				|| mFlingScroller.isFinished()) {
+			return false;
+		}
+		mFlingScroller.computeScrollOffset();
+		mScrollback = (double) mFlingScroller.getCurrY();
+		final double max = (double) ((mBuffer.getBrokenLineCount() * mPrefLineSize));
+		if (mScrollback <= SCROLL_MIN) {
+			mScrollback = SCROLL_MIN;
+			mFlingScroller.forceFinished(true);
+		} else if (mScrollback >= max) {
+			mScrollback = max;
+			mFlingScroller.forceFinished(true);
+		}
+		if (mFlingScroller.isFinished()) {
+			mFlingVelocity = 0;
+			mLastFrameTime = 0;
+			Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
+		} else {
+			final float v = mFlingScroller.getCurrVelocity();
+			mFlingVelocity = v >= FLING_STOP_VELOCITY ? v : FLING_STOP_VELOCITY + 1f;
+		}
+		return true;
 	}
 
 	/** @return Whether this window paints light paper. */
@@ -2307,9 +2438,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mScrollSensitivityChoice = choice == null
 				? WindowToken.DEFAULT_SCROLL_SENSITIVITY : choice.intValue();
 		mScrollSensitivity = scrollSensitivityFromChoice(choice);
-		// A fling in flight was scaled by the old gain; let it stop rather than
-		// change speed under the finger that already left the screen.
-		mFlingVelocity = 0;
+		stopFling();
 	}
 
 	static float scrollSensitivityFromChoice(final Integer choice) {
@@ -2328,7 +2457,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Called from onDraw, calculates a new scrollback value for this frame. */
 	private void calculateScrollBack() {
-		
+		if (stepAndroidFling()) {
+			return;
+		}
+
 		if (mLastFrameTime == 0) { //never drawn before
 			if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) { mScrollback = SCROLL_MIN; return;}
 			if (mFingerDown) {
@@ -2374,21 +2506,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				
 				if (Math.abs(mFlingVelocity) < FLING_STOP_VELOCITY) {
-					mFlingVelocity = 0;
+					stopFling();
 					mLastFrameTime = 0;
 					Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
 				}
 					
 				if (mScrollback <= SCROLL_MIN) {
 					mScrollback = SCROLL_MIN;
-					mFlingVelocity = 0;
+					stopFling();
 					mLastFrameTime = 0;
 					Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
 				}
 				
 				if (mScrollback >= ((mBuffer.getBrokenLineCount() * mPrefLineSize))) {
 					mScrollback = (double) ((mBuffer.getBrokenLineCount() * mPrefLineSize));
-					mFlingVelocity = 0;
+					stopFling();
 					mLastFrameTime = 0;
 					Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
 					
@@ -3106,7 +3238,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
 				postInvalidateOnAnimation();
 			} else if (!mFingerDown) {
-				mFlingVelocity = 0;
+				stopFling();
 			}
 		
 		}
@@ -3438,7 +3570,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				brokenLinesFromBottom = maxScrollLines;
 			}
 			mScrollback = SCROLL_MIN + (brokenLinesFromBottom * (double) mPrefLineSize);
-			mFlingVelocity = 0;
+			stopFling();
 		}
 		invalidate();
 	}
@@ -3605,7 +3737,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		synchronized (mToken) {
 			SCROLL_MIN = contentHeight() - (double) (5 * Window.this.getResources().getDisplayMetrics().density);
 			mScrollback = SCROLL_MIN;
-			mFlingVelocity = 0;
+			stopFling();
 		}
 	}
 
@@ -6198,6 +6330,12 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_EXTRA_TEXT_SCROLL);
 				}
 				break;
+			case android_fling:
+				applyAndroidFling(Boolean.TRUE.equals(o.getValue()));
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_EXTRA_TEXT_SCROLL);
+				}
+				break;
 			
 			case color_option:
 				switch((Integer)o.getValue()) {
@@ -6297,6 +6435,7 @@ end
 		cutout_landscape,
 		input_bar_show_edit,
 		input_bar_show_send,
+		android_fling,
 		scroll_sensitivity,
 		color_option,
 		screen_on,
@@ -7410,7 +7549,7 @@ end
 
 	public void jumpToStart() {
 		mScrollback = SCROLL_MIN;
-		mFlingVelocity=0;
+		stopFling();
 		this.invalidate();
 	}
 

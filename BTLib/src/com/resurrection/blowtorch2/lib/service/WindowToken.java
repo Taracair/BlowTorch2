@@ -146,6 +146,8 @@ public class WindowToken implements Parcelable {
 		input_bar_show_edit,
 		/** Show the Send button on the input bar (main window chrome). */
 		input_bar_show_send,
+		/** Coast after lift using swipe speed (OverScroller), like a web page. */
+		android_fling,
 		/** How far the text travels per unit of finger travel when scrolling. */
 		scroll_sensitivity,
 		/** Color mode (see color debug option). */
@@ -546,9 +548,16 @@ public class WindowToken implements Parcelable {
 		showInputSend.setValue(true);
 		window.addOption(showInputSend);
 
+		BooleanOption androidFling = new BooleanOption();
+		androidFling.setTitle("Android fling?");
+		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. Turns off Scroll sensitivity (the 75–300% list) while this is on.");
+		androidFling.setKey("android_fling");
+		androidFling.setValue(false);
+		window.addOption(androidFling);
+
 		ListOption scrollSensitivity = new ListOption();
 		scrollSensitivity.setTitle("Scroll sensitivity");
-		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match.");
+		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match. Off while Android fling is on.");
 		scrollSensitivity.setKey("scroll_sensitivity");
 		scrollSensitivity.setValue(Integer.valueOf(DEFAULT_SCROLL_SENSITIVITY));
 		scrollSensitivity.addItem("Slower (75%)");

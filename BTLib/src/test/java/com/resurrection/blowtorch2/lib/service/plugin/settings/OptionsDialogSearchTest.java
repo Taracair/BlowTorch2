@@ -92,6 +92,13 @@ public class OptionsDialogSearchTest {
 	}
 
 	@Test
+	public void windowTokenAndroidFlingIsSearchable() {
+		SettingsGroup window = new WindowToken().getSettings();
+		ArrayList<OptionsDialog.SearchHit> hits = OptionsDialog.searchHits(window, "android fling");
+		assertTrue(named(hits, "Android fling?") != null);
+	}
+
+	@Test
 	public void windowTokenScrollDatesIsSearchable() {
 		SettingsGroup window = new WindowToken().getSettings();
 		ArrayList<OptionsDialog.SearchHit> hits = OptionsDialog.searchHits(window, "scroll date");

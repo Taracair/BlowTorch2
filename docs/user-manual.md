@@ -2591,6 +2591,12 @@ keyboard unless **Keep text still with keyboard?** is on.
 keyboard lifts only the input bar; game text stays put (may sit under the IME).
 Works with either text direction. Off = classic lift (text rises with the keyboard).
 
+**Options → Window → Android fling?** (off by default). After you lift your
+finger, the text coasts with the speed of the swipe, like a web page or
+gallery. Dragging still follows your finger 1:1. While this is on,
+**Scroll sensitivity** (75–300%) is greyed out. Extra-text windows set to
+*Same as main window* follow this; a slot with its own % keeps the old gain.
+
 ## On-screen buttons: swipe + accordion
 
 **Load a button set from the wizard:** **Options → Button → Load button set from wizard**
@@ -2751,9 +2757,10 @@ by its top strip and resizable from its bottom-right corner if you know they are
 there, and closed only by `.window hide` or Options.
 
 **Scroll speed** is per slot, in Manage windows. The default, *Same as main
-window*, follows **Options → Window → Scroll sensitivity**, so that one control
-still steers every extra window at once and a slot only breaks away when you
-set it to a specific speed. Changes apply straight away, with the window open.
+window*, follows **Options → Window → Scroll sensitivity** (and **Android
+fling?** when that is on), so that one control still steers every extra window
+at once and a slot only breaks away when you set it to a specific speed.
+Changes apply straight away, with the window open.
 
 A slot keeps collecting text while it is hidden (`.window hide` / ✕ on a float).
 The UI buffer holds up to about **512 KB** per slot; when you show it again you

@@ -20,7 +20,7 @@ public class SettingsOptionKeyOwnershipTest {
 	@Test
 	public void windowKeysAreNotClaimedByTheConnectionWriter() {
 		// Seen in the log storm, written inside <window> by WindowTokenParser.
-		String[] windowKeys = { "word_wrap", "scroll_sensitivity", "font_size", "buffer_size",
+		String[] windowKeys = { "word_wrap", "android_fling", "scroll_sensitivity", "font_size", "buffer_size",
 				"top_padding", "bottom_padding", "bottom_padding_keyboard",
 				"newest_at_top", "dim_repeated_lines", "dim_repeated_window", "dim_repeated_strength",
 				"light_paper", "light_paper_shade",

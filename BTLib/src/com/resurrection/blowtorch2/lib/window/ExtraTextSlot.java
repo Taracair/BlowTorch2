@@ -70,7 +70,8 @@ public final class ExtraTextSlot {
 	private int opacity = 85;
 	/**
 	 * Scroll speed for this overlay's text. {@link #SCROLL_SPEED_INHERIT} means
-	 * follow the main window's "Scroll sensitivity"; otherwise it is a
+	 * follow the main window's "Scroll sensitivity" (and Android fling, when
+	 * that is on); otherwise it is a
 	 * {@code scroll_sensitivity} list choice plus one, so 0 can mean inherit.
 	 * Kept here rather than on the WindowToken because extra-text tokens are
 	 * rebuilt by ensureSlots() and never reach settings.getWindows(), so their
