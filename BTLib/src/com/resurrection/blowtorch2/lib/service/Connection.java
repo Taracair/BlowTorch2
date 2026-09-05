@@ -367,12 +367,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final StringBuffer mDataToServer = new StringBuffer();
 	/** String builder used by the alias parsing routine. */
 	private final StringBuffer mDataToWindow = new StringBuffer();
-	/** Semicolon matching pattern. */
-	private final Pattern mSemicolon = Pattern.compile(";");
-	/** Semicolon matcher. */
-	private final Matcher mSemiMatcher = mSemicolon.matcher("");
-	/** String builder used by the alias parsing routine. */
-	private final StringBuffer mCommandBuilder = new StringBuffer();
 	/** Used by the trigger processor to map line start/end to line number. */
 	private final TreeSet<Range> mLineMap = new TreeSet<Range>(new RangeComparator());
 
@@ -3969,65 +3963,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
-	/** Semicolon splitting routine that looks for ;; smartly.
-	 * 
-	 * @param string The string to process.
-	 * @return The resulting list of strings.
-	 */
 	private List<String> splitSemicolonSafe(final String string) {
-		List<String> list = new ArrayList<String>();
-		mSemiMatcher.reset(string);
-		boolean matched = false;
-		boolean append = false;
-		boolean firstSemi = true;
-		//int lastLength = -1;
-		while (mSemiMatcher.find()) {
-			matched = true;
-			mCommandBuilder.setLength(0);
-			
-			mSemiMatcher.appendReplacement(mCommandBuilder, "");
-			if (mCommandBuilder.length() == 0) {
-				append = true;
-				if (list.size() == 0) {
-					if (!firstSemi) {
-						list.add(";");
-					} else {
-						firstSemi = false; //don't add the first one, but add subsequent ones.
-					}
-				} else {
-					list.add(list.remove(list.size() - 1) + ";");
-				}
-			} else {
-				if (append) {
-					if (list.size() == 0) {
-						list.add(";");
-					} else {
-						list.add(list.remove(list.size() - 1) + mCommandBuilder.toString());
-					}
-					append = false;
-				} else {
-					list.add(mCommandBuilder.toString());
-				}
-				
-			}
-		} 
-		
-		if (!matched) {
-			list.add(string);
-		} else {
-			mCommandBuilder.setLength(0);
-			mSemiMatcher.appendTail(mCommandBuilder);
-			if (append) {
-				if(list.size() != 0) {
-					list.add(list.remove(list.size() - 1) + mCommandBuilder.toString());
-				}
-			} else {
-				list.add(mCommandBuilder.toString());
-			}
-		}
-		
-		mCommandBuilder.setLength(0);
-		return list;
+		return CommandSemicolon.split(string);
 	}
 	
 	/** Utility class for alias replacement and special command parsing routine. */
