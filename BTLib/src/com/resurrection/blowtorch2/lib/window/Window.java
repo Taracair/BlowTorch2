@@ -1443,8 +1443,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
-		// Place each glyph on the cell origin. Clip the run so a wide fallback
-		// cannot spill into the next unit.
+		// Cell origins: batched drawText drifted after emoji fallback while the
+		// ASCII probe still said uniform. 5 Sep 2026 fling, bold off, ~77 lines:
+		// 40–49ms/frame, gridMs 31–34, ~4400 clips. Clip the run once.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final Paint.FontMetrics fm = mGridFontMetrics;
@@ -1453,10 +1454,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			c.save();
 			c.clipRect(x, textTop, x + s.length() * cell, textBot);
 			for (int i = 0; i < s.length(); i++) {
-				c.save();
-				c.clipRect(x + i * cell, textTop, x + (i + 1) * cell, textBot);
 				c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
-				c.restore();
 			}
 			c.restore();
 			drawnWidth = cell * s.length();

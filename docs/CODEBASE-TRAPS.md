@@ -255,6 +255,7 @@ Do not re-derive these.
 | Question | Answer |
 |---|---|
 | Is the `onDraw` bleed scan a performance problem? | No. 9 lines, 2ms worst case over 300 frames on a real MUD. The 1000-line limit only bites on a buffer with no colour at all |
+| Does clipping every ASCII glyph in `drawTextOnGrid` cost much? | Yes. 5 Sep 2026 BTPROF, bold off, fling ~77 lines: 40–49ms/frame, `gridMs` 31–34, ~3600 ASCII glyphs, ~4400 clips. Colour units were 1–2ms cache hits. Cell origins stay; the per-character clip does not. |
 | Does SGR 22 turn off bold? | Yes (29 Aug 2026). It used to classify as `NOT_A_COLOR`, so leftover SGR 1 painted default grey (`#BBBBBB`) as bright white (`#FFFFFF`). `38;5;22` is still xterm olive: the xterm branch consumes the index before `getColorType`. |
 | How are SGR italic/underline/strike/reverse/faint painted? | Skew −0.25 (not `Typeface.ITALIC` — that misses the grid cache), underline, strike-through, swap FG/BG after LightPaper remap, dim 50% toward paper. SGR 21 is underline, not xterm bold-off. SGR 5 stays `38;5;n`; blink is ignored. |
 | Do emoji occupy two wrap columns? | No. Paint only: `CellWidth` is 2 cells on the canvas, clip to the line box. Wrap, NAWS and `charcount` still count one code point. ASCII maps stay 1. |
