@@ -2605,9 +2605,17 @@ without flipping text, see **Padding, notch, and the keyboard**.
 
 ## Padding, notch, and the keyboard
 
-**Options → Window → Top padding (px)** leaves empty space above game text for
-notch/camera cutouts (on-screen buttons are unaffected). Try values like
-`40`–`80` on punched-hole phones.
+**Options → Window → Avoid camera cutout (portrait)?** and **Avoid camera
+cutout (landscape)?** keep chrome out of the camera hole in that orientation.
+Both default on. Landscape uses the left or right edge (where the hole sits
+when the phone is on its side). Portrait only adds space if the hole sticks
+past the status bar — for a punch-hole that already sits in that bar, use
+**Top padding (px)** as well. Turn an option off to use the pixels under the
+hole (text may sit under the camera).
+
+**Options → Window → Top padding (px)** is extra empty space above game text
+on top of that (on-screen buttons are unaffected). Try values like `40`–`80`
+if the automatic inset is not enough.
 
 **Options → Window → Bottom padding (px)** does the same at the bottom edge, all
 the time — use it to keep the newest line clear of the input bar or a gesture bar.

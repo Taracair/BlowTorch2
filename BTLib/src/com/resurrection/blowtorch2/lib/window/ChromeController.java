@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.window;
 
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
@@ -11,10 +12,12 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.RelativeLayout;
 
 import androidx.core.graphics.Insets;
+import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
+import com.resurrection.blowtorch2.lib.util.DisplayCutoutPad;
 
 /**
  * Gameplay chrome: input bar / divider anchors, IME lift, FAB strip, toolbar
@@ -119,10 +122,26 @@ public final class ChromeController {
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-		Insets cutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
-		int left = Math.max(cutout.left, bars.left);
-		int right = Math.max(cutout.right, bars.right);
-		view.setPadding(left, 0, right, bars.bottom);
+		Insets typedCut = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
+		int cutLeft = typedCut.left;
+		int cutTop = typedCut.top;
+		int cutRight = typedCut.right;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			DisplayCutoutCompat dc = windowInsets.getDisplayCutout();
+			if (dc != null) {
+				cutLeft = Math.max(cutLeft, dc.getSafeInsetLeft());
+				cutTop = Math.max(cutTop, dc.getSafeInsetTop());
+				cutRight = Math.max(cutRight, dc.getSafeInsetRight());
+			}
+		}
+		boolean landscape = activity.getResources().getConfiguration().orientation
+				== Configuration.ORIENTATION_LANDSCAPE;
+		int[] pad = DisplayCutoutPad.containerPadding(
+				bars.left, bars.top, bars.right, bars.bottom,
+				cutLeft, cutTop, cutRight,
+				landscape, isFullScreen,
+				activity.avoidCutoutPortrait(), activity.avoidCutoutLandscape());
+		view.setPadding(pad[0], pad[1], pad[2], pad[3]);
 		// The one authority for how tall the keyboard is.
 		//
 		// This used to be second-guessed by an estimator built on

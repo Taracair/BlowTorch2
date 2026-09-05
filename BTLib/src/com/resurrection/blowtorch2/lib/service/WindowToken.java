@@ -130,7 +130,7 @@ public class WindowToken implements Parcelable {
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
 		newest_at_top,
-		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
+		/** Top inset for game text (pixels); extra to the camera-cutout options. */
 		top_padding,
 		/** Bottom inset for game text (pixels); always applied. */
 		bottom_padding,
@@ -138,6 +138,10 @@ public class WindowToken implements Parcelable {
 		bottom_padding_keyboard,
 		/** Soft keyboard lifts input only; game text stays put. */
 		ime_keep_text,
+		/** Keep game chrome out of the camera hole in portrait. Default on. */
+		cutout_portrait,
+		/** Keep game chrome out of the camera hole in landscape. Default on. */
+		cutout_landscape,
 		/** Show the Edit button on the input bar (main window chrome). */
 		input_bar_show_edit,
 		/** Show the Send button on the input bar (main window chrome). */
@@ -482,7 +486,7 @@ public class WindowToken implements Parcelable {
 
 		IntegerOption topPadding = new IntegerOption();
 		topPadding.setTitle("Top padding (px)");
-		topPadding.setDescription("Extra empty space above game text (pixels). Use for notch/camera cutouts; on-screen buttons are unaffected.");
+		topPadding.setDescription("Extra empty space above game text (pixels), on top of Avoid camera cutout. Use it if the automatic inset is not enough. On-screen buttons are unaffected.");
 		topPadding.setKey("top_padding");
 		topPadding.setValue(DEFAULT_TOP_PADDING);
 		window.addOption(topPadding);
@@ -513,6 +517,20 @@ public class WindowToken implements Parcelable {
 		imeKeepText.setKey("ime_keep_text");
 		imeKeepText.setValue(false);
 		window.addOption(imeKeepText);
+
+		BooleanOption cutoutPortrait = new BooleanOption();
+		cutoutPortrait.setTitle("Avoid camera cutout (portrait)?");
+		cutoutPortrait.setDescription("Keep game text and chrome out of the camera hole / notch while the phone is upright. On by default. Turn off to use the pixels under the hole (text may sit under the camera).");
+		cutoutPortrait.setKey("cutout_portrait");
+		cutoutPortrait.setValue(true);
+		window.addOption(cutoutPortrait);
+
+		BooleanOption cutoutLandscape = new BooleanOption();
+		cutoutLandscape.setTitle("Avoid camera cutout (landscape)?");
+		cutoutLandscape.setDescription("Same as portrait, for landscape. On by default. The hole is usually on the left or right edge.");
+		cutoutLandscape.setKey("cutout_landscape");
+		cutoutLandscape.setValue(true);
+		window.addOption(cutoutLandscape);
 
 		BooleanOption showInputEdit = new BooleanOption();
 		showInputEdit.setTitle("Show Edit button?");

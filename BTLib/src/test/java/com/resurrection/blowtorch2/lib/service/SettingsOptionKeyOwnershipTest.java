@@ -26,6 +26,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"light_paper", "light_paper_shade",
 				"scroll_dates", "scroll_dates_opacity",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
+				"cutout_portrait", "cutout_landscape",
 				"hyperlinks_enabled", "osc8_links",
 				"hyperlink_mode", "hyperlink_color", "hyperlink_bare_domains",
 				"hyperlink_extra_tlds", "color_option", "line_extra", "font_path",

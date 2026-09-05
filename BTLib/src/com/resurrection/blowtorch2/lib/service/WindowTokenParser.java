@@ -404,6 +404,8 @@ public final class WindowTokenParser {
 						break;
 					case input_bar_show_edit:
 					case input_bar_show_send:
+					case cutout_portrait:
+					case cutout_landscape:
 						// Default true; persist only when off.
 						if (!(Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");

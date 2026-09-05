@@ -189,6 +189,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mDrawerInsetBottom = 0;
 	/** When true, IME lift skips game text windows (input bar still rises). */
 	private boolean mImeKeepText = false;
+	private boolean mCutoutPortrait = true;
+	private boolean mCutoutLandscape = true;
 	/** The buffer object that this window uses to store and draw ansi text.
 	 *
 	 * <p><b>Only the UI thread may change this buffer.</b> onDraw walks its line list
@@ -743,6 +745,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption imeKeepText = (BooleanOption) settings.findOptionByKey("ime_keep_text");
 		if (imeKeepText != null) {
 			mImeKeepText = (Boolean) imeKeepText.getValue();
+		}
+		BooleanOption cutoutPortrait = (BooleanOption) settings.findOptionByKey("cutout_portrait");
+		if (cutoutPortrait != null) {
+			mCutoutPortrait = (Boolean) cutoutPortrait.getValue();
+		}
+		BooleanOption cutoutLandscape = (BooleanOption) settings.findOptionByKey("cutout_landscape");
+		if (cutoutLandscape != null) {
+			mCutoutLandscape = (Boolean) cutoutLandscape.getValue();
 		}
 		ListOption scrollSensitivity = (ListOption) settings.findOptionByKey("scroll_sensitivity");
 		if (scrollSensitivity != null) {
@@ -6076,6 +6086,18 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
 				}
 				break;
+			case cutout_portrait:
+				mCutoutPortrait = (Boolean) o.getValue();
+				if (mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
+				}
+				break;
+			case cutout_landscape:
+				mCutoutLandscape = (Boolean) o.getValue();
+				if (mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
+				}
+				break;
 			case input_bar_show_edit:
 			case input_bar_show_send:
 				// Main-window chrome only; extra-text tokens ignore the layout refresh.
@@ -6186,6 +6208,8 @@ end
 		bottom_padding,
 		bottom_padding_keyboard,
 		ime_keep_text,
+		cutout_portrait,
+		cutout_landscape,
 		input_bar_show_edit,
 		input_bar_show_send,
 		scroll_sensitivity,
@@ -7289,6 +7313,14 @@ end
 	/** Options → Window → Keep text still with keyboard? */
 	public boolean isImeKeepText() {
 		return mImeKeepText;
+	}
+
+	public boolean isCutoutPortrait() {
+		return mCutoutPortrait;
+	}
+
+	public boolean isCutoutLandscape() {
+		return mCutoutLandscape;
 	}
 
 	public void jumpToStart() {

@@ -588,6 +588,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			WindowManager.LayoutParams cutoutLp = getWindow().getAttributes();
+			cutoutLp.layoutInDisplayCutoutMode =
+					WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+			getWindow().setAttributes(cutoutLp);
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
 			getWindow().setStatusBarColor(Color.TRANSPARENT);
 			getWindow().setNavigationBarColor(Color.BLACK);
@@ -3311,7 +3317,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// rather than store one that is almost the default. Without this there
 		// is no way back to "follows the input bar" except an option. The bar's
 		// own position is lifted too, so compare against where it is now.
-		if (flp.leftMargin <= snap
+		if (Math.abs(flp.leftMargin - defaultSuggestionLeftMargin()) <= snap
 				&& Math.abs(flp.bottomMargin - (defaultSuggestionBottomMargin() + lift))
 						<= snap) {
 			mSuggestionPanelPlaced = false;
@@ -3338,6 +3344,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			navPad = container.getPaddingBottom();
 		}
 		return (bar == null ? 0 : bar.getHeight()) + navPad;
+	}
+
+	private int defaultSuggestionLeftMargin() {
+		View container = findViewById(R.id.window_container);
+		return container == null ? 0 : container.getPaddingLeft();
 	}
 
 	/**
@@ -3911,7 +3922,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * inset too low, so they sat across the bottom of the input bar instead of on
 	 * top of it. The FAB strip in the same overlay has always done this — see
 	 * {@code ChromeController.placeGameplayFabStrip}, which is where the padding
-	 * is read from.
+	 * is read from. Default left uses {@code paddingLeft} the same way (landscape
+	 * camera hole).
 	 *
 	 * <p>The keyboard is a translation, not a margin: under {@code adjustNothing}
 	 * nothing is resized, and {@code applyImeChromeLift} moves the bar, the FAB
@@ -3935,7 +3947,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				(android.widget.FrameLayout.LayoutParams) lp;
 		int wantedBottom = mSuggestionPanelPlaced
 				? mSuggestionPanelBottom : defaultSuggestionBottomMargin();
-		int wantedLeft = mSuggestionPanelPlaced ? mSuggestionPanelLeft : 0;
+		int wantedLeft = mSuggestionPanelPlaced
+				? mSuggestionPanelLeft : defaultSuggestionLeftMargin();
 		if (flp.bottomMargin != wantedBottom || flp.leftMargin != wantedLeft) {
 			flp.bottomMargin = wantedBottom;
 			flp.leftMargin = wantedLeft;
@@ -4491,6 +4504,43 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		return false;
+	}
+
+	boolean avoidCutoutPortrait() {
+		return readMainDisplayBoolean("cutout_portrait", true);
+	}
+
+	boolean avoidCutoutLandscape() {
+		return readMainDisplayBoolean("cutout_landscape", true);
+	}
+
+	private boolean readMainDisplayBoolean(String key, boolean defaultValue) {
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl != null) {
+			View main = rl.findViewWithTag("mainDisplay");
+			if (main instanceof com.resurrection.blowtorch2.lib.window.Window) {
+				com.resurrection.blowtorch2.lib.window.Window w =
+						(com.resurrection.blowtorch2.lib.window.Window) main;
+				if ("cutout_portrait".equals(key)) {
+					return w.isCutoutPortrait();
+				}
+				if ("cutout_landscape".equals(key)) {
+					return w.isCutoutLandscape();
+				}
+			}
+		}
+		if (mWindows != null) {
+			for (WindowToken tok : mWindows) {
+				if (tok == null || !"mainDisplay".equals(tok.getName())) {
+					continue;
+				}
+				Object opt = tok.getSettings().findOptionByKey(key);
+				if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+					return (Boolean) ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt).getValue();
+				}
+			}
+		}
+		return defaultValue;
 	}
 	
 	private void DoHapticFeedback() {
