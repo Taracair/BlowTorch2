@@ -56,9 +56,10 @@ public class CommandSemicolonTest {
 	}
 
 	@Test
-	public void hashSemicolonIsSplitToday() {
-		eq("look;#;say hi", "look", "#", "say hi");
-		eq("#;", "#", "");
+	public void hashSemicolonSendsASemicolonSegment() {
+		eq("look;#;say hi", "look", ";", "say hi");
+		eq("#;", ";", "");
+		eq("look;#;", "look", ";", "");
 		eq("#;;", "#;");
 		eq("foo#;bar", "foo#", "bar");
 	}

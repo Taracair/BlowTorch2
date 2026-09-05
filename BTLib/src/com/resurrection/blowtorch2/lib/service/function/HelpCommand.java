@@ -439,7 +439,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .wait 5s | #wait 5m10s | .wait 500ms\n"
 					+ "  Units h, m, s, ms in any order (5s5m is the same as 5m5s).\n"
 					+ "  A bare number is seconds. Max 1h. .wait stop / #wait 0 cancels.\n"
-					+ "  Only the rest of this line waits: north;.wait 2s;south\n";
+					+ "  Only the rest of this line waits: north;.wait 2s;south\n"
+					+ "  #; is a semicolon, not a wait (same as a whole line of ;;).\n";
 		}
 		if (filter.equals("map")) {
 			return "\n"
