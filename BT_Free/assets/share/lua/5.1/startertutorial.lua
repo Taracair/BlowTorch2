@@ -1,7 +1,7 @@
 -- BlowTorch 2 starter tutorial (.tutorial)
 -- Client-only notes; never sent to the MUD.
 -- Option keys (plugin XML):
---   show_on_connect — Options → Starter Tutorial → Show on connect
+--   show_on_connect — Options → Starter Tutorial → Show welcome on connect
 --   tips_while_playing — short reminders when you type a .command on a real MUD
 
 local OPTION_SHOW = "show_on_connect"
@@ -134,7 +134,8 @@ screen — is the source of truth. Please report mistakes on GitHub:
 Try it now:
   • Tap NEXT / PREV / TOPICS on the pad (or type .tutorial next)
   • Tap HELP anytime to restart (.tutorial start)
-  • Tap LOAD to try .loadset tutorial (hold LOAD or flip → .loadset default)
+  • ⋮ is bottom-right, just above the input bar (Help, Options, Chat, …)
+  • Tap LOAD to try .loadset tutorial (flip LOAD → .loadset default)
 
 NEXT walks a path: buttons, then aliases and triggers, then the phone, then
 reading the screen.
@@ -152,12 +153,12 @@ even if the app was not running.
 On a real MUD, .tutorial still opens any lesson, and
   .tips on
 prints a short reminder the first time you use a client command
-(.help, .osc8, .wrap, …) that session. Do not type .alias to try it —
-that edits aliases.
+(.help, .osc8, .wrap, …) that session. .alias has a reminder too; it
+also opens the alias editor if you pass a name.
 
 Type:  .tutorial next
 Or:    .tutorial topics
-Disable later: Options → Starter Tutorial → Show on connect = off]])
+Disable later: Options → Starter Tutorial → Show welcome on connect = off]])
 end
 
 TOPICS.overview = TOPICS.welcome
@@ -166,8 +167,9 @@ TOPICS.client_commands = function()
 	noteBlock("Client commands (.commands)",
 [[Lines that start with a single . are client commands (also called period
 or system commands). They run on the phone — aliases and button commands
-use the same path. Full list: overflow → Help (or .tutorial topics for
-this tour).
+use the same path. Compact list in the game window: .help (or .commands).
+The user manual is ⋮ → Help, or Help on the launcher. This tour:
+.tutorial topics.
 
 Escape / toggle:
   ..look     sends .look to the MUD (leading . is not a client command)
@@ -178,10 +180,10 @@ Client-only echo (never sent to the MUD):
 Try:  .note hello from the tutorial
 
 Settings without reaching for the menu:
-  .options           open the Options screen, same as the ⋮ menu.
-                     Handy on a button when the menu is out of reach.
-                     Search at the bottom filters as you type; tap a
-                     result to jump to that page.
+  .options           open Options (same as ⋮ → Options). Handy on a
+                     button when ⋮ is out of reach. Search at the bottom
+                     filters as you type; tap a result to jump to that
+                     page.
 
 Two you only need when something goes wrong:
   .settings          what is on disk; backup / restore the kept copy
@@ -193,6 +195,9 @@ into a newline so look;score sends two lines. A semicolon the game should
 see inside a command is ;; (say hello;;world sends say hello;world).
 A whole line of ;; sends one semicolon. Turn it off if your MUD uses
 ; in commands.
+
+Repeat a line: #5 north sends north five times (1–100). ##5 north
+sends the characters #5 north to the game.
 
 Pace a line: north;.wait 2s;south waits two seconds after north, then
 sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.
@@ -221,10 +226,11 @@ processed. A button whose command is .clearbuttons only clears the layout;
 the MUD never sees it.
 
 Try now:
-  • Tap LOOK or SCORE — here they echo a short .note tip (offline-safe)
+  • Tap LOOK — here it echoes a short .note tip (offline-safe)
+  • Tap ACC, then SCORE — accordion child (sends score; ignored offline)
   • Tap HELP → restarts this tour
   • Tap CLEAR → only BACK remains; tap BACK to restore
-  • Tap LOAD → .loadset tutorial (compact set); hold/flip LOAD → default
+  • Tap LOAD → .loadset tutorial (compact set); flip LOAD → default
 
 Empty commands do nothing. Gesture demo tiles (SWIPE / HOLD / ACC) teach
 the next lessons.]])
@@ -266,8 +272,8 @@ hold for SCORE, or hold to open a door while tap walks.
 
 Try now:
   • Long-press HOLD until the tip appears
-  • Long-press any compass letter — each has a different Hold tip
-  • Long-press LOAD — restores .loadset default
+  • Long-press a compass letter — on this pad hold is close (same as Flip)
+  • Flip LOAD — restores .loadset default (hold LOAD is a .note, not a load)
 
 Edit the button → Hold command. A small H marker appears when gesture
 hints are on.]])
@@ -331,7 +337,7 @@ thumb while typing.
 
 Drawing over the keyboard needs Android's "Display over other apps"
 permission; you are asked the first time. Without it the button is still
-there, but the keyboard covers it.
+there, drawn clear of the keys instead of on top of them.
 
 Others → Colors → Draw Border strokes the floating copy too (Square/Round
 shape). Thin outline is a separate auto-contrast frame used when Border
@@ -351,7 +357,8 @@ Switching sets is a client command — perfect on a button:
 
 Try now:
   1. Tap LOAD          → switches to the compact "tutorial" set
-  2. Hold or flip LOAD → .loadset default (full starter pad)
+  2. Flip LOAD           → .loadset default (full starter pad)
+     (hold LOAD is a .note on this pad)
   3. Or type:  .loadset default
 
 A session .buttonopacity survives a set switch. .buttonopacity 100 then
@@ -376,12 +383,13 @@ TOPICS.buttons_make = function()
 	noteBlock("Buttons — Make a .loadset button",
 [[Short exercise (about a minute):
 
-  1. Overflow → Edit buttons  (or long-press ⋮ next to Edit/Send)
+  1. Overflow → Edit buttons  (or long-press ⋮ bottom-right)
   2. Tap empty space to add a tile
-  3. Tap the new tile → set Label to e.g. COMBAT
-  4. Set Command to:  .loadset default
+  3. Tap the new tile to select it, tap again → Edit
+  4. Set Label to e.g. COMBAT
+  5. Set Command to:  .loadset default
      (or .loadset tutorial — any set name you have)
-  5. Done to save
+  6. Done to save
 
 Optional: a second button with the other .loadset, or put default on Hold
 and an alternate set on Tap (like the LOAD demo).
@@ -397,9 +405,9 @@ end
 
 TOPICS.buttons_edit = function()
 	noteBlock("Buttons — Edit layout",
-[[Enter edit mode: overflow menu → Edit buttons, or long-press the ⋮ next
-to Edit/Send. In edit mode the ⋮ is hidden — use the strip: gear (set
-options), Cancel (left), Done (right).
+[[Enter edit mode: overflow menu → Edit buttons, or long-press the ⋮
+bottom-right above the input bar. In edit mode the ⋮ is hidden — use
+the strip: Undo, Redo, gear (set options), Cancel, Done.
 
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
@@ -444,7 +452,7 @@ TOPICS.aliases = function()
 [[An alias watches what YOU send and rewrites it before it reaches the
 server. Example: typing "k goblin" becomes "kill goblin".
 
-Open: action bar / ⋮ → Aliases. Patterns use Java regular expressions;
+Open: ⋮ → Aliases. Patterns use Java regular expressions;
 captures are $1, $2, … in the With text. Literal-friendly patterns avoid
 regex until you turn Literal off.
 
@@ -500,11 +508,12 @@ nothing else, so you can see a trigger colour or a tappable word fire.
 
 Enable / disable:
   • Each trigger has an on/off toggle in the Triggers list (row toolbar).
-  • Options (=) menu: "Enable all triggers (current list)" and
+  • More menu: "Enable all triggers (current list)" and
     "Disable ALL triggers (current list)" — these affect every trigger in
     the active filter only (Main/plugin + optional group). Disable asks
     for confirmation first.
-  • Options (=) also has Filter by group (All / (default) / named groups).
+  • Group filter is the spinner under search (All / (default) / named),
+    not the More menu.
   • From the input bar: .trigger on|off|toggle <name|plugin:name>,
     .trigger group …, .trigger all on|off,
     .trigger plugin <plugin> all on|off (see .trigger for help).
@@ -550,7 +559,7 @@ end
 
 TOPICS.timers = function()
 	noteBlock("Timers",
-[[Open Timers from the action bar / overflow. Each timer has a name, an
+[[Open Timers from ⋮ → Timers. Each timer has a name, an
 interval, optional repeat, and responders (same kinds as triggers: Ack,
 Toast, Notification, …).
 
@@ -849,8 +858,9 @@ end
 TOPICS.chat = function()
 	noteBlock("Chat — .chat",
 [[Tells and channel lines can live in a drawer on the left, instead of
-only in the main window. There is no permanent bar — the drawer slides
-in when you ask for it.
+only in the main window. This is not an extra text window (.window) —
+those are named panes over the game. There is no permanent bar — the
+drawer slides in when you ask for it.
 
 Open it
   overflow ⋮ → Chat
@@ -912,7 +922,7 @@ Options → Chat
   game-window line: Off / Every message / Digest + interval
   Android notification (off by default; tap opens that conversation).
   ⚙ Notify picks Tells / Channels / Auction / Other for that thread.
-  keep at most N messages (default 4000; 0 = no practical limit)
+  keep at most N messages (default 4000; 0 still caps at 50000)
 
 Digest waits the interval, then the cyan line is the count of new
 messages in that window (five tells → 5, not 1). The shade count
@@ -946,30 +956,28 @@ What you see
 Two ways to build
   1) Record while you walk
      .map new mymap   (optional fresh file)
-     Open the map → Rec → walk the MUD as usual → Stop → Save
+     Open the map → Nav → Record → walk → Record off → Map → Save
      Outbound commands become exits. Compass moves (n/e/s/w, go west,
      go se, …) place neighbors on a grid; up/down change level while
      Recording; out/in become special exits beside the room.
   2) Draw by hand (no walking required)
-     Title → Edit → ⚙ → Draw → tap empty cells to place rooms
+     Edit chip → Draw → tap empty cells to place rooms
      Long-press empty = place and set Here
-     Links → tap FROM then TO → type the walk verb (go west, n, out…)
+     Edit → Links → tap FROM then TO → type the walk verb (go west, n, out…)
      Or long-press a tile → Add neighbor… / Move… / Set as Here / Delete
 
 Levels (tile-anchored — not one global stack)
   Each Here tile can open its own basement/attic (per-door nests).
-  L-/L+ = nest down/up from Here. Browse: follow/return only; create needs Edit.
-  Browse floors: ↕ → List (tap = view; long-press = Go Here), or tap ▲/▼/◆
-  badges. Edit adds Delete… (confirm; removes floor + tiles; not last level).
-  ↕ Levels radial: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
-  ⚙ Tools radial: Paths, Draw, Links, Here, Edit, Save, Find, Rec
-  (long-press title also opens a radial). up/down while Recording still works;
-  L-/L+ is the manual tool for weird MUDs (e.g. west into a cellar).
+  Floors chip: Floor list / Floor ↑ / Floor ↓ / Root / To entrance / Rename /
+  Delete (Delete = Edit only). Long-press the title opens Floors.
+  Edit chip: Draw, Links, and related tools. Map chip: Save / Maps / New.
+  Nav chip: Record, Follow, Find. View chip: View & sync (GMCP sync, opacity).
+  up/down while Recording still works.
 
-Toolbar cheatsheet
-  Rec/Stop  Follow  L-/L+  Find  Undo  Center   (CSV-configurable)
-  ↕ Levels   ⚙ Tools   (always present; no Draw/Links strip)
-  Paths = space for arrows; Pack = tight tiles
+Toolbar chips: Nav · Floors · Edit · Map · View
+  (legacy Options CSV is unused by that chrome)
+  Record and Follow live under Nav
+  View & sync has GMCP sync (needs Options → Service → Protocols → Use GMCP?)
 
 Gestures
   Long-press tile + drag = move (release without move = tile menu)
@@ -992,7 +1000,7 @@ Useful .map commands
   .map record|follow …
   .map level list|prev|next|set <name>   (prev/next = L-/L+ nests)
   .map level delete <id|name>
-  .map find|path|goto <query>
+  .map find|path|goto <query>   (.map go always walks; goto needs Auto-Send Path?)
   .map maps | load <name> | new <name>
   .map import <path|name>   .map export|save [path]
   .map add | here | delete | neighbor | move
@@ -1001,11 +1009,10 @@ Useful .map commands
   .map capture preview|apply   (Options regex; or toolbar Capture dialog)
 
 Files live under /BlowTorch/maps/ (autosave after edits).
-Options → Mapper: enable, float default, opacity, follow, path auto-send,
-Use GMCP Room (also builds neighbors from Room exits), toolbar CSV
-(optional capture token), Capture Title/Exits Regex.
+Options → Mapper: enable, float default, opacity, follow, Auto-Send Path?,
+Use GMCP Room Sync? (also builds neighbors from Room exits).
 Without GMCP (many MOOs), prefer Rec + Edit Draw/Links.
-Full reference: overflow → Help → Mapper.]])
+Full reference: ⋮ → Help → Mapper.]])
 end
 
 TOPICS.wrap = function()
@@ -1042,30 +1049,18 @@ end
 
 TOPICS.overflow_menu = function()
 	noteBlock("Overflow menu (⋮)",
-[[The session overflow / options menu is your map of editors and tools:
+[[The ⋮ list is grouped (no action-bar icons for Aliases / Triggers / Timers):
 
-  Aliases                 edit input rewrites
-  Triggers                match incoming text / hooks
-  Timers                  repeating / one-shot responders
-  Options                 Program Settings (Display, Window, …)
-  Edit buttons            button layout edit mode
-  Speedwalk Directions    letters for .run and Reverse for .rev
-  Plugins                 load / manage Lua plugins
-  Reconnect / Disconnect  connection control
-  Quit                    leave the session window
-  Map                     built-in Mapper (also .map open|toggle)
-  Chat                    left-hand chat drawer (also .chat)
-  Search scrollback       same as .search
-  Session logs            this world’s session log files (Load, then Search / ✕)
-  Reload Settings         re-read this world’s settings from disk
-  Crash report            Show log / Share log
-  About
-  Help                    this app’s user manual
+  EDITORS     Aliases, Triggers, Timers, Button Sets, Edit buttons
+  SESSION     Options, Speedwalk Directions, Map, Plugins
+  CONNECTION  Reconnect, Disconnect, Quit
+  TOOLS       Chat, Search scrollback, Session logs, Reload Settings
+  ABOUT       Crash report, About, Help (this app’s user manual)
 
-Export / Import / Reset Settings live under Options → Miscellaneous.
+.help in the input bar is a short command list in the game window,
+not this manual. Launcher Help is the same manual as ⋮ → Help.
 
-Action-bar icons may show Aliases / Triggers / Timers / Options when
-there is room; otherwise they live under ⋮.]])
+Export / Import / Reset Settings live under Options → Miscellaneous.]])
 end
 
 TOPICS.gmcp = function()
@@ -1284,7 +1279,7 @@ TOPICS.display = function()
 	noteBlock("Display",
 [[Options → Display:
 
-  Orientation              portrait / landscape / sensor
+  Orientation              Automatic / Landscape / Portrait
   Keep Screen On?          stop the screen sleeping while connected
   Use Fullscreen Window?   hide the notification bar
   Terminal Width (NAWS)    columns reported to the server
@@ -1321,10 +1316,10 @@ but skips its triggers, aliases, timers, and .commands until you turn
 it back on. button_window cannot be disabled (it owns the button pad).
 
 Plugin Options pages show under Options only while that plugin is
-loaded — Button for gesture hints, Starter Tutorial for Show on connect.
+loaded — Button for gesture hints, Starter Tutorial for Show welcome on connect.
 
 To stop this tour’s welcome without removing the plugin:
-  Options → Starter Tutorial → Show on connect = off
+  Options → Starter Tutorial → Show welcome on connect = off
   or .tutorial done
   or toggle starter_tutorial off in the Plugins list
 
@@ -1348,7 +1343,7 @@ Quick recalls:
 Overflow → Help opens the full user manual.
 
 To stop the welcome note on connect:
-  Options → Starter Tutorial → Show on connect = off
+  Options → Starter Tutorial → Show welcome on connect = off
   or type:  .tutorial done
 
 Happy mudding.]])
@@ -1402,7 +1397,7 @@ local function showHelp()
 .tutorial start        begin at welcome
 .tutorial next|prev    walk the lesson list
 .tutorial skip         jump to finish
-.tutorial done         turn off Show on connect
+.tutorial done         turn off Show welcome on connect
 .tutorial topics       list topic names
 .tutorial <topic>      open one topic
 .tips on               short reminders when you type .commands while playing
@@ -1586,8 +1581,8 @@ local TIPS = {
 	sendbutton = [[.sendbutton on|off shows the Send button.]],
 	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste).]],
 	tapmenu = [[.tapmenu opacity N — how solid the menu a tapped word opens is.]],
-	frame = [[.frame list / close. Drawn frames some worlds ask for; still terminal text, not a web page.]],
-	options = [[.options opens the Options screen, same as the ⋮ menu. Search at the bottom filters as you type.]],
+	frame = [[.frame list / close / reopen. Drawn frames some worlds ask for; still terminal text, not a web page. .frame open is the same as reopen.]],
+	options = [[.options opens Options (⋮ → Options). Search at the bottom filters as you type.]],
 	settings = [[.settings backup / restore the kept copy of this world's settings file.]],
 	reconnect = [[.reconnect closes and opens the socket again.]],
 	disconnect = [[.disconnect closes the socket. The world stays in the list.]],
@@ -1669,7 +1664,7 @@ function tutorialCommand(args)
 .tips always   remind every time
 .tips off      stop
 
-Then type .help or .osc8 to see a reminder — not .alias.
+Then type .help or .osc8 to see a reminder (.alias has one too).
 Also: Options → Starter Tutorial → Tips while playing?]])
 			return
 		end
@@ -1728,12 +1723,12 @@ Also: Options → Starter Tutorial → Tips while playing?]])
 		local ok = setShowOnConnect(false)
 		if ok then
 			noteBlock("Tutorial disabled",
-[[Show on connect is now off. You can still run .tutorial anytime.
-Re-enable under Options → Starter Tutorial → Show on connect.]])
+[[Show welcome on connect is now off. You can still run .tutorial anytime.
+Re-enable under Options → Starter Tutorial → Show welcome on connect.]])
 		else
 			noteBlock("Tutorial done",
 [[Could not write the option from Lua (plugin option may not exist yet).
-Turn off: Options → Starter Tutorial → Show on connect = off]])
+Turn off: Options → Starter Tutorial → Show welcome on connect = off]])
 		end
 		return
 	end
@@ -1772,7 +1767,7 @@ function starterTutorialMaybeWelcome()
 	noteBlock("Welcome to BlowTorch 2",
 [[Quick starter tips are available. Open the Starter Tutorial entry
 on the launcher (first row), or type .tutorial start  (or .tutorial help).
-To hide this welcome: Options → Starter Tutorial → Show on connect = off
+To hide this welcome: Options → Starter Tutorial → Show welcome on connect = off
 or .tutorial done]])
 end
 
@@ -1985,9 +1980,10 @@ lessons.buttons = {
 			.. "Look at the pad below the text. Try these:\n"
 			.. "  " .. cmd("press a button") .. " - just tap one and watch what it sends\n"
 			.. "  " .. cmd("swipe a button sideways") .. " - many carry a second command\n"
-			.. "  " .. cmd("hold a button") .. " - opens its editor\n\n"
-			.. "To change one, either hold it, or open the menu (the three dots\n"
-			.. "at the top) and choose Edit buttons. Give it a label and a\n"
+			.. "  " .. cmd("hold a button") .. " - fires its Hold command (not the editor)\n\n"
+			.. "To change one, open the menu (the three dots bottom-right\n"
+			.. "above the input bar) and choose Edit buttons, or long-press\n"
+			.. "those dots. Give it a label and a\n"
 			.. "command, and save.\n\n"
 			.. "When you have pressed one and made one, tell me:\n"
 			.. "  " .. cmd("bex i am done"))

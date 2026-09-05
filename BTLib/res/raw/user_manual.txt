@@ -5,15 +5,17 @@ Source of truth for in-app **Help**. Keep this file in sync with
 
 ## Before you start
 
-**Options, Help, Chat, and the rest** live behind the three dots (⋮) at the
-top of the game window. Tap ⋮ → **Options** for settings. Options has a
-search field at the bottom; type `font` (or any other word) and tap a hit
-to jump to that page. ⋮ → **Help** is this guide. From the launcher,
-**Help** is also a button at the bottom and an item in that screen's ⋮
-menu.
+**Options, Help, Chat, and the rest** live behind the three dots (⋮)
+bottom-right, just above the input bar. Tap ⋮ → **Options** for settings.
+Options has a search field at the bottom; type `font` (or any other word)
+and tap a hit to jump to that page. ⋮ → **Help** is this guide. `.help`
+in the input bar is a short list of every `.command`, printed into the
+game window — not this manual. From the launcher, **Help** is also a
+button at the bottom and an item in that screen's ⋮ menu.
 
 **Edit buttons:** long-press ⋮, or ⋮ → **Edit buttons**. Tap an empty
-cell, type `LOOK`, then **Done**. That puts a LOOK button on the pad.
+cell — that drops a blank tile. Tap the tile to select it, tap again for
+Move / Edit / Copy / Delete, choose **Edit**, type `LOOK`, then **Done**.
 
 Because BlowTorch has a lot of features and tries to cover what many different
 players need, this guide (and the Starter Tutorial) may occasionally be
@@ -263,15 +265,17 @@ Tap any of them to take it, or use `.suggest 1` to `.suggest 8` from a button.
 Bare `.suggest forget` prints usage; it does not wipe the bag. `.suggest clear`
 is still the full wipe.
 
-**It is kept per world, and it travels with the world.** Each MUD has its own
-bag, because `kill` means something different on each of them. The bag lives in
-the app's settings folder, which is what a world backup already carries — so
-exporting a world takes its learned pairings with it, and importing one brings
-them back. There is nothing separate to remember to export.
+**It is kept per world, and it travels with a full launcher backup.** Each MUD
+has its own bag, because `kill` means something different on each of them.
+Session vocabulary (names the game just printed) is forgotten when you
+connect, so one world's mob names are never offered in another. Pairings
+your own commands taught live in a `wordpairs-*.xml` sidecar next to the
+world's settings in app storage. **Export Settings** writes the world XML
+only; **Backup All Settings** on the launcher zips every `.xml` there,
+including that sidecar.
 
-It is small: a few kilobytes for ordinary play, and it cannot grow past about a
-hundred even if you try. The app itself does not get any bigger — this is data
-on the phone, not something shipped inside it.
+It is small: a few kilobytes for ordinary play. Pairings cap at 100 verbs
+and 40 targets each.
 
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is
@@ -364,9 +368,9 @@ because a suggestion you have to squint at is worse than none. Anything from 10
 to 100.
 
 Off by default, and while off the text is not sent to the completer at all, so it
-costs nothing. Both settings are also under **Options → Input**, and both are
-saved with the profile. The vocabulary is forgotten when you connect, so one
-world's mob names are never offered in another.
+costs nothing. The switches live under **Options → Input → Suggestions**, and
+are saved with the profile. Session vocabulary is forgotten when you connect
+(see pairings above).
 
 ## Prompt on its own bar (`.prompt on`)
 
@@ -425,8 +429,9 @@ off, `\Look` is sent as typed (backslash included).
 
 ## Dot commands
 
-Lines that start with a single `.` are handled by BlowTorch when “process period”
-is enabled (default). Type `..` alone to toggle that processing on or off.
+Lines that start with a single `.` are handled by BlowTorch when
+**Options → Service → Process System Commands?** is on (the default).
+Type `..` alone to toggle that processing on or off.
 Prefix a server command with `..` to send a leading `.` to the game without
 running a client command (e.g. `..look` sends `.look`).
 
@@ -633,8 +638,9 @@ In the trigger editor:
   **Group** dropdown (existing names) or type a new name below it. The Triggers
   list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
   under search (All / Main / plugins, and All groups / (default) / named).
-  Options (=) is Enable/Disable all for the current filter, and on Triggers
-  a sort-by-sequence toggle.
+  **More** is Enable/Disable all for the current filter, and on Triggers
+  a sort-by-sequence toggle. Group filter is the spinner under search, not
+  that menu.
 - **Conditions** → extra gate after the pattern matches — not a substitute
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
@@ -801,7 +807,7 @@ dialog when you turn Literal off.
 Triggers, Aliases, and Timers lists show **Plugin** (All / Main / plugins) next
 to search. Triggers and Timers also show **Group** (All groups / (default) /
 named). Changing a spinner rebuilds the list and shows a short toast.
-Enable/Disable all (Triggers/Aliases) stays under Options (`=`). Triggers
+Enable/Disable all (Triggers/Aliases) stays under **More**. Triggers
 also have **Sort by sequence** there (list view only; fire order is still
 the Order number).
 
@@ -1380,9 +1386,12 @@ the block, which is what makes the box example above readable.
 2. Switch **Browse** → **Edit**
 3. **Nav → Record** on, then walk. Rooms appear as you go.
 
-If your MUD sends GMCP `Room.Info`, turn on **View & sync → GMCP sync** instead
-and just walk — nothing to record. `.map find <text>` locates a room,
-`.map goto <room>` walks you there.
+If your MUD sends GMCP `Room.Info`, turn on **Options → Service →
+Protocols → Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
+and **View & sync → GMCP sync** already default on — tapping that wedge
+turns sync *off*. Then just walk. `.map find <text>`
+locates a room. `.map goto <room>` prints a path; it walks only if
+**Auto-Send Path?** is on (off by default). `.map go <room>` always walks.
 
 Maps are per world, saved under `/BlowTorch/maps/`.
 
@@ -1489,7 +1498,12 @@ is enabled; `.alias list` shows every alias at once.
 ## Built-in commands
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
-    `.closewindow`                      Dirty-exit the game window
+    `.closewindow`                      Leave the game window (dirty exit). Not the same as `.window hide` (one extra-text window)
+    `.tutorial …`                       Starter Tutorial lessons (`start` / `next` / `topics` / `<topic>`). Works in any world
+    `.tips on|always|off`               Short reminders the first time you type a `.command` that session
+    `.osc8 [on|off]`                    Words the game marks (OSC 8); tap to send / fill the prompt / open a link
+    `.prompt [on|off]`                  Pin the world's prompt above the input bar
+    `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
@@ -1519,12 +1533,12 @@ is enabled; `.alias list` shows every alias at once.
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
-    `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
+    `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
     `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
-    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
@@ -2015,7 +2029,8 @@ touched in the last 7 days.
 ## Mapper
 
 Built-in room map (not the legacy ForgeMap plugin). Open from overflow **Map**,
-or `.map` / `.map open` / `.map close` / `.map toggle`. Prefer floating or
+or `.map open` / `.map close` / `.map toggle`. Bare `.map` prints help.
+Prefer floating or
 fullscreen with `.map mode float|fullscreen` (also **Options → Mapper**).
 Floating windows can be dragged and resized; opacity is in Options. The overlay
 stays under the ⋮ chrome so overflow remains reachable.
@@ -2172,7 +2187,7 @@ Print the summary with `.map dirs`.
     `.map level move <tileId> <level>`                                      Move a tile onto another level
     `.map find <query>`                                                     Search rooms (`search` alias)
     `.map path <query>`                                                     Show path commands (no send)
-    `.map goto <query>`                                                     Path; send only if **Path auto-send** is on
+    `.map goto <query>`                                                     Path; send only if **Auto-Send Path?** is on (default off)
     `.map go <query|id>`                                                    Path and **always** send walk commands (tile long-press **Go there**)
     `.map center`                                                           Center on current room
     `.map undo`                                                             Undo last graph change
@@ -2205,17 +2220,19 @@ Print the summary with `.map dirs`.
     `.map capture apply`                                                    Apply last preview to the current tile
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
-recording defaults, follow, path auto-send, Use GMCP Room,
-**Configure Room Sync…** (room number / absolute coords / create exits),
+recording defaults, follow, **Auto-Send Path?**, **Use GMCP Room Sync?**,
+**Configure Room Sync…** (room number / absolute coords default off / create exits),
 auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/Map/View** chips),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture`).
 
-**GMCP Room:** with GMCP and **Use GMCP Room** on (and **Room** in Manage
+**GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:
 - **num/id/vnum** → stable tile identity (IRE games and others)
-- **coords** / **coord** `{x,y,z}` → place on the grid (z → floor)
+- **coords** / **coord** `{x,y,z}` → place on the grid only if **GMCP: Use
+  absolute coordinates?** is on (off by default). `z` still picks a floor
+  when grow is on
 - **exits** `{n:123,…}` → create/link neighbors (destination stubs by vnum)
 
 Does not delete verified or hand-edited exits absent from GMCP; it may remove
@@ -2469,8 +2486,8 @@ Tap a SEND word and the game receives that command, the same as typing it. A
 SEND with several `|` commands opens a small menu (hint labels after the first
 `|` are the row names). SEND with `PROMPT` fills the input bar instead of
 sending. After you move, the world often sends `<EXPIRE>` so old exit links
-stop working; they stay visible in scrollback. Bare `<EXPIRE>` clears every
-MXP link.
+stop working; they stay visible in scrollback. Bare `<EXPIRE>` clears
+SEND/A links that had an expire group; links with no group stay tappable.
 
 This is not OSC 8 (web links). MXP SEND is a command to the MUD.
 
@@ -2481,7 +2498,7 @@ This is not OSC 8 (web links). MXP SEND is a command to the MUD.
   changing the typeface mid-line would break ASCII maps.
 - `SEND` (tap sends a command), menus (`|` commands), `PROMPT` (fills the
   input bar), `EXPIRE` (old exits stop working; they stay visible in
-  scrollback). Bare `<EXPIRE>` clears every MXP link.
+  scrollback). Bare `<EXPIRE>` clears SEND/A that had an expire group.
 - Custom `ELEMENT` / `ATTLIST`, `ENTITY` / `VAR` (session variables).
 - `SOUND` / `MUSIC` — same player as Client.Media, on the **media** volume.
   A file already in `/BlowTorch/sounds` (or previously cached) plays at
@@ -2558,8 +2575,8 @@ AOSP keyboard from Android 15) leave a gap the width of the camera hole
 so keys are not under the lens. BlowTorch cannot stretch those keys.
 
 **Options → Window → Top padding (px)** is extra empty space above game text
-on top of that (on-screen buttons are unaffected). Try values like `40`–`80`
-if the automatic inset is not enough.
+on top of **Avoid camera cutout** (on-screen buttons are unaffected). Try
+values like `40`–`80` if the automatic inset is not enough.
 
 **Options → Window → Bottom padding (px)** does the same at the bottom edge, all
 the time — use it to keep the newest line clear of the input bar or a gesture bar.
@@ -2606,7 +2623,7 @@ opening **downward** into the empty game area beneath it, so they never cover
 the compass rose above them.
 
 Named sizes are capped so the whole pad stays above the keyboard: Compass has
-six rows, so **Extra large** comes back a little under 72dp on a tall phone —
+five rows, so **Extra large** comes back a little under 72dp on a tall phone —
 still clearly bigger than Large, and wholly visible, which is the point.
 **Fit to screen** is the exception. It sizes a pack so its columns span the
 width, which for a tall pack means part of it sits below the keyboard line.
@@ -2694,8 +2711,9 @@ use a normal tile if you need an accordion.
 **"Display over other apps"**. BlowTorch asks when you first save a super-button
 and the floating layer rebuilds without that permission — not at startup, and
 not merely from ticking the box if you have not saved yet. The button is saved
-either way. If you refuse, the button still exists but the keyboard covers it —
-which leaves the feature doing very little, so it is worth granting.
+either way. If you refuse, the button still exists, drawn **clear of the
+keys** instead of on top of them — so it is worth granting if you want it
+over the keyboard.
 
 **Android 9 and 10:** the client often cannot tell whether the keyboard is
 open, so **Show with keyboard** may never appear there. Android 11 and newer
@@ -2925,7 +2943,8 @@ while that conversation is open.
 
 **Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
 message / Digest + interval; Android notification (off by default);
-keep at most N messages (default 4000, 0 = no practical limit). Tap the
+keep at most N messages (default 4000; 0 still caps at 50000 so the phone
+does not run out of RAM). Tap the
 shade to open that conversation. ⚙ **Notify** picks the system channel
 for that conversation (Tells / Channels / Auction / Other). Digest waits
 the interval, then the cyan line is how many arrived (five tells → 5,
@@ -3063,7 +3082,7 @@ Options → Manage modules….
 itself, and where it goes is your choice: Options → GMCP → **Pictures the server
 sends**.
 
-* **In a window of its own** (the default) — a small window over the game text.
+* **In a floating separate window** (the default) — a small window over the game text.
   Drag it by the ☰ handle, resize it from the ◢ corner, close it with the ×.
   **Long-press its title** for a short menu: switch it to a drawer, change its
   opacity, or close it. Where you leave a frame is where the next one opens.
@@ -3090,6 +3109,8 @@ answers `frame.closed` with `reason: system` rather than going quiet. And when
 .frame list           — the same
 .frame close <id>     — close it and tell the server you did
 .frame close all      — close every one
+.frame reopen <id>    — put back one you closed (`.frame open` is the same)
+.frame reopen         — what can come back
 ```
 
 Frame ids are chosen by the server and are case-sensitive; `.frame list` shows
@@ -3181,12 +3202,14 @@ are hidden.
     `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
     `.tips on|always|off`   Short reminders when you type other `.commands` (same as `.tutorial tips …`)
 
-On the default button set, tap **HELP** to run `.tutorial start`. The launcher
-lists a built-in **Starter Tutorial** row first (offline — no MUD). `.tutorial`
-opens any lesson in a real world too — it only Notes, it never talks to the MUD.
+On the **Starter Tutorial** pad, tap **HELP** to run `.tutorial start`. A
+normal world's Compass pack HELP (under MORE) sends `help` to the MUD. The
+launcher lists a built-in **Starter Tutorial** row first (offline — no MUD).
+`.tutorial` opens any lesson in a real world too — it only Notes, it never
+talks to the MUD.
 
 `.tips on` prints a short reminder the first time you use a client command
-that session (try `.help` or `.osc8` after — not `.alias`, which edits aliases).
+that session (try `.help` or `.osc8` — `.alias` has a tip too).
 `always` repeats every time; `off` stops. Also **Options → Starter Tutorial →
 Tips while playing?** (off until you ask).
 
@@ -3199,25 +3222,22 @@ Plugins screen refuses to remove it.
 
 ## Session overflow menu
 
-In order, as the menu builds them (all under ⋮):
+Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
+Timers). Options has a search field at the bottom; tap a hit to jump to
+that page.
 
-1. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
-   is **Options → Button → Load button set from wizard**)
-2. **Aliases** / **Triggers** / **Timers** / **Options** — the editors.
-   Options has a search field at the bottom; tap a hit to jump to that page.
-3. **Edit buttons** — enter button layout edit mode
-4. **Speedwalk Directions** — the direction letters `.run` uses
-5. **Map** — open the built-in mapper (same as `.map open`)
-6. **Plugins** — load / enable / remove Lua plugins
-7. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
-8. **Quit** — leave the session window
-9. **Chat** — left-hand chat drawer (same as `.chat`). A disc on ⋮ means unread while the drawer is closed (**Options → Chat**)
-10. **Search scrollback** — same as `.search`
-11. **Session logs** — browse this world's `.txt` session logs (same as `.search logs`)
-12. **Reload Settings** — re-read this world's settings from disk
-13. **Crash report** — Show log / Share log
-14. **About**
-15. **Help** — this manual
+- **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons.
+  The pack/size wizard is **Options → Button → Load button set from wizard**.
+- **SESSION** — Options, Speedwalk Directions, Map (same as `.map open`),
+  Plugins
+- **CONNECTION** — Reconnect / Disconnect (same as `.reconnect` /
+  `.disconnect`), Quit (leave the session window)
+- **TOOLS** — Chat (same as `.chat`; a disc on ⋮ means unread while the
+  drawer is closed — **Options → Chat**), Search scrollback (`.search`),
+  Session logs (this world's `.txt` files; same as `.search logs`), Reload
+  Settings
+- **ABOUT** — Crash report (Show log / Share log), About, Help (this
+  manual)
 
 **Export Settings**, **Import Settings** and **Reset Settings** are **not** in
 this menu — they live under **Options → Miscellaneous**, beside the storage

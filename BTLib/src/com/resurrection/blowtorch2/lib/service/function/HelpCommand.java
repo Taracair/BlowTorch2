@@ -57,7 +57,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("rev", "Playing", "walk that speedwalk string backwards");
 		cmd("disconnect", "Playing", "close the connection");
 		cmd("reconnect", "Playing", "close it and open it again");
-		cmd("switch", "Playing", "change to another world");
+		cmd("switch", "Playing", "already-open session by exact display name");
 		cmd("options", "Playing", "open the Options screen, as the menu does");
 		cmd("settings", "Playing", "back up the settings file, or put the kept "
 				+ "copy back");
@@ -73,14 +73,14 @@ public class HelpCommand extends SpecialCommand {
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
-		cmd("window", "The window", "open, close and address extra text windows");
+		cmd("window", "The window", "extra text windows; .window show|hide|create|destroy");
 		cmd("widget", "The window", "HP/mana/timer gauges over the game (.widget add|source|set|…)");
 		cmd("gauge", "The window", "same as .widget");
-		cmd("closewindow", "The window", "close one of them");
+		cmd("closewindow", "The window", "leave the game window (dirty exit)");
 		cmd("search", "The window", "find text in the scrollback or old session logs");
 		cmd("chat", "The window", "left-hand chat drawer; .chat open|close|<name>");
 		cmd("tapmenu", "The window", "how solid the menu a tapped word opens is");
-		cmd("frame", "The window", "the drawn frame some worlds ask for");
+		cmd("frame", "The window", "frames a server opens; .frame list|close|reopen");
 
 		cmd("keyboard", "Input and suggestions",
 				"send a key, or step through command history (.kb for short)");
@@ -95,7 +95,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
 
-		cmd("trigger", "Triggers and scripts", "list, enable and disable triggers");
+		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
 		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
 		cmd("wait", "Triggers and scripts",
@@ -668,7 +668,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "A lone $1 in Reply is treated as $text (C $1). tell $1 $text is the trigger form;\n"
 					+ "Send wants tell Bob $text. Send refuses leftover $1/$text.\n"
 					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default),\n"
-					+ "keep at most N messages (default 4000; 0 = no practical limit).\n";
+					+ "keep at most N messages (default 4000; 0 still caps at 50000).\n";
 		}
 		return null;
 	}
