@@ -2141,6 +2141,39 @@ public class TextTree {
 		return matchCellMap(s, false);
 	}
 
+	/**
+	 * Append {@code first} and following TEXT/WHITESPACE units of the same paint
+	 * until COLOR, newline, tab, or a link. Leaves {@code it} so the next
+	 * {@code next()} is the unit that stopped the run.
+	 * {@code io[0]} gains {@code charcount}, {@code io[1]} gains UTF-16 length.
+	 */
+	static void drainSamePaintText(final ListIterator<Unit> it, final Text first,
+			final StringBuilder out, final int[] io) {
+		Text t = first;
+		for (;;) {
+			final String s = t.getString();
+			if (s != null) {
+				out.append(s);
+				io[1] += s.length();
+			}
+			io[0] += t.charcount;
+			if (!it.hasNext()) {
+				break;
+			}
+			final Unit n = it.next();
+			if (!(n instanceof Text)) {
+				it.previous();
+				break;
+			}
+			final Text next = (Text) n;
+			if (next.getHref() != null || next.isLink()) {
+				it.previous();
+				break;
+			}
+			t = next;
+		}
+	}
+
 	private static boolean matchCellMap(final CharSequence s,
 			final boolean fourBracketsIsMap) {
 		if (s == null || s.length() == 0) {

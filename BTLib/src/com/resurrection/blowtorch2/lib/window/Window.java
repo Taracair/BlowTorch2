@@ -1367,6 +1367,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mPinGlyphsToCells;
 	/** Reused by {@link #lineNeedsCellOrigins}; onDraw must not allocate per line. */
 	private final StringBuilder mDrawLinePlain = new StringBuilder(128);
+	/** Adjacent same-colour words joined during a fling; no per-frame String. */
+	private final StringBuilder mCoalesceRun = new StringBuilder(128);
+	/** workingcol / tapCol out-params for {@link #drawCoalescedScrollRun}. */
+	private final int[] mCoalesceIo = new int[2];
 
 	/**
 	 * Refresh the cached font metrics and the "all printable ASCII is exactly one cell
@@ -1419,8 +1423,42 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return TextTree.paintPinsToCellGrid(mDrawLinePlain);
 	}
 
+	/**
+	 * Finger or fling: one drawText for this colour's words. Idle frames keep
+	 * the per-unit path (selection, search, tap chrome, links).
+	 */
+	private boolean shouldCoalesceScrollRun(final boolean scrollingGesture,
+			final TextTree.Line line, final TextTree.Text text, final boolean doingLink) {
+		return scrollingGesture
+				&& theSelection == null
+				&& selectedSelector == null
+				&& line != mSearchHighlightLine
+				&& !mPinGlyphsToCells
+				&& !doingLink
+				&& text != null
+				&& text.getHref() == null
+				&& !text.isLink();
+	}
+
+	/**
+	 * Consume following TEXT/WHITESPACE units of this colour from
+	 * {@link #unitIterator}. Stops before COLOR, newline, or a link.
+	 * {@code io[0]} is workingcol, {@code io[1]} is tapCol.
+	 */
+	private float drawCoalescedScrollRun(final Canvas c, final TextTree.Text first,
+			final float x, final float y, final Paint textPaint, final Paint bgPaint,
+			final boolean useBackground, final int[] io) {
+		mCoalesceRun.setLength(0);
+		TextTree.drainSamePaintText(unitIterator, first, mCoalesceRun, io);
+		if (useBackground && mCoalesceRun.length() > 0) {
+			c.drawRect(x, cellTop(y), x + cellWidth(CellWidth.cells(mCoalesceRun)),
+					cellBottom(y), bgPaint);
+		}
+		return x + drawTextOnGrid(c, mCoalesceRun, x, y, textPaint);
+	}
+
 	/** True when the unit is nothing but spaces. */
-	private static boolean isAllSpaces(final String s, final int len) {
+	private static boolean isAllSpaces(final CharSequence s, final int len) {
 		for (int i = 0; i < len; i++) {
 			if (s.charAt(i) != ' ') {
 				return false;
@@ -1430,7 +1468,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/** True when every character is printable ASCII, so the probe above covers it. */
-	private static boolean isPlainAscii(final String s, final int len) {
+	private static boolean isPlainAscii(final CharSequence s, final int len) {
 		for (int i = 0; i < len; i++) {
 			final char ch = s.charAt(i);
 			if (ch < 0x20 || ch > 0x7E) {
@@ -1440,7 +1478,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return true;
 	}
 
-	private float drawTextOnGrid(final Canvas c, final String s, final float x, final float y,
+	private float drawTextOnGrid(final Canvas c, final CharSequence s, final float x, final float y,
 			final Paint paint) {
 		if (s == null || s.length() == 0) {
 			return 0f;
@@ -1468,15 +1506,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final boolean overlayPass = paint == mWeightPaint;
 
 		// Cell-map lines stay on cell origins (batched drawText drifted after
-		// emoji fallback). Other uniform ASCII is one drawText per colour run:
-		// dense colour still paid N draws after the per-glyph clip came off.
+		// emoji fallback). Other uniform ASCII is one drawText per colour run.
+		// Upright ASCII does not clip: 5 Sep 2026, per-glyph clips were ~30ms of
+		// a 40ms frame; a clip around every word is the leftover. Italic still
+		// clips — skew hangs into the next run.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
-			final Paint.FontMetrics fm = mGridFontMetrics;
-			final float textTop = baseline + fm.ascent;
-			final float textBot = baseline + fm.descent + 1f;
-			c.save();
-			c.clipRect(x, textTop, x + s.length() * cell, textBot);
+			final boolean clipItalic = paint.getTextSkewX() != 0f;
+			if (clipItalic) {
+				final Paint.FontMetrics fm = mGridFontMetrics;
+				final float textTop = baseline + fm.ascent;
+				final float textBot = baseline + fm.descent + 1f;
+				c.save();
+				c.clipRect(x, textTop, x + s.length() * cell, textBot);
+			}
 			if (mPinGlyphsToCells) {
 				for (int i = 0; i < s.length(); i++) {
 					c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
@@ -1484,7 +1527,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			} else {
 				c.drawText(s, 0, s.length(), x, baseline, paint);
 			}
-			c.restore();
+			if (clipItalic) {
+				c.restore();
+			}
 			drawnWidth = cell * s.length();
 		} else {
 
@@ -1500,14 +1545,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (mGridWidths.length < len) {
 				mGridWidths = new float[len];
 			}
-			paint.getTextWidths(s, mGridWidths);
+			paint.getTextWidths(s, 0, len, mGridWidths);
 
 			float cursor = x;
 			float lastGlyphX = x;
 			int lastGlyphCols = 1;
 			int i = 0;
 			while (i < len) {
-				final int cp = s.codePointAt(i);
+				final int cp = Character.codePointAt(s, i);
 				final int charCount = Character.charCount(cp);
 				final int cols = CellWidth.cells(cp);
 				final boolean isBlock = cp >= 0x2580 && cp <= 0x259F;
@@ -1569,7 +1614,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return drawnWidth;
 	}
 
-	private float gridAdvance(final String s) {
+	private float gridAdvance(final CharSequence s) {
 		if (s == null || s.length() == 0) {
 			return 0f;
 		}
@@ -2727,6 +2772,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					case WHITESPACE:
 					case TEXT:
 						TextTree.Text text = (TextTree.Text) u;
+						if (shouldCoalesceScrollRun(scrollingGesture, l, text, doingLink)) {
+							mCoalesceIo[0] = workingcol;
+							mCoalesceIo[1] = tapCol;
+							x = drawCoalescedScrollRun(c, text, x, y, p, b,
+									useBackground, mCoalesceIo);
+							workingcol = mCoalesceIo[0];
+							tapCol = mCoalesceIo[1];
+							break;
+						}
 						boolean doIndicator = false;
 						int indicatorlineoffset = 0;
 						if (selectedSelector != null && selectedSelector.line == workingline) {
