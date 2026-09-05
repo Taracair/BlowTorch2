@@ -1363,6 +1363,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private float mGridCacheTextSize = -1f;
 	private int mGridCacheCell = -1;
 	private boolean mGridAsciiUniform = false;
+	/** True while this line is a cell map: glyphs stay on column origins. */
+	private boolean mPinGlyphsToCells;
+	/** Reused by {@link #lineNeedsCellOrigins}; onDraw must not allocate per line. */
+	private final StringBuilder mDrawLinePlain = new StringBuilder(128);
 
 	/**
 	 * Refresh the cached font metrics and the "all printable ASCII is exactly one cell
@@ -1393,6 +1397,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 		mGridAsciiUniform = uniform;
+	}
+
+	private boolean lineNeedsCellOrigins(final Line line) {
+		mDrawLinePlain.setLength(0);
+		if (line == null) {
+			return false;
+		}
+		final java.util.LinkedList<TextTree.Unit> data = line.getData();
+		if (data == null) {
+			return false;
+		}
+		for (final TextTree.Unit u : data) {
+			if (u instanceof TextTree.Text) {
+				final String s = ((TextTree.Text) u).getString();
+				if (s != null) {
+					mDrawLinePlain.append(s);
+				}
+			}
+		}
+		return TextTree.paintPinsToCellGrid(mDrawLinePlain);
 	}
 
 	/** True when the unit is nothing but spaces. */
@@ -1443,9 +1467,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
-		// Cell origins: batched drawText drifted after emoji fallback while the
-		// ASCII probe still said uniform. 5 Sep 2026 fling, bold off, ~77 lines:
-		// 40–49ms/frame, gridMs 31–34, ~4400 clips. Clip the run once.
+		// Cell-map lines stay on cell origins (batched drawText drifted after
+		// emoji fallback). Other uniform ASCII is one drawText per colour run:
+		// dense colour still paid N draws after the per-glyph clip came off.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final Paint.FontMetrics fm = mGridFontMetrics;
@@ -1453,8 +1477,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			final float textBot = baseline + fm.descent + 1f;
 			c.save();
 			c.clipRect(x, textTop, x + s.length() * cell, textBot);
-			for (int i = 0; i < s.length(); i++) {
-				c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
+			if (mPinGlyphsToCells) {
+				for (int i = 0; i < s.length(); i++) {
+					c.drawText(s, i, i + 1, x + i * cell, baseline, paint);
+				}
+			} else {
+				c.drawText(s, 0, s.length(), x, baseline, paint);
 			}
 			c.restore();
 			drawnWidth = cell * s.length();
@@ -2664,9 +2692,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					int amount = mOneCharWidth * l.charcount;
 					x = (float) ((mWidth / 2.0) - (amount / 2.0));
 				}
+				mPinGlyphsToCells = lineNeedsCellOrigins(l);
 				unitIterator = l.getIterator();
 				// Whole-line matching, before the coloured runs are drawn.
-				findTapHitsForLine(l);
+				if (!scrollingGesture) {
+					findTapHitsForLine(l);
+				} else {
+					mLineTapHits = NO_TAP_HITS;
+				}
 				tapCol = 0;
 
 				int linemode = 0;
@@ -3795,7 +3828,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
 			final float x, final float y, final Paint p, final boolean scrollingGesture,
 			final int unitStartCol) {
-		if (text == null || mLineTapHits.isEmpty()) {
+		if (scrollingGesture || text == null || mLineTapHits.isEmpty()) {
 			return;
 		}
 		String s = text.getString();

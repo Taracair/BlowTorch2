@@ -2128,6 +2128,21 @@ public class TextTree {
 	 * {@code oO} sky tiles. "You hit [the wolf]" still word-wraps.
 	 */
 	static boolean looksLikeCellMap(final CharSequence s) {
+		return matchCellMap(s, true);
+	}
+
+	/**
+	 * Pin painted glyphs to cell origins. Same scan as {@link #looksLikeCellMap}
+	 * except four {@code [} are not enough: that wrap rule exists so a map
+	 * legend hard-breaks, and it would also catch a line with several
+	 * {@code [tag]} prefixes.
+	 */
+	static boolean paintPinsToCellGrid(final CharSequence s) {
+		return matchCellMap(s, false);
+	}
+
+	private static boolean matchCellMap(final CharSequence s,
+			final boolean fourBracketsIsMap) {
 		if (s == null || s.length() == 0) {
 			return false;
 		}
@@ -2157,7 +2172,10 @@ public class TextTree {
 			prev = cp > 0xFFFF ? 0 : (char) cp;
 			i += Character.charCount(cp);
 		}
-		if (ooPairs >= 3 || brackets >= 4) {
+		if (ooPairs >= 3) {
+			return true;
+		}
+		if (fourBracketsIsMap && brackets >= 4) {
 			return true;
 		}
 		return mapPunct >= 6 && mapPunct >= letters;

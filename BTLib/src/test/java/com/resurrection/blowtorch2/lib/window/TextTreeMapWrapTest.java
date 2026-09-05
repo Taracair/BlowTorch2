@@ -66,6 +66,22 @@ public class TextTreeMapWrapTest {
 	}
 
 	@Test
+	public void taggedChatDoesNotPinPaintToTheCellGrid() {
+		assertFalse(TextTree.paintPinsToCellGrid(
+				"[OOC] [Say] Alice says, 'hello there, everyone in the room'"));
+		assertFalse(TextTree.paintPinsToCellGrid(
+				"[Auction] [Newbie] [Tell] someone laughs at the joke"));
+		assertTrue(TextTree.looksLikeCellMap(
+				"[Auction] [Newbie] [Tell] [OOC] someone laughs at the joke"));
+		assertFalse(TextTree.paintPinsToCellGrid(
+				"[Auction] [Newbie] [Tell] [OOC] someone laughs at the joke"));
+		assertTrue("room map still pins",
+				TextTree.paintPinsToCellGrid("[ ]-[ ]-[ ]-[ ]-[ ]-[ ]"));
+		assertTrue("flying oO still pins",
+				TextTree.paintPinsToCellGrid("oOoOoO      skies above the river (sky)"));
+	}
+
+	@Test
 	public void lmapSpacesHardWrapAtColumn() throws Exception {
 		TextTree tree = new TextTree();
 		tree.setWordWrap(true);
