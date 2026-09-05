@@ -7,10 +7,7 @@ import java.util.regex.Pattern;
 
 /**
  * Split an outbound line on {@code ;}. {@code ;;} is a literal semicolon in
- * that command. A whole segment {@code #} followed by a single {@code ;}
- * becomes {@code ;} so {@code look;#;say hi} is look, a semicolon, say hi.
- * {@code #;;} stays one {@code #;} segment. Android-free so the split is
- * JVM-tested.
+ * that command. Android-free so the split is JVM-tested.
  */
 public final class CommandSemicolon {
 
@@ -54,12 +51,7 @@ public final class CommandSemicolon {
 					}
 					append = false;
 				} else {
-					String piece = commandBuilder.toString();
-					if ("#".equals(piece) && !semicolonFollows(semiMatcher, string)) {
-						list.add(";");
-					} else {
-						list.add(piece);
-					}
+					list.add(commandBuilder.toString());
 				}
 
 			}
@@ -80,10 +72,5 @@ public final class CommandSemicolon {
 		}
 
 		return list;
-	}
-
-	private static boolean semicolonFollows(final Matcher matcher, final String string) {
-		int at = matcher.end();
-		return at < string.length() && string.charAt(at) == ';';
 	}
 }

@@ -189,9 +189,10 @@ Two you only need when something goes wrong:
                      at a password prompt and never gave it back
 
 Semicolons: Options → Service → Process Semicolons? (default on) turns ;
-into a newline so look;score sends two lines. A literal semicolon is
-#; or a whole line of ;; (look;#;say hi sends look, then ;, then say hi).
-Turn it off if your MUD uses ; in commands.
+into a newline so look;score sends two lines. A semicolon the game should
+see inside a command is ;; (say hello;;world sends say hello;world).
+A whole line of ;; sends one semicolon. Turn it off if your MUD uses
+; in commands.
 
 Pace a line: north;.wait 2s;south waits two seconds after north, then
 sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.

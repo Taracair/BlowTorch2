@@ -56,16 +56,10 @@ public class CommandSemicolonTest {
 	}
 
 	@Test
-	public void hashSemicolonSendsASemicolonSegment() {
-		eq("look;#;say hi", "look", ";", "say hi");
-		eq("#;", ";", "");
-		eq("look;#;", "look", ";", "");
+	public void hashThenSemicolonIsNotAnEscape() {
+		eq("look;#;say hi", "look", "#", "say hi");
+		eq("#;", "#", "");
 		eq("#;;", "#;");
 		eq("foo#;bar", "foo#", "bar");
-	}
-
-	@Test
-	public void spaceStaysOnTheSegment() {
-		eq("look; #;say hi", "look", " #", "say hi");
 	}
 }

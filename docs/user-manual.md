@@ -445,16 +445,12 @@ When **Options → Service → Process Semicolons?** is on (the default), a
 `;` splits what you send into several commands. You type `look;score` and
 the game receives `look`, then `score`, the same as two Enter presses.
 
-A semicolon the *game* should see is written as `#;` — a whole segment
-that is just those two characters:
+That split is this client, not a MUD protocol rule. Worlds do not all
+treat `;` as a command. A semicolon the *game* should see **inside** a
+command is written as `;;`:
 
-    look;#;say hi           sends look, then ;, then say hi
-    #;                      sends one semicolon (same as a line that is only `;;`)
-
-Inside one command, `;;` is still a literal semicolon in that command
-(`say hello;;world` sends `say hello;world`). `#;;` is a literal `#;`
-sent as one command, not a split. `#;` is not a repeat (`#5 north`) and
-not a wait (`#wait 5s`).
+    say hello;;world        sends say hello;world
+    ;;                      sends one semicolon (a whole line)
 
 Turn **Process Semicolons?** off if this world uses `;` in its own
 commands and you never want the split.
@@ -490,8 +486,7 @@ always a slip, and a world may read the flood as an attack.
 **Worlds that use `#` themselves.** Two hashes send one literal hash and skip
 the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
 as `#5 north`. A `#` that is not a number followed by a space is never touched,
-so `#help` and `say cost is #3 gold` go out unchanged. `#;` is a
-semicolon (see **Several commands on one line** above), not a repeat.
+so `#help` and `say cost is #3 gold` go out unchanged.
 
 ## Waiting between commands (`.wait` / `#wait`)
 

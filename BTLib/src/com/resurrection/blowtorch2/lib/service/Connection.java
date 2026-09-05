@@ -3646,7 +3646,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return enter;
 		}
 		
-		if (out.equals(";;") || out.equals("#;")) {
+		if (out.equals(";;")) {
 			Data enter = new Data();
 			enter.mCmdString = ";" + mCRLF;
 			// Same inherit path as a plain typed line — respect global local echo.

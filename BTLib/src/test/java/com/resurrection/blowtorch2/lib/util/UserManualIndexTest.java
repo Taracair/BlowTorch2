@@ -146,7 +146,7 @@ public class UserManualIndexTest {
 			if ("Several commands on one line (`;`)".equals(s.title)) {
 				sawSemicolon = true;
 				assertEquals(UserManualIndex.CATEGORY_PLAYING, s.category);
-				assertTrue(s.body.contains("#;"));
+				assertTrue(s.body.contains(";;"));
 			}
 			if ("Chat drawer".equals(s.title)) {
 				sawChatDrawer = true;
