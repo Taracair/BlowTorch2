@@ -54,6 +54,7 @@ public class TriggerElementListener implements ElementListener {
 		
 		current_trigger.setResponders(new ArrayList<TriggerResponder>());
 		current_trigger.setConditions(new ConditionGroup());
+		current_trigger.setStyleMatch(new com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec());
 		
 	
 	}

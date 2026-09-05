@@ -1731,6 +1731,18 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	public final void doExecuteLupa(final int mode) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).executeLupa(mode);
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/** Working implementation of the dirty exit. That is to close the app without closing the connections first. */
 	public final void doDirtyExit() {
 		final int n = mCallbacks.beginBroadcast();

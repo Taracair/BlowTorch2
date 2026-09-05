@@ -23,6 +23,10 @@ import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleColorToken;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec.Gate;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleSnapshot.ColorSpace;
 
 /*! \page page1
 \subsection DeleteTrigger DeleteTrigger
@@ -168,7 +172,12 @@ NewTrigger(name,pattern,config[,action,...])
 --once = [boolean] fire once then stay quiet until enabled again.
 --sequence = [number] smaller runs first (default 10).
 --enabled = [boolean]
---notification action table configuration can have the following properties
+--style = { fg, bg, bright, italic, ... }  -- match incoming SGR; not Color action
+--  fg / bg = number (xterm), "ansi:32", "xterm:208", "rgb:#ff8700"
+--  bright / italic / ... = true (require), false (forbid), nil (ignore)
+--  href = true, false, or a URI string
+--style_fg / style_bright / ... still accepted (same fields, style_ prefix)
+--Empty pattern plus an active style table is a colour-only trigger.
 --{
 --	type="notification", (must be set for the action type)
 --	title = [string], title of the notification
@@ -282,6 +291,10 @@ class NewTriggerFunction extends JavaFunction {
 					t.setGroup(obj.getString());
 				} else if(key.equals("sequence") && type == Plugin.LUA_TNUMBER) {
 					t.setSequence((int) obj.getNumber());
+				} else if(key.equals("style") && type == Plugin.LUA_TTABLE) {
+					applyStyleTable(t.getStyleMatch());
+				} else if(key.startsWith("style_")) {
+					applyStyleField(t.getStyleMatch(), key.substring("style_".length()), obj, type);
 				}
 				Log.e("LUA","KEY: " + key + " VALUE: " + value + " TYPE: "+type);
 				this.L.pop(1);
@@ -574,6 +587,166 @@ class NewTriggerFunction extends JavaFunction {
 			this.L.pop(1);
 		}
 		return nested;
+	}
+
+	private void applyStyleTable(final StyleMatchSpec spec) {
+		this.L.pushNil();
+		while (this.L.next(-2) != 0) {
+			String key = this.L.getLuaObject(-2).getString();
+			LuaObject obj = this.L.getLuaObject(-1);
+			applyStyleField(spec, key, obj, obj.type());
+			this.L.pop(1);
+		}
+	}
+
+	private static void applyStyleField(final StyleMatchSpec spec, final String field,
+			final LuaObject obj, final int type) {
+		if (spec == null || field == null) {
+			return;
+		}
+		String key = field.startsWith("style_") ? field.substring("style_".length()) : field;
+		if ("combine".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setCombine(StyleMatchSpec.Combine.fromXml(s));
+			}
+			return;
+		}
+		if ("extras".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setExtras(StyleMatchSpec.Extras.fromXml(s));
+			}
+			return;
+		}
+		if ("color".equals(key) || "colorMode".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setColorMode(StyleMatchSpec.ColorMode.fromXml(s));
+			}
+			return;
+		}
+		if ("text".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setText(s);
+			}
+			return;
+		}
+		if ("text_gate".equals(key) || "textGate".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setTextGate(Gate.fromXml(s));
+			}
+			return;
+		}
+		if ("text_regex".equals(key) || "textRegex".equals(key)) {
+			String s = luaScalar(obj, type);
+			if (s != null) {
+				spec.setTextRegex("true".equalsIgnoreCase(s) || "1".equals(s));
+			}
+			return;
+		}
+		if ("fg".equals(key)) {
+			applyColorField(spec, true, obj, type);
+			return;
+		}
+		if ("bg".equals(key)) {
+			applyColorField(spec, false, obj, type);
+			return;
+		}
+		if ("href".equals(key)) {
+			if (type == Plugin.LUA_TBOOLEAN) {
+				spec.setHref(obj.getBoolean() ? Gate.REQUIRE : Gate.FORBID, "");
+				return;
+			}
+			String hv = luaScalar(obj, type);
+			if (hv == null) {
+				return;
+			}
+			Gate g = Gate.fromXml(hv);
+			if (g != Gate.IGNORE
+					|| "ignore".equalsIgnoreCase(hv)
+					|| "keep".equalsIgnoreCase(hv)) {
+				spec.setHref(g, "");
+			} else {
+				spec.setHref(Gate.REQUIRE, hv);
+			}
+			return;
+		}
+		String s = luaScalar(obj, type);
+		if (s == null) {
+			return;
+		}
+		Gate gate = Gate.fromXml(s);
+		if ("weight".equals(key)) {
+			spec.setWeight(gate);
+		} else if ("bright".equals(key)) {
+			spec.setBright(gate);
+		} else if ("italic".equals(key)) {
+			spec.setItalic(gate);
+		} else if ("underline".equals(key)) {
+			spec.setUnderline(gate);
+		} else if ("strike".equals(key)) {
+			spec.setStrike(gate);
+		} else if ("reverse".equals(key)) {
+			spec.setReverse(gate);
+		} else if ("faint".equals(key)) {
+			spec.setFaint(gate);
+		} else if ("blink".equals(key)) {
+			spec.setBlink(gate);
+		}
+	}
+
+	private static String luaScalar(final LuaObject obj, final int type) {
+		if (obj == null) {
+			return null;
+		}
+		if (type == Plugin.LUA_TBOOLEAN) {
+			return obj.getBoolean() ? "true" : "false";
+		}
+		if (type == Plugin.LUA_TNUMBER) {
+			double n = obj.getNumber();
+			if (n == (long) n) {
+				return Long.toString((long) n);
+			}
+			return Double.toString(n);
+		}
+		if (type == Plugin.LUA_TSTRING) {
+			return obj.getString();
+		}
+		return null;
+	}
+
+	private static void applyColorField(final StyleMatchSpec spec,
+			final boolean foreground, final LuaObject obj, final int type) {
+		if (type == Plugin.LUA_TNUMBER) {
+			int n = (int) obj.getNumber();
+			if (foreground) {
+				spec.setFg(Gate.REQUIRE, ColorSpace.XTERM256, n);
+			} else {
+				spec.setBg(Gate.REQUIRE, ColorSpace.XTERM256, n);
+			}
+			return;
+		}
+		String token = luaScalar(obj, type);
+		if (token == null) {
+			return;
+		}
+		applyColorToken(spec, foreground, token);
+	}
+
+	private static void applyColorToken(final StyleMatchSpec spec,
+			final boolean foreground, final String token) {
+		StyleColorToken parsed = StyleColorToken.parse(token);
+		if (parsed == null) {
+			return;
+		}
+		if (foreground) {
+			spec.setFg(Gate.REQUIRE, parsed.space, parsed.code);
+		} else {
+			spec.setBg(Gate.REQUIRE, parsed.space, parsed.code);
+		}
 	}
 	
 }

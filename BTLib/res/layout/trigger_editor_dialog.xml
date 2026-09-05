@@ -82,7 +82,7 @@
   					android:paddingLeft="10dip"/>
   				<EditText
   					android:id="@+id/trigger_editor_pattern"
-  					android:hint=""
+  					android:hint="text, regex, or blank if Match style is on"
   					android:layout_marginRight="10dip"
   					android:layout_width="0dip"
   					android:layout_weight="1"
@@ -223,6 +223,76 @@
   			android:paddingBottom="8dip"
   			android:textSize="12sp"
   			android:textColor="@color/chrome_description"/>
+    		<LinearLayout
+  			android:id="@+id/trigger_style_header"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginTop="8dip"
+  			android:orientation="horizontal"
+  			android:gravity="center_vertical"
+  			android:minHeight="34dip"
+  			android:background="@drawable/sensor_section_bg"
+  			android:paddingLeft="10dip"
+  			android:paddingRight="4dip">
+  			<TextView
+  				android:layout_width="0dip"
+  				android:layout_height="wrap_content"
+  				android:layout_weight="1"
+  				android:text="MATCH STYLE"
+  				android:gravity="center_vertical"
+  				android:textStyle="bold"
+  				android:textAllCaps="true"
+  				android:textSize="12dip"
+  				android:letterSpacing="0.06"
+  				android:textColor="@color/chrome_section_text"/>
+  		</LinearLayout>
+  		<TextView
+  			android:id="@+id/trigger_style_hint"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="6dip"
+  			android:paddingTop="6dip"
+  			android:paddingBottom="4dip"
+  			android:textColor="@color/chrome_description"
+  			android:textSize="12sp"
+  			android:text="Ignore / Require / Forbid each attribute. Empty pattern plus a Require or Forbid is colour-only. Pattern plus style: the matched span must also match the style. Colour actions you paint do not count as the world's style. .lupa copies layers in."/>
+  		<Spinner
+  			android:id="@+id/trigger_style_combine"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:minHeight="40dip"
+  			android:popupBackground="#FF000000"/>
+  		<Spinner
+  			android:id="@+id/trigger_style_extras"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:minHeight="40dip"
+  			android:popupBackground="#FF000000"/>
+  		<Spinner
+  			android:id="@+id/trigger_style_color_mode"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:minHeight="40dip"
+  			android:popupBackground="#FF000000"/>
+  		<LinearLayout
+  			android:id="@+id/trigger_style_layers"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginBottom="8dip"
+  			android:orientation="vertical"/>
     		<LinearLayout
   			android:id="@+id/trigger_conditions_header"
   			android:layout_width="match_parent"

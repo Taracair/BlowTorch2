@@ -115,6 +115,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
 		cmd("colordebug", "Triggers and scripts", "show the colour codes in a line");
+		cmd("lupa", "Triggers and scripts",
+				"inspect colour/style under a finger; copy layers or open a trigger");
 
 		cmd("gmcp", "The world and its protocols", "what the world is sending over GMCP");
 		cmd("mcp", "The world and its protocols", "MCP packages and negotiation");
@@ -624,6 +626,21 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .tips always       — every time\n"
 					+ "  .tips off          — stop\n"
 					+ "  Then type .help or .osc8 — not .alias\n";
+		}
+		if (filter.equals("lupa")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .lupa:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .lupa / .lupa once   until the first copy, then off\n"
+					+ "  .lupa hold / .lupa on  until .lupa off\n"
+					+ "  .lupa tap            one drag; list is tappable on release, then off\n"
+					+ "  .lupa off\n"
+					+ "Drag a glyph: live layer list beside the finger. Release: tick layers.\n"
+					+ "Copy puts the ticked values on the clipboard. New trigger opens the\n"
+					+ "editor with those layers already Required. Tick Exact recipe vs Looks\n"
+					+ "the same, ALL vs ANY, extra attributes OK vs none, on the list itself.\n"
+					+ "A Color action you painted is not the world's style and is skipped.\n"
+					+ "Keep .colordebug to dump CSI in the draw path; lupa does not replace it.\n";
 		}
 		if (filter.equals("search")) {
 			return "\n"

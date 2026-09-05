@@ -9,6 +9,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec.Gate;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleSnapshot.ColorSpace;
+import com.resurrection.blowtorch2.lib.window.TextTree;
 
 import org.junit.Test;
 
@@ -199,5 +204,87 @@ public class TriggerCascadeTest {
 		assertEquals("price", c.nextHit().trigger.getName());
 		c.stop();
 		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void styleOnlyFiresOnMatchingRun() throws Exception {
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("\u001B[32mloot\n".getBytes("UTF-8"));
+		StyleLineModel[] models = StyleLineModel.buildTree(tree);
+		int[] starts = new int[] { 0 };
+		TriggerData t = new TriggerData();
+		t.setName("green");
+		t.setPattern("");
+		t.setEnabled(true);
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setFg(Gate.REQUIRE, ColorSpace.ANSI16, 32);
+		t.setStyleMatch(spec);
+		TriggerCascade c = compile(t);
+		assertTrue(c.hasStyleWork());
+		c.reset("loot\n");
+		c.attachStyle(models, starts);
+		TriggerCascade.Hit hit = c.nextHit();
+		assertEquals("green", hit.trigger.getName());
+		assertEquals("loot", hit.matched());
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void regexPlusStyleSkipsWrongColour() throws Exception {
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("\u001B[32mloot\u001B[0m loot\n".getBytes("UTF-8"));
+		StyleLineModel[] models = StyleLineModel.buildTree(tree);
+		int[] starts = new int[] { 0 };
+		TriggerData t = trigger("loot-green", "loot");
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setFg(Gate.REQUIRE, ColorSpace.ANSI16, 32);
+		t.setStyleMatch(spec);
+		TriggerCascade c = compile(t);
+		c.reset("loot loot\n");
+		c.attachStyle(models, starts);
+		List<TriggerCascade.Hit> hits = new ArrayList<TriggerCascade.Hit>();
+		TriggerCascade.Hit h;
+		while ((h = c.nextHit()) != null) {
+			hits.add(h);
+		}
+		assertEquals(1, hits.size());
+		assertEquals(0, hits.get(0).start);
+	}
+
+	@Test
+	public void regexPlusStyleWithoutAttachDoesNotFire() {
+		TriggerData t = trigger("loot-green", "loot");
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setFg(Gate.REQUIRE, ColorSpace.ANSI16, 32);
+		t.setStyleMatch(spec);
+		TriggerCascade c = compile(t);
+		c.reset("loot\n");
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void regexPlusStyleFailsClosedOnLengthMismatch() throws Exception {
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("\u001B[32mloot\n".getBytes("UTF-8"));
+		StyleLineModel[] models = StyleLineModel.buildTree(tree);
+		int[] starts = new int[] { 0 };
+		TriggerData t = trigger("loot-green", "loot");
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setFg(Gate.REQUIRE, ColorSpace.ANSI16, 32);
+		t.setStyleMatch(spec);
+		TriggerCascade c = compile(t);
+		c.reset("loot\n");
+		c.attachStyle(models, starts, new int[] { 99 });
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void blankPatternWithoutStyleIsNotCompiled() {
+		TriggerData t = new TriggerData();
+		t.setName("empty");
+		t.setPattern("");
+		t.setEnabled(true);
+		TriggerCascade c = compile(t);
+		assertTrue(c.isEmpty());
 	}
 }

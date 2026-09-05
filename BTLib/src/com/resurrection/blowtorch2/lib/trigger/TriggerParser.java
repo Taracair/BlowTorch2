@@ -34,6 +34,8 @@ public final class TriggerParser {
 		trigger.setElementListener(listener);
 
 		ConditionParser.registerListeners(trigger, current_trigger);
+		com.resurrection.blowtorch2.lib.trigger.style.StyleMatchXml.registerListeners(
+				trigger, current_trigger);
 		AckResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
 		ToastResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
@@ -74,6 +76,8 @@ public final class TriggerParser {
 			}
 			
 			ConditionParser.saveConditionsToXML(out, trigger);
+			com.resurrection.blowtorch2.lib.trigger.style.StyleMatchXml.saveToXML(out,
+					trigger.getStyleMatch());
 			for(TriggerResponder r : trigger.getResponders()){
 				r.saveResponderToXML(out);
 			}

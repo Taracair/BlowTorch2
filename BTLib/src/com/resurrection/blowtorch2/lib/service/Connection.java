@@ -92,6 +92,8 @@ import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.LineModCount;
 import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
+import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -453,6 +455,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Whether a colour trigger's colour is still running, across dispatches. */
 	private final TriggerColorState mTriggerColor = new TriggerColorState();
 
+	/** Accumulated MUD SGR for style matching. Not {@code getBleedColor()}. */
+	private SgrRegisters mStyleRegisters = SgrRegisters.defaults();
+	private StyleLineModel[] mDispatchStyleModels;
+	private int[] mDispatchStyleStarts;
+	private int[] mDispatchStyleLens;
+
 	/** Mapping of link paths to plugin names. */
 	HashMap<String, ArrayList<String>> mLinkMap = new HashMap<String, ArrayList<String>>();
 
@@ -659,6 +667,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
+		com.resurrection.blowtorch2.lib.service.function.LupaCommand lupacmd =
+				new com.resurrection.blowtorch2.lib.service.function.LupaCommand();
+		mSpecialCommands.put(lupacmd.commandName, lupacmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
 		FrameCommand framecmd = new FrameCommand();
@@ -812,6 +823,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mReconnect.onConnected();
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
+				mStyleRegisters = SgrRegisters.defaults();
+				mDispatchStyleModels = null;
 				mSessionLog.onConnected();
 				applyInputAssistSettings();
 				if (mProcessor != null) {
@@ -1848,7 +1861,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return true when it belongs in {@link TriggerCascade}.
 	 */
 	private static boolean isMatchableTrigger(final TriggerData t) {
-		if (t == null || !t.isEnabled() || t.getPattern() == null) {
+		if (t == null || !t.isEnabled()) {
+			return false;
+		}
+		if (t.isStyleOnly()) {
+			return true;
+		}
+		if (t.isBlankPattern() || t.getPattern() == null) {
 			return false;
 		}
 		if (!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
@@ -1864,6 +1883,37 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return false;
 		}
 		return true;
+	}
+
+	private void snapshotStyleForDispatch() {
+		SgrRegisters walk = mStyleRegisters.copy();
+		mDispatchStyleModels = StyleLineModel.buildTree(mWorking, walk);
+		mStyleRegisters = walk;
+		int n = mWorking.getLines().size();
+		mDispatchStyleStarts = new int[n];
+		mDispatchStyleLens = new int[n];
+		for (int i = 0; i < n; i++) {
+			mDispatchStyleStarts[i] = -1;
+			mDispatchStyleLens[i] = -1;
+		}
+		for (Range r : mLineMap) {
+			int line = r.getLine();
+			if (line >= 0 && line < n) {
+				mDispatchStyleStarts[line] = r.getStart();
+				mDispatchStyleLens[line] = r.getEnd() - r.getStart();
+			}
+		}
+	}
+
+	private void attachStyleToCascade() {
+		if (mTriggerCascade == null || !mTriggerCascade.hasStyleWork()) {
+			return;
+		}
+		if (mDispatchStyleModels == null || mDispatchStyleStarts == null) {
+			return;
+		}
+		mTriggerCascade.attachStyle(mDispatchStyleModels, mDispatchStyleStarts,
+				mDispatchStyleLens);
 	}
 
 	/** Rebuild the cascade that dispatch walks, plus gestures, MCP and tap rules.
@@ -2917,6 +2967,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} else {
 			return;
 		}
+		snapshotStyleForDispatch();
 		if (found) {
 			boolean done = false;
 			HashSet<Integer> removedLines = new HashSet<Integer>();
@@ -2932,6 +2983,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				done = true;
 				boolean rebuildTriggers = false;
 				mTriggerCascade.reset(stripped);
+				attachStyleToCascade();
 				TriggerCascade.Hit hit;
 				while (continueScan && (hit = mTriggerCascade.nextHit()) != null) {
 					int s = hit.start;
@@ -8155,6 +8207,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.noteConnectionEnded(mDisplay, mLastDurationMs);
 		}
 		mIsConnected = false;
+		mStyleRegisters = SgrRegisters.defaults();
+		mDispatchStyleModels = null;
 		mSessionLog.onDisconnected();
 	}
 

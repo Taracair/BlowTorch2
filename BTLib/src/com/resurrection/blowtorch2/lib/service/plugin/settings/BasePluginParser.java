@@ -98,6 +98,19 @@ public class BasePluginParser {
 	
 	public static final String TAG_SETVARIABLE = "setVariable";
 
+	public static final String TAG_STYLE_MATCH = "styleMatch";
+	public static final String TAG_STYLE_LAYER = "layer";
+	public static final String ATTR_STYLE_COMBINE = "combine";
+	public static final String ATTR_STYLE_EXTRAS = "extras";
+	public static final String ATTR_STYLE_COLOR_MODE = "colorMode";
+	public static final String ATTR_STYLE_TEXT = "text";
+	public static final String ATTR_STYLE_TEXT_REGEX = "textRegex";
+	public static final String ATTR_STYLE_TEXT_GATE = "textGate";
+	public static final String ATTR_STYLE_GATE = "gate";
+	public static final String ATTR_STYLE_SPACE = "space";
+	public static final String ATTR_STYLE_CODE = "code";
+	public static final String ATTR_STYLE_HREF = "href";
+
 	public static final String TAG_CONDITIONS = "conditions";
 	public static final String TAG_CONDITION = "condition";
 	public static final String ATTR_CONDITIONS_OP = "op";

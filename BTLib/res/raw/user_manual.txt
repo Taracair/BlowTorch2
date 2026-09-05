@@ -652,6 +652,15 @@ In the trigger editor:
   `plugin:name` ok), Alias enabled/disabled, Alias replacement equals,
   Variable equals/exists/below/above. Set vars with the **Set Variable** responder or
   Lua `SetVariable` / `GetVariable` / `UnsetVariable` (Lua stays session-only).
+- **Match style** → Ignore / Require / Forbid each incoming colour and SGR
+  flag (bright vs bold, italic, underline, strike, reverse, faint, blink,
+  OSC 8 link). **ALL layers** vs **ANY layer**. Extra attributes OK vs none
+  (unexpected underline is fine if you only required bold, or it is not).
+  **Exact recipe** vs **Looks the same** (Colorizer RGB before Light paper).
+  Pattern may be blank when a Require or Forbid is set — colour-only.
+  Pattern plus style: the text matches as today, and the matched span must
+  also pass the style. Colour from a Color action is not the world's style.
+  `.lupa` copies ticked layers into a new trigger or the clipboard.
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
@@ -1503,6 +1512,7 @@ is enabled; `.alias list` shows every alias at once.
 ## Built-in commands
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
+    `.lupa [once|hold|tap|off]`         Inspect colour/style under a finger; copy layers or open a trigger. See forms below
     `.closewindow`                      Leave the game window (dirty exit). Not the same as `.window hide` (one extra-text window)
     `.tutorial …`                       Starter Tutorial lessons (`start` / `next` / `topics` / `<topic>`). Works in any world
     `.tips on|always|off`               Short reminders the first time you type a `.command` that session
@@ -1582,6 +1592,29 @@ main + plugin counts. Empty group name matches the default group (exact
 string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 **main + all plugins**. `.trigger all` affects main only; use
 `.trigger plugin <plugin> all on|off` for one plugin.
+
+### `.lupa` forms
+
+```
+.lupa
+.lupa once
+.lupa hold
+.lupa on
+.lupa tap
+.lupa off
+```
+
+`.lupa` with no argument is **once**: stays until the first Copy or New trigger,
+then off. **hold** / **on** stays until `.lupa off`. **tap** is one gesture.
+
+Drag a glyph: a live list of layers appears beside the finger. Release: the
+list is tappable. Tick the layers you want (one, two, three, …). Tap the
+list header to switch Exact recipe / Looks the same, ALL / ANY, extra
+attributes OK / none. **Copy** puts the ticked values on the clipboard.
+**New trigger** opens the trigger editor with those layers already Required
+and actions empty.
+
+`.colordebug` still dumps CSI in the draw path; lupa does not replace it.
 
 ### `.probe lines`
 

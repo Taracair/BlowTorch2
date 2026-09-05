@@ -16,6 +16,7 @@ import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -39,6 +40,7 @@ public class TriggerData implements Parcelable {
 	private String group = DEFAULT_GROUP;
 	private List<TriggerResponder> responders;
 	private ConditionGroup conditions;
+	private StyleMatchSpec styleMatch;
 	
 	private Pattern p = null;
 	private Matcher m = null;
@@ -50,6 +52,7 @@ public class TriggerData implements Parcelable {
 		interpretAsRegex = false;
 		responders = new ArrayList<TriggerResponder>();
 		conditions = new ConditionGroup();
+		styleMatch = new StyleMatchSpec();
 		fireOnce = false;
 		hidden = false;
 		enabled = true;
@@ -75,6 +78,7 @@ public class TriggerData implements Parcelable {
 			tmp.responders.add(responder.copy());
 		}
 		tmp.conditions = this.conditions != null ? this.conditions.copy() : new ConditionGroup();
+		tmp.styleMatch = this.styleMatch != null ? this.styleMatch.copy() : new StyleMatchSpec();
 		tmp.buildData();
 		return tmp;
 	}
@@ -226,6 +230,9 @@ public class TriggerData implements Parcelable {
 		ConditionGroup otherCond = test.conditions != null ? test.conditions : new ConditionGroup();
 		ConditionGroup myCond = this.conditions != null ? this.conditions : new ConditionGroup();
 		if(!otherCond.equals(myCond)) return false;
+		StyleMatchSpec otherStyle = test.styleMatch != null ? test.styleMatch : new StyleMatchSpec();
+		StyleMatchSpec myStyle = this.styleMatch != null ? this.styleMatch : new StyleMatchSpec();
+		if(!otherStyle.equals(myStyle)) return false;
 		if(test.responders.size() != this.responders.size()) return false;
 		Iterator<TriggerResponder> test_responders = test.responders.iterator();
 		Iterator<TriggerResponder> my_responders = this.responders.iterator();
@@ -349,6 +356,10 @@ public class TriggerData implements Parcelable {
 		if (conditions == null) {
 			conditions = new ConditionGroup();
 		}
+		styleMatch = in.readParcelable(StyleMatchSpec.class.getClassLoader());
+		if (styleMatch == null) {
+			styleMatch = new StyleMatchSpec();
+		}
 	}
 	
 	//save these for later.
@@ -382,6 +393,7 @@ public class TriggerData implements Parcelable {
 			//}
 		}
 		out.writeParcelable(conditions != null ? conditions : new ConditionGroup(), 0);
+		out.writeParcelable(styleMatch != null ? styleMatch : new StyleMatchSpec(), 0);
 	}
 
 	public void setName(String name) {
@@ -508,7 +520,25 @@ public class TriggerData implements Parcelable {
 	public void setConditions(ConditionGroup conditions) {
 		this.conditions = conditions != null ? conditions : new ConditionGroup();
 	}
-		
-	//}
+
+	public StyleMatchSpec getStyleMatch() {
+		if (styleMatch == null) {
+			styleMatch = new StyleMatchSpec();
+		}
+		return styleMatch;
+	}
+
+	public void setStyleMatch(StyleMatchSpec styleMatch) {
+		this.styleMatch = styleMatch != null ? styleMatch : new StyleMatchSpec();
+	}
+
+	public boolean isBlankPattern() {
+		return pattern == null || pattern.trim().length() == 0;
+	}
+
+	/** Style recipe with no text pattern — matched as runs, not regex. */
+	public boolean isStyleOnly() {
+		return isBlankPattern() && getStyleMatch().isActive();
+	}
 
 }

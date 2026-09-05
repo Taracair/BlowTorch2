@@ -105,7 +105,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			new ArrayList<TriggerSampleHits.Candidate>();
 	
 	String selectedPlugin = null;
-	
+	private StyleMatchEditor styleMatchEditor;
+
 	public TriggerEditorDialog(Context context,TriggerData input,IConnectionBinder pService,Handler finisher,String selectedPlugin,boolean showWarning) {
 		super(context, EditorDialogChrome.fullScreenTheme());
 		mEditorWarning = showWarning;
@@ -146,6 +147,26 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		the_trigger.setEnabled(true);
 	}
 
+	/**
+	 * Prefill Match style from the lupa. Call before {@code show()}.
+	 */
+	public void presetStyle(
+			final com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec spec,
+			final String pattern) {
+		if (spec == null || isEditor) {
+			return;
+		}
+		the_trigger.setStyleMatch(spec);
+		if (pattern != null && pattern.length() > 0) {
+			the_trigger.setPattern(pattern);
+			the_trigger.setInterpretAsRegex(false);
+		}
+		if (the_trigger.getName() == null || the_trigger.getName().length() == 0) {
+			the_trigger.setName("style");
+		}
+		the_trigger.setEnabled(true);
+	}
+
 	public void onCreate(Bundle b) {
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
@@ -157,6 +178,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		actionList = (LinearLayout)findViewById(R.id.trigger_action_list);
 		refreshResponderTable();
 		setupConditionsSection();
+		setupStyleMatchSection();
 		
 		Button newresponder = (Button)findViewById(R.id.trigger_new_notification);
 		newresponder.setOnClickListener(new NewResponderListener());
@@ -338,13 +360,28 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		});
 	}
 
-	/** Lock or release the two fields a gesture owns. */
+	/** Lock or release the two fields a gesture owns. Gestures are not game text. */
 	private void applySourceLock(final EditText pattern, final CheckBox literal,
 			final boolean isGesture) {
 		pattern.setEnabled(!isGesture);
 		pattern.setFocusable(!isGesture);
 		pattern.setFocusableInTouchMode(!isGesture);
 		literal.setEnabled(!isGesture);
+		int vis = isGesture ? View.GONE : View.VISIBLE;
+		int[] ids = new int[] {
+				R.id.trigger_style_header,
+				R.id.trigger_style_hint,
+				R.id.trigger_style_combine,
+				R.id.trigger_style_extras,
+				R.id.trigger_style_color_mode,
+				R.id.trigger_style_layers
+		};
+		for (int i = 0; i < ids.length; i++) {
+			View v = findViewById(ids[i]);
+			if (v != null) {
+				v.setVisibility(vis);
+			}
+		}
 	}
 
 	/** Suggest existing group names; autocomplete + dropdown spinner of known groups. */
@@ -723,6 +760,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		com.resurrection.blowtorch2.lib.window.EditorHelp.show(
 				getContext(), "Trigger editor",
 				PATTERN_HELP_TEXT + "\n\n"
+						+ MATCH_STYLE_HELP_TEXT + "\n\n"
 						+ com.resurrection.blowtorch2.lib.window.EditorHelp.TRIGGER_EDITOR_CONDITIONS);
 	}
 
@@ -773,6 +811,24 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "A DOLLAR IN THE GAME TEXT\n"
 			+ "In a regular expression $ means end of line, not a price. To match "
 			+ "earned $70 write earned \\$70.";
+
+	static final String MATCH_STYLE_HELP_TEXT =
+			"MATCH STYLE\n"
+			+ "Each attribute is Ignore, Require or Forbid. Ignore means you do not "
+			+ "care. Require means that attribute must be on the matched glyphs. "
+			+ "Forbid means it must not.\n\n"
+			+ "ALL layers: every Require/Forbid must hold. ANY layer: one of them is "
+			+ "enough. Extra attributes OK lets the glyph carry flags you ignored "
+			+ "(underline is fine if you only required bold). No extra attributes "
+			+ "means ignored flags must be off.\n\n"
+			+ "Exact recipe compares how the world sent the colour (ANSI vs 256 vs "
+			+ "RGB). Looks the same compares the RGB Colorizer would use before Light "
+			+ "paper. Colour you paint with a Color action is not the world's style "
+			+ "and is not matched.\n\n"
+			+ "The pattern may be blank when Match style is active — then every run "
+			+ "of that recipe fires. Pattern plus style: the regex matches as today, "
+			+ "and the matched span must also pass the style. .lupa copies layers "
+			+ "into a new trigger or the clipboard.";
 
 	/**
 	 * Snapshot the alias names so the preview can resolve $alias{...} without a
@@ -837,6 +893,18 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			retval = true;
 		}
 
+		if (styleMatchEditor != null) {
+			com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec now =
+					styleMatchEditor.collect();
+			com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec orig =
+					original_trigger.getStyleMatch() != null
+							? original_trigger.getStyleMatch()
+							: new com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec();
+			if (!orig.equals(now)) {
+				retval = true;
+			}
+		}
+
 		boolean checkresponder = false;
 		if(test.getResponders().size() == the_trigger.getResponders().size()) { checkresponder = true; } else { retval = true; }
 		
@@ -881,34 +949,42 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			
 			Validator checker = new Validator();
 			checker.add(title, Validator.VALIDATE_NOT_BLANK, "Trigger name");
-			checker.add(pattern,Validator.VALIDATE_NOT_BLANK,"Pattern");
-			
+
 			String result = checker.validate();
 			if(result != null) {
 				checker.showMessage(TriggerEditorDialog.this.getContext(), result);
 				return;
 			}
-			
+
 			CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
-			
-			if(pattern.getText().toString().equals("")) {
-				//the pattern can not be blank.
+			String patternText = pattern.getText().toString();
+			boolean gesture = literal != null
+					&& com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+							.isGesturePattern(patternText, literal.isChecked());
+			if (gesture) {
+				the_trigger.setStyleMatch(
+						new com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec());
+			} else {
+				collectStyleMatch();
+			}
+			boolean styleOn = the_trigger.getStyleMatch() != null
+					&& the_trigger.getStyleMatch().isActive();
+			if ((patternText == null || patternText.trim().length() == 0) && !styleOn) {
 				AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 				builder.setPositiveButton("Acknowledge.", new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface arg0, int arg1) {
 						arg0.dismiss();
 					}
 				});
-				
-				builder.setMessage("Pattern can not be blank.");
+				builder.setMessage("Pattern or match style required.");
 				builder.setTitle("Pattern error.");
 				AlertDialog error = builder.create();
 				error.show();
-				
 				return;
-			} else {
-				//check to make sure it is a valid pattern
-				if(the_trigger.isInterpretAsRegex()) {
+			}
+
+			if (literal != null && !literal.isChecked()
+					&& patternText != null && patternText.length() > 0) {
 					try {
 						// Against the resolved text: $alias{...} is pasted in
 						// before the service compiles this, so refusing the
@@ -931,22 +1007,19 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 						
 						AlertDialog error = builder.create();
 						error.show();
-						//AlertDialog error = builder.create();
-						//error.show();
 						TextView tvtmp = (TextView)error.findViewById(android.R.id.message);
 						tvtmp.setTypeface(Typeface.MONOSPACE);
 						
 						return;
 					}
-				}
 			}
 			
 			// A sensor reading arrives here with its pattern already filled in,
 			// so Done is valid the moment the editor opens and one tap saves a
 			// trigger with nothing in it. It then shows up on the Sensors list
-			// as set up, which is the opposite of true. A text trigger cannot
-			// reach this state — its pattern starts blank and the check above
-			// stops it — so the guard is only for the readings.
+			// as set up, which is the opposite of true. Style-only text
+			// triggers can reach Done with a blank pattern; this guard is
+			// still only for the readings.
 			if (the_trigger.getResponders().isEmpty()
 					&& com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
 							.isGesturePattern(pattern.getText().toString(),
@@ -1591,6 +1664,19 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			});
 		}
 		refreshConditionsTable();
+	}
+
+	private void setupStyleMatchSection() {
+		styleMatchEditor = new StyleMatchEditor(getContext());
+		styleMatchEditor.bind(findViewById(R.id.newtriggerlayout),
+				the_trigger.getStyleMatch());
+	}
+
+	private void collectStyleMatch() {
+		if (styleMatchEditor == null) {
+			return;
+		}
+		the_trigger.setStyleMatch(styleMatchEditor.collect());
 	}
 
 	private void updateConditionsHint() {

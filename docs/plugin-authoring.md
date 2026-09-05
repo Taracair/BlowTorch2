@@ -553,7 +553,26 @@ comment set; this section is the maintained summary.
 | `UnsetVariable(name)` | Clear |
 
 **`NewTrigger` config table** (common keys): `regex`, `group`, `once` (not
-`fireOnce`), `enabled`, `sequence` (number; smaller runs first, default 10).
+`fireOnce`), `enabled`, `sequence` (number; smaller runs first, default 10),
+`style` (nested table — match incoming SGR, not a Color action):
+
+```lua
+NewTrigger("red_says", "says", {
+  regex = false,
+  style = {
+    fg = 196,          -- number is xterm 256; or "ansi:32" / "xterm:208" / "rgb:#ff8700"
+    bright = true,     -- SGR 1 (require). false = forbid. omit = ignore
+    italic = true,
+  },
+}, { type = "gag" })
+
+NewTrigger("any_red", "", { style = { fg = 196 } },
+  { type = "color", foreground = "#ff8800", background = false })
+```
+
+Do not put match keys on `{ type = "color", ... }` — `bold` there is Color Bold
+(private SGR 66), not MUD `[1m`. Prefixed `style_fg` / `style_bright` keys still
+work if you prefer a flat config table.
 
 **Action tables** (`type` required):
 

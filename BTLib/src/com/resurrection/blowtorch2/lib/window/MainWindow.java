@@ -126,6 +126,8 @@ import com.resurrection.blowtorch2.lib.speedwalk.BetterSpeedWalkConfigurationDia
 import com.resurrection.blowtorch2.lib.speedwalk.SpeedWalkConfigurationDialog;
 import com.resurrection.blowtorch2.lib.timer.BetterTimerSelectionDialog;
 import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
+import com.resurrection.blowtorch2.lib.trigger.TriggerEditorDialog;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
@@ -182,6 +184,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_SAVEERROR = 3993;
 	protected static final int MESSAGE_PLUGINSAVEERROR = 3994;
 	protected static final int MESSAGE_COLORDEBUG = 675;
+	protected static final int MESSAGE_LUPA = 676;
+	public static final int MESSAGE_OPEN_STYLE_TRIGGER = 677;
 	protected static final int MESSAGE_DIRTYEXITNOW = 943;
 	protected static final int MESSAGE_DOHAPTICFEEDBACK = 856;
 	public static final int MESSAGE_DELETEBUTTONSET = 867;
@@ -1325,6 +1329,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//execute color debug.
 					//screen2.setColorDebugMode(msg.arg1);
 					//TODO: COLOR DEBUG MODE
+					break;
+				case MESSAGE_LUPA:
+					applyStyleLupaMode(msg.arg1);
+					break;
+				case MESSAGE_OPEN_STYLE_TRIGGER:
+					openStyleTriggerFromLupa(
+							(StyleMatchSpec) msg.obj,
+							msg.getData() == null ? "" : msg.getData().getString("pattern"));
 					break;
 				case MESSAGE_XMLERROR:
 					//got an xml error, need to display it.
@@ -5614,6 +5626,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(colordebug);
 		}
 
+		@Override
+		public void executeLupa(int mode) throws RemoteException {
+			Message lupa = myhandler.obtainMessage(MESSAGE_LUPA);
+			lupa.arg1 = mode;
+			myhandler.sendMessage(lupa);
+		}
+
 		public void invokeDirtyExit() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_DIRTYEXITNOW);
 			
@@ -8482,6 +8501,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				});
 			}
 		});
+	}
+
+	private void applyStyleLupaMode(final int mode) {
+		if (windowMap == null) {
+			return;
+		}
+		for (com.resurrection.blowtorch2.lib.window.Window w : windowMap.values()) {
+			if (w != null) {
+				w.setStyleLupaMode(mode);
+			}
+		}
+	}
+
+	private void openStyleTriggerFromLupa(final StyleMatchSpec spec, final String pattern) {
+		if (service == null || spec == null) {
+			return;
+		}
+		boolean warn = mShowRegexWarning == null || mShowRegexWarning.booleanValue();
+		TriggerEditorDialog editor = new TriggerEditorDialog(this, null, service,
+				new Handler() {
+					public void handleMessage(Message msg) {
+					}
+				},
+				PluginFilterSelectionDialog.MAIN_SETTINGS, warn);
+		editor.presetStyle(spec, pattern);
+		editor.show();
 	}
 
 	private void openScrollbackSearchBar(String query) {

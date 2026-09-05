@@ -532,8 +532,17 @@ Conditions (advanced, in the trigger editor):
     Empty list = always fire (old behavior).
   • Example: only Ack when another trigger "combat_mode" is enabled —
     add Condition "Trigger enabled" and pick combat_mode.
-  • Variables: Set Variable responder (or Lua SetVariable) stores a session
-    string; condition "Variable equals/exists" can gate later triggers.
+	• Variables: Set Variable responder (or Lua SetVariable) stores a session
+	string; condition "Variable equals/exists" can gate later triggers.
+
+Match style (advanced, in the trigger editor, below the pattern):
+  • Ignore / Require / Forbid each colour and SGR flag (bold, italic, …).
+    Empty pattern plus Require/Forbid is colour-only. Pattern plus style:
+    the text match still happens, and the matched span must also pass the
+    style. Colour you paint with a Color action is not the world's style.
+  • ALL vs ANY, extra attributes OK vs none, exact recipe vs looks the same.
+  • .lupa / .lupa hold / .lupa tap — drag a glyph, tick layers, Copy or
+    New trigger. .lupa off. .colordebug still dumps the codes in the line.
 
 GMCP hooks: literal pattern starting with % (e.g. %Char.Vitals).
 MCP hooks: @message-name.
@@ -1541,7 +1550,7 @@ local tipsShown = {}
 
 local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
-	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; actions gag, colour, send, or run Lua.]],
+	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; Match style can require colour/SGR. .lupa inspects a glyph. Actions gag, colour, send, or run Lua.]],
 	timer = [[.timer info name. .timer dump writes that into the window; dump with no name lists all. .timer play|pause|stop name. .timer duration name seconds changes the length.]],
 	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. The game still prints.]],
 	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],

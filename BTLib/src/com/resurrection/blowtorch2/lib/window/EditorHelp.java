@@ -230,7 +230,12 @@ public final class EditorHelp {
 			+ "TRYING ONE WITHOUT THE GAME\n"
 			+ "    .note some text\n"
 			+ "prints a line into the window and sends nothing to the server, so a "
-			+ "colour or a tappable word can be checked on a line you wrote.";
+			+ "colour or a tappable word can be checked on a line you wrote.\n\n"
+			+ "MATCH STYLE\n"
+			+ "Require or forbid colour and SGR flags on the matched glyphs. The "
+			+ "pattern may be blank when a style is set. .lupa copies layers from a "
+			+ "finger into a new trigger. Colour you paint with a Color action is not "
+			+ "the world's style.";
 
 	/**
 	 * The CONDITIONS essay that used to sit on the trigger editor canvas.
