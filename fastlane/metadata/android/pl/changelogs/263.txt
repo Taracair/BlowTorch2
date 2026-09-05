@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.3
+• Help: kategorie z wyszukiwarką z launchera i overflow
+• Android fling (domyślnie wył.); .wait; Color Bold
+• Pasek nawigacji w portrait nie zasłania już okna gry

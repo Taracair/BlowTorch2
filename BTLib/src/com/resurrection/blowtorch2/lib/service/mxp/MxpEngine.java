@@ -105,7 +105,7 @@ public final class MxpEngine {
 	private byte[] holdover;
 	private String encoding = "UTF-8";
 	private String clientName = DEFAULT_CLIENT;
-	private String clientVersion = "2.4.2";
+	private String clientVersion = "2.4.3";
 	private final MxpEntities entities = new MxpEntities();
 	private final HashMap<String, ElementDef> elements = new HashMap<String, ElementDef>();
 	private final HashMap<Integer, LineTag> lineTags = new HashMap<Integer, LineTag>();

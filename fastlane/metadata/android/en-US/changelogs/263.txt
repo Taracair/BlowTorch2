@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.3
+• Help: searchable categories from launcher and overflow
+• Android fling (default off); .wait; Color Bold
+• Portrait nav bar no longer covers the game window
