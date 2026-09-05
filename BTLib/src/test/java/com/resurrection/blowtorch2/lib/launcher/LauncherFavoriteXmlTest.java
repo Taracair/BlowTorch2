@@ -63,6 +63,22 @@ public class LauncherFavoriteXmlTest {
 	}
 
 	@Test
+	public void returnToServerListClearsOnlyWhenGameIsTaskRoot() {
+		int fromPin = WorldLaunch.returnToServerListFlags(true);
+		assertTrue((fromPin & android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
+		assertTrue((fromPin & android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK) != 0);
+		assertEquals("CLEAR_TOP on a pin-rooted task would finish the list with the game",
+				0, fromPin & android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+		int fromList = WorldLaunch.returnToServerListFlags(false);
+		assertTrue((fromList & android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
+		assertTrue((fromList & android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0);
+		assertTrue((fromList & android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP) != 0);
+		assertEquals("CLEAR_TASK would drop the live server list under the game",
+				0, fromList & android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+	}
+
+	@Test
 	public void copyPreservesFavorite() {
 		MudConnection src = world("Acheron", "host.example", "4000");
 		src.setFavorite(true);

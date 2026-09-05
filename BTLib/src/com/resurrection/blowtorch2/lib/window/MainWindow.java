@@ -133,6 +133,7 @@ import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.launcher.LauncherShortcutExtras;
 import com.resurrection.blowtorch2.lib.launcher.PinLaunch;
+import com.resurrection.blowtorch2.lib.launcher.WorldLaunch;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
@@ -1273,6 +1274,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						public void onClick(DialogInterface dialog, int which) {
 							dialog.dismiss();
 							cleanExit();
+							WorldLaunch.returnToServerList(MainWindow.this);
 							MainWindow.this.finish();
 							
 						}
@@ -1311,6 +1313,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_DIRTYEXITNOW:
 					//the service via an entered command ".closewindow" or something, to bypass the window asking if you want to close
 					dirtyExit();
+					WorldLaunch.returnToServerList(MainWindow.this);
 					MainWindow.this.finish();
 					break;
 				case MESSAGE_COLORDEBUG:
@@ -2018,6 +2021,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 						cleanExit();
 						dialog.dismiss();
+						WorldLaunch.returnToServerList(MainWindow.this);
 						MainWindow.this.finish();
 					//}
 				} catch (RemoteException e) {
@@ -2585,6 +2589,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		case 900:
 			this.cleanExit();
+			WorldLaunch.returnToServerList(this);
 			this.finish();
 			break;
 		case 800:
@@ -4293,23 +4298,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		builder.setCancelable(true);
 		builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
 		           public void onClick(DialogInterface dialog, int id) {
-		                // MainWindow is singleTask, so it is the root of its own
-		                // task. finish() alone would empty that task and land on
-		                // the home screen. Bring the server list forward first.
-		                Intent launcher = new Intent(MainWindow.this,
-		                        com.resurrection.blowtorch2.lib.launcher.Launcher.class);
-		                launcher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-		                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
-		                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-		                MainWindow.this.startActivity(launcher);
 		                MainWindow.this.dirtyExit();
+		                WorldLaunch.returnToServerList(MainWindow.this);
 		                MainWindow.this.finish();
 		           }
 		       });
 		builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
 		           public void onClick(DialogInterface dialog, int id) {
-		                //dialog.cancel();
 		        	   MainWindow.this.cleanExit();
+		        	   WorldLaunch.returnToServerList(MainWindow.this);
 		        	   MainWindow.this.finish();
 		           }
 		       });

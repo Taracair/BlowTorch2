@@ -35,6 +35,36 @@ public final class WorldLaunch {
 	}
 
 	/**
+	 * Leave the game window for the server list. When MainWindow is the task
+	 * root (home-screen pin), {@code CLEAR_TASK} replaces that task with
+	 * Launcher — {@code finish()} of a task root would otherwise drop the
+	 * Launcher that was just started. When it is not root (app icon → list →
+	 * world), reuse the existing list with {@code CLEAR_TOP} and do not
+	 * {@code CLEAR_TASK}.
+	 *
+	 * <p>The Intent has no DISPLAY extras: those would look like a pin and
+	 * re-fire the world.
+	 */
+	public static int returnToServerListFlags(boolean taskRoot) {
+		if (taskRoot) {
+			return Intent.FLAG_ACTIVITY_NEW_TASK
+					| Intent.FLAG_ACTIVITY_CLEAR_TASK;
+		}
+		return Intent.FLAG_ACTIVITY_NEW_TASK
+				| Intent.FLAG_ACTIVITY_CLEAR_TOP
+				| Intent.FLAG_ACTIVITY_SINGLE_TOP;
+	}
+
+	public static void returnToServerList(Activity from) {
+		if (from == null) {
+			return;
+		}
+		Intent launch = new Intent(from, Launcher.class);
+		launch.addFlags(returnToServerListFlags(from.isTaskRoot()));
+		from.startActivity(launch);
+	}
+
+	/**
 	 * Invisible trampoline entry: start the named world, or the server list
 	 * when the Intent has no DISPLAY.
 	 */
