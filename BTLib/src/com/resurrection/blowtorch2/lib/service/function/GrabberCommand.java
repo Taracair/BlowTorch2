@@ -6,26 +6,26 @@ import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
 
 /**
- * {@code .lupa} — inspect the SGR recipe under a finger and copy layers into
+ * {@code .grabber} — inspect the SGR recipe under a finger and copy layers into
  * a trigger or the clipboard.
  *
  * <pre>
- * .lupa          — once: stays until the first copy, then off
- * .lupa once
- * .lupa hold     — stays until .lupa off (.lupa on is the same)
- * .lupa tap      — one gesture: list becomes tappable on finger-up, then off
- * .lupa off
+ * .grabber          — once: stays until the first copy, then off
+ * .grabber once
+ * .grabber hold     — stays until .grabber off (.grabber on is the same)
+ * .grabber tap      — one gesture: list becomes tappable on finger-up, then off
+ * .grabber off
  * </pre>
  */
-public class LupaCommand extends SpecialCommand {
+public class GrabberCommand extends SpecialCommand {
 
 	public static final int MODE_OFF = 0;
 	public static final int MODE_ONCE = 1;
 	public static final int MODE_HOLD = 2;
 	public static final int MODE_TAP = 3;
 
-	public LupaCommand() {
-		this.commandName = "lupa";
+	public GrabberCommand() {
+		this.commandName = "grabber";
 	}
 
 	public static int parseMode(final String raw) {
@@ -50,30 +50,30 @@ public class LupaCommand extends SpecialCommand {
 		int mode = parseMode(o == null ? "" : o.toString());
 		if (mode < 0) {
 			c.sendDataToWindow(getErrorMessage(
-					"Lupa — inspect colour and style under your finger.",
-					".lupa / .lupa once   — until the first copy\n"
-							+ ".lupa hold / .lupa on — until .lupa off\n"
-							+ ".lupa tap            — one gesture, then off\n"
-							+ ".lupa off\n"
+					"Grabber — inspect colour and style under your finger.",
+					".grabber / .grabber once   — until the first copy\n"
+							+ ".grabber hold / .grabber on — until .grabber off\n"
+							+ ".grabber tap            — one gesture, then off\n"
+							+ ".grabber off\n"
 							+ "Drag: live list. Release: tap layers. Copy clipboard, or New trigger."));
 			return null;
 		}
-		c.getService().doExecuteLupa(mode);
+		c.getService().doExecuteGrabber(mode);
 		String msg;
 		if (mode == MODE_OFF) {
-			msg = Colorizer.getBrightCyanColor() + "Lupa off."
+			msg = Colorizer.getBrightCyanColor() + "Grabber off."
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_HOLD) {
 			msg = Colorizer.getBrightCyanColor()
-					+ "Lupa on (hold). Drag a glyph, release, tap layers, copy. .lupa off to stop."
+					+ "Grabber on (hold). Drag a glyph, release, tap layers, copy. .grabber off to stop."
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_TAP) {
 			msg = Colorizer.getBrightCyanColor()
-					+ "Lupa tap: one drag, then the list is tappable. Copy or tap outside ends it."
+					+ "Grabber tap: one drag, then the list is tappable. Copy or tap outside ends it."
 					+ Colorizer.getWhiteColor() + "\n";
 		} else {
 			msg = Colorizer.getBrightCyanColor()
-					+ "Lupa once: drag, copy, then it turns off."
+					+ "Grabber once: drag, copy, then it turns off."
 					+ Colorizer.getWhiteColor() + "\n";
 		}
 		c.sendDataToWindow("\n" + msg);

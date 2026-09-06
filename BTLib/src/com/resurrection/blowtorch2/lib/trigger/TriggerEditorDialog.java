@@ -148,7 +148,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	/**
-	 * Prefill Match style from the lupa. Call before {@code show()}.
+	 * Prefill Match style from the grabber. Call before {@code show()}.
 	 */
 	public void presetStyle(
 			final com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec spec,
@@ -827,7 +827,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "and is not matched.\n\n"
 			+ "The pattern may be blank when Match style is active — then every run "
 			+ "of that recipe fires. Pattern plus style: the regex matches as today, "
-			+ "and the matched span must also pass the style. .lupa copies layers "
+			+ "and the matched span must also pass the style. .grabber copies layers "
 			+ "into a new trigger or the clipboard.";
 
 	/**

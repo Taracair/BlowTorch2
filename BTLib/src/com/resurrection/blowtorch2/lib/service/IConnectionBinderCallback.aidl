@@ -183,6 +183,6 @@ oneway interface IConnectionBinderCallback {
 	 * Appended: do not insert this above existing methods.
 	 */
 	void inputBarHistory(int delta);
-	/** Style lupa overlay. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
-	void executeLupa(int mode);
+	/** Style grabber overlay. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
+	void executeGrabber(int mode);
 }

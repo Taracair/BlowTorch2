@@ -260,7 +260,7 @@
   			android:paddingBottom="4dip"
   			android:textColor="@color/chrome_description"
   			android:textSize="12sp"
-  			android:text="Ignore / Require / Forbid each attribute. Empty pattern plus a Require or Forbid is colour-only. Pattern plus style: the matched span must also match the style. Colour actions you paint do not count as the world's style. .lupa copies layers in."/>
+  			android:text="Ignore / Require / Forbid each attribute. Empty pattern plus a Require or Forbid is colour-only. Pattern plus style: the matched span must also match the style. Colour actions you paint do not count as the world's style. .grabber copies layers in."/>
   		<Spinner
   			android:id="@+id/trigger_style_combine"
   			android:layout_width="match_parent"

@@ -138,6 +138,7 @@ import com.resurrection.blowtorch2.lib.launcher.PinLaunch;
 import com.resurrection.blowtorch2.lib.launcher.WorldLaunch;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
+import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
@@ -184,7 +185,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_SAVEERROR = 3993;
 	protected static final int MESSAGE_PLUGINSAVEERROR = 3994;
 	protected static final int MESSAGE_COLORDEBUG = 675;
-	protected static final int MESSAGE_LUPA = 676;
+	protected static final int MESSAGE_GRABBER = 676;
 	public static final int MESSAGE_OPEN_STYLE_TRIGGER = 677;
 	protected static final int MESSAGE_DIRTYEXITNOW = 943;
 	protected static final int MESSAGE_DOHAPTICFEEDBACK = 856;
@@ -1330,11 +1331,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//screen2.setColorDebugMode(msg.arg1);
 					//TODO: COLOR DEBUG MODE
 					break;
-				case MESSAGE_LUPA:
-					applyStyleLupaMode(msg.arg1);
+				case MESSAGE_GRABBER:
+					applyStyleGrabberMode(msg.arg1);
 					break;
 				case MESSAGE_OPEN_STYLE_TRIGGER:
-					openStyleTriggerFromLupa(
+					openStyleTriggerFromGrabber(
 							(StyleMatchSpec) msg.obj,
 							msg.getData() == null ? "" : msg.getData().getString("pattern"));
 					break;
@@ -5627,10 +5628,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		@Override
-		public void executeLupa(int mode) throws RemoteException {
-			Message lupa = myhandler.obtainMessage(MESSAGE_LUPA);
-			lupa.arg1 = mode;
-			myhandler.sendMessage(lupa);
+		public void executeGrabber(int mode) throws RemoteException {
+			Message grabber = myhandler.obtainMessage(MESSAGE_GRABBER);
+			grabber.arg1 = mode;
+			myhandler.sendMessage(grabber);
 		}
 
 		public void invokeDirtyExit() throws RemoteException {
@@ -8503,18 +8504,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		});
 	}
 
-	private void applyStyleLupaMode(final int mode) {
+	private void applyStyleGrabberMode(final int mode) {
 		if (windowMap == null) {
 			return;
 		}
 		for (com.resurrection.blowtorch2.lib.window.Window w : windowMap.values()) {
-			if (w != null) {
-				w.setStyleLupaMode(mode);
+			if (w == null) {
+				continue;
 			}
+			if ("button_window".equals(w.getName())) {
+				w.setStyleGrabberMode(GrabberCommand.MODE_OFF);
+				continue;
+			}
+			w.setStyleGrabberMode(mode);
 		}
 	}
 
-	private void openStyleTriggerFromLupa(final StyleMatchSpec spec, final String pattern) {
+	private void openStyleTriggerFromGrabber(final StyleMatchSpec spec, final String pattern) {
 		if (service == null || spec == null) {
 			return;
 		}

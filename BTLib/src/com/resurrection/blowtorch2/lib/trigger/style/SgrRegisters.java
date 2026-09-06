@@ -6,7 +6,7 @@ import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.SgrStyle;
 
 /**
- * ANSI SGR register machine used for style matching and the lupa. Same
+ * ANSI SGR register machine used for style matching and the grabber. Same
  * classification as {@code Window.updateColorRegisters}: SGR 1 is bright, not
  * weight; private 66/67 are weight; {@code 38;5;n} is xterm, not italic.
  *

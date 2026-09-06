@@ -1731,11 +1731,11 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
-	public final void doExecuteLupa(final int mode) {
+	public final void doExecuteGrabber(final int mode) {
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
-				mCallbacks.getBroadcastItem(i).executeLupa(mode);
+				mCallbacks.getBroadcastItem(i).executeGrabber(mode);
 			} catch (RemoteException e) {
 				throw new RuntimeException(e);
 			}

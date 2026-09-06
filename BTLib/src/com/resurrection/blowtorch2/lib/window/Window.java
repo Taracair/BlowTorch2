@@ -70,10 +70,10 @@ import com.resurrection.blowtorch2.lib.service.SgrStyle;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings.LINK_MODE;
-import com.resurrection.blowtorch2.lib.service.function.LupaCommand;
+import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleInspect;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
-import com.resurrection.blowtorch2.lib.trigger.style.StyleSnapshot;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.window.TextTree.Selection;
 import com.resurrection.blowtorch2.lib.window.TextTree.SelectionCursor;
@@ -816,11 +816,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.setLinkMode((Integer) hlmode.getValue());
 		this.setLinksEnabled((Boolean) hlenabled.getValue());
 		applyUrlLinkSettingsFrom(settings);
-		mStyleLupa = new StyleLupaOverlay(new StyleLupaOverlay.Host() {
+		mStyleGrabber = new StyleGrabberOverlay(new StyleGrabberOverlay.Host() {
 			public Context context() {
 				return getContext();
 			}
-			public StyleLupaOverlay.Inspect inspectStyleAt(final float x, final float y) {
+			public StyleGrabberOverlay.Inspect inspectStyleAt(final float x, final float y) {
 				return Window.this.inspectStyleAt(x, y);
 			}
 			public void invalidateHost() {
@@ -836,6 +836,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					msg.getData().putString("pattern", pattern);
 				}
 				mMainWindowHandler.sendMessage(msg);
+			}
+			public int overlayWidth() {
+				return getWidth();
+			}
+			public int overlayHeight() {
+				return getHeight();
 			}
 		});
 	}
@@ -1878,25 +1884,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public boolean dispatchTouchEvent(final MotionEvent event) {
-		if (mStyleLupa != null && mStyleLupa.isOn()) {
-			boolean handled = mStyleLupa.onTouch(event);
-			invalidate();
-			return handled;
+		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+			if (mStyleGrabber.onTouch(event)) {
+				invalidate();
+				return true;
+			}
 		}
 		return super.dispatchTouchEvent(event);
 	}
 
-	public void setStyleLupaMode(final int mode) {
-		if (mStyleLupa == null) {
+	public void setStyleGrabberMode(final int mode) {
+		if (mStyleGrabber == null) {
 			return;
 		}
-		mStyleLupa.setMode(mode);
-		if (mode == LupaCommand.MODE_OFF) {
-			mStyleLupaModels = null;
+		mStyleGrabber.setMode(mode);
+		if (mode == GrabberCommand.MODE_OFF) {
+			mStyleGrabberModels = null;
 		}
 	}
 
-	private StyleLupaOverlay.Inspect inspectStyleAt(final float x, final float y) {
+	private StyleGrabberOverlay.Inspect inspectStyleAt(final float x, final float y) {
 		if (mBuffer == null || mBuffer.getLines() == null || mBuffer.getLines().isEmpty()) {
 			return null;
 		}
@@ -1906,48 +1913,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (visualCol < 0) {
 			visualCol = 0;
 		}
-		java.util.LinkedList<Line> lines = mBuffer.getLines();
-		int working = 0;
-		int lineIdx = -1;
-		int wrapRow = 0;
-		for (int i = 0; i < lines.size(); i++) {
-			Line l = lines.get(i);
-			int rows = l.breaks > 0 ? l.breaks + 1 : 1;
-			if (broken >= working && broken < working + rows) {
-				lineIdx = i;
-				wrapRow = broken - working;
-				break;
-			}
-			working += rows;
-		}
-		if (lineIdx < 0) {
+		StyleInspect.Hit hit = StyleInspect.at(mBuffer.getLines(), styleGrabberModels(),
+				broken, visualCol, mWrapColumns);
+		if (hit == null || hit.snap == null) {
 			return null;
 		}
-		StyleLineModel[] models = styleLupaModels();
-		if (lineIdx >= models.length || models[lineIdx] == null) {
-			return null;
-		}
-		StyleLineModel model = models[lineIdx];
-		int logical = visualCol;
-		if (wrapRow > 0 && mWrapColumns > 0) {
-			logical = wrapRow * mWrapColumns + visualCol;
-		}
-		if (model.byChar.length == 0) {
-			return null;
-		}
-		if (logical >= model.byChar.length) {
-			logical = model.byChar.length - 1;
-		}
-		if (logical < 0) {
-			logical = 0;
-		}
-		StyleSnapshot snap = model.atColumn(logical);
-		if (snap == null) {
-			return null;
-		}
-		StyleLineModel.Run run = model.runAt(logical);
-		String glyph = run != null ? run.text : "";
-		return new StyleLupaOverlay.Inspect(snap, glyph);
+		return new StyleGrabberOverlay.Inspect(hit.snap, hit.glyph);
 	}
 
 	@Override
@@ -3386,8 +3357,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		c.restore();
 		drawLoupe(c);
-		if (mStyleLupa != null) {
-			mStyleLupa.draw(c);
+		if (mStyleGrabber != null) {
+			mStyleGrabber.draw(c);
 		}
 		scheduleBlinkIfNeeded();
 	}
@@ -3983,25 +3954,25 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mLoupeActive = false;
 	private float mLoupeFingerX;
 	private float mLoupeFingerY;
-	private StyleLupaOverlay mStyleLupa;
-	private StyleLineModel[] mStyleLupaModels;
-	private int mStyleLupaBytes = -1;
-	private int mStyleLupaLineCount = -1;
+	private StyleGrabberOverlay mStyleGrabber;
+	private StyleLineModel[] mStyleGrabberModels;
+	private int mStyleGrabberBytes = -1;
+	private int mStyleGrabberLineCount = -1;
 
-	private StyleLineModel[] styleLupaModels() {
+	private StyleLineModel[] styleGrabberModels() {
 		if (mBuffer == null) {
 			return new StyleLineModel[0];
 		}
 		int bytes = mBuffer.getTotalBytes();
 		int lines = mBuffer.getLines() == null ? 0 : mBuffer.getLines().size();
-		if (mStyleLupaModels != null && bytes == mStyleLupaBytes
-				&& lines == mStyleLupaLineCount) {
-			return mStyleLupaModels;
+		if (mStyleGrabberModels != null && bytes == mStyleGrabberBytes
+				&& lines == mStyleGrabberLineCount) {
+			return mStyleGrabberModels;
 		}
-		mStyleLupaModels = StyleLineModel.buildTree(mBuffer);
-		mStyleLupaBytes = bytes;
-		mStyleLupaLineCount = lines;
-		return mStyleLupaModels;
+		mStyleGrabberModels = StyleLineModel.buildTree(mBuffer);
+		mStyleGrabberBytes = bytes;
+		mStyleGrabberLineCount = lines;
+		return mStyleGrabberModels;
 	}
 
 	/**

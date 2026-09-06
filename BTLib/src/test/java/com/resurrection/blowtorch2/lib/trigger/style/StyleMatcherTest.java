@@ -146,7 +146,7 @@ public class StyleMatcherTest {
 	}
 
 	@Test
-	public void lupaChecksBecomeRequire() {
+	public void grabberChecksBecomeRequire() {
 		StyleSnapshot s = new StyleSnapshot(ColorSpace.XTERM256, 208,
 				ColorSpace.ANSI16, 40, true, SgrStyle.WEIGHT, null);
 		boolean[] on = new boolean[] { true, false, true, true, false, false, false,

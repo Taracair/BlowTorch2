@@ -5,7 +5,7 @@ import java.util.List;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec.Gate;
 
 /**
- * Human clipboard text for a lupa copy. Not XML — the editor path writes the
+ * Human clipboard text for a grabber copy. Not XML — the editor path writes the
  * spec onto a new trigger.
  */
 public final class StyleClipboard {
@@ -58,7 +58,7 @@ public final class StyleClipboard {
 		return b.toString();
 	}
 
-	/** Clipboard text for the layers the player ticked in the lupa. */
+	/** Clipboard text for the layers the player ticked in the grabber. */
 	public static String describeChecked(final StyleSnapshot snap, final String glyphText,
 			final boolean[] checked, final boolean looksMode) {
 		List<LayerRow> rows = layers(snap, glyphText);
@@ -101,7 +101,7 @@ public final class StyleClipboard {
 	}
 
 	/**
-	 * Build a spec from lupa checkboxes. Checked rows become REQUIRE with the
+	 * Build a spec from grabber checkboxes. Checked rows become REQUIRE with the
 	 * snapshot's values. Unchecked stay IGNORE.
 	 */
 	public static StyleMatchSpec specFromChecks(final StyleSnapshot snap,
