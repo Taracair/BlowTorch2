@@ -14,8 +14,6 @@ public final class ExtraTextSlot {
 
 	/** {@link #getScrollSpeed()} value meaning "use the main window's setting". */
 	public static final int SCROLL_SPEED_INHERIT = 0;
-	/** Highest stored value: one past the last {@code scroll_sensitivity} choice. */
-	public static final int SCROLL_SPEED_MAX = 9;
 
 	/** Layout / presentation mode for the overlay. */
 	public enum Mode {
@@ -71,8 +69,8 @@ public final class ExtraTextSlot {
 	/**
 	 * Scroll speed for this overlay's text. {@link #SCROLL_SPEED_INHERIT} means
 	 * follow the main window's "Scroll sensitivity" (and Android fling, when
-	 * that is on); otherwise it is a
-	 * {@code scroll_sensitivity} list choice plus one, so 0 can mean inherit.
+	 * that is on); otherwise a percent 50–500. Old JSON 1–9 is a list index
+	 * plus one.
 	 * Kept here rather than on the WindowToken because extra-text tokens are
 	 * rebuilt by ensureSlots() and never reach settings.getWindows(), so their
 	 * SettingsGroup is not serialized — this JSON is the only durable home.
@@ -334,15 +332,14 @@ public final class ExtraTextSlot {
 	}
 
 	/**
-	 * @return {@link #SCROLL_SPEED_INHERIT}, or a {@code scroll_sensitivity}
-	 *         choice index plus one.
+	 * @return {@link #SCROLL_SPEED_INHERIT}, or a percent 50–500.
 	 */
 	public int getScrollSpeed() {
 		return scrollSpeed;
 	}
 
 	public void setScrollSpeed(final int scrollSpeed) {
-		this.scrollSpeed = clampScrollSpeed(scrollSpeed);
+		this.scrollSpeed = ScrollSensitivity.migrateExtraTextJson(scrollSpeed);
 	}
 
 	public int getFontSize() {
@@ -365,23 +362,20 @@ public final class ExtraTextSlot {
 
 	/** Out-of-range values fall back to inherit rather than to a guessed speed. */
 	static int clampScrollSpeed(final int raw) {
-		if (raw < SCROLL_SPEED_INHERIT || raw > SCROLL_SPEED_MAX) {
-			return SCROLL_SPEED_INHERIT;
-		}
-		return raw;
+		return ScrollSensitivity.migrateExtraTextJson(raw);
 	}
 
 	/**
-	 * Resolve this slot's stored speed against the main window's current choice.
+	 * Resolve this slot's stored speed against the main window's current percent.
 	 *
-	 * @param mainWindowChoice The main window's {@code scroll_sensitivity} index.
-	 * @return A {@code scroll_sensitivity} choice index to hand to the overlay.
+	 * @param mainWindowChoice The main window's {@code scroll_sensitivity} percent.
+	 * @return A percent to hand to the overlay.
 	 */
 	public int resolveScrollChoice(final int mainWindowChoice) {
 		if (scrollSpeed == SCROLL_SPEED_INHERIT) {
 			return mainWindowChoice;
 		}
-		return scrollSpeed - 1;
+		return scrollSpeed;
 	}
 
 	/** Deep copy for safe UI/service handoff. */
@@ -476,7 +470,8 @@ public final class ExtraTextSlot {
 			op = 100;
 		}
 		s.opacity = op;
-		s.scrollSpeed = clampScrollSpeed(o.optInt("scroll_speed", SCROLL_SPEED_INHERIT));
+		s.scrollSpeed = ScrollSensitivity.migrateExtraTextJson(
+				o.optInt("scroll_speed", SCROLL_SPEED_INHERIT));
 		s.fontSize = clampFontSize(o.optInt("font_size", FONT_SIZE_DEFAULT));
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);

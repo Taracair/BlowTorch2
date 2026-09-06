@@ -13,9 +13,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 /**
  * The scroll sensitivity option has to survive three separate hops: it must exist in
  * the window settings group at all, it must accept the string form the XML loader hands
- * it, and the chosen index must map onto the gain the touch handler multiplies by.
- * Getting one of those wrong leaves an option that shows up in the dialog and does
- * nothing, which is exactly how the window settings failed before.
+ * it, and the stored number must map onto the gain the touch handler multiplies by.
  */
 public class ScrollSensitivityOptionTest {
 
@@ -29,43 +27,43 @@ public class ScrollSensitivityOptionTest {
 	}
 
 	@Test
-	public void optionIsRegisteredWithChoicesAndDefaultsToNormal() {
+	public void optionIsRegisteredWithPercentLabelsAndDefaultsToOneHundred() {
 		ListOption o = findScrollOption();
-		assertEquals("every gain in scrollSensitivityFromChoice needs a visible item",
-				WindowToken.SCROLL_SENSITIVITY_ITEMS.length, o.getItems().size());
-		assertEquals("extra-text Scroll speed stores inherit plus one per main-window choice",
-				WindowToken.SCROLL_SENSITIVITY_ITEMS.length, ExtraTextSlot.SCROLL_SPEED_MAX);
-		assertEquals("Fastest (500%)", o.getItems().get(o.getItems().size() - 1));
+		assertEquals(ScrollSensitivity.ALLOWED.length, o.getItems().size());
+		assertEquals("50%", o.getItems().get(0));
+		assertEquals("500%", o.getItems().get(o.getItems().size() - 1));
 		assertEquals(Integer.valueOf(WindowToken.DEFAULT_SCROLL_SENSITIVITY), o.getValue());
-		assertEquals("the default has to be the setting that changes nothing",
-				1.0f, Window.scrollSensitivityFromChoice((Integer) o.getValue()), 0.0001f);
+		assertEquals(Integer.valueOf(100), o.getValue());
+		assertEquals(1.0f, Window.scrollSensitivityFromChoice((Integer) o.getValue()), 0.0001f);
 	}
 
 	@Test
-	public void optionAcceptsTheStringFormTheXmlLoaderUses() {
+	public void xmlLoaderMigratesOldIndexThreeToTwoHundredPercent() {
 		WindowToken token = new WindowToken();
-		// WindowOptionElementListener.end() hands every saved option through as text.
-		token.getSettings().setOption("scroll_sensitivity", "3");
+		int migrated = ScrollSensitivity.migrateWindowXml(3);
+		token.getSettings().setOption("scroll_sensitivity", Integer.toString(migrated));
 		ListOption o = (ListOption) token.getSettings().findOptionByKey("scroll_sensitivity");
-		assertEquals(Integer.valueOf(3), o.getValue());
+		assertEquals(Integer.valueOf(200), o.getValue());
 		assertEquals(2.0f, Window.scrollSensitivityFromChoice((Integer) o.getValue()), 0.0001f);
 	}
 
 	@Test
-	public void fiveHundredPercentIsTheLastChoice() {
+	public void unmigratedOldIndexStillGainsTheOldAmount() {
+		assertEquals(2.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(3)), 0.0001f);
+		assertEquals(3.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(4)), 0.0001f);
 		assertEquals(5.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(8)), 0.0001f);
-		assertEquals(3.5f, Window.scrollSensitivityFromChoice(Integer.valueOf(5)), 0.0001f);
-		assertEquals(4.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(6)), 0.0001f);
-		assertEquals(4.5f, Window.scrollSensitivityFromChoice(Integer.valueOf(7)), 0.0001f);
+		assertEquals(0.5f, Window.scrollSensitivityFromChoice(Integer.valueOf(50)), 0.0001f);
+		assertEquals(5.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(500)), 0.0001f);
 	}
 
 	@Test
-	public void everyChoiceMapsToItsOwnGainAndTheyRise() {
+	public void everyAllowedPercentMapsToItsOwnGainAndTheyRise() {
 		ListOption o = findScrollOption();
 		float previous = 0f;
 		for (int i = 0; i < o.getItems().size(); i++) {
-			float gain = Window.scrollSensitivityFromChoice(Integer.valueOf(i));
-			assertTrue("choice " + i + " (" + o.getItems().get(i) + ") does not increase the gain",
+			float gain = Window.scrollSensitivityFromChoice(
+					Integer.valueOf(ScrollSensitivity.ALLOWED[i]));
+			assertTrue("item " + o.getItems().get(i) + " does not increase the gain",
 					gain > previous);
 			previous = gain;
 		}

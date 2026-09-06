@@ -8,6 +8,7 @@ import org.xml.sax.Attributes;
 import android.sax.TextElementListener;
 
 import com.resurrection.blowtorch2.lib.window.TextTree;
+import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 
 /** Custom TextElementListener object used by the settings inflating routine to inflate window option settings from the SAX parser. */
 public class WindowOptionElementListener implements TextElementListener {
@@ -44,6 +45,13 @@ public class WindowOptionElementListener implements TextElementListener {
 		if ("buffer_size".equals(mCurrentKey) && body != null) {
 			try {
 				value = Integer.toString(TextTree.clampMaxLines(
+						Integer.parseInt(body.trim())));
+			} catch (NumberFormatException ignored) {
+				value = body;
+			}
+		} else if ("scroll_sensitivity".equals(mCurrentKey) && body != null) {
+			try {
+				value = Integer.toString(ScrollSensitivity.migrateWindowXml(
 						Integer.parseInt(body.trim())));
 			} catch (NumberFormatException ignored) {
 				value = body;

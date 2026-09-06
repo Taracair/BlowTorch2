@@ -1311,7 +1311,7 @@ the right of the date shows where you are in the buffer. .when on|off.
 Options → Window → Newest text at top?: live output appears at the top.
 Options → Window → Android fling? (off by default): after you lift your
 finger the text coasts with the swipe, like a web page. Dragging stays
-1:1; how fast the coast is follows Scroll sensitivity (75–500%).
+1:1. Scroll sensitivity (50–500%) is off while this is on.
 Options → Window → Light theme? (off by default): light paper and
 dark ink. .light on|off|1-5. Extra-text windows follow this window.
 Launcher, Options, mapper, chat and ⋮ stay dark.]])

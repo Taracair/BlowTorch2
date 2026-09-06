@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.util.SettingsSaver;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
+import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -628,7 +629,10 @@ public class OptionsDialog extends Dialog {
 
 		@Override
 		public boolean isEnabled(int position) {
-			return !rows.get(position).isHeader();
+			if (rows.get(position).isHeader()) {
+				return false;
+			}
+			return !isScrollSensitivityLocked(rows.get(position).option);
 		}
 
 		@Override
@@ -656,6 +660,10 @@ public class OptionsDialog extends Dialog {
 			
 			title.setText(o.getTitle());
 			ext.setText(o.getDescription());
+			final boolean locked = isScrollSensitivityLocked(o);
+			v.setAlpha(locked ? 0.4f : 1f);
+			title.setEnabled(!locked);
+			ext.setEnabled(!locked);
 			
 			LinearLayout widget = (LinearLayout) v.findViewById(R.id.widget_frame);
 			
@@ -692,7 +700,9 @@ public class OptionsDialog extends Dialog {
 			case LIST:
 				//set up list dialog clicker.
 				v.setTag(o);
-				v.setOnClickListener(new ListOptionClickedListener());
+				if (!locked) {
+					v.setOnClickListener(new ListOptionClickedListener());
+				}
 				break;
 			case ENCODING:
 				v.setTag(o);
@@ -2077,11 +2087,46 @@ public class OptionsDialog extends Dialog {
 		}
 	}
 
+	private boolean isAndroidFlingOptionOn() {
+		if (mCurrent == null) {
+			return false;
+		}
+		Option found = mCurrent.findOptionByKey("android_fling");
+		if (!(found instanceof BooleanOption)) {
+			return false;
+		}
+		return Boolean.TRUE.equals(((BooleanOption) found).getValue());
+	}
+
+	private boolean isScrollSensitivityLocked(final Option o) {
+		return o != null && "scroll_sensitivity".equals(o.getKey()) && isAndroidFlingOptionOn();
+	}
+
+	private void notifyCurrentPageAdapter() {
+		ViewFlipper f = mFlipper != null ? mFlipper
+				: (ViewFlipper) findViewById(R.id.flipper);
+		if (f == null) {
+			return;
+		}
+		View page = f.getCurrentView();
+		if (page == null) {
+			return;
+		}
+		ListView list = (ListView) page.findViewById(R.id.list);
+		if (list == null || !(list.getAdapter() instanceof BaseAdapter)) {
+			return;
+		}
+		((BaseAdapter) list.getAdapter()).notifyDataSetChanged();
+	}
+
 	private class ListOptionClickedListener implements View.OnClickListener {
 
 		@Override
 		public void onClick(View v) {
 			ListOption o = (ListOption)v.getTag();
+			if (isScrollSensitivityLocked(o)) {
+				return;
+			}
 			
 			ArrayList<String> items = o.getItems();
 			String[] foo = new String[items.size()];
@@ -2089,11 +2134,15 @@ public class OptionsDialog extends Dialog {
 			foo = items.toArray(foo);
 			
 			
+			int checked = ((Integer)o.getValue()).intValue();
+			if ("scroll_sensitivity".equals(o.getKey())) {
+				checked = ScrollSensitivity.indexOf(checked);
+			}
 			AlertDialog.Builder builder = editorBuilder();
 			
 			builder.setTitle(o.getTitle());
 			//builder.setSin
-			builder.setSingleChoiceItems(foo, ((Integer)o.getValue()).intValue(),new ListItemClickListener(o));
+			builder.setSingleChoiceItems(foo, checked, new ListItemClickListener(o));
 			
 			AlertDialog d = builder.create();
 			d.show();
@@ -2112,13 +2161,16 @@ public class OptionsDialog extends Dialog {
 		
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
-			String picked = option.getItems().get(which);
-			
-			option.setValue(which);
+			int stored = which;
+			if ("scroll_sensitivity".equals(option.getKey())
+					&& which >= 0 && which < ScrollSensitivity.ALLOWED.length) {
+				stored = ScrollSensitivity.ALLOWED[which];
+			}
+			option.setValue(stored);
 			
 			if(selectedPlugin.equals("main")) {
 				try {
-					service.updateIntegerSetting(option.getKey(),which);
+					service.updateIntegerSetting(option.getKey(), stored);
 				} catch (RemoteException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -2126,7 +2178,7 @@ public class OptionsDialog extends Dialog {
 			} else {
 				//service.updatePluginSetting(
 				try {
-					service.updatePluginIntegerSetting(selectedPlugin,option.getKey(),which);
+					service.updatePluginIntegerSetting(selectedPlugin,option.getKey(), stored);
 				} catch (RemoteException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -2161,6 +2213,9 @@ public class OptionsDialog extends Dialog {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
+			}
+			if ("android_fling".equals(o.getKey())) {
+				notifyCurrentPageAdapter();
 			}
 		}
 		

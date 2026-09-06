@@ -19,6 +19,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
+import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 
 import android.sax.Element;
@@ -388,11 +389,15 @@ public final class WindowTokenParser {
 						}
 						break;
 					case scroll_sensitivity:
-						if (((Integer) ((ListOption) o).getValue()) != WindowToken.DEFAULT_SCROLL_SENSITIVITY) {
-							out.startTag("", "option");
-							out.attribute("", "key", key.toString());
-							out.text(((Integer) ((ListOption) o).getValue()).toString());
-							out.endTag("", "option");
+						{
+							int percent = ScrollSensitivity.migrateWindowXml(
+									((Integer) ((ListOption) o).getValue()).intValue());
+							if (percent != WindowToken.DEFAULT_SCROLL_SENSITIVITY) {
+								out.startTag("", "option");
+								out.attribute("", "key", key.toString());
+								out.text(Integer.toString(percent));
+								out.endTag("", "option");
+							}
 						}
 						break;
 					case ime_keep_text:

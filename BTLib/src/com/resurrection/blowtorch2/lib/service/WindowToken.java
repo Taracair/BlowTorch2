@@ -18,6 +18,7 @@ import com.resurrection.blowtorch2.lib.service.LayoutGroup.LAYOUT_TYPE;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.LightPaper;
+import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 
 import android.content.res.Configuration;
@@ -81,20 +82,8 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_BOTTOM_PADDING = 0;
 	/** Default extra bottom text inset while the soft keyboard is up (pixels). */
 	public static final int DEFAULT_BOTTOM_PADDING_KEYBOARD = 0;
-	/** Default scroll sensitivity: index of "Normal", where text follows the finger 1:1. */
-	public static final int DEFAULT_SCROLL_SENSITIVITY = 1;
-	/** Labels for {@code scroll_sensitivity}; extra-text Scroll speed reuses these after inherit. */
-	public static final String[] SCROLL_SENSITIVITY_ITEMS = {
-		"Slower (75%)",
-		"Normal (100%)",
-		"Faster (150%)",
-		"Much faster (200%)",
-		"300%",
-		"350%",
-		"400%",
-		"450%",
-		"Fastest (500%)",
-	};
+	/** Default scroll sensitivity: 100, where text follows the finger 1:1. */
+	public static final int DEFAULT_SCROLL_SENSITIVITY = ScrollSensitivity.DEFAULT_PERCENT;
 	/** Default font path (bundled asset). */
 	public static final String DEFAULT_FONT_PATH = "fonts/DejaVuSansMono.ttf";
 	/** Required field for the parcelable interface. */
@@ -562,18 +551,19 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption androidFling = new BooleanOption();
 		androidFling.setTitle("Android fling?");
-		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. How fast the coast is follows Scroll sensitivity (75–500%).");
+		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. Scroll sensitivity is off while this is on.");
 		androidFling.setKey("android_fling");
 		androidFling.setValue(false);
 		window.addOption(androidFling);
 
 		ListOption scrollSensitivity = new ListOption();
 		scrollSensitivity.setTitle("Scroll sensitivity");
-		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match. With Android fling on, dragging stays 1:1 and only the coast uses this.");
+		scrollSensitivity.setDescription("How far the text moves for a given swipe. 100% means the text follows your finger exactly; higher values cover more scrollback per swipe. Flings scale to match. Off while Android fling is on.");
 		scrollSensitivity.setKey("scroll_sensitivity");
 		scrollSensitivity.setValue(Integer.valueOf(DEFAULT_SCROLL_SENSITIVITY));
-		for (int i = 0; i < SCROLL_SENSITIVITY_ITEMS.length; i++) {
-			scrollSensitivity.addItem(SCROLL_SENSITIVITY_ITEMS[i]);
+		String[] scrollLabels = ScrollSensitivity.labels();
+		for (int i = 0; i < scrollLabels.length; i++) {
+			scrollSensitivity.addItem(scrollLabels[i]);
 		}
 		window.addOption(scrollSensitivity);
 

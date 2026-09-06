@@ -2652,8 +2652,8 @@ Works with either text direction. Off = classic lift (text rises with the keyboa
 
 **Options → Window → Android fling?** (off by default). After you lift your
 finger, the text coasts with the speed of the swipe, like a web page or
-gallery. Dragging still follows your finger 1:1. How fast the coast is
-follows **Scroll sensitivity** (75–500%). Extra-text windows set to
+gallery. Dragging still follows your finger 1:1. While this is on,
+**Scroll sensitivity** (50–500%) is greyed out. Extra-text windows set to
 *Same as main window* follow this; a slot with its own % keeps the old gain.
 
 ## On-screen buttons: swipe + accordion

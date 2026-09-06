@@ -630,7 +630,7 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * @return The main window's current {@code scroll_sensitivity} choice, or the
+	 * @return The main window's current {@code scroll_sensitivity} percent, or the
 	 *         default when the main Window view is not up yet.
 	 */
 	private int mainWindowScrollChoice() {

@@ -22,9 +22,9 @@ import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
-import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
+import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 
 /**
  * Manage extra text window slots: list / add / delete / rename / mode / height / show / GMCP.
@@ -266,7 +266,7 @@ public final class ExtraTextWindowsDialog {
 		// Index 0 is inherit, so the main window's Scroll sensitivity setting doubles
 		// as "all extra windows at once" for every slot left on the default.
 		final Spinner scrollSpeed = new Spinner(context);
-		String[] labels = WindowToken.SCROLL_SENSITIVITY_ITEMS;
+		String[] labels = ScrollSensitivity.labels();
 		String[] scrollItems = new String[labels.length + 1];
 		scrollItems[0] = "Same as main window";
 		System.arraycopy(labels, 0, scrollItems, 1, labels.length);
@@ -275,7 +275,8 @@ public final class ExtraTextWindowsDialog {
 		scrollAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		scrollSpeed.setAdapter(scrollAdapter);
 		scrollSpeed.setSelection(existing != null
-				? existing.getScrollSpeed() : ExtraTextSlot.SCROLL_SPEED_INHERIT);
+				? ScrollSensitivity.extraTextSpinnerIndex(existing.getScrollSpeed())
+				: ExtraTextSlot.SCROLL_SPEED_INHERIT);
 		form.addView(label(context, "Scroll speed"));
 		form.addView(scrollSpeed);
 		TextView scrollHint = new TextView(context);
@@ -494,7 +495,8 @@ public final class ExtraTextWindowsDialog {
 				} catch (Exception e) {
 					slot.setFontSize(ExtraTextSlot.FONT_SIZE_DEFAULT);
 				}
-				slot.setScrollSpeed(scrollSpeed.getSelectedItemPosition());
+				slot.setScrollSpeed(ScrollSensitivity.extraTextStoredFromSpinner(
+						scrollSpeed.getSelectedItemPosition()));
 				slot.setShowTitleBar(showTitleBar.isChecked());
 				slot.setShowResizeHandle(showResizeHandle.isChecked());
 				slot.setShowClose(showClose.isChecked());

@@ -181,12 +181,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Gain applied to finger travel when scrolling. 1.0 means the text tracks the finger. */
 	private float mScrollSensitivity = 1.0f;
 	/**
-	 * The {@code scroll_sensitivity} list choice behind {@link #mScrollSensitivity}.
+	 * The {@code scroll_sensitivity} percent behind {@link #mScrollSensitivity}.
 	 * Kept alongside the gain so extra-text overlays can inherit this window's
-	 * choice without reading the settings tree from another process.
+	 * percent without reading the settings tree from another process.
 	 */
 	private int mScrollSensitivityChoice = WindowToken.DEFAULT_SCROLL_SENSITIVITY;
-	/** Options → Window → Android fling? Off: the 75–500% list. On: OverScroller; coast uses the same gain. */
+	/** Options → Window → Android fling? Off: the 50–500% list. On: OverScroller from finger velocity. */
 	private boolean mAndroidFling = false;
 	private OverScroller mFlingScroller;
 	private VelocityTracker mVelocityTracker;
@@ -1023,8 +1023,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		ListOption scrollSensitivity = (ListOption) settings.findOptionByKey("scroll_sensitivity");
 		if (scrollSensitivity != null) {
-			mScrollSensitivityChoice = (Integer) scrollSensitivity.getValue();
-			mScrollSensitivity = scrollSensitivityFromChoice(Integer.valueOf(mScrollSensitivityChoice));
+			int percent = ScrollSensitivity.migrateWindowXml(
+					((Integer) scrollSensitivity.getValue()).intValue());
+			scrollSensitivity.setValue(Integer.valueOf(percent));
+			mScrollSensitivityChoice = percent;
+			mScrollSensitivity = ScrollSensitivity.gain(Integer.valueOf(percent));
 		}
 		BooleanOption androidFling = (BooleanOption) settings.findOptionByKey("android_fling");
 		if (androidFling != null) {
@@ -2681,7 +2684,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						+ ", not the UI thread; onDraw walks it unguarded — post a message instead"));
 	}
 
-	/** @return This window's {@code scroll_sensitivity} list choice. */
+	/** @return This window's {@code scroll_sensitivity} percent. */
 	public final int getScrollSensitivityChoice() {
 		return mScrollSensitivityChoice;
 	}
@@ -2733,7 +2736,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	private void startAndroidFling(final float fingerVy) {
 		final ViewConfiguration vc = ViewConfiguration.get(getContext());
-		if (Math.abs(fingerVy) < vc.getScaledMinimumFlingVelocity()) {
+		if (!AndroidFlingCoast.shouldFling(Math.abs(fingerVy),
+				vc.getScaledMinimumFlingVelocity())) {
 			stopFling();
 			return;
 		}
@@ -2745,7 +2749,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (maxY < minY) {
 			maxY = minY;
 		}
-		final int vel = (int) ((mNewestAtTop ? -fingerVy : fingerVy) * mScrollSensitivity);
+		int vel = AndroidFlingCoast.yVelocity(fingerVy, mNewestAtTop);
+		int maxVel = vc.getScaledMaximumFlingVelocity();
+		if (vel > maxVel) {
+			vel = maxVel;
+		} else if (vel < -maxVel) {
+			vel = -maxVel;
+		}
 		final int start = (int) Math.round(mScrollback);
 		mFlingScroller.fling(0, start, 0, vel, 0, 0, minY, maxY, 0, 0);
 		mFlingVelocity = vel;
@@ -2833,35 +2843,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/**
-	 * Set the scroll gain from a {@code scroll_sensitivity} list choice.
+	 * Set the scroll gain from a {@code scroll_sensitivity} percent.
 	 * Extra-text overlays are driven through here rather than through their
 	 * SettingsGroup, which is never persisted for them.
 	 *
-	 * @param choice A {@code scroll_sensitivity} index; out of range means Normal.
+	 * @param choice A percent (50–500) or a legacy list index; out of range means 100%.
 	 */
 	public final void applyScrollSensitivityChoice(final Integer choice) {
-		mScrollSensitivityChoice = choice == null
-				? WindowToken.DEFAULT_SCROLL_SENSITIVITY : choice.intValue();
-		mScrollSensitivity = scrollSensitivityFromChoice(choice);
+		int percent = choice == null
+				? WindowToken.DEFAULT_SCROLL_SENSITIVITY
+				: ScrollSensitivity.migrateWindowXml(choice.intValue());
+		mScrollSensitivityChoice = percent;
+		mScrollSensitivity = ScrollSensitivity.gain(Integer.valueOf(percent));
 		stopFling();
 	}
 
 	static float scrollSensitivityFromChoice(final Integer choice) {
-		if (choice == null) {
-			return 1.0f;
-		}
-		switch (choice.intValue()) {
-		case 0: return 0.75f;
-		case 1: return 1.0f;
-		case 2: return 1.5f;
-		case 3: return 2.0f;
-		case 4: return 3.0f;
-		case 5: return 3.5f;
-		case 6: return 4.0f;
-		case 7: return 4.5f;
-		case 8: return 5.0f;
-		default: return 1.0f;
-		}
+		return ScrollSensitivity.gain(choice);
 	}
 
 	/** Called from onDraw, calculates a new scrollback value for this frame. */

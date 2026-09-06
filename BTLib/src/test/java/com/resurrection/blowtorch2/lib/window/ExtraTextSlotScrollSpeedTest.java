@@ -18,22 +18,29 @@ public class ExtraTextSlotScrollSpeedTest {
 	}
 
 	@Test
-	public void inheritFollowsMainWindowChoice() {
+	public void inheritFollowsMainWindowPercent() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
-		assertEquals(1, s.resolveScrollChoice(1));
-		assertEquals(4, s.resolveScrollChoice(4));
-		assertEquals(8, s.resolveScrollChoice(8));
+		assertEquals(100, s.resolveScrollChoice(100));
+		assertEquals(200, s.resolveScrollChoice(200));
+		assertEquals(500, s.resolveScrollChoice(500));
 	}
 
 	@Test
-	public void explicitSpeedIgnoresMainWindowChoice() {
+	public void oldJsonThreeIsOneHundredFiftyPercent() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
-		// Stored value is the choice plus one, so 0 stays free to mean inherit.
 		s.setScrollSpeed(3);
-		assertEquals(2, s.resolveScrollChoice(0));
-		assertEquals(2, s.resolveScrollChoice(4));
-		s.setScrollSpeed(ExtraTextSlot.SCROLL_SPEED_MAX);
-		assertEquals(8, s.resolveScrollChoice(0));
+		assertEquals(150, s.getScrollSpeed());
+		assertEquals(150, s.resolveScrollChoice(0));
+		assertEquals(150, s.resolveScrollChoice(500));
+	}
+
+	@Test
+	public void fiveHundredPercentSurvivesJsonRoundTrip() throws Exception {
+		ExtraTextSlot s = new ExtraTextSlot("chat");
+		s.setScrollSpeed(500);
+		ExtraTextSlot back = ExtraTextSlot.fromJson(s.toJson());
+		assertEquals(500, back.getScrollSpeed());
+		assertEquals(500, s.copy().getScrollSpeed());
 	}
 
 	@Test
@@ -46,17 +53,7 @@ public class ExtraTextSlotScrollSpeedTest {
 	}
 
 	@Test
-	public void survivesJsonRoundTrip() throws Exception {
-		ExtraTextSlot s = new ExtraTextSlot("chat");
-		s.setScrollSpeed(ExtraTextSlot.SCROLL_SPEED_MAX);
-		ExtraTextSlot back = ExtraTextSlot.fromJson(s.toJson());
-		assertEquals(ExtraTextSlot.SCROLL_SPEED_MAX, back.getScrollSpeed());
-		assertEquals(ExtraTextSlot.SCROLL_SPEED_MAX, s.copy().getScrollSpeed());
-	}
-
-	@Test
 	public void slotsSavedBeforeThisSettingStillLoad() {
-		// Profiles written by earlier builds have no scroll_speed key at all.
 		ExtraTextSlot back = ExtraTextSlot.fromJson(new JSONObject());
 		assertEquals(null, back);
 		JSONObject o = new JSONObject();
@@ -80,5 +77,17 @@ public class ExtraTextSlotScrollSpeedTest {
 		}
 		assertEquals(ExtraTextSlot.SCROLL_SPEED_INHERIT,
 				ExtraTextSlot.fromJson(o).getScrollSpeed());
+	}
+
+	@Test
+	public void fromJsonMigratesOldIndexNineToFiveHundred() {
+		JSONObject o = new JSONObject();
+		try {
+			o.put("name", "chat");
+			o.put("scroll_speed", 9);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		assertEquals(500, ExtraTextSlot.fromJson(o).getScrollSpeed());
 	}
 }
