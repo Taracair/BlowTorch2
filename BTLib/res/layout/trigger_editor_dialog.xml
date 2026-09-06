@@ -79,13 +79,20 @@
   			<TableRow>
   				<TextView
   					android:text="Pattern:"
-  					android:paddingLeft="10dip"/>
+  					android:paddingLeft="10dip"
+  					android:paddingTop="8dip"
+  					android:textStyle="bold"
+  					android:textColor="@color/chrome_section_text"/>
   				<EditText
   					android:id="@+id/trigger_editor_pattern"
   					android:hint="text, regex, or blank if Match style is on"
   					android:layout_marginRight="10dip"
+  					android:layout_marginTop="4dip"
+  					android:layout_marginBottom="4dip"
   					android:layout_width="0dip"
   					android:layout_weight="1"
+  					android:padding="8dip"
+  					android:background="@drawable/editor_search_field_bg"
   					android:fontFamily="monospace"
   					android:inputType="textMultiLine"
   					android:minLines="2"
@@ -235,7 +242,10 @@
   			android:minHeight="34dip"
   			android:background="@drawable/sensor_section_bg"
   			android:paddingLeft="10dip"
-  			android:paddingRight="4dip">
+  			android:paddingRight="10dip"
+  			android:clickable="true"
+  			android:focusable="true"
+  			android:contentDescription="Expand or collapse Match style">
   			<TextView
   				android:layout_width="0dip"
   				android:layout_height="wrap_content"
@@ -247,7 +257,20 @@
   				android:textSize="12dip"
   				android:letterSpacing="0.06"
   				android:textColor="@color/chrome_section_text"/>
+  			<TextView
+  				android:id="@+id/trigger_style_chevron"
+  				android:layout_width="wrap_content"
+  				android:layout_height="wrap_content"
+  				android:text="▸"
+  				android:textSize="16dip"
+  				android:textColor="@color/chrome_section_text"/>
   		</LinearLayout>
+  		<LinearLayout
+  			android:id="@+id/trigger_style_body"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:orientation="vertical"
+  			android:visibility="gone">
   		<TextView
   			android:id="@+id/trigger_style_hint"
   			android:layout_width="match_parent"
@@ -293,6 +316,7 @@
   			android:layout_marginRight="10dip"
   			android:layout_marginBottom="8dip"
   			android:orientation="vertical"/>
+  		</LinearLayout>
     		<LinearLayout
   			android:id="@+id/trigger_conditions_header"
   			android:layout_width="match_parent"

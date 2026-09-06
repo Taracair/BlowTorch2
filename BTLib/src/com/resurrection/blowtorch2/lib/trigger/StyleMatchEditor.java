@@ -46,6 +46,11 @@ final class StyleMatchEditor {
 	private LayerRow href;
 	private LayerRow text;
 	private CheckBox textRegex;
+	private View header;
+	private View body;
+	private TextView chevron;
+	private boolean expanded;
+	private boolean gestureHidden;
 
 	StyleMatchEditor(final Context context) {
 		this.context = context;
@@ -53,6 +58,19 @@ final class StyleMatchEditor {
 
 	void bind(final View root, final StyleMatchSpec spec) {
 		StyleMatchSpec src = spec == null ? new StyleMatchSpec() : spec;
+		header = root.findViewById(R.id.trigger_style_header);
+		body = root.findViewById(R.id.trigger_style_body);
+		chevron = (TextView) root.findViewById(R.id.trigger_style_chevron);
+		expanded = src.isActive();
+		if (header != null) {
+			header.setOnClickListener(new View.OnClickListener() {
+				public void onClick(final View v) {
+					expanded = !expanded;
+					applyBodyVisibility();
+				}
+			});
+		}
+		applyBodyVisibility();
 		combine = (Spinner) root.findViewById(R.id.trigger_style_combine);
 		extras = (Spinner) root.findViewById(R.id.trigger_style_extras);
 		colorMode = (Spinner) root.findViewById(R.id.trigger_style_color_mode);
@@ -91,6 +109,23 @@ final class StyleMatchEditor {
 		textRegex.setTextColor(COLOR_TEXT);
 		textRegex.setChecked(src.isTextRegex());
 		layers.addView(textRegex);
+	}
+
+	void setGestureHidden(final boolean hidden) {
+		gestureHidden = hidden;
+		if (header != null) {
+			header.setVisibility(hidden ? View.GONE : View.VISIBLE);
+		}
+		applyBodyVisibility();
+	}
+
+	private void applyBodyVisibility() {
+		if (body != null) {
+			body.setVisibility((!gestureHidden && expanded) ? View.VISIBLE : View.GONE);
+		}
+		if (chevron != null) {
+			chevron.setText(expanded ? "▾" : "▸");
+		}
 	}
 
 	StyleMatchSpec collect() {

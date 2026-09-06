@@ -368,19 +368,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		pattern.setFocusableInTouchMode(!isGesture);
 		literal.setEnabled(!isGesture);
 		int vis = isGesture ? View.GONE : View.VISIBLE;
-		int[] ids = new int[] {
-				R.id.trigger_style_header,
-				R.id.trigger_style_hint,
-				R.id.trigger_style_combine,
-				R.id.trigger_style_extras,
-				R.id.trigger_style_color_mode,
-				R.id.trigger_style_layers
-		};
-		for (int i = 0; i < ids.length; i++) {
-			View v = findViewById(ids[i]);
-			if (v != null) {
-				v.setVisibility(vis);
-			}
+		View header = findViewById(R.id.trigger_style_header);
+		if (header != null) {
+			header.setVisibility(vis);
+		}
+		if (styleMatchEditor != null) {
+			styleMatchEditor.setGestureHidden(isGesture);
 		}
 	}
 
@@ -827,8 +820,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "and is not matched.\n\n"
 			+ "The pattern may be blank when Match style is active — then every run "
 			+ "of that recipe fires. Pattern plus style: the regex matches as today, "
-			+ "and the matched span must also pass the style. .grabber copies layers "
-			+ "into a new trigger or the clipboard.";
+			+ "and the matched span must also pass the style. Tap MATCH STYLE to "
+			+ "expand or collapse the layers. .grabber copies layers into a new "
+			+ "trigger or the clipboard.";
 
 	/**
 	 * Snapshot the alias names so the preview can resolve $alias{...} without a
