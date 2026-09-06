@@ -245,8 +245,9 @@ public final class TriggerCascade {
 				if (!StyleMatcher.matches(run.snapshot, spec, run.text)) {
 					continue;
 				}
+				// No regex groups; $1 is the run so Ack $1 matches alias habit.
 				return new Hit(t, base + run.start, base + run.end,
-						new String[] { run.text });
+						new String[] { run.text, run.text });
 			}
 			styleRunLine++;
 			styleRunIdx = 0;

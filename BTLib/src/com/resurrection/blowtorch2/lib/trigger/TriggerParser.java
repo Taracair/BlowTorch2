@@ -61,7 +61,7 @@ public final class TriggerParser {
 				out.attribute("", "regexp", trigger.isInterpretAsRegex() ? "true" : "false");
 			}
 			if(trigger.isFireOnce()) {
-				out.attribute("", BasePluginParser.ATTR_TRIGGERONCE, trigger.isFireOnce() ? "true" : "false");
+				out.attribute("", BasePluginParser.ATTR_TRIGGERONCE, trigger.getFireOnce().xmlValue());
 			}
 			if(trigger.isHidden())  out.attribute("", BasePluginParser.ATTR_TRIGGERHIDDEN, "true");
 			if(!trigger.isEnabled()) {

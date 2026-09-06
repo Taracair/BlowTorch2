@@ -146,4 +146,17 @@ public class TriggerParserTest {
 		TriggerParser.saveTriggerToXML(out, trigger);
 		assertTrue(out.toString().contains("sequence=\"20\""));
 	}
+
+	@Test
+	public void saveTriggerToXmlWritesFireOnceSend() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("first");
+		trigger.setPattern("");
+		trigger.setSave(true);
+		trigger.setFireOnce(TriggerFireOnce.UNTIL_SEND);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		assertTrue(out.toString().contains("fireOnce=\"send\""));
+	}
 }

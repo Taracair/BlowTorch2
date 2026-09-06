@@ -617,7 +617,13 @@ In the trigger editor:
 - **Literal?** off → pattern is a regular expression  
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
-  Off → after this trigger fires, later triggers are not tried on this line.  
+  Off → after this trigger fires, later triggers are not tried on this line.
+- **Fire** → **Every time** (default); **Once, until enabled** (first match,
+  then quiet until you turn the trigger off and on); **Once, until I send**
+  (first match after you type a command, then quiet until you type another.
+  Ack from the trigger does not count). `look` with thirty bright names:
+  the first phrase is `$1`, the rest of that look is ignored, the next
+  `look` is free.  
 - **Order** → smaller number runs first (default **10** for every new
   trigger, so a replace you never numbered is at 10). **9 is not "on
   top"**: it runs *before* that replace, and the replace can wipe the
@@ -658,9 +664,11 @@ In the trigger editor:
   (unexpected underline is fine if you only required bold, or it is not).
   **Exact recipe** vs **Looks the same** (Colorizer RGB before Light paper).
   Pattern may be blank when a Require or Forbid is set — colour-only.
-  Pattern plus style: the text matches as today, and the matched span must
-  also pass the style. Colour from a Color action is not the world's style.
-  `.grabber` copies ticked layers into a new trigger or the clipboard.
+  Then `$0` and `$1` are the styled run, so Ack `look $1` sends that
+  phrase; there is no regex group. Pattern plus style: the text matches
+  as today, and the matched span must also pass the style. Colour from a
+  Color action is not the world's style. `.grabber` copies ticked layers
+  into a new trigger or the clipboard.
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and

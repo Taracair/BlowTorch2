@@ -23,6 +23,7 @@ import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerFireOnce;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleColorToken;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec.Gate;
@@ -169,7 +170,8 @@ NewTrigger(name,pattern,config[,action,...])
 --configuration parameters is a table that can have the following properties defined:
 --regex = [boolean] indicates use of regular expression or literal text.
 --group = [string] group name to enroll this trigger into.
---once = [boolean] fire once then stay quiet until enabled again.
+--once = true: fire once then stay quiet until enabled again.
+--once = "send": fire once then stay quiet until you send from the input bar.
 --sequence = [number] smaller runs first (default 10).
 --enabled = [boolean]
 --style = { fg, bg, bright, italic, ... }  -- match incoming SGR; not Color action
@@ -283,8 +285,14 @@ class NewTriggerFunction extends JavaFunction {
 				
 				if(key.equals("enabled")) {
 					t.setEnabled(obj.getBoolean());
-				} else if(key.equals("once")) {
-					t.setFireOnce(obj.getBoolean());
+				} else if(key.equals("once") || key.equals("fireOnce")) {
+					if (type == Plugin.LUA_TBOOLEAN) {
+						t.setFireOnce(obj.getBoolean());
+					} else if (type == Plugin.LUA_TSTRING) {
+						t.setFireOnce(TriggerFireOnce.fromXml(obj.getString()));
+					} else if (type == Plugin.LUA_TNUMBER) {
+						t.setFireOnce(TriggerFireOnce.fromParcel((int) obj.getNumber()));
+					}
 				} else if(key.equals("regex")) {
 					t.setInterpretAsRegex(obj.getBoolean());
 				} else if(key.equals("group")) {

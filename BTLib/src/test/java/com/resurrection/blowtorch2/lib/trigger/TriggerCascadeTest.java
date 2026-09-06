@@ -226,6 +226,30 @@ public class TriggerCascadeTest {
 		TriggerCascade.Hit hit = c.nextHit();
 		assertEquals("green", hit.trigger.getName());
 		assertEquals("loot", hit.matched());
+		assertEquals("loot", hit.groups[0]);
+		assertEquals("loot", hit.groups[1]);
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void styleOnlyBrightRunFillsDollarOne() throws Exception {
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("plain \u001B[1msword\u001B[0m here\n".getBytes("UTF-8"));
+		StyleLineModel[] models = StyleLineModel.buildTree(tree);
+		int[] starts = new int[] { 0 };
+		TriggerData t = new TriggerData();
+		t.setName("bright");
+		t.setPattern("");
+		t.setEnabled(true);
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setBright(Gate.REQUIRE);
+		t.setStyleMatch(spec);
+		TriggerCascade c = compile(t);
+		c.reset("plain sword here\n");
+		c.attachStyle(models, starts);
+		TriggerCascade.Hit hit = c.nextHit();
+		assertEquals("sword", hit.matched());
+		assertEquals("sword", hit.groups[1]);
 		assertNull(c.nextHit());
 	}
 
@@ -249,6 +273,7 @@ public class TriggerCascadeTest {
 		}
 		assertEquals(1, hits.size());
 		assertEquals(0, hits.get(0).start);
+		assertEquals(1, hits.get(0).groups.length);
 	}
 
 	@Test

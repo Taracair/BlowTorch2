@@ -93,6 +93,7 @@ import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.LineModCount;
 import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerFireOnce;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
@@ -1024,6 +1025,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_SENDDATA_BYTES:
 				try {
+					resetUntilSendFired();
 					sendToServer((byte[]) msg.obj);
 				} catch (Exception e1) {
 					reportRuntimeError("outbound command", e1);
@@ -3034,6 +3036,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								}
 							}
 							if (ConditionEvaluator.evaluate(gate, Connection.this)) {
+							if (gate.isFireOnce() && gate.isFired()) {
+								continue;
+							}
+							if (gate.isFireOnce()) {
+								gate.setFired(true);
+							}
 							firedHits.add(firedKey);
 							mCaptureMap.clear();
 							for (int i = 0; i < hit.groups.length; i++) {
@@ -7084,6 +7092,31 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		chat_max_messages
 	}
 	
+	/**
+	 * Input-bar (and tap) sends, not Ack. Ack uses MESSAGE_SENDDATA_STRING.
+	 */
+	private void resetUntilSendFired() {
+		resetUntilSendFiredIn(mSettings);
+		if (mPlugins == null) {
+			return;
+		}
+		for (int i = 0; i < mPlugins.size(); i++) {
+			resetUntilSendFiredIn(mPlugins.get(i));
+		}
+	}
+
+	private static void resetUntilSendFiredIn(final Plugin plugin) {
+		if (plugin == null || plugin.getSettings() == null
+				|| plugin.getSettings().getTriggers() == null) {
+			return;
+		}
+		for (TriggerData t : plugin.getSettings().getTriggers().values()) {
+			if (t != null && t.getFireOnce() == TriggerFireOnce.UNTIL_SEND) {
+				t.setFired(false);
+			}
+		}
+	}
+
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
 	 * 
 	 * @param bytes Input to process.

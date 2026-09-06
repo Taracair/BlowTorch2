@@ -309,7 +309,7 @@ addition to `post`. Live values of kept names are **not** in this XML.
 | `title` | Name (not `name`) |
 | `pattern` | Match text or regex |
 | `regexp` / `interpretLiteral` | Regex mode (`regexp="true"` preferred on save) |
-| `fireOnce`, `hidden`, `enabled` | Behaviour flags |
+| `fireOnce` (`true` / `"send"`), `hidden`, `enabled` | Behaviour flags |
 | `sequence` | Order (default 10) |
 | `group` | Group name |
 | `keepEvaluating` | Continue after match. Default true (omit the attribute). Write `keepEvaluating="false"` to stop later triggers on that line. |
@@ -552,8 +552,9 @@ comment set; this section is the maintained summary.
 | `GetVariable(name)` | Read (nil if unset) |
 | `UnsetVariable(name)` | Clear |
 
-**`NewTrigger` config table** (common keys): `regex`, `group`, `once` (not
-`fireOnce`), `enabled`, `sequence` (number; smaller runs first, default 10),
+**`NewTrigger` config table** (common keys): `regex`, `group`, `once`
+(`true` = until enabled again; `"send"` = until you type a command; also
+accepted as `fireOnce`), `enabled`, `sequence` (number; smaller runs first, default 10),
 `style` (nested table — match incoming SGR, not a Color action):
 
 ```lua
@@ -568,9 +569,13 @@ NewTrigger("red_says", "says", {
 
 NewTrigger("any_red", "", { style = { fg = 196 } },
   { type = "color", foreground = "#ff8800", background = false })
+
+NewTrigger("any_bright", "", { style = { bright = true }, once = "send" },
+  { type = "send", text = "look $1" })
 ```
 
-Do not put match keys on `{ type = "color", ... }` — `bold` there is Color Bold
+A blank pattern has no regex group; `$0` and `$1` are both the styled run,
+so `send` `$1` is the bright phrase. Do not put match keys on `{ type = "color", ... }` — `bold` there is Color Bold
 (private SGR 66), not MUD `[1m`. Prefixed `style_fg` / `style_bright` keys still
 work if you prefer a flat config table.
 

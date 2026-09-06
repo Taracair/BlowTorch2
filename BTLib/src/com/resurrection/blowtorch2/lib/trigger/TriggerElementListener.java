@@ -44,7 +44,8 @@ public class TriggerElementListener implements ElementListener {
 		current_trigger.setPattern(a.getValue("",BasePluginParser.ATTR_TRIGGERPATTERN));
 		 
 
-		current_trigger.setFireOnce((a.getValue("",BasePluginParser.ATTR_TRIGGERONCE) == null) ? false : a.getValue("",BasePluginParser.ATTR_TRIGGERONCE).equals("true") ? true : false);
+		current_trigger.setFireOnce(TriggerFireOnce.fromXml(
+				a.getValue("", BasePluginParser.ATTR_TRIGGERONCE)));
 		current_trigger.setHidden( (a.getValue("",BasePluginParser.ATTR_TRIGGERHIDDEN) == null) ? false : (a.getValue("",BasePluginParser.ATTR_TRIGGERHIDDEN)).equals("true") ? true : false);
 		current_trigger.setEnabled( (a.getValue("",BasePluginParser.ATTR_TRIGGERENEABLED) == null) ? true : (a.getValue("",BasePluginParser.ATTR_TRIGGERENEABLED)).equals("true") ? true : false);
 		current_trigger.setSequence( (a.getValue("",BasePluginParser.ATTR_SEQUENCE) == null) ? 10 : Integer.parseInt(a.getValue("",BasePluginParser.ATTR_SEQUENCE)));

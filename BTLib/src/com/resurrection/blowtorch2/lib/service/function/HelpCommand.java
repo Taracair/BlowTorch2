@@ -640,6 +640,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "editor with those layers already Required. Tick Exact recipe vs Looks\n"
 					+ "the same, ALL vs ANY, extra attributes OK vs none, on the list itself.\n"
 					+ "A Color action you painted is not the world's style and is skipped.\n"
+					+ "Blank pattern: $0 and $1 are the styled run, so Ack $1 sends that phrase.\n"
 					+ "Keep .colordebug to dump CSI in the draw path; grabber does not replace it.\n";
 		}
 		if (filter.equals("search")) {

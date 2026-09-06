@@ -97,8 +97,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	private boolean mEditorWarning = true;
 	
 	//private CheckBox literal;
-	private CheckBox once;
 	private CheckBox keepGoing;
+	private Spinner fireSpinner;
 
 	private final List<TriggerData> orderSet = new ArrayList<TriggerData>();
 	private final List<TriggerSampleHits.Candidate> sampleCandidates =
@@ -239,7 +239,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		});
 		
 		//literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
-		once = (CheckBox)findViewById(R.id.trigger_once_checkbox);
+		fireSpinner = (Spinner) findViewById(R.id.trigger_fire_spinner);
 		keepGoing = (CheckBox)findViewById(R.id.trigger_keep_evaluating_checkbox);
 		
 		//if(isEditor) {
@@ -258,7 +258,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		}
 		
 		literal.setChecked(!the_trigger.isInterpretAsRegex());
-		once.setChecked(the_trigger.isFireOnce());
+		setupFireSpinner();
 		if (keepGoing != null) {
 			keepGoing.setChecked(the_trigger.isKeepEvaluating());
 		}
@@ -276,7 +276,6 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//}
 		
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
-		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		if (keepGoing != null) {
 			keepGoing.setOnCheckedChangeListener(new KeepEvaluatingCheckChangedListener());
 		}
@@ -284,6 +283,60 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		setupOrderAndSample(title, sequence);
 		setupSourcePicker(pattern, literal, title);
 		EditorDialogChrome.applyFullScreen(this);
+	}
+
+	private static final String[] FIRE_LABELS = {
+			"Every time",
+			"Once, until enabled",
+			"Once, until I send"
+	};
+
+	private void setupFireSpinner() {
+		if (fireSpinner == null) {
+			return;
+		}
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				android.R.layout.simple_spinner_item, FIRE_LABELS);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		fireSpinner.setAdapter(adapter);
+		fireSpinner.setSelection(fireOnceToSpinner(the_trigger.getFireOnce()));
+		fireSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position,
+					long id) {
+				the_trigger.setFireOnce(fireOnceFromSpinner(position));
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+	}
+
+	private void applyFireFromEditor() {
+		if (fireSpinner != null) {
+			the_trigger.setFireOnce(fireOnceFromSpinner(fireSpinner.getSelectedItemPosition()));
+		}
+	}
+
+	private static TriggerFireOnce fireOnceFromSpinner(final int position) {
+		if (position == 2) {
+			return TriggerFireOnce.UNTIL_SEND;
+		}
+		if (position == 1) {
+			return TriggerFireOnce.UNTIL_ENABLE;
+		}
+		return TriggerFireOnce.OFF;
+	}
+
+	private static int fireOnceToSpinner(final TriggerFireOnce mode) {
+		if (mode == TriggerFireOnce.UNTIL_SEND) {
+			return 2;
+		}
+		if (mode == TriggerFireOnce.UNTIL_ENABLE) {
+			return 1;
+		}
+		return 0;
 	}
 
 	/**
@@ -797,9 +850,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "triggers can both fire — one rewrites a channel tag, another gags the "
 			+ "spam inside it. Off: after this trigger fires, later triggers are not "
 			+ "tried on this line.\n\n"
-			+ "FIRE ONCE?\n"
-			+ "Fires the first time and then stays quiet until the trigger is enabled "
-			+ "again.\n\n"
+			+ "FIRE\n"
+			+ "Every time: each match. Once, until enabled: first match, then quiet "
+			+ "until you turn the trigger off and on. Once, until I send: first match "
+			+ "after you send from the input bar, then quiet until you send again. "
+			+ "Ack from this trigger does not count as you sending.\n\n"
 			+ com.resurrection.blowtorch2.lib.window.EditorHelp.TRIGGER_ORDER
 			+ "A DOLLAR IN THE GAME TEXT\n"
 			+ "In a regular expression $ means end of line, not a price. To match "
@@ -819,7 +874,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "paper. Colour you paint with a Color action is not the world's style "
 			+ "and is not matched.\n\n"
 			+ "The pattern may be blank when Match style is active — then every run "
-			+ "of that recipe fires. Pattern plus style: the regex matches as today, "
+			+ "of that recipe fires, and $0 and $1 are that run (Ack $1 works; there "
+			+ "is no regex group). Pattern plus style: the regex matches as today, "
 			+ "and the matched span must also pass the style. Tap MATCH STYLE to "
 			+ "expand or collapse the layers. .grabber copies layers into a new "
 			+ "trigger or the clipboard.";
@@ -863,7 +919,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
-		CheckBox fireOnce = (CheckBox)findViewById(R.id.trigger_once_checkbox);
+		Spinner fireOnce = (Spinner) findViewById(R.id.trigger_fire_spinner);
 		boolean retval = false;
 		if(!(title.getText().toString().equals(test.getName()))) retval = true;
 		if(!(pattern.getText().toString().equals(test.getPattern()))) retval = true;
@@ -871,7 +927,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		String existingGroup = test.getGroup() != null ? test.getGroup() : "";
 		if(!groupText.equals(existingGroup)) retval = true;
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
-		if(test.isFireOnce() != fireOnce.isChecked()) retval = true;
+		if (fireOnce != null && test.getFireOnce() != fireOnceFromSpinner(fireOnce.getSelectedItemPosition())) {
+			retval = true;
+		}
 		if (keepGoing != null && test.isKeepEvaluating() != keepGoing.isChecked()) retval = true;
 		EditText sequence = (EditText)findViewById(R.id.trigger_editor_sequence);
 		if (sequence != null
@@ -1041,6 +1099,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				applySequenceFromEditor();
+				applyFireFromEditor();
 				
 				//i don't care anymore about the checkchanged listeners. it was a neat idea, but here goes.
 				try {
@@ -1067,6 +1126,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				applySequenceFromEditor();
+				applyFireFromEditor();
 				try {
 					if(selectedPlugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
 						service.newTrigger(the_trigger);
@@ -1520,18 +1580,6 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 	}
 	
-	private class FireOnceCheckChangedListener implements CompoundButton.OnCheckedChangeListener {
-
-		public void onCheckedChanged(CompoundButton arg0, boolean arg1) {
-			if(arg1) {
-				the_trigger.setFireOnce(true); 
-			} else {
-				the_trigger.setFireOnce(false); 
-			}
-		}
-		
-	}
-
 	private class KeepEvaluatingCheckChangedListener implements CompoundButton.OnCheckedChangeListener {
 
 		public void onCheckedChanged(CompoundButton arg0, boolean arg1) {

@@ -26,7 +26,7 @@ public class TriggerData implements Parcelable {
 	private String name;
 	private String pattern;
 	private boolean interpretAsRegex;
-	private boolean fireOnce;
+	private TriggerFireOnce fireOnce;
 	
 	private boolean fired = false;
 	
@@ -53,7 +53,7 @@ public class TriggerData implements Parcelable {
 		responders = new ArrayList<TriggerResponder>();
 		conditions = new ConditionGroup();
 		styleMatch = new StyleMatchSpec();
-		fireOnce = false;
+		fireOnce = TriggerFireOnce.OFF;
 		hidden = false;
 		enabled = true;
 		sequence = DEFAULT_SEQUENCE;
@@ -276,7 +276,7 @@ public class TriggerData implements Parcelable {
 		this.resolvedPattern = in.readString();
 		setResponders(new ArrayList<TriggerResponder>());
 		setInterpretAsRegex( (in.readInt() == 1) ? true : false);
-		setFireOnce ((in.readInt() == 1) ? true : false);
+		setFireOnce(TriggerFireOnce.fromParcel(in.readInt()));
 		setHidden( (in.readInt() == 1) ? true : false);
 		setEnabled( (in.readInt() == 1) ? true : false);
 		setSequence((in.readInt()));
@@ -377,7 +377,7 @@ public class TriggerData implements Parcelable {
 		// text, which is what the editor shows and what is written back.
 		out.writeString(resolvedPattern);
 		out.writeInt( interpretAsRegex ? 1 : 0);
-		out.writeInt(fireOnce ? 1 : 0);
+		out.writeInt(fireOnce == null ? 0 : fireOnce.toParcel());
 		out.writeInt(hidden ? 1 : 0);
 		out.writeInt(enabled ? 1 : 0);
 		out.writeInt(sequence);
@@ -441,11 +441,19 @@ public class TriggerData implements Parcelable {
 	}
 
 	public void setFireOnce(boolean fireOnce) {
-		this.fireOnce = fireOnce;
+		this.fireOnce = fireOnce ? TriggerFireOnce.UNTIL_ENABLE : TriggerFireOnce.OFF;
+	}
+
+	public void setFireOnce(TriggerFireOnce fireOnce) {
+		this.fireOnce = fireOnce != null ? fireOnce : TriggerFireOnce.OFF;
+	}
+
+	public TriggerFireOnce getFireOnce() {
+		return fireOnce != null ? fireOnce : TriggerFireOnce.OFF;
 	}
 
 	public boolean isFireOnce() {
-		return fireOnce;
+		return getFireOnce().quietsAfterFire();
 	}
 
 	public void setFired(boolean fired) {
@@ -465,6 +473,9 @@ public class TriggerData implements Parcelable {
 	}
 
 	public void setEnabled(boolean enabled) {
+		if (enabled && !this.enabled) {
+			fired = false;
+		}
 		this.enabled = enabled;
 	}
 

@@ -342,7 +342,8 @@ public class HyperSettings {
 				out.attribute("", BaseParser.ATTR_TRIGGERTITLE, trigger.getName());
 				out.attribute("", BaseParser.ATTR_TRIGGERPATTERN, trigger.getPattern());
 				out.attribute("", BaseParser.ATTR_TRIGGERLITERAL, trigger.isInterpretAsRegex() ? "true" : "false");
-				out.attribute("", BaseParser.ATTR_TRIGGERONCE, trigger.isFireOnce() ? "true" : "false");
+				String once = trigger.getFireOnce().xmlValue();
+				out.attribute("", BaseParser.ATTR_TRIGGERONCE, once != null ? once : "false");
 				if(trigger.isHidden())  out.attribute("", BaseParser.ATTR_TRIGGERHIDDEN, "true");
 				out.attribute("", BaseParser.ATTR_TRIGGERENEABLED, trigger.isEnabled() ? "true" : "false");
 				

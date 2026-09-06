@@ -341,7 +341,8 @@ public class HyperSAXParser extends BaseParser {
 				// NPE'd in the middle of the SAX parse. Missing means false, which
 				// is TriggerData's default and what TriggerElementListener falls to.
 				current_trigger.setInterpretAsRegex("true".equals(attr.getValue("",ATTR_TRIGGERLITERAL)));
-				current_trigger.setFireOnce(attr.getValue("",ATTR_TRIGGERONCE).equals("true") ? true : false);
+				current_trigger.setFireOnce(com.resurrection.blowtorch2.lib.trigger.TriggerFireOnce.fromXml(
+						attr.getValue("", ATTR_TRIGGERONCE)));
 				current_trigger.setHidden( (attr.getValue("",ATTR_TRIGGERHIDDEN) == null) ? false : (attr.getValue("",ATTR_TRIGGERHIDDEN)).equals("true") ? true : false);
 				current_trigger.setEnabled( (attr.getValue("",ATTR_TRIGGERENEABLED) == null) ? true : (attr.getValue("",ATTR_TRIGGERENEABLED)).equals("true") ? true : false);
 				
