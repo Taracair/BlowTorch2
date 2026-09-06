@@ -72,10 +72,19 @@ unless they switch language. Code, comments, commit messages and everything in
 
 ## Commits
 
-At the end of each turn that produced a complete change, commit on `staging`
-and push it. Do not wait for the words commit or push. Message is one or two
-sentences on why, not a file list. The maintainer does not use git; work that
-is only on this laptop is not backed up.
+At the end of each turn that produced a complete change, commit on `staging`.
+Do **not** `git push` unless the maintainer asked for that push. Laptop copies
+are the maintainer's NAS backup, not GitHub. Message is one or two sentences
+on why, not a file list.
+
+Before a requested push: read `git log origin/staging..HEAD`, and only push
+if those commits are ones they would want on GitHub — squash probe/revert
+noise and obvious split-steps first. Do not spam the remote with a commit
+per try.
+
+Say how many **unpushed** commits are on `staging` in the status to the
+maintainer (once per turn that committed, and whenever they ask what is
+waiting). `git rev-list --count origin/staging..HEAD`.
 
 One commit is one rollback point. Two unrelated fixes in one turn are two
 commits. Probes get their own commit. Do not commit a half-written file or

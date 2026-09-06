@@ -47,16 +47,16 @@ clone must still go green.
 
 ## What is deliberately not blocked
 
-**`git push` on `staging`.** The version of these guards this project started
-from denied it, on the theory that the maintainer pushes and the agent does not.
-That is wrong here: the maintainer does not use git directly, so a denied push
-leaves the work on one laptop with no copy anywhere. Committing and pushing
-`staging` is the backup, and the agent does both without being asked.
+**`git push` on `staging`.** The guard does not deny it. The agent still must
+not push unless the maintainer asked: GitHub is not the laptop backup (that
+is the NAS). Before a requested push, read the unpushed log and squash
+probe/revert noise rather than dumping a commit per try.
 
-**Commits and merges on `main`.** Same reasoning: if promoting `staging` to
+**Commits and merges on `main`.** Same as before: if promoting `staging` to
 `main` is denied, nothing can ever ship, because there is nobody else at the
 keyboard. `pre-commit` prints a notice when a commit lands on `main` so an
-accident is visible, and then gets out of the way.
+accident is visible, and then gets out of the way. Promote only when the
+maintainer asks for a release.
 
 What is left is judgment and cannot be a pattern match, so it lives in
 `.cursor/rules/release-workflow.mdc`: promote to `main` only after the
