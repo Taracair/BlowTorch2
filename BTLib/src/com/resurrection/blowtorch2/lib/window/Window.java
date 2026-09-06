@@ -297,10 +297,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * Pixel 9a, hw=1, settled dense-colour coast: hit-heavy windows avgMs 4–8
 	 * vs typeset fling 32–38; finger-down that afternoon was still typeset
 	 * (hitN=0, avgMs 14–16). Opaque cell-height tiles clipped g/j.
-	 * Player, same day: wrap-wide tiles at .width 150 sluggish on dense colour;
-	 * .width 120 was fine. Cap the bitmap at 120% of the viewport; pan past
-	 * that overscan rebakes. .width still drops the ring via
-	 * {@link #calculateCharacterFeatures}.
+	 * Player, same day: wrap-wide at .width 150 sluggish on vertical dense
+	 * colour; a 120% cap then made sideways worse than typeset (rebake every
+	 * overscan). Bake the viewport until a sideways pan, then wrap-wide so
+	 * pan blits. .width still drops the ring via {@link #calculateCharacterFeatures}.
 	 */
 	private static final int LINE_TILE_SLOTS = 256;
 	private static final class LineTileSlot {
@@ -326,6 +326,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private final LineTileSlot[] mLineTiles = new LineTileSlot[LINE_TILE_SLOTS];
 	private final Paint mLineTileBlitPaint = new Paint();
 	private int mLineTileBytes;
+	private boolean mLineTileWrap;
 
 	private boolean lineTilesWanted() {
 		if (!mFingerDown && Math.abs(mFlingVelocity) <= FLING_STOP_VELOCITY) {
@@ -354,6 +355,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			s.key = Integer.MIN_VALUE;
 		}
 		mLineTileBytes = 0;
+		mLineTileWrap = false;
 	}
 
 	private void invalidateLineTiles() {
@@ -428,15 +430,24 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return Math.max(1, (int) Math.ceil(lineTileBottom(logicalY) - lineTileTop(logicalY)));
 	}
 
-	private int lineTileWidth() {
+	private int lineTileWrapWidth() {
 		final int vw = Math.max(1, getWidth());
-		final int wrap = Math.max(vw, (int) Math.ceil(canvasWidthPx()));
-		final int cap = vw + vw / 5;
-		return Math.min(wrap, cap);
+		return Math.max(vw, (int) Math.ceil(canvasWidthPx()));
 	}
 
-	private float lineTileOrigin() {
-		final int w = lineTileWidth();
+	private int lineTileWidth() {
+		final int vw = Math.max(1, getWidth());
+		final int wrap = lineTileWrapWidth();
+		if ((mDragAxis == DRAG_HORIZONTAL || mLineTileWrap) && wrap > vw) {
+			return wrap;
+		}
+		return vw;
+	}
+
+	private float lineTileOrigin(final int w) {
+		if (w >= lineTileWrapWidth()) {
+			return 0f;
+		}
 		final float wrap = Math.max((float) getWidth(), canvasWidthPx());
 		float origin = mScrollX;
 		float maxOrigin = wrap - w;
@@ -461,7 +472,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return false;
 		}
 		final LineTileSlot s = lineTileSlot(key);
-		if (s.key != key || s.bmp == null || s.w != lineTileWidth()) {
+		if (s.key != key || s.bmp == null) {
 			return false;
 		}
 		if (s.h != lineTileHeight(logicalY)) {
@@ -478,13 +489,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private Canvas beginLineTile(final int key, final float logicalY) {
-		final int w = lineTileWidth();
+		int w = lineTileWidth();
 		final int h = lineTileHeight(logicalY);
 		if (w < 1 || h < 1) {
 			return null;
 		}
 		try {
 			final LineTileSlot s = lineTileSlot(key);
+			final int wrap = lineTileWrapWidth();
+			if (s.bmp != null && s.w >= wrap && wrap > getWidth()) {
+				w = s.w;
+			}
 			if (s.bmp == null || s.w != w || s.h != h) {
 				final int add = w * h * 4;
 				int live = mLineTileBytes;
@@ -505,7 +520,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				s.h = h;
 				mLineTileBytes += add;
 			}
-			s.origin = lineTileOrigin();
+			s.origin = lineTileOrigin(s.w);
 			s.bmp.eraseColor(0);
 			s.canvas.save();
 			s.canvas.translate(mScrollX - s.origin, -lineTileTop(logicalY));
@@ -4922,6 +4937,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mScrollX = mScrollX + dx;
 		clampScrollX();
 		if (mScrollX != before) {
+			mLineTileWrap = true;
 			// The copy widget is anchored to a column, so it has to travel with
 			// the canvas rather than stay where it was opened.
 			if (theSelection != null && selectedSelector != null) {
