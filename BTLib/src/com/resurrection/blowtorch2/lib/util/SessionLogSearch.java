@@ -6,16 +6,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Pure-Java matching for session-log files. No Android types — unit tests run
@@ -23,7 +19,8 @@ import java.util.regex.Pattern;
  * {@link SessionLogger} because that needs a {@code Context}.
  *
  * <p>Filename pattern written by {@link SessionLogger}:
- * {@code {sanitizedDisplay}_{yyyy-MM-dd_HH-mm-ss}.txt}. Files are per world.
+ * {@code {sanitizedDisplay}_{yyyy-MM-dd}.txt}. Legacy
+ * {@code {sanitizedDisplay}_{yyyy-MM-dd_HH-mm-ss}.txt} leftovers still match.
  */
 public final class SessionLogSearch {
 
@@ -37,14 +34,6 @@ public final class SessionLogSearch {
 	public static final int MAX_LINE_HITS = 10000;
 	/** Opens per list Search, on top of the byte budget. */
 	public static final int MAX_FILES_PER_SEARCH = 100;
-
-	/**
-	 * Stamp after the world prefix. Greedy {@code (.+)_} would otherwise treat
-	 * {@code foo_bar_2026-01-01_00-00-00.txt} as world {@code foo} when asking
-	 * for {@code foo}.
-	 */
-	private static final Pattern FILE_NAME = Pattern.compile(
-			"^(.+)_(\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2})\\.txt$");
 
 	private static final long MS_PER_DAY = 24L * 60L * 60L * 1000L;
 
@@ -70,37 +59,19 @@ public final class SessionLogSearch {
 	}
 
 	public static boolean isWorldLogFileName(String name, String display) {
-		if (name == null) {
+		SessionLogDay.ParsedName parsed = SessionLogDay.parseFileName(name);
+		if (parsed == null) {
 			return false;
 		}
-		Matcher m = FILE_NAME.matcher(name);
-		if (!m.matches()) {
-			return false;
-		}
-		return sanitizeProfile(display).equals(m.group(1));
+		return sanitizeProfile(display).equals(parsed.sanitizedWorld);
 	}
 
 	/**
-	 * Epoch millis of the {@code yyyy-MM-dd_HH-mm-ss} stamp in the filename,
-	 * or null when the name is not a session log.
+	 * Epoch millis of the stamp in the filename, or null when the name is not
+	 * a session log. Day-only files use the start of that local day.
 	 */
 	public static Long fileNameStampMs(String name) {
-		if (name == null) {
-			return null;
-		}
-		Matcher m = FILE_NAME.matcher(name);
-		if (!m.matches()) {
-			return null;
-		}
-		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss",
-				Locale.US);
-		fmt.setLenient(false);
-		try {
-			java.util.Date d = fmt.parse(m.group(2));
-			return d == null ? null : Long.valueOf(d.getTime());
-		} catch (ParseException e) {
-			return null;
-		}
+		return SessionLogDay.fileNameStampMs(name, TimeZone.getDefault());
 	}
 
 	/**

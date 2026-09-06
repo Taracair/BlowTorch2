@@ -8,13 +8,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -44,7 +42,6 @@ public final class SessionLogger {
 	private static final String PREFS = "SESSION_LOG_PREFS";
 	private static final String KEY_ENABLED = "enabled";
 	private static final String KEY_CUSTOM_DIR = "custom_dir";
-	private static final long MAX_BYTES = 8 * 1024 * 1024;
 	/** Flush to OS buffers at least this often while data arrives. */
 	private static final long FLUSH_INTERVAL_MS = 750L;
 	/** Flush sooner if this much is buffered. */
@@ -85,6 +82,9 @@ public final class SessionLogger {
 	private static File currentFile;
 	private static Uri currentDocUri;
 	private static String currentProfile;
+	private static String currentDisplay;
+	private static String currentDayKey;
+	private static boolean rollingOver;
 	private static FileOutputStream currentFos;
 	private static OutputStream currentOut;
 	private static long pendingBytes;
@@ -150,10 +150,11 @@ public final class SessionLogger {
 		if (!enabled && wasEnabled) {
 			if (intendedHasFile) {
 				enqueue(context, new Op(Op.WRITE,
-						markerText("logging disabled"), null, false, null));
+						SessionLogDay.loggingDisabledMarker(System.currentTimeMillis(),
+								TimeZone.getDefault()),
+						null, false, null));
 			}
-			// RESET, not CLOSE: turning logging off must not leave a file that a
-			// later start would append to.
+			// RESET forgets the stream; the next enable looks up today's file by date.
 			enqueue(context, new Op(Op.RESET, null, null, true, null));
 			clearIntendedMeta();
 		}
@@ -268,7 +269,7 @@ public final class SessionLogger {
 		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
 	}
 
-	/** Begin a new file for this profile. */
+	/** Open today's file for this profile, appending if it already exists. */
 	public static void startSession(Context context, String profile) {
 		if (context == null || !isEnabled(context)) {
 			return;
@@ -279,9 +280,9 @@ public final class SessionLogger {
 	}
 
 	/**
-	 * Keep writing to the current profile file after a reconnect; otherwise
-	 * start a new one. The writer decides which, since only it knows whether the
-	 * file it opened is still there.
+	 * Keep writing to today's file after a reconnect; otherwise open or create
+	 * it. The writer decides, since only it knows whether the file it opened is
+	 * still there.
 	 *
 	 * @param context Any context.
 	 * @param profile Connection display name.
@@ -322,23 +323,32 @@ public final class SessionLogger {
 		enqueue(context, new Op(Op.WRITE, markerText(marker), null, false, null));
 	}
 
-	/**
-	 * A marker that names the log's own location, e.g. {@code "connected → "}.
-	 *
-	 * <p>The caller cannot build this itself any more: the location is only known
-	 * once the writer has resolved a directory and opened a file, and it enqueues
-	 * this marker before that has happened. So the writer fills in the tail.
-	 *
-	 * @param context Any context.
-	 * @param profile Connection display name.
-	 * @param prefix Text before the location.
-	 */
-	public static void appendLocationMarker(Context context, String profile, String prefix) {
+	public static void appendConnected(Context context, String profile) {
 		if (context == null || !isEnabled(context)) {
 			return;
 		}
 		ensureIntended(context, profile);
-		enqueue(context, new Op(Op.LOCATION, prefix != null ? prefix : "", null, false, null));
+		enqueue(context, new Op(Op.WRITE,
+				SessionLogDay.connectedMarker(System.currentTimeMillis(),
+						TimeZone.getDefault()),
+				null, false, null));
+	}
+
+	/**
+	 * A marker that names the log's own location. {@code event} is
+	 * {@code client connected} or {@code logging enabled}; the writer adds the
+	 * time and path, which are only known after it has opened the file.
+	 *
+	 * @param context Any context.
+	 * @param profile Connection display name.
+	 * @param event Event phrase without a time.
+	 */
+	public static void appendLocationMarker(Context context, String profile, String event) {
+		if (context == null || !isEnabled(context)) {
+			return;
+		}
+		ensureIntended(context, profile);
+		enqueue(context, new Op(Op.LOCATION, event != null ? event : "", null, false, null));
 	}
 
 	/**
@@ -373,15 +383,18 @@ public final class SessionLogger {
 			return;
 		}
 		if (intendedHasFile) {
-			enqueue(context, new Op(Op.WRITE, markerText("disconnected"), null, false, null));
+			enqueue(context, new Op(Op.WRITE,
+					SessionLogDay.disconnectedMarker(System.currentTimeMillis(),
+							TimeZone.getDefault()),
+					null, false, null));
 		}
 		// CLOSE, not RESET, and intendedHasFile stays true. A dropped TCP session
 		// is usually followed by a reconnect, and onConnected wants to keep
-		// appending to the same file rather than fragment the player's log into
-		// one file per drop — it asks hasActiveSessionFor to pick the wording and
-		// continueOrStartSession to pick the file, and both have to still say
-		// yes. The stream is closed; the writer reopens it in append mode on the
-		// next write, because currentProfile is still set.
+		// appending to today's file rather than mint a second — it asks
+		// hasActiveSessionFor to pick the wording and continueOrStartSession to
+		// pick the file, and both have to still say yes. The stream is closed;
+		// the writer reopens today's file in append mode, because currentProfile
+		// is still set.
 		enqueue(context, new Op(Op.CLOSE, null, null, true, null));
 		CountDownLatch done = new CountDownLatch(1);
 		if (!enqueue(context, new Op(Op.BARRIER, null, null, false, done))) {
@@ -398,8 +411,8 @@ public final class SessionLogger {
 	}
 
 	private static String markerText(String marker) {
-		String stamp = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
-		return "\n--- " + stamp + " " + marker + " ---\n";
+		return SessionLogDay.timedMarker(System.currentTimeMillis(),
+				TimeZone.getDefault(), marker);
 	}
 
 	/** A write for a profile we have not opened a file for yet implies a start. */
@@ -525,13 +538,12 @@ public final class SessionLogger {
 		switch (op.kind) {
 		case Op.WRITE:
 			if (op.text != null && op.text.length() > 0) {
-				rotateIfFull();
 				writeWriter(op.text, false);
 			}
 			break;
 		case Op.LOCATION:
-			rotateIfFull();
-			writeWriter(markerText(op.text + locationLabelWriter()), false);
+			writeWriter(SessionLogDay.locationMarker(System.currentTimeMillis(),
+					TimeZone.getDefault(), op.text, locationLabelWriter()), false);
 			break;
 		case Op.START:
 			startWriterSession(op.profile, op.flag);
@@ -564,12 +576,28 @@ public final class SessionLogger {
 		return dir != null ? dir : "(nowhere writable)";
 	}
 
-	private static void rotateIfFull() {
-		if (currentOut == null || bytesWrittenThisFile <= MAX_BYTES) {
+	private static void rolloverIfNewDay() {
+		if (rollingOver || currentProfile == null || currentDayKey == null) {
 			return;
 		}
-		writeWriter("\n=== log rotated (size limit) ===\n", true);
-		startWriterSession(currentProfile, false);
+		long now = System.currentTimeMillis();
+		TimeZone tz = TimeZone.getDefault();
+		if (!SessionLogDay.needsRollover(currentDayKey, now, tz)) {
+			return;
+		}
+		rollingOver = true;
+		try {
+			writeWriter(SessionLogDay.midnightRolloverMarker(now, tz), true, false);
+			String display = currentDisplay != null ? currentDisplay : currentProfile;
+			closeWriter(true);
+			currentFile = null;
+			currentDocUri = null;
+			currentDayKey = null;
+			resolvedDocUri = null;
+			openDayFile(display, now, tz, true);
+		} finally {
+			rollingOver = false;
+		}
 	}
 
 	private static void startWriterSession(String profile, boolean continueIfSame) {
@@ -577,19 +605,51 @@ public final class SessionLogger {
 		if (context == null) {
 			return;
 		}
+		long now = System.currentTimeMillis();
+		TimeZone tz = TimeZone.getDefault();
 		String safe = sanitizeProfile(profile);
-		if (continueIfSame && safe.equals(currentProfile)) {
+		String today = SessionLogDay.dayKey(now, tz);
+		// Same-day reuse applies even when startSession passes continueIfSame=false.
+		if (safe.equals(currentProfile) && today.equals(currentDayKey)) {
 			boolean haveFile = (currentFile != null && currentFile.exists())
 					|| currentDocUri != null;
 			if (haveFile && (currentOut != null || openWriterStream(context))) {
 				return;
 			}
 		}
-
-		String stamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
-		String header = "=== BlowTorch session log: " + profile + " @ " + stamp + " ===\n";
+		if (currentOut != null && currentDayKey != null
+				&& SessionLogDay.needsRollover(currentDayKey, now, tz)
+				&& (currentProfile == null || currentProfile.equals(safe))) {
+			writeWriter(SessionLogDay.midnightRolloverMarker(now, tz), true, false);
+			closeWriter(true);
+			currentFile = null;
+			currentDocUri = null;
+			currentDayKey = null;
+			resolvedDocUri = null;
+			openDayFile(profile, now, tz, true);
+			return;
+		}
 		closeWriter(true);
-		clearWriterMeta();
+		currentFile = null;
+		currentDocUri = null;
+		currentDayKey = null;
+		resolvedDocUri = null;
+		openDayFile(profile, now, tz, false);
+	}
+
+	private static void openDayFile(String profile, long nowMs, TimeZone tz,
+			boolean continuation) {
+		Context context = writerContext;
+		if (context == null) {
+			return;
+		}
+		String safe = sanitizeProfile(profile);
+		String today = SessionLogDay.dayKey(nowMs, tz);
+		String name = SessionLogDay.fileName(safe, today);
+		String header = SessionLogDay.headerLine(profile, today);
+		currentDisplay = profile;
+		currentProfile = safe;
+		currentDayKey = today;
 
 		String custom;
 		synchronized (SessionLogger.class) {
@@ -599,16 +659,33 @@ public final class SessionLogger {
 				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
 			DocumentFile tree = DocumentFile.fromTreeUri(context, Uri.parse(custom));
 			if (tree != null && tree.canWrite()) {
-				DocumentFile file = tree.createFile("text/plain", safe + "_" + stamp + ".txt");
+				DocumentFile file = tree.findFile(name);
+				boolean created = false;
+				if (file == null || !file.isFile()) {
+					file = tree.createFile("text/plain", name);
+					created = true;
+				}
 				if (file != null) {
 					currentDocUri = file.getUri();
-					currentProfile = safe;
 					resolvedDocUri = currentDocUri;
-					if (!openWriterStream(context) || !writeWriter(header, true)) {
+					boolean writeHeader = created || file.length() == 0L;
+					if (!openWriterStream(context)) {
 						BlowTorchLogger.logError(context, TAG,
 								"Failed to write session log via SAF: " + currentDocUri);
 						closeWriter(false);
 						clearWriterMeta();
+						return;
+					}
+					if (writeHeader && !writeWriter(header, true, false)) {
+						BlowTorchLogger.logError(context, TAG,
+								"Failed to write session log via SAF: " + currentDocUri);
+						closeWriter(false);
+						clearWriterMeta();
+						return;
+					}
+					if (continuation) {
+						writeWriter(SessionLogDay.midnightContinuationMarker(nowMs, tz),
+								false, false);
 					}
 					return;
 				}
@@ -629,16 +706,27 @@ public final class SessionLogger {
 			return;
 		}
 		resolvedDirLabel = dir.getAbsolutePath();
-		File target = new File(dir, safe + "_" + stamp + ".txt");
+		File target = new File(dir, name);
+		boolean writeHeader = !target.isFile() || target.length() == 0L;
 		currentFile = target;
-		currentProfile = safe;
 		resolvedFile = target;
-		if (!openWriterStream(context) || !writeWriter(header, true)) {
+		if (!openWriterStream(context)) {
 			BlowTorchLogger.logError(context, TAG,
 					"Failed to create session log file: " + target.getAbsolutePath());
 			closeWriter(false);
 			clearWriterMeta();
-		} else {
+			return;
+		}
+		if (writeHeader && !writeWriter(header, true, false)) {
+			BlowTorchLogger.logError(context, TAG,
+					"Failed to create session log file: " + target.getAbsolutePath());
+			closeWriter(false);
+			clearWriterMeta();
+			return;
+		}
+		if (continuation) {
+			writeWriter(SessionLogDay.midnightContinuationMarker(nowMs, tz), false, false);
+		} else if (writeHeader) {
 			Log.i(TAG, "Session log started: " + target.getAbsolutePath());
 		}
 	}
@@ -647,6 +735,8 @@ public final class SessionLogger {
 		currentFile = null;
 		currentDocUri = null;
 		currentProfile = null;
+		currentDisplay = null;
+		currentDayKey = null;
 		bytesWrittenThisFile = 0L;
 		pendingBytes = 0L;
 		resolvedDocUri = null;
@@ -689,9 +779,16 @@ public final class SessionLogger {
 	}
 
 	private static boolean writeWriter(String text, boolean forceFlush) {
+		return writeWriter(text, forceFlush, true);
+	}
+
+	private static boolean writeWriter(String text, boolean forceFlush, boolean allowRollover) {
 		Context context = writerContext;
 		if (text == null || text.length() == 0) {
 			return true;
+		}
+		if (allowRollover) {
+			rolloverIfNewDay();
 		}
 		if (currentOut == null) {
 			if (context == null || currentProfile == null) {
@@ -829,15 +926,15 @@ public final class SessionLogger {
 		Collections.sort(out, new Comparator<File>() {
 			@Override
 			public int compare(File a, File b) {
-				return b.getName().compareTo(a.getName());
+				return SessionLogDay.compareNamesNewestFirst(a.getName(), b.getName());
 			}
 		});
 		return out;
 	}
 
 	/**
-	 * Entire file as UTF-8. Do not call this on the UI thread for a rotated
-	 * (up to 8 MB) log — the viewer pages instead.
+	 * Entire file as UTF-8. Do not call this on the UI thread for a large
+	 * day file — the viewer pages instead.
 	 *
 	 * @param file Log file, or null.
 	 * @return Contents, or empty when unreadable.

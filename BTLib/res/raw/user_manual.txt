@@ -2059,8 +2059,9 @@ to text that arrived then.
 `.search logs` (no phrase) opens the in-app session-log browser for this world
 (⋮ → **Session logs**). It reads the folder **Options → Service → Session Log
 Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
-All) and tap **Load** — a folder with thousands of files can take a while;
-the dialog says so instead of a bare “Loading…”. The box filters file names
+All) and tap **Load** — a folder that still holds older per-session files can
+take a while; new logs are one file per world per day. The dialog says so
+instead of a bare “Loading…”. The box filters file names
 as you type (`Filter names`). **Search** looks inside the files still listed
 (not the whole folder), stays on the list of matching files with a hit
 count, and stops after 16 MB or 100 files if the range is too wide. ✕ in an
@@ -2070,7 +2071,9 @@ Hardware Back does the same: file → list → clear search → dismiss.
 With a file open, Search / ‹ › find in that file only (`3/12`) after one
 scan. **Change**
 (tap the folder line) lists another directory without moving where new logs
-are written. Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`. Tap a file to
+are written. Files are `{world}_{yyyy-MM-dd}.txt` (one file per world per
+local day; reconnects append). Older `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`
+files still list. Tap a file to
 read it; large files page with **Older** / **Newer**.
 
 `.search logs 7 goblin` searches the live window first, then session log files

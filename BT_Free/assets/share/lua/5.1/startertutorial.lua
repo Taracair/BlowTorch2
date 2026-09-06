@@ -853,7 +853,8 @@ Session log files (this world only):
   .search logs 7 goblin        window, then last 7 days of files
   .search logs 0 goblin        window plus every saved file
   .search 'logs'               still finds the word “logs” in the window
-Files are {world}_{date}_{time}.txt in the folder Options → Service
+Files are {world}_{yyyy-MM-dd}.txt (one file per world per local day;
+reconnects append) in the folder Options → Service
 → Session Log Directory names (blank = /BlowTorch/session_logs/).
 Overflow ⋮ → Session logs: pick dates, tap Load (a large folder can
 take a while). The box filters file names as you type. Search looks
@@ -1041,7 +1042,7 @@ TOPICS.logging_export = function()
 [[Session log (game output, ANSI stripped):
   Options → Service → Log Session to File?
   Session Log Directory blank = /BlowTorch/session_logs/
-  Files: {profile}_{yyyy-MM-dd_HH-mm-ss}.txt
+  Files: {profile}_{yyyy-MM-dd}.txt (one per world per local day)
 
 Import / export / reset this session’s settings:
   Options → Miscellaneous → Export / Import / Reset Settings

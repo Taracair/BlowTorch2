@@ -130,6 +130,14 @@ public class SearchCommandTest {
 				"foo_bar_2026-08-20_14-03-11.txt", "foo"));
 		assertTrue(SessionLogSearch.isWorldLogFileName(
 				"foo_bar_2026-08-20_14-03-11.txt", "foo_bar"));
+		assertTrue(SessionLogSearch.isWorldLogFileName(
+				"foo_2026-08-20.txt", "foo"));
+		assertFalse(SessionLogSearch.isWorldLogFileName(
+				"foo_bar_2026-08-20.txt", "foo"));
+		assertTrue(SessionLogSearch.isWorldLogFileName(
+				"foo_bar_2026-08-20.txt", "foo_bar"));
+		assertTrue(SessionLogSearch.isWorldLogFileName(
+				"world-a_2026-09-06.txt", "world-a"));
 		assertFalse(SessionLogSearch.isWorldLogFileName("notes.txt", "foo"));
 		assertEquals("Aardwolf", SessionLogSearch.sanitizeProfile("Aardwolf"));
 		assertEquals("a_b", SessionLogSearch.sanitizeProfile("a b"));
@@ -141,6 +149,9 @@ public class SearchCommandTest {
 				Long.valueOf(stamp.longValue() + 1000L)));
 		assertFalse(SessionLogSearch.stampInRange(stamp,
 				Long.valueOf(stamp.longValue() + 1L), null));
+		Long dayStamp = SessionLogSearch.fileNameStampMs("foo_2026-08-20.txt");
+		assertNotNull(dayStamp);
+		assertTrue(dayStamp.longValue() <= stamp.longValue());
 		assertNull(SessionLogSearch.fileNameStampMs("notes.txt"));
 	}
 

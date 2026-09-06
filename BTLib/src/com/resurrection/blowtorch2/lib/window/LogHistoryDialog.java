@@ -54,7 +54,7 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * In-app browser for this world's {@code session_logs} files. List first, then
- * a paged TextView — never the whole 8 MB file as one String on the UI thread.
+ * a paged TextView — never the whole day file as one String on the UI thread.
  */
 public class LogHistoryDialog extends Dialog {
 
@@ -378,8 +378,7 @@ public class LogHistoryDialog extends Dialog {
 		final Long from = mFromMs;
 		final Long until = mUntilExclusiveMs;
 		final String folderLabel = dir == null ? "" : dir.getAbsolutePath();
-		mSubtitle.setText("There may be thousands of session logs in this folder. "
-				+ "Loading can take a while…\n" + folderLabel);
+		mSubtitle.setText("New logs are one file per day. Older folders can still hold many files — loading can take a while…\n" + folderLabel);
 		mEmpty.setText("Loading…");
 		mEmpty.setVisibility(View.VISIBLE);
 		mList.setVisibility(View.GONE);
