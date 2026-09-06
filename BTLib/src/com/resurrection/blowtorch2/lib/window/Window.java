@@ -291,6 +291,202 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 	};
+
+	/**
+	 * Per-line tiles while the finger or fling moves the viewport. 6 Sep 2026,
+	 * Pixel 9a, hw=1, settled dense-colour coast: hit-heavy windows avgMs 4–8
+	 * vs typeset fling 32–38; finger-down that afternoon was still typeset
+	 * (hitN=0, avgMs 14–16). Opaque cell-height tiles clipped g/j.
+	 */
+	private static final int LINE_TILE_SLOTS = 256;
+	private static final class LineTileSlot {
+		Bitmap bmp;
+		Canvas canvas;
+		int key = Integer.MIN_VALUE;
+		int w;
+		int h;
+		float scrollX;
+		int fg;
+		int resolvedFg;
+		int bg;
+		int bgPaintColor;
+		int sgrBits;
+		Integer selectedColor;
+		Integer selectedBackground;
+		Integer selectedBright;
+		boolean xterm256FG;
+		boolean xterm256BG;
+		boolean trueColorFG;
+		boolean trueColorBG;
+	}
+	private final LineTileSlot[] mLineTiles = new LineTileSlot[LINE_TILE_SLOTS];
+	private final Paint mLineTileBlitPaint = new Paint();
+
+	private boolean lineTilesWanted() {
+		if (!mFingerDown && Math.abs(mFlingVelocity) <= FLING_STOP_VELOCITY) {
+			return false;
+		}
+		if (theSelection != null || selectedSelector != null) {
+			return false;
+		}
+		if (mLoupeActive) {
+			return false;
+		}
+		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+			return false;
+		}
+		return mBuffer != null && mBuffer.getBrokenLineCount() != 0;
+	}
+
+	private void dropLineTiles() {
+		for (int i = 0; i < LINE_TILE_SLOTS; i++) {
+			final LineTileSlot s = mLineTiles[i];
+			if (s == null) {
+				continue;
+			}
+			if (s.bmp != null) {
+				s.bmp.recycle();
+				s.bmp = null;
+			}
+			s.canvas = null;
+			s.key = Integer.MIN_VALUE;
+		}
+	}
+
+	private void invalidateLineTiles() {
+		for (int i = 0; i < LINE_TILE_SLOTS; i++) {
+			if (mLineTiles[i] != null) {
+				mLineTiles[i].key = Integer.MIN_VALUE;
+			}
+		}
+	}
+
+	private LineTileSlot lineTileSlot(final int key) {
+		final int i = (key & 0x7fffffff) % LINE_TILE_SLOTS;
+		if (mLineTiles[i] == null) {
+			mLineTiles[i] = new LineTileSlot();
+		}
+		return mLineTiles[i];
+	}
+
+	private void saveLineTileSgr(final LineTileSlot s) {
+		s.fg = p.getColor();
+		s.resolvedFg = mResolvedFg;
+		s.bg = b.getColor();
+		s.bgPaintColor = mBgPaintColor;
+		s.sgrBits = mSgr.bits();
+		s.selectedColor = mSelectedColor;
+		s.selectedBackground = mSelectedBackground;
+		s.selectedBright = mSelectedBright;
+		s.xterm256FG = mXterm256FG;
+		s.xterm256BG = mXterm256BG;
+		s.trueColorFG = mTrueColorFG;
+		s.trueColorBG = mTrueColorBG;
+	}
+
+	private void restoreLineTileSgr(final LineTileSlot s) {
+		p.setColor(s.fg);
+		b.setColor(s.bg);
+		mBgPaintColor = s.bgPaintColor;
+		mSgr.setBits(s.sgrBits);
+		mSelectedColor = s.selectedColor;
+		mSelectedBackground = s.selectedBackground;
+		mSelectedBright = s.selectedBright;
+		mXterm256FG = s.xterm256FG;
+		mXterm256BG = s.xterm256BG;
+		mTrueColorFG = s.trueColorFG;
+		mTrueColorBG = s.trueColorBG;
+		mResolvedFg = s.resolvedFg;
+		applySgrDecorations(p);
+	}
+
+	private boolean lineTileable(final TextTree.Line line) {
+		return line != null
+				&& line.getBreaks() == 0
+				&& line.getInlineImageKey() == null
+				&& line != mSearchHighlightLine
+				&& !mCenterJustify;
+	}
+
+	/** Union of the {@link #drawTextOnGrid} clip box and the ANSI cell. */
+	private float lineTileTop(final float logicalY) {
+		final float baseline = screenBaselineY(logicalY);
+		return Math.min(cellTop(logicalY), baseline + mGridFontMetrics.ascent);
+	}
+
+	private float lineTileBottom(final float logicalY) {
+		final float baseline = screenBaselineY(logicalY);
+		final float lineBot = baseline
+				+ Math.max(mGridFontMetrics.descent + 1f, (float) mPrefLineExtra);
+		return Math.max(cellBottom(logicalY), lineBot);
+	}
+
+	private int lineTileHeight(final float logicalY) {
+		return Math.max(1, (int) Math.ceil(lineTileBottom(logicalY) - lineTileTop(logicalY)));
+	}
+
+	private boolean blitLineTile(final Canvas hw, final int key, final float logicalY) {
+		if (!lineTilesWanted()) {
+			return false;
+		}
+		final LineTileSlot s = lineTileSlot(key);
+		if (s.key != key || s.bmp == null || s.w != getWidth()
+				|| s.scrollX != mScrollX) {
+			return false;
+		}
+		if (s.h != lineTileHeight(logicalY)) {
+			return false;
+		}
+		hw.drawBitmap(s.bmp, 0f, lineTileTop(logicalY), mLineTileBlitPaint);
+		restoreLineTileSgr(s);
+		return true;
+	}
+
+	private Canvas beginLineTile(final int key, final float logicalY) {
+		final int w = getWidth();
+		final int h = lineTileHeight(logicalY);
+		if (w < 1 || h < 1) {
+			return null;
+		}
+		try {
+			final LineTileSlot s = lineTileSlot(key);
+			if (s.bmp == null || s.w != w || s.h != h) {
+				if (s.bmp != null) {
+					s.bmp.recycle();
+					s.bmp = null;
+				}
+				s.bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+				s.canvas = new Canvas(s.bmp);
+				s.w = w;
+				s.h = h;
+			}
+			s.bmp.eraseColor(0);
+			s.canvas.save();
+			s.canvas.translate(0f, -lineTileTop(logicalY));
+			s.key = Integer.MIN_VALUE;
+			s.scrollX = mScrollX;
+			return s.canvas;
+		} catch (OutOfMemoryError e) {
+			return null;
+		}
+	}
+
+	private void finishLineTile(final Canvas hw, final int key, final float logicalY) {
+		final LineTileSlot s = lineTileSlot(key);
+		if (s.canvas != null) {
+			try {
+				s.canvas.restore();
+			} catch (RuntimeException ignored) {
+			}
+		}
+		if (s.bmp == null) {
+			return;
+		}
+		hw.drawBitmap(s.bmp, 0f, lineTileTop(logicalY), mLineTileBlitPaint);
+		saveLineTileSgr(s);
+		s.key = key;
+	}
+
 	/** ANSI Drawing routine current background color. */
 	private Integer mSelectedBackground = Integer.valueOf(60);
 	/** Utility variable that is used by the ANSI drawing routine to properly handle xterm 256 colors. */
@@ -525,6 +721,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		removeCallbacks(mBlinkInvalidate);
 		mBlinkPosted = false;
+		dropLineTiles();
 	}
 	
 
@@ -882,6 +1079,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
 			mBuffer.setDimRepeatedLines(enabled);
 		}
+		invalidateLineTiles();
 	}
 
 	private void applyOsc8Links(final boolean enabled) {
@@ -900,6 +1098,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	private void applyDimRepeatedStrength(final int n) {
 		mDimRepeatedStrength = RepeatedLineDimmer.clampStrength(n);
+		invalidateLineTiles();
 	}
 	
 	/** Resets the buffer with the given argument. 
@@ -1345,7 +1544,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mBuffer.getBrokenLineCount() == 0) {
 			jumpToZero();
 		}
-		
+		dropLineTiles();
 	}
 
 	/** Pixel width of {@code charCount} terminal cells (ANSI maps need a fixed grid). */
@@ -1560,7 +1759,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				&& !mSgr.doubleUnderline()) {
 			return cell * spaceLen;
 		}
-
 		ensureGridCache(paint);
 		final boolean overlayPass = paint == mWeightPaint;
 
@@ -2496,6 +2694,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mLightPaper = light;
+		dropLineTiles();
 		invalidate();
 	}
 
@@ -2509,6 +2708,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mLightPaperShade = next;
+		dropLineTiles();
 		invalidate();
 	}
 
@@ -2517,6 +2717,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mSgr1Weight = on;
+		dropLineTiles();
 		invalidate();
 	}
 
@@ -2674,7 +2875,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	// Reverted 6 Sep 2026: viewport blit was cheap (avgMs 1–2), capture 38–57.
 	// RenderNode rec 46–57ms, recN 5–24/2s reverse: jumps + black bottom half.
 	@Override
-	public final void onDraw(final Canvas c) {
+	public final void onDraw(final Canvas hw) {
+		Canvas c = hw;
 		mBlinkSawThisFrame = false;
 		mBlinkFastSawThisFrame = false;
 		final long blinkNow = SystemClock.uptimeMillis();
@@ -2769,6 +2971,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			p.setStrikeThruText(false);
 			p.setTextSkewX(0f);
 			mSgr.clear();
+			ensureGridCache(p);
 			
 			// Sideways scroll is applied at the row origin rather than with
 			// canvas.translate on purpose: link boxes are built from this same x
@@ -2840,7 +3043,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			y = bundle.getOffset();
 
 			int extraLines = bundle.getExtraLines();
-			if (screenIt == null) { releaseSelectionCanvas(); return;}
+			if (screenIt == null) {
+				releaseSelectionCanvas();
+				return;
+			}
 			
 			int startline = bundle.getStartLine();
 			int workingline = startline;
@@ -2952,6 +3158,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
+				final int lineRows = 1 + l.getBreaks();
+				final int tileKey = workingline;
+				final float y0 = y;
+				if (lineTileable(l) && blitLineTile(hw, tileKey, y0)) {
+					y = y + lineRows * mPrefLineSize;
+					x = -mScrollX;
+					drawnlines += lineRows;
+					workingline = workingline - lineRows;
+					if (drawnlines > mCalculatedLinesInWindow + extraLines) {
+						stop = true;
+					}
+					continue;
+				}
+				boolean cap = false;
+				if (lineTilesWanted() && lineTileable(l)) {
+					final Canvas tile = beginLineTile(tileKey, y0);
+					if (tile != null) {
+						c = tile;
+						cap = true;
+					}
+				}
+				try {
 				int searchPlainPos = 0;
 				mPaintingDimLine = mDimRepeatedLines && l.isDimRepeated();
 				applyRepeatedLineForeground(p);
@@ -3330,6 +3558,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingline = workingline - 1;
 				workingcol = 0;
 				l.resetIterator();
+				} finally {
+					if (cap) {
+						finishLineTile(hw, tileKey, y0);
+						c = hw;
+					}
+				}
 			}
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
@@ -3878,10 +4112,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	public void setMaxLines(int maxLines) {
 		mBuffer.setMaxLines(maxLines);
 		mHoldBuffer.setMaxLines(maxLines);
+		invalidateLineTiles();
 	}
 
 	public void setFont(Typeface font) {
 		mPrefFont = font;
+		dropLineTiles();
 	}
 	
 	public void setBold(boolean bold) {
@@ -3892,6 +4128,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mPrefFont = Typeface.create(mPrefFont, Typeface.NORMAL);
 			setGridTypeface(p);
 		}
+		dropLineTiles();
 	}
 	
 	public Typeface getFont() {
@@ -4635,6 +4872,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		
 			
+		invalidateLineTiles();
 		this.invalidate();
 	}
 	
@@ -4644,6 +4882,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 			jumpToZero();
 		
+			invalidateLineTiles();
 			this.invalidate();
 	}
 	
@@ -4676,12 +4915,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// out against the empty constructor tree can stay blank after adopting
 		// a full service-side buffer (UI process restart onto a live connection).
 		drawingIterator = null;
+		invalidateLineTiles();
 		invalidate();
 	}
 	
 	public void clearAllText() {
 			warnIfNotUiThread("clearAllText");
 			mBuffer.empty();
+			invalidateLineTiles();
 	}
 	
 	public void addBytes(byte[] obj,boolean jumpToEnd) {
@@ -4707,6 +4948,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				//}
 				return;
 			}
+			invalidateLineTiles();
 			
 			int oldbrokencount = mBuffer.getBrokenLineCount();
 			double old_max = mBuffer.getBrokenLineCount() * mPrefLineSize;
@@ -6358,6 +6600,7 @@ end
 				break;
 			case newest_at_top:
 				mNewestAtTop = (Boolean) o.getValue();
+				dropLineTiles();
 				jumpToZero();
 				this.invalidate();
 				break;
@@ -6486,8 +6729,7 @@ end
 				setCharacterSizes(mPrefFontSize,(Integer)o.getValue());
 				break;
 			case buffer_size:
-				mBuffer.setMaxLines((Integer)o.getValue());
-				mHoldBuffer.setMaxLines(mBuffer.getMaxLines());
+				setMaxLines((Integer)o.getValue());
 				// setMaxLines clamps. Put the number it settled on back into the
 				// option, so the field shows what the window really keeps rather
 				// than what was typed at it.
@@ -6503,6 +6745,7 @@ end
 			case font_path:
 				mPrefFont = loadFontFromName((String)o.getValue());
 				setGridTypeface(p);
+				dropLineTiles();
 				this.invalidate();
 				break;
 			case tap_dismiss_keyboard:
