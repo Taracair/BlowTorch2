@@ -44,8 +44,7 @@ public class StyleColorTokenTest {
 	public void describeCheckedOnlyTickedRows() {
 		StyleSnapshot s = new StyleSnapshot(ColorSpace.ANSI16, 32, ColorSpace.ANSI16,
 				40, false, 0, null);
-		boolean[] checked = new boolean[] { true, false, false, false, false, false,
-				false, false, false, false, false };
+		boolean[] checked = new boolean[] { true, false };
 		String body = StyleClipboard.describeChecked(s, "loot", checked, false);
 		assertTrue(body.contains("Foreground"));
 		assertTrue(!body.contains("Background"));

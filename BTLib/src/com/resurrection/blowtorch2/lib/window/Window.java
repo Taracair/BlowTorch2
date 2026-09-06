@@ -1926,7 +1926,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (hit == null || hit.snap == null) {
 			return null;
 		}
-		return new StyleGrabberOverlay.Inspect(hit.snap, hit.glyph);
+		float cellLeft = 0f;
+		float cellTop = 0f;
+		float cellRight = 0f;
+		float cellBottom = 0f;
+		if (mOneCharWidth > 0 && mPrefLineSize > 0) {
+			cellLeft = visualCol * (float) mOneCharWidth - mScrollX;
+			cellRight = cellLeft + mOneCharWidth;
+			float a = bufferLineToScreenY(broken, 0f);
+			float b = bufferLineToScreenY(broken, mPrefLineSize);
+			cellTop = Math.min(a, b);
+			cellBottom = Math.max(a, b);
+		}
+		return new StyleGrabberOverlay.Inspect(hit.snap, hit.glyph,
+				cellLeft, cellTop, cellRight, cellBottom);
 	}
 
 	@Override

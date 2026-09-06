@@ -79,25 +79,52 @@ public final class StyleClipboard {
 			return rows;
 		}
 		rows.add(new LayerRow("fg", "Foreground: " + snap.fgLabel(), true));
-		rows.add(new LayerRow("bg", "Background: " + snap.bgLabel(), false));
-		rows.add(new LayerRow("bright", "Bright (SGR 1): " + onOff(snap.bright),
-				snap.bright));
-		rows.add(new LayerRow("weight", "Bold: " + onOff(snap.weight()), snap.weight()));
-		rows.add(new LayerRow("italic", "Italic: " + onOff(snap.italic()), snap.italic()));
-		String ul = snap.doubleUnderline() ? "double" : (snap.underline() ? "on" : "off");
-		rows.add(new LayerRow("underline", "Underline: " + ul,
-				snap.underline() || snap.doubleUnderline()));
-		rows.add(new LayerRow("strike", "Strike: " + onOff(snap.strike()), snap.strike()));
-		rows.add(new LayerRow("reverse", "Reverse: " + onOff(snap.reverse()),
-				snap.reverse()));
-		rows.add(new LayerRow("faint", "Faint: " + onOff(snap.faint()), snap.faint()));
-		rows.add(new LayerRow("blink", "Blink: " + onOff(snap.blink()), snap.blink()));
-		rows.add(new LayerRow("href",
-				snap.hasHref() ? "Link: " + snap.href : "Link: none", snap.hasHref()));
+		if (hasPaintedBackground(snap)) {
+			rows.add(new LayerRow("bg", "Background: " + snap.bgLabel(), false));
+		}
+		if (snap.bright) {
+			rows.add(new LayerRow("bright", "Bright (SGR 1): on", true));
+		}
+		if (snap.weight()) {
+			rows.add(new LayerRow("weight", "Bold: on", true));
+		}
+		if (snap.italic()) {
+			rows.add(new LayerRow("italic", "Italic: on", true));
+		}
+		if (snap.underline() || snap.doubleUnderline()) {
+			String ul = snap.doubleUnderline() ? "double" : "on";
+			rows.add(new LayerRow("underline", "Underline: " + ul, true));
+		}
+		if (snap.strike()) {
+			rows.add(new LayerRow("strike", "Strike: on", true));
+		}
+		if (snap.reverse()) {
+			rows.add(new LayerRow("reverse", "Reverse: on", true));
+		}
+		if (snap.faint()) {
+			rows.add(new LayerRow("faint", "Faint: on", true));
+		}
+		if (snap.blink()) {
+			rows.add(new LayerRow("blink", "Blink: on", true));
+		}
+		if (snap.hasHref()) {
+			rows.add(new LayerRow("href", "Link: " + snap.href, true));
+		}
 		if (glyphText != null && glyphText.length() > 0) {
 			rows.add(new LayerRow("text", "Text: " + glyphText, false));
 		}
 		return rows;
+	}
+
+	/** ANSI 40 is the unset paper, not a colour the MUD painted. */
+	static boolean hasPaintedBackground(final StyleSnapshot snap) {
+		if (snap == null) {
+			return false;
+		}
+		if (snap.bgSpace != StyleSnapshot.ColorSpace.ANSI16) {
+			return true;
+		}
+		return snap.bgCode != 40;
 	}
 
 	/**
@@ -162,10 +189,6 @@ public final class StyleClipboard {
 			spec.setText(glyphText == null ? "" : glyphText);
 			spec.setTextRegex(false);
 		}
-	}
-
-	private static String onOff(final boolean on) {
-		return on ? "on" : "off";
 	}
 
 	public static final class LayerRow {

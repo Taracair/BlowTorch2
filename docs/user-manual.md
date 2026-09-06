@@ -662,13 +662,16 @@ In the trigger editor:
   flag (bright vs bold, italic, underline, strike, reverse, faint, blink,
   OSC 8 link). **ALL layers** vs **ANY layer**. Extra attributes OK vs none
   (unexpected underline is fine if you only required bold, or it is not).
-  **Exact recipe** vs **Looks the same** (Colorizer RGB before Light paper).
+  **Exact recipe** vs **Looks the same**: Exact compares how the world sent
+  the colour (ANSI 32 is not xterm 2). Looks compares the RGB Colorizer
+  would use before Light paper, so two greens that look the same both
+  match. You can set that in the editor; `.grabber` only seeds it.
   Pattern may be blank when a Require or Forbid is set — colour-only.
   Then `$0` and `$1` are the styled run, so Ack `look $1` sends that
   phrase; there is no regex group. Pattern plus style: the text matches
   as today, and the matched span must also pass the style. Colour from a
-  Color action is not the world's style. `.grabber` copies ticked layers
-  into a new trigger or the clipboard.
+  Color action is not the world's style. `.grabber` fills these layers
+  from a glyph — see `.grabber` below.
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
@@ -1612,17 +1615,41 @@ string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 .grabber off
 ```
 
-`.grabber` with no argument is **once**: stays until the first Copy or New trigger,
-then off. **hold** / **on** stays until `.grabber off`. **tap** is one gesture.
+`.grabber` copies the colour and style of a glyph into a new trigger, or
+onto the clipboard. It does not dump CSI codes — that is still `.colordebug`.
 
-Drag a glyph: a live list of layers appears beside the finger. Release: the
-list is tappable. Tick the layers you want (one, two, three, …). Tap the
-list header to switch Exact recipe / Looks the same, ALL / ANY, extra
-attributes OK / none. **Copy** puts the ticked values on the clipboard.
-**New trigger** opens the trigger editor with those layers already Required
-and actions empty.
+No argument is **once**: stays until the first Copy or New trigger, then off.
+**hold** / **on** stays until `.grabber off`. **tap** is one gesture.
 
-`.colordebug` still dumps CSI in the draw path; grabber does not replace it.
+Type `.grabber`, drag onto a coloured word, release. While you drag, a ring
+sits on the **centre** of that character (not the top of the contact) and a
+magnified copy of the phrase sits next to the list so the pad is not covering
+the target. A long phrase is cut with `...` in the list; Copy and New trigger
+still get the whole phrase. ✕ in the corner turns grabber off.
+
+The first line of the list is the title **Grabber** (not a tap). Only
+attributes that are **on that glyph** appear — underline, bright, a painted
+background, a link. Empty off-rows stay out. Foreground starts ticked; Text
+does not (tick Text if the new trigger's pattern should be that phrase).
+
+**Copy** puts the ticked layers on the clipboard. **New trigger** opens the
+editor with those layers already Required and actions empty. Pattern may be
+left blank: `$0` and `$1` are that styled run, so Ack `look $1` sends the
+phrase (there is no regex group).
+
+**ALL layers** / **ANY layer** and **Extra attributes OK** / **No extra
+attributes** are the same switches as Match style in the editor.
+
+**Exact recipe** / **Looks the same** does not change what you see under the
+finger. It only sets how the **new trigger** will compare colour (same words
+as Match style; you can change it in the editor later). Default is Exact.
+
+Example: the world paints one green as ANSI 32 and another as xterm 2. They
+look the same on screen. Exact, with Foreground required, fires only on
+ANSI 32. Looks the same fires on both, because Colorizer's RGB before Light
+paper is the same.
+
+A Color action you painted is not the world's style; the grabber skips it.
 
 ### `.probe lines`
 

@@ -68,6 +68,65 @@ public final class StyleGrabberPlace {
 		return new StyleGrabberPlace(left, top, left + w, top + h);
 	}
 
+	/**
+	 * Magnifier for the phrase under the reticle. Prefers above the panel, then
+	 * below, then the side that still fits.
+	 */
+	public static StyleGrabberPlace loupeOf(final float panelLeft,
+			final float panelTop, final float panelRight, final float panelBottom,
+			final float loupeW, final float loupeH, final float viewW,
+			final float viewH, final float gap, final float margin) {
+		float vw = viewW > 0f ? viewW : 1f;
+		float vh = viewH > 0f ? viewH : 1f;
+		float m = margin < 0f ? 0f : margin;
+		float maxW = Math.max(0f, vw - 2f * m);
+		float maxH = Math.max(0f, vh - 2f * m);
+		float w = loupeW < maxW ? loupeW : maxW;
+		float h = loupeH < maxH ? loupeH : maxH;
+		if (w < 0f) {
+			w = 0f;
+		}
+		if (h < 0f) {
+			h = 0f;
+		}
+		float g = gap < 0f ? 0f : gap;
+
+		float above = panelTop - g - h;
+		if (above >= m) {
+			float left = clampOrigin(panelLeft, w, vw, m);
+			return new StyleGrabberPlace(left, above, left + w, above + h);
+		}
+		float below = panelBottom + g;
+		if (below + h <= vh - m) {
+			float left = clampOrigin(panelLeft, w, vw, m);
+			return new StyleGrabberPlace(left, below, left + w, below + h);
+		}
+		float right = panelRight + g;
+		if (right + w <= vw - m) {
+			float top = clampOrigin(panelTop, h, vh, m);
+			return new StyleGrabberPlace(right, top, right + w, top + h);
+		}
+		float left = clampOrigin(panelLeft - g - w, w, vw, m);
+		float top = clampOrigin(panelTop, h, vh, m);
+		return new StyleGrabberPlace(left, top, left + w, top + h);
+	}
+
+	private static float clampOrigin(final float origin, final float size,
+			final float view, final float margin) {
+		float min = margin;
+		float max = view - size - margin;
+		if (max < min) {
+			return min;
+		}
+		if (origin < min) {
+			return min;
+		}
+		if (origin > max) {
+			return max;
+		}
+		return origin;
+	}
+
 	/** Slot index for a tap in a panel laid out as {@code slots} equal rows. */
 	public static int rowAt(final float y, final float top, final float height,
 			final int slots) {

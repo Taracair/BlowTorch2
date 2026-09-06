@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -149,8 +150,12 @@ public class StyleMatcherTest {
 	public void grabberChecksBecomeRequire() {
 		StyleSnapshot s = new StyleSnapshot(ColorSpace.XTERM256, 208,
 				ColorSpace.ANSI16, 40, true, SgrStyle.WEIGHT, null);
-		boolean[] on = new boolean[] { true, false, true, true, false, false, false,
-				false, false, false, false, false };
+		List<StyleClipboard.LayerRow> rows = StyleClipboard.layers(s, "loot");
+		boolean[] on = new boolean[rows.size()];
+		for (int i = 0; i < rows.size(); i++) {
+			String id = rows.get(i).id;
+			on[i] = "fg".equals(id) || "bright".equals(id) || "weight".equals(id);
+		}
 		StyleMatchSpec spec = StyleClipboard.specFromChecks(s, "loot", on, false,
 				false, false);
 		assertTrue(spec.isActive());

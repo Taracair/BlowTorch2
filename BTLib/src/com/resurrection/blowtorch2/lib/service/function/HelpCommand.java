@@ -636,9 +636,10 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .grabber tap            one drag; list is tappable on release, then off\n"
 					+ "  .grabber off\n"
 					+ "Drag a glyph: live layer list beside the finger. Release: tick layers.\n"
-					+ "Copy puts the ticked values on the clipboard. New trigger opens the\n"
-					+ "editor with those layers already Required. Tick Exact recipe vs Looks\n"
-					+ "the same, ALL vs ANY, extra attributes OK vs none, on the list itself.\n"
+					+ "The list is titled Grabber. Copy puts the ticked values on the clipboard.\n"
+					+ "New trigger opens the editor with those layers already Required. Tick\n"
+					+ "Exact recipe vs Looks the same, ALL vs ANY, extra attributes OK vs none,\n"
+					+ "on the list itself.\n"
 					+ "A Color action you painted is not the world's style and is skipped.\n"
 					+ "Blank pattern: $0 and $1 are the styled run, so Ack $1 sends that phrase.\n"
 					+ "Keep .colordebug to dump CSI in the draw path; grabber does not replace it.\n";

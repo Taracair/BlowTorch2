@@ -94,4 +94,34 @@ public class StyleGrabberPlaceTest {
 		assertTrue(StyleGrabberPlace.hitSquare(p.right - 1f, p.top + 1f, left, p.top, size));
 		assertTrue(!StyleGrabberPlace.hitSquare(p.left + 1f, p.top + 1f, left, p.top, size));
 	}
+
+	@Test
+	public void loupePrefersAboveThePanel() {
+		StyleGrabberPlace p = StyleGrabberPlace.of(100f, 400f, PANEL_W, PANEL_H,
+				VIEW_W, VIEW_H, GAP, MARGIN, ANCHOR);
+		StyleGrabberPlace l = StyleGrabberPlace.loupeOf(p.left, p.top, p.right,
+				p.bottom, 180f, 40f, VIEW_W, VIEW_H, 8f, MARGIN);
+		assertEquals(p.left, l.left, 0.01f);
+		assertEquals(p.top - 8f - 40f, l.top, 0.01f);
+		assertEquals(l.top + 40f, l.bottom, 0.01f);
+	}
+
+	@Test
+	public void loupeDropsBelowWhenThePanelIsAtTheTop() {
+		StyleGrabberPlace p = StyleGrabberPlace.of(100f, 10f, PANEL_W, PANEL_H,
+				VIEW_W, VIEW_H, GAP, MARGIN, ANCHOR);
+		assertEquals(MARGIN, p.top, 0.01f);
+		StyleGrabberPlace l = StyleGrabberPlace.loupeOf(p.left, p.top, p.right,
+				p.bottom, 180f, 40f, VIEW_W, VIEW_H, 8f, MARGIN);
+		assertEquals(p.bottom + 8f, l.top, 0.01f);
+	}
+
+	@Test
+	public void loupeMovesBesideWhenVerticalRoomIsGone() {
+		StyleGrabberPlace l = StyleGrabberPlace.loupeOf(8f, 8f, 200f, 992f,
+				180f, 40f, VIEW_W, VIEW_H, 8f, MARGIN);
+		assertEquals(200f + 8f, l.left, 0.01f);
+		assertTrue(l.top >= MARGIN - 0.01f);
+		assertTrue(l.bottom <= VIEW_H - MARGIN + 0.01f);
+	}
 }
