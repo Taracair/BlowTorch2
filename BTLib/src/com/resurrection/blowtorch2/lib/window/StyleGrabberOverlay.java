@@ -34,6 +34,8 @@ public final class StyleGrabberOverlay {
 		int overlayWidth();
 		int overlayHeight();
 		void dismissGrabber();
+		/** Close/dismiss ate DOWN; continue this finger as a window scroll. */
+		void yieldFinger(MotionEvent event);
 	}
 
 	public static final class Inspect {
@@ -190,12 +192,12 @@ public final class StyleGrabberOverlay {
 			if (snap == null || rows == null) {
 				if (hitIdleClose(x, y)) {
 					host.dismissGrabber();
-					consumeUntilUp = true;
+					host.yieldFinger(event);
 					return true;
 				}
 			} else if (hitPanelClose(x, y)) {
 				host.dismissGrabber();
-				consumeUntilUp = true;
+				host.yieldFinger(event);
 				return true;
 			}
 			if (listArmed && hitPanel(x, y)) {
@@ -205,38 +207,21 @@ public final class StyleGrabberOverlay {
 			if (listArmed && !hitPanel(x, y)) {
 				if (mode == GrabberCommand.MODE_TAP) {
 					host.dismissGrabber();
-				} else {
-					listArmed = false;
-					snap = null;
-					rows = null;
-					haveCell = false;
-					host.invalidateHost();
+					host.yieldFinger(event);
+					return true;
 				}
-				consumeUntilUp = true;
-				return true;
-			}
-			Inspect hit = host.inspectStyleAt(x, y);
-			if (hit == null || hit.snap == null) {
-				consumeUntilUp = false;
+				listArmed = false;
+				snap = null;
+				rows = null;
+				haveCell = false;
+				host.invalidateHost();
 				return false;
 			}
-			fingerDown = true;
-			listArmed = false;
-			fingerX = x;
-			fingerY = y;
-			applyHit(hit);
-			consumeUntilUp = true;
-			return true;
+			return false;
 		case MotionEvent.ACTION_MOVE:
 			if (!consumeUntilUp) {
 				return false;
 			}
-			if (!fingerDown || listArmed) {
-				return true;
-			}
-			fingerX = x;
-			fingerY = y;
-			refreshInspect(x, y);
 			return true;
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_CANCEL:
@@ -244,18 +229,46 @@ public final class StyleGrabberOverlay {
 				return false;
 			}
 			consumeUntilUp = false;
-			if (!fingerDown && !listArmed) {
-				return true;
+			return true;
+		default:
+			return consumeUntilUp;
+		}
+	}
+
+	/** Tap on the feed (Window already saw the gesture). True if this overlay took it. */
+	public boolean inspectFeedTap(final float x, final float y) {
+		if (!isOn()) {
+			return false;
+		}
+		if (snap == null || rows == null) {
+			if (hitIdleClose(x, y)) {
+				return false;
 			}
-			if (fingerDown && !listArmed) {
-				fingerDown = false;
-				listArmed = snap != null;
+		} else if (hitPanel(x, y)) {
+			return false;
+		}
+		Inspect hit = host.inspectStyleAt(x, y);
+		if (hit != null && hit.snap != null) {
+			fingerDown = false;
+			fingerX = x;
+			fingerY = y;
+			applyHit(hit);
+			listArmed = true;
+			return true;
+		}
+		if (listArmed) {
+			if (mode == GrabberCommand.MODE_TAP) {
+				host.dismissGrabber();
+			} else {
+				listArmed = false;
+				snap = null;
+				rows = null;
+				haveCell = false;
 				host.invalidateHost();
 			}
 			return true;
-		default:
-			return consumeUntilUp || fingerDown || listArmed;
 		}
+		return false;
 	}
 
 	public void draw(final Canvas c) {
@@ -304,7 +317,7 @@ public final class StyleGrabberOverlay {
 		c.drawText("Copy", copyX, by, accent);
 		c.drawText("New trigger", box.left + copySplitFromLeft, by, accent);
 		c.restore();
-		if (fingerDown) {
+		if (fingerDown || listArmed) {
 			drawLoupe(c);
 		}
 		drawClose(c, false);
@@ -478,14 +491,6 @@ public final class StyleGrabberOverlay {
 			haveCell = false;
 			host.invalidateHost();
 		}
-	}
-
-	private void refreshInspect(final float x, final float y) {
-		Inspect hit = host.inspectStyleAt(x, y);
-		if (hit == null || hit.snap == null) {
-			return;
-		}
-		applyHit(hit);
 	}
 
 	private void applyHit(final Inspect hit) {

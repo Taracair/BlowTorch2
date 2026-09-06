@@ -1621,11 +1621,12 @@ onto the clipboard. It does not dump CSI codes — that is still `.colordebug`.
 No argument is **once**: stays until the first Copy or New trigger, then off.
 **hold** / **on** stays until `.grabber off`. **tap** is one gesture.
 
-Type `.grabber`, drag onto a coloured word, release. While you drag, a ring
-sits on the **centre** of that character (not the top of the contact) and a
-magnified copy of the phrase sits next to the list so the pad is not covering
-the target. A long phrase is cut with `...` in the list; Copy and New trigger
-still get the whole phrase. ✕ in the corner turns grabber off.
+Type `.grabber`, tap a coloured glyph. Drag still scrolls the feed — grabber
+does not pin you to the live edge. A ring sits on the **centre** of that
+character (not the top of the contact) and a magnified copy of the phrase sits
+next to the list so the pad is not covering the target. A long phrase is cut
+with `...` in the list; Copy and New trigger still get the whole phrase. ✕ in
+the corner turns grabber off.
 
 The first line of the list is the title **Grabber** (not a tap). Only
 attributes that are **on that glyph** appear — underline, bright, a painted

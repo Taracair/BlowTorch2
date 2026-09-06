@@ -297,6 +297,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * Pixel 9a, hw=1, settled dense-colour coast: hit-heavy windows avgMs 4–8
 	 * vs typeset fling 32–38; finger-down that afternoon was still typeset
 	 * (hitN=0, avgMs 14–16). Opaque cell-height tiles clipped g/j.
+	 * Player, same day: wrap-wide tiles at .width 150 sluggish on dense colour;
+	 * .width 120 was fine. Cap the bitmap at 120% of the viewport; pan past
+	 * that overscan rebakes. .width still drops the ring via
+	 * {@link #calculateCharacterFeatures}.
 	 */
 	private static final int LINE_TILE_SLOTS = 256;
 	private static final class LineTileSlot {
@@ -305,6 +309,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int key = Integer.MIN_VALUE;
 		int w;
 		int h;
+		float origin;
 		int fg;
 		int resolvedFg;
 		int bg;
@@ -330,9 +335,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return false;
 		}
 		if (mLoupeActive) {
-			return false;
-		}
-		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
 			return false;
 		}
 		return mBuffer != null && mBuffer.getBrokenLineCount() != 0;
@@ -427,12 +429,31 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private int lineTileWidth() {
-		return Math.max(getWidth(), (int) Math.ceil(canvasWidthPx()));
+		final int vw = Math.max(1, getWidth());
+		final int wrap = Math.max(vw, (int) Math.ceil(canvasWidthPx()));
+		final int cap = vw + vw / 5;
+		return Math.min(wrap, cap);
 	}
 
-	private int lineTileByteBudget(final int h) {
-		final int vw = Math.max(1, getWidth());
-		return LINE_TILE_SLOTS * vw * Math.max(1, h) * 4;
+	private float lineTileOrigin() {
+		final int w = lineTileWidth();
+		final float wrap = Math.max((float) getWidth(), canvasWidthPx());
+		float origin = mScrollX;
+		float maxOrigin = wrap - w;
+		if (maxOrigin < 0f) {
+			maxOrigin = 0f;
+		}
+		if (origin > maxOrigin) {
+			origin = maxOrigin;
+		}
+		if (origin < 0f) {
+			origin = 0f;
+		}
+		return origin;
+	}
+
+	private int lineTileByteBudget(final int tileW, final int h) {
+		return LINE_TILE_SLOTS * Math.max(1, tileW) * Math.max(1, h) * 4;
 	}
 
 	private boolean blitLineTile(final Canvas hw, final int key, final float logicalY) {
@@ -446,7 +467,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s.h != lineTileHeight(logicalY)) {
 			return false;
 		}
-		hw.drawBitmap(s.bmp, -mScrollX, lineTileTop(logicalY), mLineTileBlitPaint);
+		final float dest = s.origin - mScrollX;
+		final int vw = getWidth();
+		if (dest > 0.5f || dest + s.w < vw - 0.5f) {
+			return false;
+		}
+		hw.drawBitmap(s.bmp, dest, lineTileTop(logicalY), mLineTileBlitPaint);
 		restoreLineTileSgr(s);
 		return true;
 	}
@@ -465,7 +491,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (s.bmp != null) {
 					live -= s.w * s.h * 4;
 				}
-				if (live + add > lineTileByteBudget(h)) {
+				if (live + add > lineTileByteBudget(w, h)) {
 					return null;
 				}
 				if (s.bmp != null) {
@@ -479,9 +505,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				s.h = h;
 				mLineTileBytes += add;
 			}
+			s.origin = lineTileOrigin();
 			s.bmp.eraseColor(0);
 			s.canvas.save();
-			s.canvas.translate(mScrollX, -lineTileTop(logicalY));
+			s.canvas.translate(mScrollX - s.origin, -lineTileTop(logicalY));
 			s.key = Integer.MIN_VALUE;
 			return s.canvas;
 		} catch (OutOfMemoryError e) {
@@ -500,7 +527,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s.bmp == null) {
 			return;
 		}
-		hw.drawBitmap(s.bmp, -mScrollX, lineTileTop(logicalY), mLineTileBlitPaint);
+		hw.drawBitmap(s.bmp, s.origin - mScrollX, lineTileTop(logicalY), mLineTileBlitPaint);
 		saveLineTileSgr(s);
 		s.key = key;
 	}
@@ -1065,6 +1092,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				Message msg = mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_GRABBER);
 				msg.arg1 = GrabberCommand.MODE_OFF;
 				mMainWindowHandler.sendMessage(msg);
+			}
+			public void yieldFinger(final MotionEvent event) {
+				Window.this.yieldFingerFromGrabber(event);
 			}
 		});
 	}
@@ -2117,9 +2147,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	public boolean dispatchTouchEvent(final MotionEvent event) {
 		if (mStyleGrabber != null
 				&& (mStyleGrabber.isOn() || mStyleGrabber.consumingGesture())) {
-			if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-				stopFling();
-			}
 			if (mStyleGrabber.onTouch(event)) {
 				invalidate();
 				return true;
@@ -2138,6 +2165,31 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		} else {
 			stopFling();
 			mLastFrameTime = 0;
+		}
+	}
+
+	/** Grabber consumed DOWN (✕ / panel). Keep this finger as a scroll. */
+	void yieldFingerFromGrabber(final MotionEvent event) {
+		int idx = event.getActionIndex();
+		pointer = event.getPointerId(idx);
+		float x = event.getX(idx);
+		float y = event.getY(idx);
+		start_x = Float.valueOf(x);
+		mStartY = Float.valueOf(y);
+		mMoveLastY = y;
+		mMoveLastTime = event.getEventTime();
+		mDownX = Float.valueOf(x);
+		mMoveLastX = Float.valueOf(x);
+		mDragAxis = DRAG_UNDECIDED;
+		mFingerDown = true;
+		finger_down_to_up = false;
+		mLastFrameTime = 0;
+		stopFling();
+		mTouchInLink = -1;
+		mTouchInTapWord = -1;
+		if (mAndroidFling) {
+			obtainVelocityTracker();
+			mVelocityTracker.addMovement(event);
 		}
 	}
 
@@ -2179,7 +2231,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mTextSelectionEnabled && theSelection == null
 				&& action == MotionEvent.ACTION_POINTER_DOWN
 				&& t.getPointerCount() >= 2
-				&& mBuffer.getBrokenLineCount() != 0) {
+				&& mBuffer.getBrokenLineCount() != 0
+				&& (mStyleGrabber == null || !mStyleGrabber.isOn())) {
 			mHandler.removeMessages(MESSAGE_STARTSELECTION);
 			stopFling();
 			// Prefer the first finger's current position (not a stale ACTION_DOWN that may
@@ -2304,7 +2357,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 				
-				scheduleTapLongPress();
+				if (mStyleGrabber == null || !mStyleGrabber.isOn()) {
+					scheduleTapLongPress();
+				}
 
 				mDragAxis = DRAG_UNDECIDED;
 				mMoveLastX = Float.valueOf(x);
@@ -2463,6 +2518,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				boolean smallMove = mStartY != null && start_x != null
 						&& Math.abs(upY - mStartY) < tapSlop
 						&& Math.abs(upX - start_x) < tapSlop;
+
+				if (mStyleGrabber != null && mStyleGrabber.isOn() && smallMove
+						&& !mLoupeActive && !mTapLongPressFired) {
+					if (mStyleGrabber.inspectFeedTap(upX, upY)) {
+						stopFling();
+						cancelTapLongPress();
+						this.invalidate();
+						return true;
+					}
+				}
 		         
 				cancelTapLongPress();
 				if (mLoupeActive) {
@@ -2551,9 +2616,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						}
 					}
 				}
-				if (mStyleGrabber != null && mStyleGrabber.isOn()) {
-					stopFling();
-				} else if (considerAndroidFling && !smallMove) {
+				if (considerAndroidFling && !smallMove) {
 					startAndroidFling(androidFlingVy);
 				} else if (mAndroidFling) {
 					stopFling();
@@ -2784,10 +2847,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Called from onDraw, calculates a new scrollback value for this frame. */
 	private void calculateScrollBack() {
-		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
-			stopFling();
-			return;
-		}
 		if (stepAndroidFling()) {
 			return;
 		}
