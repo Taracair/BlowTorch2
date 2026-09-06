@@ -20,6 +20,21 @@ The card must include:
 
 They play on **btTest** (`com.resurrection.blowtorch2.test`). Crash log: `/sdcard/BlowTorch/logs/blowtorch2.log`. Protocol: `/sdcard/BlowTorch/logs/gmcp.log`.
 
+`scripts/deploy.sh` posts **BlowTorch deployed** on the phone (wifi ADB
+included). After that, post this card with the same tag so it replaces the
+ping:
+
+```sh
+scripts/notify-device.sh "Do sprawdzenia" "$(cat <<'EOF'
+## Do sprawdzenia (jedna runda)
+
+1. [gdzie] [gest / komenda].
+   Sukces: [co widać / co gra dostaje].
+   Porażka: [co widać zamiast tego].
+EOF
+)"
+```
+
 ## Card template
 
 ```markdown

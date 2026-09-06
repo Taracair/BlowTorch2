@@ -8,6 +8,10 @@
 #
 # Reports exactly what happened. Says "installed", never "works": whether it
 # works is the maintainer's call after touching the device.
+#
+# After install, posts a phone notification ("BlowTorch deployed"). Override
+# the body with DEPLOY_NOTE=… or replace it afterwards with
+# scripts/notify-device.sh (same tag).
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -41,5 +45,10 @@ step "Install"
 # Never uninstall. install -r re-registers a changed manifest and keeps the
 # maintainer's server list and profiles.
 "$ADB" -s "$SERIAL" install -r "$APK" || exit 1
+
+step "Notify phone"
+# Same tag as a later test card, so the card replaces this ping.
+NOTIFY_SERIAL="$SERIAL" scripts/notify-device.sh "BlowTorch deployed" \
+	"${DEPLOY_NOTE:-APK zainstalowany.}"
 
 printf '\nAPK installed on %s. Not tested: device behaviour is the maintainer'"'"'s call.\n' "$SERIAL"
