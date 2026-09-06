@@ -2115,7 +2115,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public boolean dispatchTouchEvent(final MotionEvent event) {
-		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+		if (mStyleGrabber != null
+				&& (mStyleGrabber.isOn() || mStyleGrabber.consumingGesture())) {
+			if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+				stopFling();
+			}
 			if (mStyleGrabber.onTouch(event)) {
 				invalidate();
 				return true;
@@ -2131,6 +2135,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mStyleGrabber.setMode(mode);
 		if (mode == GrabberCommand.MODE_OFF) {
 			mStyleGrabberModels = null;
+		} else {
+			stopFling();
+			mLastFrameTime = 0;
 		}
 	}
 
@@ -2544,7 +2551,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						}
 					}
 				}
-				if (considerAndroidFling && !smallMove) {
+				if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+					stopFling();
+				} else if (considerAndroidFling && !smallMove) {
 					startAndroidFling(androidFlingVy);
 				} else if (mAndroidFling) {
 					stopFling();
@@ -2775,6 +2784,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Called from onDraw, calculates a new scrollback value for this frame. */
 	private void calculateScrollBack() {
+		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+			stopFling();
+			return;
+		}
 		if (stepAndroidFling()) {
 			return;
 		}

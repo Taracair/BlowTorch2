@@ -68,6 +68,7 @@ public final class StyleGrabberOverlay {
 	private final float density;
 	private int mode = GrabberCommand.MODE_OFF;
 	private boolean fingerDown;
+	private boolean consumeUntilUp;
 	private boolean listArmed;
 	private float fingerX;
 	private float fingerY;
@@ -152,6 +153,11 @@ public final class StyleGrabberOverlay {
 		return mode != GrabberCommand.MODE_OFF;
 	}
 
+	/** True until UP/CANCEL after a consumed DOWN, including after dismiss. */
+	public boolean consumingGesture() {
+		return consumeUntilUp;
+	}
+
 	public void setMode(final int mode) {
 		this.mode = mode;
 		if (mode == GrabberCommand.MODE_OFF) {
@@ -166,7 +172,15 @@ public final class StyleGrabberOverlay {
 
 	public boolean onTouch(final MotionEvent event) {
 		if (!isOn()) {
-			return false;
+			if (!consumeUntilUp) {
+				return false;
+			}
+			int leftover = event.getActionMasked();
+			if (leftover == MotionEvent.ACTION_UP
+					|| leftover == MotionEvent.ACTION_CANCEL) {
+				consumeUntilUp = false;
+			}
+			return true;
 		}
 		float x = event.getX();
 		float y = event.getY();
@@ -176,13 +190,16 @@ public final class StyleGrabberOverlay {
 			if (snap == null || rows == null) {
 				if (hitIdleClose(x, y)) {
 					host.dismissGrabber();
+					consumeUntilUp = true;
 					return true;
 				}
 			} else if (hitPanelClose(x, y)) {
 				host.dismissGrabber();
+				consumeUntilUp = true;
 				return true;
 			}
 			if (listArmed && hitPanel(x, y)) {
+				consumeUntilUp = true;
 				return tapPanel(x, y);
 			}
 			if (listArmed && !hitPanel(x, y)) {
@@ -195,10 +212,12 @@ public final class StyleGrabberOverlay {
 					haveCell = false;
 					host.invalidateHost();
 				}
+				consumeUntilUp = true;
 				return true;
 			}
 			Inspect hit = host.inspectStyleAt(x, y);
 			if (hit == null || hit.snap == null) {
+				consumeUntilUp = false;
 				return false;
 			}
 			fingerDown = true;
@@ -206,10 +225,14 @@ public final class StyleGrabberOverlay {
 			fingerX = x;
 			fingerY = y;
 			applyHit(hit);
+			consumeUntilUp = true;
 			return true;
 		case MotionEvent.ACTION_MOVE:
+			if (!consumeUntilUp) {
+				return false;
+			}
 			if (!fingerDown || listArmed) {
-				return fingerDown || listArmed;
+				return true;
 			}
 			fingerX = x;
 			fingerY = y;
@@ -217,8 +240,12 @@ public final class StyleGrabberOverlay {
 			return true;
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_CANCEL:
-			if (!fingerDown && !listArmed) {
+			if (!consumeUntilUp) {
 				return false;
+			}
+			consumeUntilUp = false;
+			if (!fingerDown && !listArmed) {
+				return true;
 			}
 			if (fingerDown && !listArmed) {
 				fingerDown = false;
@@ -227,7 +254,7 @@ public final class StyleGrabberOverlay {
 			}
 			return true;
 		default:
-			return fingerDown || listArmed;
+			return consumeUntilUp || fingerDown || listArmed;
 		}
 	}
 
