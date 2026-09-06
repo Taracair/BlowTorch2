@@ -22,6 +22,7 @@ public class ExtraTextSlotScrollSpeedTest {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
 		assertEquals(1, s.resolveScrollChoice(1));
 		assertEquals(4, s.resolveScrollChoice(4));
+		assertEquals(8, s.resolveScrollChoice(8));
 	}
 
 	@Test
@@ -31,12 +32,14 @@ public class ExtraTextSlotScrollSpeedTest {
 		s.setScrollSpeed(3);
 		assertEquals(2, s.resolveScrollChoice(0));
 		assertEquals(2, s.resolveScrollChoice(4));
+		s.setScrollSpeed(ExtraTextSlot.SCROLL_SPEED_MAX);
+		assertEquals(8, s.resolveScrollChoice(0));
 	}
 
 	@Test
 	public void outOfRangeFallsBackToInherit() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
-		s.setScrollSpeed(9);
+		s.setScrollSpeed(10);
 		assertEquals(ExtraTextSlot.SCROLL_SPEED_INHERIT, s.getScrollSpeed());
 		s.setScrollSpeed(-2);
 		assertEquals(ExtraTextSlot.SCROLL_SPEED_INHERIT, s.getScrollSpeed());

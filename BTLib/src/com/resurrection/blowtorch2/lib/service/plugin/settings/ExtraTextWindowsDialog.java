@@ -22,6 +22,7 @@ import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 
@@ -265,8 +266,10 @@ public final class ExtraTextWindowsDialog {
 		// Index 0 is inherit, so the main window's Scroll sensitivity setting doubles
 		// as "all extra windows at once" for every slot left on the default.
 		final Spinner scrollSpeed = new Spinner(context);
-		String[] scrollItems = new String[] { "Same as main window", "Slower (75%)",
-				"Normal (100%)", "Faster (150%)", "Much faster (200%)", "Fastest (300%)" };
+		String[] labels = WindowToken.SCROLL_SENSITIVITY_ITEMS;
+		String[] scrollItems = new String[labels.length + 1];
+		scrollItems[0] = "Same as main window";
+		System.arraycopy(labels, 0, scrollItems, 1, labels.length);
 		ArrayAdapter<String> scrollAdapter = new ArrayAdapter<String>(context,
 				android.R.layout.simple_spinner_item, scrollItems);
 		scrollAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);

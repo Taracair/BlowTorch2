@@ -628,10 +628,7 @@ public class OptionsDialog extends Dialog {
 
 		@Override
 		public boolean isEnabled(int position) {
-			if (rows.get(position).isHeader()) {
-				return false;
-			}
-			return !isScrollSensitivityLocked(rows.get(position).option);
+			return !rows.get(position).isHeader();
 		}
 
 		@Override
@@ -659,10 +656,6 @@ public class OptionsDialog extends Dialog {
 			
 			title.setText(o.getTitle());
 			ext.setText(o.getDescription());
-			final boolean locked = isScrollSensitivityLocked(o);
-			v.setAlpha(locked ? 0.4f : 1f);
-			title.setEnabled(!locked);
-			ext.setEnabled(!locked);
 			
 			LinearLayout widget = (LinearLayout) v.findViewById(R.id.widget_frame);
 			
@@ -699,9 +692,7 @@ public class OptionsDialog extends Dialog {
 			case LIST:
 				//set up list dialog clicker.
 				v.setTag(o);
-				if (!locked) {
-					v.setOnClickListener(new ListOptionClickedListener());
-				}
+				v.setOnClickListener(new ListOptionClickedListener());
 				break;
 			case ENCODING:
 				v.setTag(o);
@@ -2086,46 +2077,11 @@ public class OptionsDialog extends Dialog {
 		}
 	}
 
-	private boolean isAndroidFlingOptionOn() {
-		if (mCurrent == null) {
-			return false;
-		}
-		Option found = mCurrent.findOptionByKey("android_fling");
-		if (!(found instanceof BooleanOption)) {
-			return false;
-		}
-		return Boolean.TRUE.equals(((BooleanOption) found).getValue());
-	}
-
-	private boolean isScrollSensitivityLocked(final Option o) {
-		return o != null && "scroll_sensitivity".equals(o.getKey()) && isAndroidFlingOptionOn();
-	}
-
-	private void notifyCurrentPageAdapter() {
-		ViewFlipper f = mFlipper != null ? mFlipper
-				: (ViewFlipper) findViewById(R.id.flipper);
-		if (f == null) {
-			return;
-		}
-		View page = f.getCurrentView();
-		if (page == null) {
-			return;
-		}
-		ListView list = (ListView) page.findViewById(R.id.list);
-		if (list == null || !(list.getAdapter() instanceof BaseAdapter)) {
-			return;
-		}
-		((BaseAdapter) list.getAdapter()).notifyDataSetChanged();
-	}
-	
 	private class ListOptionClickedListener implements View.OnClickListener {
 
 		@Override
 		public void onClick(View v) {
 			ListOption o = (ListOption)v.getTag();
-			if (isScrollSensitivityLocked(o)) {
-				return;
-			}
 			
 			ArrayList<String> items = o.getItems();
 			String[] foo = new String[items.size()];
@@ -2205,9 +2161,6 @@ public class OptionsDialog extends Dialog {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}
-			if ("android_fling".equals(o.getKey())) {
-				notifyCurrentPageAdapter();
 			}
 		}
 		

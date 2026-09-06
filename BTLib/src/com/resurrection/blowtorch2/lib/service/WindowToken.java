@@ -83,6 +83,18 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_BOTTOM_PADDING_KEYBOARD = 0;
 	/** Default scroll sensitivity: index of "Normal", where text follows the finger 1:1. */
 	public static final int DEFAULT_SCROLL_SENSITIVITY = 1;
+	/** Labels for {@code scroll_sensitivity}; extra-text Scroll speed reuses these after inherit. */
+	public static final String[] SCROLL_SENSITIVITY_ITEMS = {
+		"Slower (75%)",
+		"Normal (100%)",
+		"Faster (150%)",
+		"Much faster (200%)",
+		"300%",
+		"350%",
+		"400%",
+		"450%",
+		"Fastest (500%)",
+	};
 	/** Default font path (bundled asset). */
 	public static final String DEFAULT_FONT_PATH = "fonts/DejaVuSansMono.ttf";
 	/** Required field for the parcelable interface. */
@@ -550,21 +562,19 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption androidFling = new BooleanOption();
 		androidFling.setTitle("Android fling?");
-		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. Turns off Scroll sensitivity (the 75–300% list) while this is on.");
+		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. How fast the coast is follows Scroll sensitivity (75–500%).");
 		androidFling.setKey("android_fling");
 		androidFling.setValue(false);
 		window.addOption(androidFling);
 
 		ListOption scrollSensitivity = new ListOption();
 		scrollSensitivity.setTitle("Scroll sensitivity");
-		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match. Off while Android fling is on.");
+		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match. With Android fling on, dragging stays 1:1 and only the coast uses this.");
 		scrollSensitivity.setKey("scroll_sensitivity");
 		scrollSensitivity.setValue(Integer.valueOf(DEFAULT_SCROLL_SENSITIVITY));
-		scrollSensitivity.addItem("Slower (75%)");
-		scrollSensitivity.addItem("Normal (100%)");
-		scrollSensitivity.addItem("Faster (150%)");
-		scrollSensitivity.addItem("Much faster (200%)");
-		scrollSensitivity.addItem("Fastest (300%)");
+		for (int i = 0; i < SCROLL_SENSITIVITY_ITEMS.length; i++) {
+			scrollSensitivity.addItem(SCROLL_SENSITIVITY_ITEMS[i]);
+		}
 		window.addOption(scrollSensitivity);
 
 		BooleanOption tapDismiss = new BooleanOption();

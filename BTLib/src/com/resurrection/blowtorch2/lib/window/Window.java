@@ -186,7 +186,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * choice without reading the settings tree from another process.
 	 */
 	private int mScrollSensitivityChoice = WindowToken.DEFAULT_SCROLL_SENSITIVITY;
-	/** Options → Window → Android fling? Off: the 75–300% list. On: OverScroller. */
+	/** Options → Window → Android fling? Off: the 75–500% list. On: OverScroller; coast uses the same gain. */
 	private boolean mAndroidFling = false;
 	private OverScroller mFlingScroller;
 	private VelocityTracker mVelocityTracker;
@@ -2745,7 +2745,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (maxY < minY) {
 			maxY = minY;
 		}
-		final int vel = (int) (mNewestAtTop ? -fingerVy : fingerVy);
+		final int vel = (int) ((mNewestAtTop ? -fingerVy : fingerVy) * mScrollSensitivity);
 		final int start = (int) Math.round(mScrollback);
 		mFlingScroller.fling(0, start, 0, vel, 0, 0, minY, maxY, 0, 0);
 		mFlingVelocity = vel;
@@ -2856,6 +2856,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		case 2: return 1.5f;
 		case 3: return 2.0f;
 		case 4: return 3.0f;
+		case 5: return 3.5f;
+		case 6: return 4.0f;
+		case 7: return 4.5f;
+		case 8: return 5.0f;
 		default: return 1.0f;
 		}
 	}

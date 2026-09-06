@@ -15,7 +15,7 @@ public final class ExtraTextSlot {
 	/** {@link #getScrollSpeed()} value meaning "use the main window's setting". */
 	public static final int SCROLL_SPEED_INHERIT = 0;
 	/** Highest stored value: one past the last {@code scroll_sensitivity} choice. */
-	public static final int SCROLL_SPEED_MAX = 5;
+	public static final int SCROLL_SPEED_MAX = 9;
 
 	/** Layout / presentation mode for the overlay. */
 	public enum Mode {

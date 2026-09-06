@@ -32,7 +32,10 @@ public class ScrollSensitivityOptionTest {
 	public void optionIsRegisteredWithChoicesAndDefaultsToNormal() {
 		ListOption o = findScrollOption();
 		assertEquals("every gain in scrollSensitivityFromChoice needs a visible item",
-				5, o.getItems().size());
+				WindowToken.SCROLL_SENSITIVITY_ITEMS.length, o.getItems().size());
+		assertEquals("extra-text Scroll speed stores inherit plus one per main-window choice",
+				WindowToken.SCROLL_SENSITIVITY_ITEMS.length, ExtraTextSlot.SCROLL_SPEED_MAX);
+		assertEquals("Fastest (500%)", o.getItems().get(o.getItems().size() - 1));
 		assertEquals(Integer.valueOf(WindowToken.DEFAULT_SCROLL_SENSITIVITY), o.getValue());
 		assertEquals("the default has to be the setting that changes nothing",
 				1.0f, Window.scrollSensitivityFromChoice((Integer) o.getValue()), 0.0001f);
@@ -46,6 +49,14 @@ public class ScrollSensitivityOptionTest {
 		ListOption o = (ListOption) token.getSettings().findOptionByKey("scroll_sensitivity");
 		assertEquals(Integer.valueOf(3), o.getValue());
 		assertEquals(2.0f, Window.scrollSensitivityFromChoice((Integer) o.getValue()), 0.0001f);
+	}
+
+	@Test
+	public void fiveHundredPercentIsTheLastChoice() {
+		assertEquals(5.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(8)), 0.0001f);
+		assertEquals(3.5f, Window.scrollSensitivityFromChoice(Integer.valueOf(5)), 0.0001f);
+		assertEquals(4.0f, Window.scrollSensitivityFromChoice(Integer.valueOf(6)), 0.0001f);
+		assertEquals(4.5f, Window.scrollSensitivityFromChoice(Integer.valueOf(7)), 0.0001f);
 	}
 
 	@Test
