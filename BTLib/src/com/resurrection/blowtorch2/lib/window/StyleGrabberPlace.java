@@ -83,4 +83,18 @@ public final class StyleGrabberPlace {
 		}
 		return row;
 	}
+
+	public static boolean hitSquare(final float x, final float y, final float left,
+			final float top, final float size) {
+		return x >= left && y >= top && x <= left + size && y <= top + size;
+	}
+
+	/**
+	 * Idle close is top-left of the Window. The overflow ⋮ sits in
+	 * {@code gameplay_chrome_overlay} (bottom-end), above this view.
+	 */
+	public static float idleCloseLeft(final float viewW, final float size,
+			final float margin) {
+		return margin;
+	}
 }

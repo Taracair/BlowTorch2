@@ -7,9 +7,13 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleClipboard;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleClipboard.LayerRow;
@@ -29,6 +33,7 @@ public final class StyleGrabberOverlay {
 		void openNewStyleTrigger(StyleMatchSpec spec, String pattern);
 		int overlayWidth();
 		int overlayHeight();
+		void dismissGrabber();
 	}
 
 	public static final class Inspect {
@@ -59,10 +64,15 @@ public final class StyleGrabberOverlay {
 	private final Paint text = new Paint();
 	private final Paint accent = new Paint();
 	private final Paint boxStroke = new Paint();
+	private final Paint idleCloseFill = new Paint();
+	private final Drawable closeIcon;
 	private final RectF box = new RectF();
 	private float rowH;
 	private float layoutRowH;
 	private float panelW;
+	private float closeSize;
+	private float closePad;
+	private final RectF close = new RectF();
 
 	public StyleGrabberOverlay(final Host host) {
 		this.host = host;
@@ -70,6 +80,8 @@ public final class StyleGrabberOverlay {
 		rowH = 28f * density;
 		layoutRowH = rowH;
 		panelW = 280f * density;
+		closeSize = 32f * density;
+		closePad = 6f * density;
 		panel.setColor(0xEE101018);
 		panel.setAntiAlias(true);
 		text.setColor(0xFFEEEEEE);
@@ -82,6 +94,14 @@ public final class StyleGrabberOverlay {
 		boxStroke.setAntiAlias(true);
 		boxStroke.setStyle(Paint.Style.STROKE);
 		boxStroke.setStrokeWidth(Math.max(1f, density));
+		idleCloseFill.setColor(host.context().getResources()
+				.getColor(R.color.extra_text_title_bar, null));
+		idleCloseFill.setAntiAlias(true);
+		closeIcon = host.context().getResources()
+				.getDrawable(R.drawable.ic_window_close, host.context().getTheme())
+				.mutate();
+		closeIcon.setColorFilter(new PorterDuffColorFilter(0xFFD2D8DF,
+				PorterDuff.Mode.SRC_IN));
 	}
 
 	public boolean isOn() {
@@ -108,12 +128,21 @@ public final class StyleGrabberOverlay {
 		int action = event.getActionMasked();
 		switch (action) {
 		case MotionEvent.ACTION_DOWN:
+			if (snap == null || rows == null) {
+				if (hitIdleClose(x, y)) {
+					host.dismissGrabber();
+					return true;
+				}
+			} else if (hitPanelClose(x, y)) {
+				host.dismissGrabber();
+				return true;
+			}
 			if (listArmed && hitPanel(x, y)) {
 				return tapPanel(x, y);
 			}
 			if (listArmed && !hitPanel(x, y)) {
 				if (mode == GrabberCommand.MODE_TAP) {
-					setMode(GrabberCommand.MODE_OFF);
+					host.dismissGrabber();
 				} else {
 					listArmed = false;
 					snap = null;
@@ -161,6 +190,8 @@ public final class StyleGrabberOverlay {
 			return;
 		}
 		if (snap == null || rows == null) {
+			layoutIdleClose();
+			drawClose(c, true);
 			return;
 		}
 		if (fingerDown || listArmed) {
@@ -196,6 +227,7 @@ public final class StyleGrabberOverlay {
 		c.drawText("Copy", box.left + 16f * density, by, accent);
 		c.drawText("New trigger", box.left + 100f * density, by, accent);
 		c.restore();
+		drawClose(c, false);
 	}
 
 	private void layoutBox() {
@@ -212,6 +244,37 @@ public final class StyleGrabberOverlay {
 		}
 		float bh = box.height();
 		layoutRowH = bh > 0f ? bh / slots : rowH;
+		close.set(box.right - closeSize, box.top, box.right, box.top + closeSize);
+	}
+
+	private void layoutIdleClose() {
+		float margin = 8f * density;
+		float left = StyleGrabberPlace.idleCloseLeft(host.overlayWidth(), closeSize, margin);
+		close.set(left, margin, left + closeSize, margin + closeSize);
+	}
+
+	private void drawClose(final Canvas c, final boolean idle) {
+		if (idle) {
+			// Idle sits on game text, not a title bar; plate is extra_text_title_bar.
+			c.drawRoundRect(close, 4f * density, 4f * density, idleCloseFill);
+		}
+		int pad = Math.round(closePad);
+		closeIcon.setBounds(Math.round(close.left) + pad, Math.round(close.top) + pad,
+				Math.round(close.right) - pad, Math.round(close.bottom) - pad);
+		closeIcon.draw(c);
+	}
+
+	private boolean hitIdleClose(final float x, final float y) {
+		layoutIdleClose();
+		return StyleGrabberPlace.hitSquare(x, y, close.left, close.top, closeSize);
+	}
+
+	private boolean hitPanelClose(final float x, final float y) {
+		if (rows == null) {
+			return false;
+		}
+		layoutBox();
+		return StyleGrabberPlace.hitSquare(x, y, close.left, close.top, closeSize);
 	}
 
 	private boolean hitPanel(final float x, final float y) {
@@ -223,6 +286,10 @@ public final class StyleGrabberOverlay {
 	}
 
 	private boolean tapPanel(final float x, final float y) {
+		if (hitPanelClose(x, y)) {
+			host.dismissGrabber();
+			return true;
+		}
 		layoutBox();
 		int n = rows.size();
 		int row = StyleGrabberPlace.rowAt(y, box.top, box.height(), n + 5);
@@ -284,7 +351,7 @@ public final class StyleGrabberOverlay {
 
 	private void afterCopy() {
 		if (mode == GrabberCommand.MODE_ONCE || mode == GrabberCommand.MODE_TAP) {
-			setMode(GrabberCommand.MODE_OFF);
+			host.dismissGrabber();
 		} else {
 			listArmed = false;
 			snap = null;

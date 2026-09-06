@@ -843,6 +843,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			public int overlayHeight() {
 				return getHeight();
 			}
+			public void dismissGrabber() {
+				if (mMainWindowHandler == null) {
+					return;
+				}
+				Message msg = mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_GRABBER);
+				msg.arg1 = GrabberCommand.MODE_OFF;
+				mMainWindowHandler.sendMessage(msg);
+			}
 		});
 	}
 

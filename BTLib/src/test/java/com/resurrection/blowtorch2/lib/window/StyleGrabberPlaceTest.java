@@ -74,4 +74,24 @@ public class StyleGrabberPlaceTest {
 		assertEquals(slots - 1, last);
 		assertEquals(0, StyleGrabberPlace.rowAt(p.top + 1f, p.top, p.bottom - p.top, slots));
 	}
+
+	@Test
+	public void idleCloseSitsInTopLeft() {
+		float size = 32f;
+		float margin = 8f;
+		float left = StyleGrabberPlace.idleCloseLeft(800f, size, margin);
+		assertEquals(margin, left, 0.01f);
+		assertTrue(StyleGrabberPlace.hitSquare(left + 1f, margin + 1f, left, margin, size));
+		assertTrue(!StyleGrabberPlace.hitSquare(left + size + 2f, margin + 1f, left, margin, size));
+	}
+
+	@Test
+	public void panelCloseSitsInPanelTopRight() {
+		StyleGrabberPlace p = StyleGrabberPlace.of(100f, 400f, PANEL_W, PANEL_H,
+				VIEW_W, VIEW_H, GAP, MARGIN, ANCHOR);
+		float size = 32f;
+		float left = p.right - size;
+		assertTrue(StyleGrabberPlace.hitSquare(p.right - 1f, p.top + 1f, left, p.top, size));
+		assertTrue(!StyleGrabberPlace.hitSquare(p.left + 1f, p.top + 1f, left, p.top, size));
+	}
 }

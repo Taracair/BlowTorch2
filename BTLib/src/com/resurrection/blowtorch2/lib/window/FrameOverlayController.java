@@ -589,6 +589,7 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 			}
 		};
 		if (e.closeBtn != null) {
+			e.closeBtn.setContentDescription("Close frame");
 			e.closeBtn.setOnClickListener(close);
 		}
 		if (e.drawerCloseBtn != null) {

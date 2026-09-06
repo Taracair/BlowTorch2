@@ -61,14 +61,11 @@
                 android:textColor="@color/extra_text_title_text"
                 android:textSize="13sp" />
 
-            <ImageButton
+            <include
                 android:id="@+id/frame_close"
+                layout="@layout/window_close_button"
                 android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:padding="6dp"
-                android:background="#00000000"
-                android:src="@drawable/ic_window_close"
-                android:contentDescription="Close frame" />
+                android:layout_height="32dp" />
         </LinearLayout>
 
         <View

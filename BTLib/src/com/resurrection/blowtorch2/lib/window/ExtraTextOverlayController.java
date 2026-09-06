@@ -458,6 +458,7 @@ public class ExtraTextOverlayController {
 		// chrome, so the control only appears on the floating ones.
 		if (e.closeBtn != null) {
 			e.closeBtn.setVisibility(close ? View.VISIBLE : View.GONE);
+			e.closeBtn.setContentDescription("Close window");
 			final OverlayEntry entry = e;
 			e.closeBtn.setOnClickListener(new View.OnClickListener() {
 				@Override

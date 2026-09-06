@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared close for title-bar overlays. Grabber draws the same 32dp / 6dp / ic_window_close on canvas. -->
+<ImageButton xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="32dp"
+    android:layout_height="32dp"
+    android:padding="6dp"
+    android:background="#00000000"
+    android:src="@drawable/ic_window_close"
+    android:contentDescription="Close" />

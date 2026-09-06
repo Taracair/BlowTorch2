@@ -67,16 +67,11 @@
             android:background="#332A3A4A"
             android:contentDescription="Show or hide bottom tool bar" />
 
-        <TextView
+        <include
             android:id="@+id/mapper_close_btn"
-            android:layout_width="36dp"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="✕"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:background="#44FFFFFF"
-            android:contentDescription="Close map" />
+            layout="@layout/window_close_button"
+            android:layout_width="32dp"
+            android:layout_height="32dp" />
     </LinearLayout>
 
     <!-- Legacy toolbar kept hidden. -->

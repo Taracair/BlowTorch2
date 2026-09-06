@@ -20,6 +20,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -362,7 +363,7 @@ public class MapperOverlayController
 		modeFullBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_full);
 		modeBrowseBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_browse);
 		modeEditBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_edit);
-		TextView closeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_close_btn);
+		ImageButton closeBtn = (ImageButton) overlayRoot.findViewById(R.id.mapper_close_btn);
 
 		float density = activity.getResources().getDisplayMetrics().density;
 		floatWidth = (int) (280 * density);
@@ -380,6 +381,7 @@ public class MapperOverlayController
 			fullscreen = !controller.isPreferFloat();
 		}
 
+		closeBtn.setContentDescription("Close map");
 		closeBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {

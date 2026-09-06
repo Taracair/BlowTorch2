@@ -358,6 +358,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
+	private boolean mGrabberHidesButtons;
 	private ChatPanelController chatPanel;
 	/** Notification {@link ChatAnnounce#EXTRA_THREAD}; stripped after consume. */
 	private String mPendingChatThread;
@@ -1089,7 +1090,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					raiseWindowAboveButtons(msg.obj);
 					break;
 				case MESSAGE_TEXTSELECTION_RELEASE:
-					restoreButtonsAboveWindows();
+					if (!mGrabberHidesButtons) {
+						restoreButtonsAboveWindows();
+					}
 					break;
 				case MESSAGE_REFRESH_IME_LIFT: {
 					View chromeRootRefresh = findViewById(R.id.window_container);
@@ -8517,6 +8520,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				continue;
 			}
 			w.setStyleGrabberMode(mode);
+		}
+		if (mode == GrabberCommand.MODE_OFF) {
+			mGrabberHidesButtons = false;
+			restoreButtonsAboveWindows();
+		} else {
+			mGrabberHidesButtons = true;
+			raiseWindowAboveButtons("mainDisplay");
 		}
 	}
 
