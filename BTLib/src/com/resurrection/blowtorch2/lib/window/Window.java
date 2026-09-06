@@ -1457,6 +1457,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private boolean lineNeedsCellOrigins(final Line line) {
+		// 6 Sep 2026, 79-line dense-colour fling: 4–6ms/frame. Same during a
+		// no-glyph walk. Not enough alone to reach 16ms.
 		mDrawLinePlain.setLength(0);
 		if (line == null) {
 			return false;
@@ -1497,6 +1499,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * Consume following TEXT/WHITESPACE units of this colour from
 	 * {@link #unitIterator}. Stops before COLOR, newline, or a link.
 	 * {@code io[0]} is workingcol, {@code io[1]} is tapCol.
+	 * 6 Sep 2026 settled dense-colour fling (addMs=0, 79–80 lines): ~1000
+	 * coalesced runs, ~960 drawText, gridMs 14–16 of worst 34–38 (avg 17–31).
+	 * Same afternoon, no-glyph walk: worst 19–22, gridMs=0, restMs ~12, pinScan
+	 * 5–6, colorMs 3–4. Paper fill <1ms (black is the paper colour). hw=1.
 	 */
 	private float drawCoalescedScrollRun(final Canvas c, final TextTree.Text first,
 			final float x, final float y, final Paint textPaint, final Paint bgPaint,
@@ -1561,8 +1567,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// Cell-map lines stay on cell origins (batched drawText drifted after
 		// emoji fallback). Other uniform ASCII is one drawText per colour run.
 		// Upright ASCII does not clip: 5 Sep 2026, per-glyph clips were ~30ms of
-		// a 40ms frame; a clip around every word is the leftover. Italic still
-		// clips — skew hangs into the next run.
+		// a 40ms frame. 6 Sep 2026 settled dense-colour fling: clips 0–1, gridMs
+		// 13–20 of worst 32–38ms (~900–1100 drawText). Skipping those drawTexts
+		// (walk): worst 19–22. Paper-only frames were <1ms. Italic still clips.
 		final float drawnWidth;
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
 			final boolean clipItalic = paint.getTextSkewX() != 0f;
@@ -2664,6 +2671,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	
 
+	// Reverted 6 Sep 2026: viewport blit was cheap (avgMs 1–2), capture 38–57.
+	// RenderNode rec 46–57ms, recN 5–24/2s reverse: jumps + black bottom half.
 	@Override
 	public final void onDraw(final Canvas c) {
 		mBlinkSawThisFrame = false;
@@ -4918,6 +4927,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * reuse the memo on the unit when the before-state matches. Measured 12 Aug
 	 * 2026: dense combat spent ~10 ms/frame here re-parsing the same ~2500 units
 	 * every fling frame; the memo makes steady scrolling revisit cached results.
+	 * 6 Sep 2026: first paint of a dense dump, 1169 COLORs miss, 9–10ms; settled
+	 * fling cache hits 3ms (~1100 of ~1170 change paint). Same with glyphs
+	 * skipped: still 3–4ms.
 	 */
 	private void applyColorUnit(final TextTree.Color cu, final Paint textPaint,
 			final Paint bgPaint) {
