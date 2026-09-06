@@ -493,7 +493,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption use_mcp = new BooleanOption();
 		use_mcp.setTitle("Use MCP?");
-		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Strip #$# lines from the game window when Omit is on. Off by default — reconnect or wait for server #$#mcp after enabling.");
+		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Off by default — reconnect or wait for server #$#mcp after enabling. Omit MCP lines from output? still hides #$# when this is off.");
 		use_mcp.setKey("use_mcp");
 		use_mcp.setValue(false);
 		protocolSwitches.addOption(use_mcp);
@@ -594,7 +594,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mcp_omit = new BooleanOption();
 		mcp_omit.setTitle("Omit MCP lines from output?");
-		mcp_omit.setDescription("Hide #$# out-of-band lines from the game window (recommended). Off = show raw MCP in the scrollback.");
+		mcp_omit.setDescription("Hide #$# out-of-band lines from the game window (recommended), including when Use MCP? is off. Off = show raw MCP in the scrollback.");
 		mcp_omit.setKey("mcp_omit_output");
 		mcp_omit.setValue(true);
 		mcpOptions.addOption(mcp_omit);

@@ -2788,7 +2788,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		ensureMcpEngine();
-		if (mMcpEngine != null && mMcpEngine.isUse()) {
+		if (mMcpEngine != null) {
 			raw = mMcpEngine.filterIncoming(raw);
 			if (raw == null || raw.length == 0) {
 				return;

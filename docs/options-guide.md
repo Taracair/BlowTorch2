@@ -121,7 +121,7 @@ persistent connection).
 
 Mud Client Protocol — in-band `#$#` messages, used by a number of MOOs.
 **Not** the same as GMCP. **Use MCP?** under **Options → Service → Protocols**. Details under **Options → Service → MCP**. All advanced
-flags default off except omit-from-output and auto-negotiate (when Use MCP? is on):
+flags default off except omit-from-output (hides `#$#` even when Use is off) and auto-negotiate:
 
 | Option | Default | Notes |
 |--------|---------|--------|
@@ -130,7 +130,7 @@ flags default off except omit-from-output and auto-negotiate (when Use MCP? is o
 | **Packages String (advanced)** | negotiate + hellmoo + simpleedit + displayurl + ping + cord + vmoo | Raw list |
 | **Log MCP?** | off | Also `.mcp sniff` |
 | **Show MCP in game window?** | off | Also `.mcp feed` |
-| **Omit MCP lines from output?** | on | Hide `#$#` from scrollback |
+| **Omit MCP lines from output?** | on | Hide `#$#` from scrollback even when Use MCP? is off |
 | **Auto-negotiate packages?** | on | Send can/end after `#$#mcp` |
 
 Native handlers: **dns-org-hellmoo-status** (`.mcp vitals`), **simpleedit** (edit dialog),

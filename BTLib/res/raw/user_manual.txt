@@ -3173,6 +3173,8 @@ windows — those are yours, frames are the server's.
 
 Mud Client Protocol ([MCP 2.1](https://www.moo.mud.org/mcp/)) — in-band `#$#…`
 (not GMCP). Off by default. **Options → Service → Protocols → Use MCP?**. Prefer **Manage packages…** under **MCP**.
+**Omit MCP lines from output?** (on by default) still hides `#$#` when Use MCP?
+is off; turning Omit off is what shows the raw lines in the scrollback.
 
 Native packages (when enabled): hellmoo-status vitals, simpleedit editor,
 displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.

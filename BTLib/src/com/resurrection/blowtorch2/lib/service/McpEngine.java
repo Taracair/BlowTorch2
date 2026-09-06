@@ -73,7 +73,10 @@ public final class McpEngine {
 	private boolean mFeed = false;
 	private boolean mOmitFromOutput = true;
 	private boolean mAutoNegotiate = true;
+	private static final byte[] NO_BYTES = new byte[0];
 	private String mAuthKey = "";
+	/** Incomplete Use-off tail that might still become {@code #$#} / {@code #$"}. */
+	private byte[] mUseOffHold = NO_BYTES;
 	private boolean mHandshaken = false;
 	private boolean mNegotiateDone = false;
 	private boolean mServerNegotiateEnd = false;
@@ -147,6 +150,7 @@ public final class McpEngine {
 
 	public void resetSession() {
 		mPending.setLength(0);
+		mUseOffHold = NO_BYTES;
 		mAuthKey = "";
 		mHandshaken = false;
 		mNegotiateDone = false;
@@ -175,6 +179,22 @@ public final class McpEngine {
 		if (!mServerOfferedHello && looksLikeHello(raw)) {
 			mServerOfferedHello = true;
 		}
+	}
+
+	/** True when a line in {@code raw} starts with {@code #$#} or {@code #$"}. */
+	static boolean containsMcpLinePrefix(final byte[] raw) {
+		if (raw == null || raw.length < 3) {
+			return false;
+		}
+		for (int i = 0; i <= raw.length - 3; i++) {
+			if (raw[i] == '#' && raw[i + 1] == '$'
+					&& (raw[i + 2] == '#' || raw[i + 2] == '"')) {
+				if (i == 0 || raw[i - 1] == '\n' || raw[i - 1] == '\r') {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -257,6 +277,9 @@ public final class McpEngine {
 		if (raw == null || raw.length == 0) {
 			return raw;
 		}
+		if (!mUse) {
+			return filterIncomingUseOff(raw);
+		}
 		String enc = mSink.getEncoding() != null ? mSink.getEncoding() : "UTF-8";
 		String chunk;
 		try {
@@ -264,9 +287,6 @@ public final class McpEngine {
 		} catch (UnsupportedEncodingException e) {
 			chunk = new String(raw, "ISO-8859-1");
 			enc = "ISO-8859-1";
-		}
-		if (!mUse) {
-			return raw;
 		}
 		mPending.append(chunk);
 		StringBuilder out = new StringBuilder();
@@ -295,12 +315,136 @@ public final class McpEngine {
 		return out.toString().getBytes(enc);
 	}
 
+	/**
+	 * Use off: strip {@code #$#} when Omit is on, but do not hold ordinary
+	 * half-lines. Those belong to {@code IncomingLineHoldover} (prompts).
+	 * Only a tail that can still become {@code #$#} / {@code #$"} is kept here.
+	 */
+	private byte[] filterIncomingUseOff(byte[] raw) throws UnsupportedEncodingException {
+		byte[] data;
+		if (mUseOffHold.length == 0) {
+			data = raw;
+		} else {
+			data = concatBytes(mUseOffHold, raw);
+			mUseOffHold = NO_BYTES;
+		}
+		int lastNl = lastIndexOfNewline(data);
+		if (lastNl < 0) {
+			if (mOmitFromOutput && couldBeIncompleteMcpPrefix(data)) {
+				mUseOffHold = copyBytes(data);
+				return NO_BYTES;
+			}
+			return data;
+		}
+		byte[] complete = lastNl + 1 == data.length
+				? data : copyRange(data, 0, lastNl + 1);
+		byte[] tail = lastNl + 1 == data.length
+				? NO_BYTES : copyRange(data, lastNl + 1, data.length);
+		byte[] filtered = filterCompleteUseOff(complete);
+		if (tail.length > 0 && mOmitFromOutput && couldBeIncompleteMcpPrefix(tail)) {
+			mUseOffHold = tail;
+			tail = NO_BYTES;
+		}
+		if (filtered.length == 0) {
+			return tail;
+		}
+		if (tail.length == 0) {
+			return filtered;
+		}
+		return concatBytes(filtered, tail);
+	}
+
+	private byte[] filterCompleteUseOff(byte[] complete) throws UnsupportedEncodingException {
+		if (!containsMcpLinePrefix(complete)) {
+			return complete;
+		}
+		String enc = mSink.getEncoding() != null ? mSink.getEncoding() : "UTF-8";
+		String chunk;
+		try {
+			chunk = new String(complete, enc);
+		} catch (UnsupportedEncodingException e) {
+			chunk = new String(complete, "ISO-8859-1");
+			enc = "ISO-8859-1";
+		}
+		StringBuilder out = new StringBuilder();
+		int start = 0;
+		for (int i = 0; i < chunk.length(); i++) {
+			if (chunk.charAt(i) == '\n') {
+				String line = chunk.substring(start, i);
+				if (line.endsWith("\r")) {
+					line = line.substring(0, line.length() - 1);
+				}
+				start = i + 1;
+				String kept = handleNetworkLine(line);
+				if (kept != null) {
+					out.append(kept).append('\n');
+				}
+			}
+		}
+		return out.toString().getBytes(enc);
+	}
+
+	private static byte[] concatBytes(byte[] a, byte[] b) {
+		byte[] out = new byte[a.length + b.length];
+		System.arraycopy(a, 0, out, 0, a.length);
+		System.arraycopy(b, 0, out, a.length, b.length);
+		return out;
+	}
+
+	private static byte[] copyBytes(byte[] src) {
+		return copyRange(src, 0, src.length);
+	}
+
+	private static byte[] copyRange(byte[] src, int start, int end) {
+		byte[] out = new byte[end - start];
+		System.arraycopy(src, start, out, 0, out.length);
+		return out;
+	}
+
+	private static int lastIndexOfNewline(byte[] data) {
+		for (int i = data.length - 1; i >= 0; i--) {
+			if (data[i] == '\n') {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * {@code #}, {@code #$}, {@code #$#…}, or {@code #$"…} — a split hello
+	 * must not reach the window when Omit is on. {@code #channel} cannot
+	 * become MCP OOB, so it is not held.
+	 */
+	static boolean couldBeIncompleteMcpPrefix(byte[] data) {
+		if (data == null || data.length == 0 || data[0] != '#') {
+			return false;
+		}
+		if (data.length == 1) {
+			return true;
+		}
+		if (data[1] != '$') {
+			return false;
+		}
+		if (data.length == 2) {
+			return true;
+		}
+		return data[2] == '#' || data[2] == '"';
+	}
+
 	private String handleNetworkLine(String line) {
 		if (line.startsWith("#$\"")) {
 			return line.substring(3);
 		}
 		if (!line.startsWith("#$#")) {
 			return line;
+		}
+		if (!mUse) {
+			if (line.length() >= 7
+					&& line.startsWith("#$#mcp")
+					&& (line.charAt(6) == ' ' || line.charAt(6) == '\t')) {
+				mServerOfferedHello = true;
+			}
+			return mOmitFromOutput ? null : line;
 		}
 		handleMcpLine(line);
 		return mOmitFromOutput ? null : line;
