@@ -18,6 +18,8 @@ import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
  * .window create &lt;slot&gt; [title…]
  * .window destroy &lt;slot&gt;
  * .window opacity &lt;slot&gt; [40-100]
+ * .window font &lt;slot&gt; [6-96|+1|-1|default]
+ * .window &lt;slot&gt; font [6-96|+1|-1|default]
  * </pre>
  */
 public class WindowCommand extends SpecialCommand {
@@ -59,7 +61,14 @@ public class WindowCommand extends SpecialCommand {
 		case "opacity":
 		case "alpha":
 			return doOpacity(c, rest);
+		case "font":
+			return doFont(c, rest);
 		default:
+			String[] restParts = rest.split("\\s+", 2);
+			if (restParts.length >= 1 && "font".equalsIgnoreCase(restParts[0])) {
+				String fontArg = restParts.length > 1 ? restParts[1].trim() : "";
+				return doFont(c, fontArg.length() == 0 ? sub : sub + " " + fontArg);
+			}
 			c.sendDataToWindow(getErrorMessage("Window usage",
 					"Unknown subcommand '" + sub + "'.\n" + shortUsage()));
 			return null;
@@ -86,6 +95,7 @@ public class WindowCommand extends SpecialCommand {
 						.append(" — ").append(s.getTitle())
 						.append(" [").append(s.getMode().toJsonValue()).append("]")
 						.append(" ").append(s.getOpacity()).append("%")
+						.append(" font ").append(s.getFontSize())
 						.append(s.isVisible() ? "" : " (hidden)")
 						.append(s.isCollapsed() ? " (collapsed)" : "")
 						.append("\n");
@@ -222,13 +232,47 @@ public class WindowCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doFont(Connection c, String rest) {
+		if (rest.length() == 0) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					".window font <slot> [6-96 | +1 | -1 | default]\n"
+							+ ".window <slot> font [6-96 | +1 | -1 | default]"));
+			return null;
+		}
+		String[] parts = rest.split("\\s+", 2);
+		String name = parts[0];
+		ExtraTextSlot slot = c.findExtraTextSlot(name);
+		if (slot == null) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					"No extra text slot named \"" + name + "\"."));
+			return null;
+		}
+		if (parts.length < 2) {
+			echo(c, "Window " + slot.getName() + " font: " + slot.getFontSize());
+			return null;
+		}
+		Integer wanted = FontCommand.resolve(parts[1].trim().toLowerCase(), slot.getFontSize());
+		if (wanted == null) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					"Font is 6–96, or +1 / -1 / default."));
+			return null;
+		}
+		slot.setFontSize(wanted.intValue());
+		if (!c.upsertExtraTextSlot(slot)) {
+			c.sendDataToWindow(getErrorMessage("Window", "Failed to update slot."));
+			return null;
+		}
+		echo(c, "Window " + slot.getName() + " font: " + slot.getFontSize());
+		return null;
+	}
+
 	private static void echo(Connection c, String msg) {
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor() + msg
 				+ Colorizer.getWhiteColor() + "\n");
 	}
 
 	private static String shortUsage() {
-		return ".window list|show|hide|clear|create|destroy|opacity …";
+		return ".window list|show|hide|clear|create|destroy|opacity|font …";
 	}
 
 	private static String helpText() {
@@ -240,6 +284,8 @@ public class WindowCommand extends SpecialCommand {
 				+ "  create <slot> [title…]   — add/update slot (max 8)\n"
 				+ "  destroy <slot>           — remove slot\n"
 				+ "  opacity <slot> [40-100]  — get/set overlay opacity\n"
+				+ "  font <slot> [6-96|+1|-1|default] — extra-text font size\n"
+				+ "  <slot> font [6-96|+1|-1|default] — same\n"
 				+ "Also: Options → Window → Extra text windows → Manage windows…\n"
 				+ "Modes: drawer_top (top strip) or float. Lua: CreateTextWindow, NoteToWindow, …\n";
 	}

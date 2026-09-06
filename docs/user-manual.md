@@ -1577,7 +1577,7 @@ is enabled; `.alias list` shows every alias at once.
     `.search …`                         Scrollback and old session logs; see forms below
     `.chat …`                           Left-hand chat drawer (threads and reply templates); see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
-    `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
+    `.window …`                         Extra text windows (list/show/hide/font/create/destroy); see below
     `.widget …` / `.gauge …`            Overlay gauges (HP/mana/timer bars). `.gauge` is the same command; see below
 
 ### `.trigger` forms
@@ -2840,6 +2840,8 @@ like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** 
 .window create <slot> [title…]
 .window destroy <slot>
 .window opacity <slot> [40-100]
+.window font <slot> [6-96 | +1 | -1 | default]
+.window <slot> font [6-96 | +1 | -1 | default]
 ```
 
 ### Gag / replace retarget

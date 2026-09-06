@@ -147,6 +147,7 @@ public class ExtraTextOverlayController {
 			applyLayout(entry);
 			applyVisibility(entry);
 			applyScrollSpeed(entry);
+			applyFontSize(entry);
 			bringUnderChrome(entry);
 		}
 
@@ -543,6 +544,13 @@ public class ExtraTextOverlayController {
 		Window main = mainWindow();
 		final boolean inherit = e.slot.getScrollSpeed() == ExtraTextSlot.SCROLL_SPEED_INHERIT;
 		e.window.applyAndroidFling(inherit && main != null && main.isAndroidFling());
+	}
+
+	private void applyFontSize(OverlayEntry e) {
+		if (e == null || e.window == null || e.slot == null) {
+			return;
+		}
+		e.window.applyFontSize(e.slot.getFontSize());
 	}
 
 	/** Re-apply every overlay's speed; used when the main window's choice moves. */

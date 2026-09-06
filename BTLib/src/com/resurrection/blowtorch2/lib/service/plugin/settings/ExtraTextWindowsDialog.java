@@ -248,6 +248,20 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Opacity % (40–100)"));
 		form.addView(opacity);
 
+		final EditText fontSize = new EditText(context);
+		fontSize.setHint("font 6–96 (same as .font)");
+		fontSize.setSingleLine(true);
+		fontSize.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+		fontSize.setText(Integer.toString(existing != null
+				? existing.getFontSize() : ExtraTextSlot.FONT_SIZE_DEFAULT));
+		form.addView(label(context, "Font size (6–96)"));
+		form.addView(fontSize);
+		TextView fontHint = new TextView(context);
+		fontHint.setText("Also .window font <name> 18 or .window <name> font +1. This is this overlay only, not the main game window.");
+		fontHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+		fontHint.setPadding(0, 0, 0, pad / 2);
+		form.addView(fontHint);
+
 		// Index 0 is inherit, so the main window's Scroll sensitivity setting doubles
 		// as "all extra windows at once" for every slot left on the default.
 		final Spinner scrollSpeed = new Spinner(context);
@@ -470,6 +484,12 @@ public final class ExtraTextWindowsDialog {
 					slot.setOpacity(op);
 				} catch (Exception e) {
 					slot.setOpacity(85);
+				}
+				try {
+					int fs = Integer.parseInt(fontSize.getText().toString().trim());
+					slot.setFontSize(fs);
+				} catch (Exception e) {
+					slot.setFontSize(ExtraTextSlot.FONT_SIZE_DEFAULT);
 				}
 				slot.setScrollSpeed(scrollSpeed.getSelectedItemPosition());
 				slot.setShowTitleBar(showTitleBar.isChecked());

@@ -4109,6 +4109,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		calculateCharacterFeatures(mWidth,mHeight);
 	}
 
+	public final void applyFontSize(final int size) {
+		int use = ExtraTextSlot.clampFontSize(size);
+		if (use == mPrefFontSize) {
+			return;
+		}
+		setCharacterSizes(use, mPrefLineExtra);
+		invalidate();
+	}
+
 	public void setMaxLines(int maxLines) {
 		mBuffer.setMaxLines(maxLines);
 		mHoldBuffer.setMaxLines(maxLines);

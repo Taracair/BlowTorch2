@@ -73,7 +73,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
-		cmd("window", "The window", "extra text windows; .window show|hide|create|destroy");
+		cmd("window", "The window", "extra text windows; .window show|hide|font|create");
 		cmd("widget", "The window", "HP/mana/timer gauges over the game (.widget add|source|set|…)");
 		cmd("gauge", "The window", "same as .widget");
 		cmd("closewindow", "The window", "leave the game window (dirty exit)");
@@ -478,7 +478,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .window show|hide|clear <slot>\n"
 					+ "  .window create <slot> [title…]\n"
 					+ "  .window destroy <slot>\n"
-					+ "  .window opacity <slot> [40-100]\n";
+					+ "  .window opacity <slot> [40-100]\n"
+					+ "  .window font <slot> [6-96|+1|-1|default]\n"
+					+ "  .window <slot> font [6-96|+1|-1|default]\n";
 		}
 		if (filter.equals("widget") || filter.equals("gauge")) {
 			return "\n"

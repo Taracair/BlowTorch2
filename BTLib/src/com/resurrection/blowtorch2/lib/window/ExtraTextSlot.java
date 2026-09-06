@@ -78,6 +78,11 @@ public final class ExtraTextSlot {
 	 * SettingsGroup is not serialized — this JSON is the only durable home.
 	 */
 	private int scrollSpeed = SCROLL_SPEED_INHERIT;
+	/** Same range as {@code .font} / FontCommand (6–96). Default 20. */
+	public static final int FONT_SIZE_MIN = 6;
+	public static final int FONT_SIZE_MAX = 96;
+	public static final int FONT_SIZE_DEFAULT = 20;
+	private int fontSize = FONT_SIZE_DEFAULT;
 	private boolean visible = true;
 	private boolean collapsed = false;
 	/**
@@ -340,6 +345,24 @@ public final class ExtraTextSlot {
 		this.scrollSpeed = clampScrollSpeed(scrollSpeed);
 	}
 
+	public int getFontSize() {
+		return fontSize;
+	}
+
+	public void setFontSize(final int fontSize) {
+		this.fontSize = clampFontSize(fontSize);
+	}
+
+	static int clampFontSize(final int raw) {
+		if (raw < FONT_SIZE_MIN) {
+			return FONT_SIZE_MIN;
+		}
+		if (raw > FONT_SIZE_MAX) {
+			return FONT_SIZE_MAX;
+		}
+		return raw;
+	}
+
 	/** Out-of-range values fall back to inherit rather than to a guessed speed. */
 	static int clampScrollSpeed(final int raw) {
 		if (raw < SCROLL_SPEED_INHERIT || raw > SCROLL_SPEED_MAX) {
@@ -374,6 +397,7 @@ public final class ExtraTextSlot {
 		s.floatH = this.floatH;
 		s.opacity = this.opacity;
 		s.scrollSpeed = this.scrollSpeed;
+		s.fontSize = this.fontSize;
 		s.visible = this.visible;
 		s.collapsed = this.collapsed;
 		s.showTitleBar = this.showTitleBar;
@@ -397,6 +421,7 @@ public final class ExtraTextSlot {
 		o.put("float_h", floatH);
 		o.put("opacity", opacity);
 		o.put("scroll_speed", scrollSpeed);
+		o.put("font_size", fontSize);
 		o.put("visible", visible);
 		o.put("collapsed", collapsed);
 		o.put("show_title_bar", showTitleBar);
@@ -452,6 +477,7 @@ public final class ExtraTextSlot {
 		}
 		s.opacity = op;
 		s.scrollSpeed = clampScrollSpeed(o.optInt("scroll_speed", SCROLL_SPEED_INHERIT));
+		s.fontSize = clampFontSize(o.optInt("font_size", FONT_SIZE_DEFAULT));
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);
 		// Absent in slots written before these existed: default on, so an old
