@@ -305,7 +305,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int key = Integer.MIN_VALUE;
 		int w;
 		int h;
-		float scrollX;
 		int fg;
 		int resolvedFg;
 		int bg;
@@ -321,6 +320,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	private final LineTileSlot[] mLineTiles = new LineTileSlot[LINE_TILE_SLOTS];
 	private final Paint mLineTileBlitPaint = new Paint();
+	private int mLineTileBytes;
 
 	private boolean lineTilesWanted() {
 		if (!mFingerDown && Math.abs(mFlingVelocity) <= FLING_STOP_VELOCITY) {
@@ -351,6 +351,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			s.canvas = null;
 			s.key = Integer.MIN_VALUE;
 		}
+		mLineTileBytes = 0;
 	}
 
 	private void invalidateLineTiles() {
@@ -425,25 +426,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return Math.max(1, (int) Math.ceil(lineTileBottom(logicalY) - lineTileTop(logicalY)));
 	}
 
+	private int lineTileWidth() {
+		return Math.max(getWidth(), (int) Math.ceil(canvasWidthPx()));
+	}
+
+	private int lineTileByteBudget(final int h) {
+		final int vw = Math.max(1, getWidth());
+		return LINE_TILE_SLOTS * vw * Math.max(1, h) * 4;
+	}
+
 	private boolean blitLineTile(final Canvas hw, final int key, final float logicalY) {
 		if (!lineTilesWanted()) {
 			return false;
 		}
 		final LineTileSlot s = lineTileSlot(key);
-		if (s.key != key || s.bmp == null || s.w != getWidth()
-				|| s.scrollX != mScrollX) {
+		if (s.key != key || s.bmp == null || s.w != lineTileWidth()) {
 			return false;
 		}
 		if (s.h != lineTileHeight(logicalY)) {
 			return false;
 		}
-		hw.drawBitmap(s.bmp, 0f, lineTileTop(logicalY), mLineTileBlitPaint);
+		hw.drawBitmap(s.bmp, -mScrollX, lineTileTop(logicalY), mLineTileBlitPaint);
 		restoreLineTileSgr(s);
 		return true;
 	}
 
 	private Canvas beginLineTile(final int key, final float logicalY) {
-		final int w = getWidth();
+		final int w = lineTileWidth();
 		final int h = lineTileHeight(logicalY);
 		if (w < 1 || h < 1) {
 			return null;
@@ -451,7 +460,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		try {
 			final LineTileSlot s = lineTileSlot(key);
 			if (s.bmp == null || s.w != w || s.h != h) {
+				final int add = w * h * 4;
+				int live = mLineTileBytes;
 				if (s.bmp != null) {
+					live -= s.w * s.h * 4;
+				}
+				if (live + add > lineTileByteBudget(h)) {
+					return null;
+				}
+				if (s.bmp != null) {
+					mLineTileBytes -= s.w * s.h * 4;
 					s.bmp.recycle();
 					s.bmp = null;
 				}
@@ -459,12 +477,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				s.canvas = new Canvas(s.bmp);
 				s.w = w;
 				s.h = h;
+				mLineTileBytes += add;
 			}
 			s.bmp.eraseColor(0);
 			s.canvas.save();
-			s.canvas.translate(0f, -lineTileTop(logicalY));
+			s.canvas.translate(mScrollX, -lineTileTop(logicalY));
 			s.key = Integer.MIN_VALUE;
-			s.scrollX = mScrollX;
 			return s.canvas;
 		} catch (OutOfMemoryError e) {
 			return null;
@@ -482,7 +500,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s.bmp == null) {
 			return;
 		}
-		hw.drawBitmap(s.bmp, 0f, lineTileTop(logicalY), mLineTileBlitPaint);
+		hw.drawBitmap(s.bmp, -mScrollX, lineTileTop(logicalY), mLineTileBlitPaint);
 		saveLineTileSgr(s);
 		s.key = key;
 	}
