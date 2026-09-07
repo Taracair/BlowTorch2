@@ -6162,6 +6162,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			public int getDisplayRows() {
 				return mLiveRows;
 			}
+
+			@Override
+			public void logProtocol(String channel, String direction, String payload) {
+				android.content.Context ctx = Connection.this.getContext();
+				if (ctx == null) {
+					return;
+				}
+				SessionLogger.appendProtocol(ctx, mDisplay, channel, direction, payload);
+			}
 		}, mHandler);
 		if (mGauges != null) {
 			mMcpEngine.setStatusCacheListener(new Runnable() {

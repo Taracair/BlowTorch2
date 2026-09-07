@@ -580,7 +580,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_mcp = new BooleanOption();
 		log_mcp.setTitle("Log MCP?");
-		log_mcp.setDescription("Write MCP handshake and packets to the app log (also session log if enabled). Also: .mcp sniff on");
+		log_mcp.setDescription("Write MCP handshake and packets into the session log (Log Session to File?) even when Use MCP? is off. Also logcat. Also: .mcp sniff on");
 		log_mcp.setKey("log_mcp");
 		log_mcp.setValue(false);
 		mcpOptions.addOption(log_mcp);
@@ -641,7 +641,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_mxp = new BooleanOption();
 		log_mxp.setTitle("Log MXP?");
-		log_mxp.setDescription("Logcat MXP handshake notes. Off by default. Prefer .mxp status and Show MXP in game window?");
+		log_mxp.setDescription("MXP handshake notes in the session log (when Log Session to File? is on) and logcat. Off by default.");
 		log_mxp.setKey("log_mxp");
 		log_mxp.setValue(false);
 		protocolOptions.addOption(log_mxp);

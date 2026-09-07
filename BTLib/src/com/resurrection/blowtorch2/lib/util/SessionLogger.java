@@ -323,6 +323,18 @@ public final class SessionLogger {
 		enqueue(context, new Op(Op.WRITE, markerText(marker), null, false, null));
 	}
 
+	/**
+	 * Protocol trace ({@code MCP IN …}, {@code GMCP OUT …}) when that protocol's
+	 * Log flag is on. No-op unless session logging is enabled.
+	 */
+	public static void appendProtocol(Context context, String profile,
+			String channel, String direction, String payload) {
+		String ch = channel == null ? "" : channel;
+		String dir = direction == null ? "" : direction;
+		String body = payload == null ? "" : payload;
+		appendMarker(context, profile, ch + " " + dir + " " + body);
+	}
+
 	public static void appendConnected(Context context, String profile) {
 		if (context == null || !isEnabled(context)) {
 			return;

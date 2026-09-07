@@ -234,7 +234,8 @@ public class Processor {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger
 						.logGmcpTrace(mContext, line);
 				if (SessionLogger.isEnabled(mContext)) {
-					SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
+					SessionLogger.appendProtocol(mContext, mLogProfile, "GMCP",
+							direction, safe);
 				}
 			}
 		}
@@ -550,6 +551,7 @@ public class Processor {
 			if (mLogMxp) {
 				android.util.Log.i("BlowTorch.MXP", "active after IAC "
 						+ (action == TC.WILL ? "WILL" : "DO") + " MXP");
+				sessionProtocol("MXP", "NEG", action == TC.WILL ? "IAC WILL MXP" : "IAC DO MXP");
 			}
 		}
 
@@ -691,6 +693,7 @@ public class Processor {
 			mMxp.setActive(true);
 			if (mLogMxp) {
 				android.util.Log.i("BlowTorch.MXP", "active after IAC SB MXP");
+				sessionProtocol("MXP", "NEG", "IAC SB MXP");
 			}
 			if (mDebugTelnet && mReportTo != null) {
 				String message = "\n" + Colorizer.getTeloptStartColor() + "IN:["
@@ -1731,6 +1734,14 @@ public class Processor {
 
 	public final void setLogMXP(final boolean value) {
 		mLogMxp = value;
+	}
+
+	private void sessionProtocol(final String channel, final String direction,
+			final String payload) {
+		if (mContext == null) {
+			return;
+		}
+		SessionLogger.appendProtocol(mContext, mLogProfile, channel, direction, payload);
 	}
 
 	public final boolean isUseMXP() {

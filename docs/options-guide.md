@@ -128,7 +128,7 @@ flags default off except omit-from-output (hides `#$#` even when Use is off) and
 | **Use MCP?** | off | Handshake + package negotiate |
 | **Manage packages…** | — | Checkbox UI for `mcp-negotiate-can` |
 | **Packages String (advanced)** | negotiate + hellmoo + simpleedit + displayurl + ping + cord + vmoo | Raw list |
-| **Log MCP?** | off | Also `.mcp sniff` |
+| **Log MCP?** | off | Session log + logcat; also `.mcp sniff`. Still logs when Use MCP? is off |
 | **Show MCP in game window?** | off | Also `.mcp feed` |
 | **Omit MCP lines from output?** | on | Hide `#$#` from scrollback even when Use MCP? is off |
 | **Auto-negotiate packages?** | on | Send can/end after `#$#mcp` |
@@ -153,7 +153,7 @@ them. Reconnect after changing any of these:
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
 | **Use MXP?** | **on** | Under **Protocols**, not Telnet. MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no `SCRIPT`/`RELOCATE`. MXP `GAUGE` writes session variables and does not mint a `.widget`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample |
-| **Log MXP?** | off | Dump MXP tags to logcat (`BlowTorch.MXP`) |
+| **Log MXP?** | off | Handshake notes in the session log and logcat |
 | **Show MXP in game window?** | off | Echo parsed MXP into the game window (debug) |
 
 When one is off, BlowTorch answers `DONT` so the server should not send that
@@ -222,6 +222,10 @@ patterns.
 - Disconnect writes `client disconnected at HH:mm:ss`; connect writes
   `client connected at HH:mm:ss`. Local midnight while still connected rolls
   into the next day's file.
+- **Log MCP? / Log GMCP? / Log MXP?** write protocol traces into that same
+  file as `--- HH:mm:ss MCP IN … ---` (and GMCP/MXP). MCP is recorded even
+  when Use MCP? is off (Omit still hides `#$#` from the game window). GMCP
+  also has `logs/gmcp.log`.
 - Tip: check the `client connected at … → /path/...` marker at the top of a new
   day's file so you open the log that is actually being written (do not edit that
   file in another app while playing).

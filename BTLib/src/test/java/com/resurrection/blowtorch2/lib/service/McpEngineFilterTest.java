@@ -183,6 +183,62 @@ public class McpEngineFilterTest {
 		assertTrue(sawAuth);
 	}
 
+	@Test
+	public void useOffLogOnOmitOnRecordsProtocolAndStripsWindow()
+			throws UnsupportedEncodingException {
+		FakeSink sink = new FakeSink();
+		McpEngine engine = engine(sink);
+		engine.setUse(false);
+		engine.setOmitFromOutput(true);
+		engine.setLog(true);
+
+		byte[] out = engine.filterIncoming(
+				"#$#mcp version: 2.1 to: 2.1\nYou see a room.\n".getBytes("UTF-8"));
+
+		assertEquals("You see a room.\n", new String(out, "UTF-8"));
+		assertTrue(sink.sent.isEmpty());
+		assertEquals(1, sink.protocol.size());
+		assertTrue(sink.protocol.get(0).startsWith("MCP IN "));
+		assertTrue(sink.protocol.get(0).contains("#$#mcp version: 2.1 to: 2.1"));
+	}
+
+	@Test
+	public void useOffLogOffDoesNotRecordProtocol()
+			throws UnsupportedEncodingException {
+		FakeSink sink = new FakeSink();
+		McpEngine engine = engine(sink);
+		engine.setUse(false);
+		engine.setOmitFromOutput(true);
+		engine.setLog(false);
+
+		engine.filterIncoming("#$#dns-org-hellmoo-status-update foo: 1\n".getBytes("UTF-8"));
+
+		assertTrue(sink.protocol.isEmpty());
+	}
+
+	@Test
+	public void useOnLogOnRecordsInboundHello()
+			throws UnsupportedEncodingException {
+		FakeSink sink = new FakeSink();
+		McpEngine engine = engine(sink);
+		engine.setUse(true);
+		engine.setOmitFromOutput(true);
+		engine.setAutoNegotiate(false);
+		engine.setLog(true);
+
+		engine.filterIncoming("#$#mcp version: 2.1 to: 2.1\n".getBytes("UTF-8"));
+
+		boolean sawIn = false;
+		for (int i = 0; i < sink.protocol.size(); i++) {
+			String line = sink.protocol.get(i);
+			if (line.startsWith("MCP IN ") && line.contains("#$#mcp")) {
+				sawIn = true;
+				break;
+			}
+		}
+		assertTrue(sawIn);
+	}
+
 	private static McpEngine engine(FakeSink sink) {
 		McpEngine engine = new McpEngine(sink, null);
 		engine.setFeed(false);
@@ -192,6 +248,7 @@ public class McpEngineFilterTest {
 
 	private static final class FakeSink implements McpEngine.Sink {
 		final ArrayList<String> sent = new ArrayList<String>();
+		final ArrayList<String> protocol = new ArrayList<String>();
 
 		@Override
 		public void sendNetworkLine(String line) {
@@ -247,6 +304,11 @@ public class McpEngineFilterTest {
 		@Override
 		public int getDisplayRows() {
 			return 24;
+		}
+
+		@Override
+		public void logProtocol(String channel, String direction, String payload) {
+			protocol.add(channel + " " + direction + " " + payload);
 		}
 	}
 }

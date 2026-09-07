@@ -11,7 +11,7 @@ import com.resurrection.blowtorch2.lib.service.McpEngine;
 import com.resurrection.blowtorch2.lib.service.McpPackageRegistry;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
-import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * MCP helper command (Mud Client Protocol 2.1).
@@ -337,11 +337,7 @@ public class McpCommand extends SpecialCommand {
 					out.append(recent.get(i)).append("\n");
 				}
 			}
-			java.io.File logFile = BlowTorchLogger.getLogFile(c.getContext());
-			if (logFile != null) {
-				out.append("(also ").append(logFile.getAbsolutePath()).append(")\n");
-			}
-			c.sendDataToWindow(out.toString());
+			c.sendDataToWindow(out.toString() + sniffHint(c));
 			return null;
 		}
 		Boolean desired = parseOnOff(first);
@@ -470,8 +466,16 @@ public class McpCommand extends SpecialCommand {
 	}
 
 	private static String sniffHint(Connection c) {
-		java.io.File f = BlowTorchLogger.getLogFile(c.getContext());
-		return f != null ? ("Log: " + f.getAbsolutePath() + "\n") : "";
+		if (c == null || c.getContext() == null) {
+			return "";
+		}
+		if (!SessionLogger.isEnabled(c.getContext())) {
+			return "Session log is off — turn on Log Session to File? to keep MCP in the day's .txt.\n";
+		}
+		String loc = SessionLogger.getLogLocationLabel(c.getContext());
+		return loc.length() > 0
+				? ("Session log: " + loc + "\n")
+				: "Session log is on.\n";
 	}
 
 	private static Boolean parseOnOff(String s) {

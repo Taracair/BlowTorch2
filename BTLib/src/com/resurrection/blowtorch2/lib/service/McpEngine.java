@@ -14,8 +14,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 
-import com.resurrection.blowtorch2.lib.util.SessionLogger;
-
 /**
  * Mud Client Protocol 2.1 engine: line filter, handshake, negotiate, multiline,
  * cords, status-update, simpleedit, displayurl, ping, vmoo-client, Lua watchers.
@@ -43,6 +41,8 @@ public final class McpEngine {
 		String getClientVersion();
 		int getDisplayCols();
 		int getDisplayRows();
+		/** Session-log / sniff sink. Tests record this; the Connection writes a marker. */
+		void logProtocol(String channel, String direction, String payload);
 	}
 
 	private static final class Watcher {
@@ -443,6 +443,10 @@ public final class McpEngine {
 					&& line.startsWith("#$#mcp")
 					&& (line.charAt(6) == ' ' || line.charAt(6) == '\t')) {
 				mServerOfferedHello = true;
+			}
+			if (mLog) {
+				logDir("IN", line);
+				remember(line);
 			}
 			return mOmitFromOutput ? null : line;
 		}
@@ -1047,15 +1051,12 @@ public final class McpEngine {
 
 	private void logDir(String dir, String payload) {
 		if (mLog) {
-			String line = "[MCP] " + dir + " " + payload;
-			Log.i(TAG, line);
-			// Deliberately not the error log. Every MCP message went in there, and a
-			// chatty server filled it to the 2 MB rotation limit in a session — taking
-			// the actual errors with it. Protocol traffic belongs in the session log,
-			// which is right below and is what session logs are for.
+			String redacted = redact(payload);
+			Log.i(TAG, "[MCP] " + dir + " " + redacted);
+			// Not the error log: a chatty server filled it to the 2 MB rotation
+			// limit and buried real crashes. Session log when Log Session is on.
 			try {
-				SessionLogger.appendMarker(mSink.getContext(), mSink.getDisplayName(),
-						"MCP " + dir + " " + redact(payload));
+				mSink.logProtocol("MCP", dir, redacted);
 			} catch (Exception ignored) {
 			}
 		}
