@@ -1,1 +1,1 @@
-MUD client with triggers, aliases, timers, and Lua plugins
+BlowTorch 2 — a versatile mobile MUD client

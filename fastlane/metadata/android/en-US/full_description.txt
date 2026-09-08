@@ -1,18 +1,39 @@
-BlowTorch 2 is a fork of the classic BlowTorch MUD client for Android.
+The good BlowTorch client is back! Now more stable, with more functions.
 
-Connect to text games (MUDs), keep button panels on screen, and use triggers, aliases, timers, speedwalks, and Lua plugins. ANSI colors, GMCP, and background connections are supported.
+This app connects you to a MUD. MUD stands for Multi-User Dungeon: a multiplayer text game over telnet. Add a host and port, connect, and you are in.
 
-This fork is aimed at current Android: builds that install, storage/backups that work again, a clearer input bar, session logs, and a few extras (eight-way swipe/hold/accordion buttons, .search, .wrap, GMCP helpers).
+If you don't know where to look for MUDs, try these sites:
+<a href="https://www.mudstats.com/">MudStats</a>
+<a href="https://www.mudverse.com/">MudVerse</a>
+<a href="https://www.mudconnect.com/">The Mud Connector</a>
 
-Also:
-• Separate production package so a test build can sit beside a stable install
-• Import/export and zip backup/restore (/BlowTorch/ folder or system file pickers)
-• Session log to file, connection time on the notification
-• Growable input bar (.wrap), in-app Help and crash/log report
-• Eight-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
+There is a huge toolkit in this app. Daily play needs little of it. When you want the advanced features, open Help in the app or the <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/user-manual.md">user guide on GitHub</a>.
 
-No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. The F-Droid build does not contact GitHub on start. Lua plugins run with the app’s privileges; only load ones you trust. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder. You can refuse it and still play, import and export through the system picker. Details: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
+The app itself (menus, settings, and Help) is in English.
 
-Original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). This is an unofficial fork. Back up your settings before upgrading.
+Everyday play (some options might need to be turned on manually):
+• Convenient on-screen buttons that send commands, so you don't have to type the same things over and over
+• In-game suggestions from the text on the screen — you don't have to type every word by hand
+• Connect and stay connected with the screen off; the notification shows how long you have been on
+• A growable input bar, search in scrollback, two-finger copy
+• ANSI colours, optional session log to a file
+• In-app Help
 
-Source and issues: https://github.com/Taracair/BlowTorch2
+When you want more:
+• Eight-way swipe, hold, and accordion (MORE) on the same button; swap a whole set of buttons with a loadset
+• Logging to a text file, one file per day per world, that grows as you play
+• Protocols: telnet, GMCP, MCP, MXP, MSDP, MSSP, MCCP, MTTS. Colours and styles: ANSI, 256-colour, truecolour, bold, italic, underline, reverse, strike. OSC 8 tappable links
+• Triggers (with conditions), aliases, and timers — colour a line, hide it, notify you, send a command, run Lua; a lot of room to grow
+• Extra text windows and a chat drawer; words in the game text you can tap
+• Widgets: HP bars, rings, and countdowns you place on the screen and point at the world's numbers
+• Mapper: a map from room info the world sends, or from recorded steps (experimental)
+• Speedwalks, per-world settings, and Lua plugins — the classic BlowTorch toolkit
+• A trigger or timer can read a line aloud (the phone's own speech engine)
+
+But that's just the tip of the iceberg. There's much more inside. If you want the advanced side, I don't think you'll be disappointed!
+
+No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. The F-Droid build does not contact GitHub on start. Lua plugins run with the app's privileges, so only load ones you trust. "All files access" is optional — only so settings, backups, and logs can live in a normal /BlowTorch/ folder. You can refuse it and still play; import and export go through the system file picker. <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md">Details</a>
+
+Original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). This is an unofficial fork and continuation of the original creators' work. Back up your settings before upgrading.
+
+<a href="https://github.com/Taracair/BlowTorch2">Source, issues, and suggestions</a>
