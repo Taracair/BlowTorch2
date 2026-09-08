@@ -70,6 +70,14 @@ Write to the maintainer in **Polish** — status, questions, release drafts —
 unless they switch language. Code, comments, commit messages and everything in
 `docs/` stay in English.
 
+## F-Droid
+
+The production APK is on F-Droid (or in the inclusion MR). Do not add a
+`uses-permission`, a new foreground-service type, or change `applicationId`
+/ the launcher component without asking the maintainer first. A settings
+checkbox that uses an already-declared permission (`WAKE_LOCK`) is fine.
+Fastlane store text can change on the next tag; that is not a new permission.
+
 ## Commits
 
 At the end of each turn that produced a complete change, commit on `staging`.

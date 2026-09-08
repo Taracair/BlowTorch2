@@ -64,3 +64,6 @@ GitHub APKs do not set that property.
   the build. `HOST_CC="gcc -m32"` needs `gcc-multilib`.
 - Submit **`production`** only. Prebuild sets `blowtorch.fdroid=true`.
 - Fastlane text is read from the tagged commit.
+- Do not add `uses-permission`, a new FGS type, or change `applicationId`
+  without asking. An UPDATE that only changes Fastlane/copy is routine; a new
+  permission is a fresh review and can stall the inclusion MR.
