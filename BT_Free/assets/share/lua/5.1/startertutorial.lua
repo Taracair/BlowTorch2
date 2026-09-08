@@ -202,8 +202,8 @@ sends the characters #5 north to the game.
 Pace a line: north;.wait 2s;south waits two seconds after north, then
 sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.
 .wait stop (or #wait 0) cancels. .wait show / .wait info lists the
-queue. The game still prints; other triggers still send. A lone
-.wait 5s delays nothing later.
+queue. .wait change 1 60s retargets that row from now. The game still
+prints; other triggers still send. A lone .wait 5s delays nothing later.
 
 Also: Options → Service → Process System Commands? must be on (default)
 for .commands to work.
@@ -603,7 +603,8 @@ changes how long the timer runs.
 
 To pause between commands on one line (north, then south two seconds
 later) use .wait / #wait, not a named timer. .wait 2s only delays the
-rest of that line. .wait show lists what is still waiting.
+rest of that line. .wait show lists what is still waiting. .wait change
+1 60s retargets that row from now.
 
 Optional silent as a last word suppresses toasts on play/pause/reset/stop
 (not used with info/dump), e.g.
@@ -1226,7 +1227,9 @@ TOPICS.stay_connected = function()
 
   Auto Reconnect?          reconnect after a drop (default on)
   Auto Reconnect Tries     hard limit on attempts (default 5)
-  Keep Wifi Alive?         hold a Wi-Fi lock while connected
+  Keep Wifi Alive?         hold a Wi-Fi lock while connected (not mobile data)
+  Keep CPU Awake?          leave on so .wait and triggers keep time with the
+                           screen off; off saves some battery
   Battery optimization…    open the system exemption flow
 
 A one-shot battery dialog may appear while connected if the OS still
@@ -1237,8 +1240,8 @@ Persistent Connection? (Options → Miscellaneous) only changes how Auto
 Reconnect waits for the network. It does not reconnect on its own, and
 it does not raise the try count.
 
-Use Keep Wifi Alive and battery exemption when you leave the screen
-off mid-session.]])
+Use Keep CPU Awake, Keep Wifi Alive (on Wi-Fi) and battery exemption
+when you leave the screen off mid-session.]])
 end
 
 TOPICS.disconnect_reconnect = function()
@@ -1555,7 +1558,7 @@ local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
 	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; Match style can require colour/SGR. .grabber inspects a glyph. Actions gag, colour, send, or run Lua.]],
 	timer = [[.timer info name. .timer dump writes that into the window; dump with no name lists all. .timer play|pause|stop name. .timer duration name seconds changes the length.]],
-	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. The game still prints.]],
+	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. .wait change 1 60s retargets that row from now. The game still prints.]],
 	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],

@@ -559,7 +559,6 @@ public class StellarService extends Service {
 		WifiInfo info = mWifiManager.getConnectionInfo();
 		if (info.getNetworkId() != -1) {
 			if (mWifiLock != null && mWifiLock.isHeld()) {
-				syncCpuWakeLock();
 				return;
 			}
 			mWifiLock = null;
@@ -570,7 +569,6 @@ public class StellarService extends Service {
 			mWifiLock.setReferenceCounted(false);
 			mWifiLock.acquire();
 		}
-		syncCpuWakeLock();
 	}
 
 	private void ensureCpuWakeLock() {
@@ -602,7 +600,6 @@ public class StellarService extends Service {
 			}
 			mWifiLock = null;
 		}
-		syncCpuWakeLock();
 	}
 
 	public final void noteConnectionStarted(final String display) {

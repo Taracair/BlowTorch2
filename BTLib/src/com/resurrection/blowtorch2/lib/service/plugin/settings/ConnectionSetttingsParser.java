@@ -80,6 +80,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		process_semicolon,
 		echo_alias_updates,
 		keep_wifi_alive,
+		keep_cpu_awake,
 		auto_reconnect,
 		auto_reconnect_limit,
 		cull_extraneous_color,
@@ -685,6 +686,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case keep_wifi_alive:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case keep_cpu_awake:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}

@@ -5665,6 +5665,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case keep_wifi_alive:
 				this.doSetKeepWifiAlive((Boolean) o.getValue());
 				break;
+			case keep_cpu_awake:
+				this.doSetKeepCpuAwake((Boolean) o.getValue());
+				break;
 			case auto_reconnect:
 				mReconnect.setAutoReconnect((Boolean) o.getValue());
 				break;
@@ -6621,6 +6624,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	private void doSetKeepCpuAwake(final Boolean value) {
+		mService.syncCpuWakeLock();
+	}
+
 	/** Impelemntation of the echo alias update settings handler.
 	 * 
 	 * @param value New value to use.
@@ -7024,6 +7031,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		echo_alias_updates,
 		/** Keep wifi alive. */
 		keep_wifi_alive,
+		/** Keep CPU awake while this world needs the socket poll. */
+		keep_cpu_awake,
 		/** Cull extraneous color codes. */
 		cull_extraneous_color,
 		/** Debug telnet data. */
@@ -8290,8 +8299,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/** True while the socket is up, handshake is running, reconnect is armed,
-	 * or this connection is still tearing the pump down. */
+	 * or this connection is still tearing the pump down — and Keep CPU Awake? is on. */
 	public final boolean needsCpuKeepalive() {
+		if (!readBoolOption("keep_cpu_awake", true)) {
+			return false;
+		}
 		if (mIsConnected || mNetTeardown) {
 			return true;
 		}

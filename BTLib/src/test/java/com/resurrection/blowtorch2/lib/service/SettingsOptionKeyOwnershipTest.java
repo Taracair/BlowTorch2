@@ -122,6 +122,16 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void keepCpuAwakeIsConnectionOwnedNotWindow() {
+		assertTrue("keep_cpu_awake must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("keep_cpu_awake"));
+		assertFalse("keep_cpu_awake must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("keep_cpu_awake"));
+		assertTrue("keep_wifi_alive must stay a connection key",
+				ConnectionSetttingsParser.isConnectionOptionKey("keep_wifi_alive"));
+	}
+
+	@Test
 	public void chatKeysAreConnectionOwnedNotWindow() {
 		String[] chatKeys = { "chat_unread_dot", "chat_announce",
 				"chat_announce_seconds", "chat_android_notify",

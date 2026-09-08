@@ -435,10 +435,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption keep_wifi_alive = new BooleanOption();
 		keep_wifi_alive.setTitle("Keep Wifi Alive?");
-		keep_wifi_alive.setDescription("Attempt to keep WiFi radio active while connected.");
+		keep_wifi_alive.setDescription("Hold the Wi-Fi radio while connected. Does nothing on mobile data. CPU keep-alive is a separate option.");
 		keep_wifi_alive.setKey("keep_wifi_alive");
 		keep_wifi_alive.setValue(true);
 		servOptions.addOption(keep_wifi_alive);
+
+		BooleanOption keep_cpu_awake = new BooleanOption();
+		keep_cpu_awake.setTitle("Keep CPU Awake?");
+		keep_cpu_awake.setDescription("Leave this on. Off saves some battery, but .wait, triggers and timers may not fire on time with the screen off.");
+		keep_cpu_awake.setKey("keep_cpu_awake");
+		keep_cpu_awake.setValue(true);
+		servOptions.addOption(keep_cpu_awake);
 		
 		BooleanOption auto_reconnect = new BooleanOption();
 		auto_reconnect.setTitle("Auto Reconnect?");
@@ -662,7 +669,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");
-		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background (helps keep connections alive).");
+		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background. Helps Keep CPU Awake? and Keep Wifi Alive? when the screen is off.");
 		battery_opt.setKey("battery_optimization");
 		battery_opt.setValue("battery_optimization");
 		servOptions.addOption(battery_opt);

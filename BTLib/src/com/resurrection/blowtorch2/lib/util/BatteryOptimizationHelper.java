@@ -108,8 +108,8 @@ public final class BatteryOptimizationHelper {
 		new AlertDialog.Builder(activity)
 				.setTitle("Keep connection alive")
 				.setMessage("Android battery optimization can kill background MUD connections. "
-						+ "Allow BlowTorch to run unrestricted so Wi‑Fi keepalive and the "
-						+ "connection notification keep working when the screen is off.")
+						+ "Allow BlowTorch to run unrestricted so Keep CPU Awake, Keep Wifi Alive, "
+						+ "and the connection notification keep working when the screen is off.")
 				.setPositiveButton("Allow", (d, w) -> openExemptionSettings(activity))
 				.setNeutralButton("Don't ask again", (d, w) ->
 						prefs.edit().putBoolean(KEY_DONT_ASK, true).apply())
