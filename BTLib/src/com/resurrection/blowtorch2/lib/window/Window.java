@@ -1516,6 +1516,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		theSelection = null;
 		selectedSelector = null;
+		mFingerDown = false;
+		stopFling();
 		Window.this.flushBuffer();
 		Window.this.setBufferText(false);
 		if (mMainWindowHandler != null) {
@@ -3991,17 +3993,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mBuffer.prune();
 	}
 	
-	/** If the window was in buffering mode, this function will dump the buffered text into the real buffer. */
+	/** Dump held bytes through {@link #addBytesImpl} so line tiles and scroll
+	 * follow the same path as live ingest. */
 	public final void flushBuffer() {
 		warnIfNotUiThread("flushBuffer");
-		try {
-			mBuffer.addBytesImpl(mHoldBuffer.dumpToBytes(false));
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
+		byte[] held = mHoldBuffer.dumpToBytes(false);
+		if (held == null) {
+			held = new byte[0];
 		}
-		mBuffer.prune();
+		mBufferText = false;
+		if (held.length > 0) {
+			addBytesImpl(held, false);
+			return;
+		}
 		drawingIterator = null;
-		this.invalidate();
+		invalidate();
 	}
 
 	/** Scroll so that {@code brokenLinesFromBottom} broken lines sit above the live edge. */
