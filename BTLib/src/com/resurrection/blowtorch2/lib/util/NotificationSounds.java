@@ -18,6 +18,9 @@ public final class NotificationSounds {
 			new SoundPreset("mid_ping", "Mid ping", R.raw.notif_mid_ping),
 			new SoundPreset("mid_pluck", "Mid pluck", R.raw.notif_mid_pluck),
 			new SoundPreset("loud_alert", "Loud alert", R.raw.notif_loud_alert),
+			new SoundPreset("mid_chirp", "Mid chirp", R.raw.notif_mid_chirp),
+			new SoundPreset("mid_pulse5", "Five-second pulse", R.raw.notif_mid_pulse5),
+			new SoundPreset("mid_pulse10", "Ten-second pulse", R.raw.notif_mid_pulse10),
 	};
 
 	private NotificationSounds() {
