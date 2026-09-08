@@ -16,6 +16,7 @@ public final class CommandWait {
 	public static final String USAGE =
 			"Usage: .wait 5s | #wait 5m10s | .wait 1h | .wait 500ms\n"
 					+ "       .wait stop   (or #wait 0) cancels a wait still running\n"
+					+ "       .wait show   (or .wait info) lists queued waits and when they fire\n"
 					+ "Units h, m, s, ms in any order. A bare number is seconds. Max 1h.\n"
 					+ "Only the rest of this line waits (north;.wait 2s;south). "
 					+ "The game still prints; other triggers still send.";
@@ -24,6 +25,7 @@ public final class CommandWait {
 		NOT_WAIT,
 		DELAY,
 		STOP,
+		SHOW,
 		ERROR
 	}
 
@@ -48,6 +50,10 @@ public final class CommandWait {
 
 		public static Result stop() {
 			return new Result(Kind.STOP, 0L, null);
+		}
+
+		public static Result show() {
+			return new Result(Kind.SHOW, 0L, null);
 		}
 
 		public static Result error(final String message) {
@@ -96,6 +102,9 @@ public final class CommandWait {
 		}
 		if (arg.equalsIgnoreCase("stop")) {
 			return Result.stop();
+		}
+		if (arg.equalsIgnoreCase("show") || arg.equalsIgnoreCase("info")) {
+			return Result.show();
 		}
 		try {
 			long ms = parseDurationMs(arg);

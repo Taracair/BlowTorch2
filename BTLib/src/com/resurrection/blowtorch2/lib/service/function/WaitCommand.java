@@ -26,6 +26,10 @@ public class WaitCommand extends SpecialCommand {
 					+ "[wait cancelled]\n");
 			return null;
 		}
+		if (r.kind == CommandWait.Kind.SHOW) {
+			c.sendWaitQueueToWindow();
+			return null;
+		}
 		if (r.kind == CommandWait.Kind.ERROR) {
 			c.sendDataToWindow(getErrorMessage("Wait command usage:",
 					r.message == null ? CommandWait.USAGE : r.message));

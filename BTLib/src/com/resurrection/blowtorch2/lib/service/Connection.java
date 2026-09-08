@@ -820,10 +820,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				doReconnect();
 				break;
 			case MESSAGE_CONNECTED:
-				clearStartupInProgress();
 				mReconnect.onConnected();
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
+				clearStartupInProgress();
+				mService.noteConnectionStarted(mDisplay);
 				mStyleRegisters = SgrRegisters.defaults();
 				mDispatchStyleModels = null;
 				mSessionLog.onConnected();
@@ -2563,9 +2564,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private static final int PUMP_SHUTDOWN_WAIT_MS = 2000;
 
 	protected final void killNetThreads(final boolean noreconnect) {
+		mNetTeardown = true;
+		try {
+			killNetThreadsInner(noreconnect);
+		} finally {
+			mNetTeardown = false;
+		}
+	}
+
+	private void killNetThreadsInner(final boolean noreconnect) {
 		
 		if (mPump == null) {
 			cancelCommandWaits();
+			markConnectionEnded();
 			clearStartupInProgress();
 			return;
 		}
@@ -3383,6 +3394,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Meat of the startup sequence. Starts the net threads after the settings have been loaded. */
 	private final Object mStartupLock = new Object();
 	private boolean mStartupInProgress = false;
+	/** True while killNetThreads is joining the pump or ending an interval. */
+	private boolean mNetTeardown;
 	private void doStartup() {
 		synchronized (mStartupLock) {
 			if (isOfflineMode()) {
@@ -3622,6 +3635,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		synchronized (mStartupLock) {
 			mStartupInProgress = false;
 		}
+		mService.syncCpuWakeLock();
 	}
 	
 	/** Literal triggers starting with {@link McpEngine#TRIGGER_CHAR} ({@code @}) fire on MCP messages. */
@@ -3786,6 +3800,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					cancelCommandWaits();
 					sendDataToWindow("\n" + Colorizer.getWhiteColor()
 							+ "[wait cancelled]\n");
+					continue;
+				}
+				if (waitTok.kind == CommandWait.Kind.SHOW) {
+					sendWaitQueueToWindow();
 					continue;
 				}
 				sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
@@ -3971,12 +3989,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mCommandWaits.clear();
 	}
 
+	/** {@code .wait show} / {@code .wait info}: queued remainders and when they fire. */
+	public final void sendWaitQueueToWindow() {
+		long now = SystemClock.elapsedRealtime();
+		ArrayList<WaitQueueText.Item> items = new ArrayList<WaitQueueText.Item>();
+		for (int i = 0; i < mCommandWaits.size(); i++) {
+			PausedOutbound paused = mCommandWaits.get(i);
+			items.add(new WaitQueueText.Item(
+					paused.fireAtElapsed - now,
+					WaitQueueText.remainderPreview(paused.segments, paused.holdover)));
+		}
+		if (mJustPaused != null) {
+			items.add(new WaitQueueText.Item(
+					mJustPaused.delayMs,
+					WaitQueueText.remainderPreview(mJustPaused.segments,
+							mJustPaused.holdover)));
+		}
+		sendDataToWindow(WaitQueueText.format(items));
+	}
+
 	private void armPendingWait() {
 		PausedOutbound paused = mJustPaused;
 		mJustPaused = null;
 		if (paused == null || mHandler == null) {
 			return;
 		}
+		paused.fireAtElapsed = SystemClock.elapsedRealtime() + paused.delayMs;
 		mCommandWaits.add(paused);
 		mHandler.sendMessageDelayed(
 				mHandler.obtainMessage(MESSAGE_WAIT_RESUME, paused), paused.delayMs);
@@ -4007,6 +4045,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String holdover = "";
 		AliasLocalEcho holdoverPolicy = null;
 		long delayMs;
+		long fireAtElapsed;
 	}
 
 	/**
@@ -8242,6 +8281,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mIsConnected;
 	}
 
+	/** True while the socket is up, handshake is running, reconnect is armed,
+	 * or this connection is still tearing the pump down. */
+	public final boolean needsCpuKeepalive() {
+		if (mIsConnected || mNetTeardown) {
+			return true;
+		}
+		synchronized (mStartupLock) {
+			if (mStartupInProgress) {
+				return true;
+			}
+		}
+		return mReconnect.isRetryPending();
+	}
+
 	/** Marks the end of the current connection interval and records duration. */
 	public final void markConnectionEnded() {
 		if (mConnectedAtElapsed > 0L && mIsConnected) {
@@ -8252,6 +8305,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mStyleRegisters = SgrRegisters.defaults();
 		mDispatchStyleModels = null;
 		mSessionLog.onDisconnected();
+		mService.syncCpuWakeLock();
 	}
 
 	public final long getConnectedAtElapsed() {

@@ -117,6 +117,15 @@ public class CommandWaitTest {
 	}
 
 	@Test
+	public void showAndInfoListTheQueue() {
+		assertSame(CommandWait.Kind.SHOW, CommandWait.parseArgument("show").kind);
+		assertSame(CommandWait.Kind.SHOW, CommandWait.parseArgument("info").kind);
+		assertSame(CommandWait.Kind.SHOW, CommandWait.parseArgument("SHOW").kind);
+		assertSame(CommandWait.Kind.SHOW, CommandWait.parseSegment(".wait info").kind);
+		assertSame(CommandWait.Kind.SHOW, CommandWait.parseSegment("#wait show").kind);
+	}
+
+	@Test
 	public void delayResultHasNoMessage() {
 		assertNull(CommandWait.parseSegment("#wait 5s").message);
 	}

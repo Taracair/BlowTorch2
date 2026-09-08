@@ -555,20 +555,22 @@ public class StellarService extends Service {
 		if (mWifiManager == null) {
 			mWifiManager = (WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 		}
-			
-		//check if we are connected to a wifi network
+
 		WifiInfo info = mWifiManager.getConnectionInfo();
 		if (info.getNetworkId() != -1) {
-			//if so, grab the lock
-			//Log.e("SERVICE","ATTEMPTING TO GRAB WIFI LOCK");
-			mWifiLock = mWifiManager.createWifiLock("BLOWTORCH_WIFI_LOCK");
-			boolean held = false;
-			while (!held) {
-				mWifiLock.acquire();
-				held = mWifiLock.isHeld();
+			if (mWifiLock != null && mWifiLock.isHeld()) {
+				syncCpuWakeLock();
+				return;
 			}
+			mWifiLock = null;
+			// FULL is a no-op on current Android; HIGH_PERF keeps the radio
+			// out of power-save while the socket is live.
+			mWifiLock = mWifiManager.createWifiLock(
+					WifiManager.WIFI_MODE_FULL_HIGH_PERF, "BLOWTORCH_WIFI_LOCK");
+			mWifiLock.setReferenceCounted(false);
+			mWifiLock.acquire();
 		}
-		ensureCpuWakeLock();
+		syncCpuWakeLock();
 	}
 
 	private void ensureCpuWakeLock() {
@@ -595,16 +597,16 @@ public class StellarService extends Service {
 	public final void disableWifiKeepAlive() {
 		//if we have a wifi lock, release it
 		if (mWifiLock != null) {
-			mWifiLock.release();
+			if (mWifiLock.isHeld()) {
+				mWifiLock.release();
+			}
 			mWifiLock = null;
 		}
-		if (mConnections == null || mConnections.isEmpty()) {
-			releaseCpuWakeLock();
-		}
+		syncCpuWakeLock();
 	}
 
 	public final void noteConnectionStarted(final String display) {
-		ensureCpuWakeLock();
+		syncCpuWakeLock();
 		scheduleDurationRefresh();
 		notifyLauncherDurationChanged();
 	}
@@ -619,6 +621,32 @@ public class StellarService extends Service {
 		}
 		scheduleDurationRefresh();
 		notifyLauncherDurationChanged();
+	}
+
+	/**
+	 * Hold the partial wake lock while a world is connected or still handshaking.
+	 *
+	 * <p>Measured on-device with a live FGS: WAKE_LOCK appop duration was ~16s
+	 * then released. {@link #noteConnectionStarted} used to run before
+	 * {@code mIsConnected}, and {@link #scheduleDurationRefresh} treated that
+	 * as idle and dropped the lock. Handler delays ({@code .wait}, the 100ms
+	 * socket poll, {@code java.util.Timer}) then freeze in suspend.
+	 */
+	final void syncCpuWakeLock() {
+		boolean need = false;
+		if (mConnections != null) {
+			for (Connection c : mConnections.values()) {
+				if (c != null && c.needsCpuKeepalive()) {
+					need = true;
+					break;
+				}
+			}
+		}
+		if (need) {
+			ensureCpuWakeLock();
+		} else {
+			releaseCpuWakeLock();
+		}
 	}
 
 	private void scheduleDurationRefresh() {
@@ -637,8 +665,6 @@ public class StellarService extends Service {
 		}
 		if (anyConnected) {
 			mHandler.sendEmptyMessageDelayed(MESSAGE_REFRESH_DURATION, DURATION_REFRESH_MS);
-		} else {
-			releaseCpuWakeLock();
 		}
 	}
 
@@ -1235,6 +1261,7 @@ public class StellarService extends Service {
 		//if we are here it means that the server has explicitly closed the connection, and nobody was around to see it.
 		c.shutdown(); //call this to make sure all net threads are really dead, and to remove the ongoing notification and re-set the foreground notification if need be.
 		mConnections.remove(display);
+		syncCpuWakeLock();
 		
 		//mNM.cancel(5545);
 		int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());

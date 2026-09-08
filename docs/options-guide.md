@@ -232,8 +232,10 @@ patterns.
 
 ## Background connection / battery
 
-- **Keep Wifi Alive?** (Service) holds a Wi‑Fi lock while connected.
-- The service also takes a partial CPU wake lock while any connection is up.
+- **Keep Wifi Alive?** (Service) holds a Wi‑Fi lock while connected (`WIFI_MODE_FULL_HIGH_PERF`).
+- The service takes a partial CPU wake lock while a world is connected, still
+  handshaking, or waiting to auto-reconnect. The duration ticker does not drop
+  that lock.
 - **Battery optimization…** opens the system exemption flow; a one-shot dialog
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.

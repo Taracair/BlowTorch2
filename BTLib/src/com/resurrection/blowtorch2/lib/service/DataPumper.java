@@ -546,8 +546,12 @@ public class DataPumper extends Thread {
 						mReportTo.sendEmptyMessage(Connection.MESSAGE_TERMINATED_BY_PEER);
 					}
 					mConnected = false;
-				} else {
-					mReader.reset();
+					return;
+				}
+				mReader.reset();
+				numtoread = mReader.available();
+				if (numtoread < 1) {
+					numtoread = 1;
 				}
 			} catch (IOException e) { 
 				e.printStackTrace();
@@ -558,8 +562,8 @@ public class DataPumper extends Thread {
 				mConnected = false;
 				return;
 			}
-			
-		} else {
+		}
+		if (numtoread >= 1) {
 			byte[] data = new byte[numtoread];
 			try {
 				mReader.read(data, 0, numtoread);

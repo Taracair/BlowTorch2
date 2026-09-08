@@ -75,6 +75,7 @@ final class ConnectionReconnect {
 		persistent = value != null ? value : Boolean.FALSE;
 		if (!isPersistent()) {
 			clearNetworkWait();
+			keepCpuForRetry();
 		}
 	}
 
@@ -159,6 +160,21 @@ final class ConnectionReconnect {
 		return isPersistent() ? " Persistent connection is on." : "";
 	}
 
+	/** True while a delayed reconnect or a network-wait callback is armed. */
+	boolean isRetryPending() {
+		if (networkCallback != null || networkWaitTimeout != null) {
+			return true;
+		}
+		return host != null && host.mHandler != null
+				&& host.mHandler.hasMessages(Connection.MESSAGE_RECONNECT);
+	}
+
+	private void keepCpuForRetry() {
+		if (host != null && host.mService != null) {
+			host.mService.syncCpuWakeLock();
+		}
+	}
+
 	/** Post the reconnect message, waiting for a network first when needed. */
 	private void schedule(final long normalDelayMs) {
 		if (host == null || host.mHandler == null) {
@@ -177,6 +193,7 @@ final class ConnectionReconnect {
 			}
 		}
 		host.mHandler.sendEmptyMessageDelayed(Connection.MESSAGE_RECONNECT, delay);
+		keepCpuForRetry();
 	}
 
 	/** Whether the device currently has a network that claims internet access. */
@@ -217,6 +234,7 @@ final class ConnectionReconnect {
 			if (cm == null) {
 				host.mHandler.sendEmptyMessageDelayed(Connection.MESSAGE_RECONNECT,
 						afterAvailableDelayMs);
+				keepCpuForRetry();
 				return;
 			}
 			networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -227,6 +245,7 @@ final class ConnectionReconnect {
 						host.mHandler.sendEmptyMessageDelayed(Connection.MESSAGE_RECONNECT,
 								afterAvailableDelayMs);
 					}
+					keepCpuForRetry();
 				}
 			};
 			NetworkRequest request = new NetworkRequest.Builder()
@@ -241,14 +260,17 @@ final class ConnectionReconnect {
 						if (host.mHandler != null) {
 							host.mHandler.sendEmptyMessage(Connection.MESSAGE_RECONNECT);
 						}
+						keepCpuForRetry();
 					}
 				}
 			};
 			host.mHandler.postDelayed(networkWaitTimeout, PERSISTENT_NETWORK_WAIT_CAP_MILLIS);
+			keepCpuForRetry();
 		} catch (Exception e) {
 			Log.w("BlowTorch", "Persistent network wait failed; reconnecting blindly", e);
 			host.mHandler.sendEmptyMessageDelayed(Connection.MESSAGE_RECONNECT,
 					afterAvailableDelayMs);
+			keepCpuForRetry();
 		}
 	}
 

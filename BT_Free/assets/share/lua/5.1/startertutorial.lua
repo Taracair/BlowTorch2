@@ -201,8 +201,9 @@ sends the characters #5 north to the game.
 
 Pace a line: north;.wait 2s;south waits two seconds after north, then
 sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.
-.wait stop (or #wait 0) cancels. The game still prints; other triggers
-still send. A lone .wait 5s delays nothing later.
+.wait stop (or #wait 0) cancels. .wait show / .wait info lists the
+queue. The game still prints; other triggers still send. A lone
+.wait 5s delays nothing later.
 
 Also: Options → Service → Process System Commands? must be on (default)
 for .commands to work.
@@ -602,7 +603,7 @@ changes how long the timer runs.
 
 To pause between commands on one line (north, then south two seconds
 later) use .wait / #wait, not a named timer. .wait 2s only delays the
-rest of that line.
+rest of that line. .wait show lists what is still waiting.
 
 Optional silent as a last word suppresses toasts on play/pause/reset/stop
 (not used with info/dump), e.g.
@@ -1553,7 +1554,7 @@ local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
 	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; Match style can require colour/SGR. .grabber inspects a glyph. Actions gag, colour, send, or run Lua.]],
 	timer = [[.timer info name. .timer dump writes that into the window; dump with no name lists all. .timer play|pause|stop name. .timer duration name seconds changes the length.]],
-	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. The game still prints.]],
+	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. The game still prints.]],
 	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],
