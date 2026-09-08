@@ -37,6 +37,10 @@ to put a shortcut on the home screen, labelled with that world's name.
 Tapping the shortcut opens that world and connects, even if the app was
 not running. Some home screens cannot pin; the app says so.
 
+The ⋮ menu on the server list shows whether **Manage Storage Access**,
+**Notifications**, and **Unrestricted battery** are granted. **App Settings**
+opens the system page for this app; it is not itself a permission.
+
 ## Encrypted connections (TLS)
 
 **Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
@@ -520,7 +524,9 @@ Examples:
 
 `.wait stop` or `#wait 0` cancels a wait that has not finished yet, so the
 commands after it are not sent. `.wait show` and `.wait info` list the queue
-and how long until each remainder runs (example: `1) in 12s — south`). A new
+and how long until each remainder runs (example: `1) in 12s — south`).
+`.wait change 1 60s` (or `#wait change 1 60s`) retargets that numbered row
+from now — the same idea as `.timer duration heal 30`. A new
 line you type while a wait is running goes out straight away — it does not sit
 behind the wait.
 
@@ -884,7 +890,7 @@ not have to sound alike.
 
 Where the sound comes from, in the order the picker offers them:
 
-- **The five sounds that ship with BlowTorch.** These can never go missing and
+- **The sounds that ship with BlowTorch.** These can never go missing and
   need no permissions. Start here.
 - **Your own files, from `/BlowTorch/sounds` on the phone's shared storage.**
   Drop `.wav`, `.ogg`, `.mp3` or `.m4a` files in that folder and they appear in
@@ -1536,7 +1542,7 @@ is enabled; `.alias list` shows every alias at once.
     `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
     `.timer duration <name>`   Same as `.timer info <name>`
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
-    `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue
+    `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue. `.wait change 1 60s` retargets that row from now
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins

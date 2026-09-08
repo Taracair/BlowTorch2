@@ -99,7 +99,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
 		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
 		cmd("wait", "Triggers and scripts",
-				"pause the rest of this line (.wait 5s / #wait 5m10s); .wait stop cancels; .wait show lists the queue");
+				"pause the rest of this line (.wait 5s / #wait 5m10s); .wait stop cancels; .wait show lists the queue; .wait change 1 60s retargets that row");
 		cmd("sound", "Triggers and scripts",
 				"which volume a trigger's sound uses, and warning when it is off");
 		cmd("dobell", "Triggers and scripts",
@@ -442,6 +442,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  Units h, m, s, ms in any order (5s5m is the same as 5m5s).\n"
 					+ "  A bare number is seconds. Max 1h. .wait stop / #wait 0 cancels.\n"
 					+ "  .wait show / .wait info lists queued waits and when they fire.\n"
+					+ "  .wait change 1 60s retargets that row from now (max 1h).\n"
 					+ "  Only the rest of this line waits: north;.wait 2s;south\n";
 		}
 		if (filter.equals("map")) {

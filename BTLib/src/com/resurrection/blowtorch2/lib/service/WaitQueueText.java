@@ -10,6 +10,11 @@ public final class WaitQueueText {
 
 	private static final int PREVIEW_MAX = 80;
 
+	/** {@link #resolveSlot} when the index is out of the queue. */
+	public static final int INVALID = -1;
+	/** {@link #resolveSlot} when the index is the not-yet-armed remainder. */
+	public static final int JUST_PAUSED = -2;
+
 	private WaitQueueText() {
 	}
 
@@ -44,6 +49,26 @@ public final class WaitQueueText {
 			sb.append('\n');
 		}
 		return sb.toString();
+	}
+
+	/**
+	 * 1-based index as in {@link #format}: armed waits first, then the
+	 * not-yet-armed remainder if present.
+	 *
+	 * @return 0-based armed index, {@link #JUST_PAUSED}, or {@link #INVALID}
+	 */
+	public static int resolveSlot(final int armedCount, final boolean hasJustPaused,
+			final int index1) {
+		if (index1 < 1 || armedCount < 0) {
+			return INVALID;
+		}
+		if (index1 <= armedCount) {
+			return index1 - 1;
+		}
+		if (hasJustPaused && index1 == armedCount + 1) {
+			return JUST_PAUSED;
+		}
+		return INVALID;
 	}
 
 	public static String remainderPreview(final List<String> segments,

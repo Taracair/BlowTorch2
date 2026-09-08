@@ -126,6 +126,38 @@ public class CommandWaitTest {
 	}
 
 	@Test
+	public void changeRetargetsByIndex() {
+		CommandWait.Result r = CommandWait.parseArgument("change 1 60s");
+		assertSame(CommandWait.Kind.CHANGE, r.kind);
+		assertEquals(1, r.index);
+		assertEquals(60000L, r.delayMs);
+		CommandWait.Result hash = CommandWait.parseSegment("#wait change 1 60s");
+		assertSame(CommandWait.Kind.CHANGE, hash.kind);
+		assertEquals(1, hash.index);
+		assertEquals(60000L, hash.delayMs);
+		CommandWait.Result mixed = CommandWait.parseSegment(".Wait CHANGE 2 5s");
+		assertSame(CommandWait.Kind.CHANGE, mixed.kind);
+		assertEquals(2, mixed.index);
+		assertEquals(5000L, mixed.delayMs);
+		assertEquals(60000L, CommandWait.parseArgument("change 1 60").delayMs);
+		assertEquals(310000L, CommandWait.parseArgument("change 1 5m 10s").delayMs);
+		assertSame(CommandWait.Kind.CHANGE, CommandWait.parseArgument("change 1 1h").kind);
+	}
+
+	@Test
+	public void changeErrors() {
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 1").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 0 5s").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change foo 5s").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 1 0").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 1 0s").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 1 1h1s").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("change 1 5x").kind);
+		assertSame(CommandWait.Kind.STOP, CommandWait.parseArgument("0").kind);
+	}
+
+	@Test
 	public void delayResultHasNoMessage() {
 		assertNull(CommandWait.parseSegment("#wait 5s").message);
 	}

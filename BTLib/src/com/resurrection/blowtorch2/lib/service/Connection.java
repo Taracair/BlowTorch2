@@ -3806,6 +3806,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					sendWaitQueueToWindow();
 					continue;
 				}
+				if (waitTok.kind == CommandWait.Kind.CHANGE) {
+					retargetCommandWait(waitTok.index, waitTok.delayMs);
+					continue;
+				}
 				sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
 						+ CommandWait.format(waitTok.delayMs) + "]"
 						+ Colorizer.getWhiteColor() + "\n");
@@ -4006,6 +4010,40 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							mJustPaused.holdover)));
 		}
 		sendDataToWindow(WaitQueueText.format(items));
+	}
+
+	/** {@code .wait change N 60s}: retarget that row from now. */
+	public final void retargetCommandWait(final int index1, final long delayMs) {
+		int slot = WaitQueueText.resolveSlot(mCommandWaits.size(),
+				mJustPaused != null, index1);
+		if (slot == WaitQueueText.INVALID) {
+			int n = mCommandWaits.size() + (mJustPaused != null ? 1 : 0);
+			if (n == 0) {
+				sendDataToWindow("\n" + Colorizer.getWhiteColor()
+						+ "Wait change: no wait " + index1 + " (queue empty).\n");
+			} else {
+				sendDataToWindow("\n" + Colorizer.getWhiteColor()
+						+ "Wait change: no wait " + index1 + " (queue has "
+						+ n + ").\n");
+			}
+			return;
+		}
+		if (slot == WaitQueueText.JUST_PAUSED) {
+			mJustPaused.delayMs = delayMs;
+			sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+					+ index1 + " now " + CommandWait.format(delayMs) + "]\n");
+			return;
+		}
+		PausedOutbound paused = mCommandWaits.get(slot);
+		paused.delayMs = delayMs;
+		paused.fireAtElapsed = SystemClock.elapsedRealtime() + delayMs;
+		if (mHandler != null) {
+			mHandler.removeMessages(MESSAGE_WAIT_RESUME, paused);
+			mHandler.sendMessageDelayed(
+					mHandler.obtainMessage(MESSAGE_WAIT_RESUME, paused), delayMs);
+		}
+		sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+				+ index1 + " now " + CommandWait.format(delayMs) + "]\n");
 	}
 
 	private void armPendingWait() {

@@ -52,4 +52,15 @@ public class WaitQueueTextTest {
 		assertTrue(preview.endsWith("..."));
 		assertEquals(80, preview.length());
 	}
+
+	@Test
+	public void resolveSlotArmedThenJustPaused() {
+		assertEquals(0, WaitQueueText.resolveSlot(2, false, 1));
+		assertEquals(1, WaitQueueText.resolveSlot(2, false, 2));
+		assertEquals(WaitQueueText.INVALID, WaitQueueText.resolveSlot(2, false, 3));
+		assertEquals(WaitQueueText.JUST_PAUSED, WaitQueueText.resolveSlot(1, true, 2));
+		assertEquals(WaitQueueText.JUST_PAUSED, WaitQueueText.resolveSlot(0, true, 1));
+		assertEquals(WaitQueueText.INVALID, WaitQueueText.resolveSlot(0, false, 1));
+		assertEquals(WaitQueueText.INVALID, WaitQueueText.resolveSlot(1, true, 0));
+	}
 }

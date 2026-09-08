@@ -17,6 +17,7 @@ public final class CommandWait {
 			"Usage: .wait 5s | #wait 5m10s | .wait 1h | .wait 500ms\n"
 					+ "       .wait stop   (or #wait 0) cancels a wait still running\n"
 					+ "       .wait show   (or .wait info) lists queued waits and when they fire\n"
+					+ "       .wait change 1 60s  (or #wait change) retargets that row from now\n"
 					+ "Units h, m, s, ms in any order. A bare number is seconds. Max 1h.\n"
 					+ "Only the rest of this line waits (north;.wait 2s;south). "
 					+ "The game still prints; other triggers still send.";
@@ -26,6 +27,7 @@ public final class CommandWait {
 		DELAY,
 		STOP,
 		SHOW,
+		CHANGE,
 		ERROR
 	}
 
@@ -33,11 +35,17 @@ public final class CommandWait {
 		public final Kind kind;
 		public final long delayMs;
 		public final String message;
+		public final int index;
 
 		Result(final Kind kind, final long delayMs, final String message) {
+			this(kind, delayMs, message, 0);
+		}
+
+		Result(final Kind kind, final long delayMs, final String message, final int index) {
 			this.kind = kind;
 			this.delayMs = delayMs;
 			this.message = message;
+			this.index = index;
 		}
 
 		public static Result notWait() {
@@ -56,6 +64,10 @@ public final class CommandWait {
 			return new Result(Kind.SHOW, 0L, null);
 		}
 
+		public static Result change(final int index, final long delayMs) {
+			return new Result(Kind.CHANGE, delayMs, null, index);
+		}
+
 		public static Result error(final String message) {
 			return new Result(Kind.ERROR, 0L, message);
 		}
@@ -70,6 +82,9 @@ public final class CommandWait {
 
 	private static final Pattern BARE_NUMBER = Pattern.compile(
 			"^\\d+(?:\\.\\d+)?$");
+
+	private static final Pattern CHANGE = Pattern.compile(
+			"(?i)^change\\s+(\\d+)\\s+(\\S.*)$");
 
 	private CommandWait() {
 	}
@@ -105,6 +120,34 @@ public final class CommandWait {
 		}
 		if (arg.equalsIgnoreCase("show") || arg.equalsIgnoreCase("info")) {
 			return Result.show();
+		}
+		Matcher change = CHANGE.matcher(arg);
+		if (change.matches()) {
+			int index;
+			try {
+				index = Integer.parseInt(change.group(1));
+			} catch (NumberFormatException e) {
+				return Result.error(USAGE);
+			}
+			if (index < 1) {
+				return Result.error("Wait change: index must be 1 or higher.\n" + USAGE);
+			}
+			try {
+				long ms = parseDurationMs(change.group(2));
+				if (ms == 0L) {
+					return Result.error("Wait change needs a duration more than zero.");
+				}
+				if (ms > MAX_MS) {
+					return Result.error("Wait refused: " + change.group(2)
+							+ " is longer than 1h (the maximum).");
+				}
+				return Result.change(index, ms);
+			} catch (IllegalArgumentException bad) {
+				return Result.error(bad.getMessage());
+			}
+		}
+		if (arg.toLowerCase(Locale.US).startsWith("change")) {
+			return Result.error(USAGE);
 		}
 		try {
 			long ms = parseDurationMs(arg);

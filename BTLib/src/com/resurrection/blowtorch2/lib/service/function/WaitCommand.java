@@ -30,6 +30,10 @@ public class WaitCommand extends SpecialCommand {
 			c.sendWaitQueueToWindow();
 			return null;
 		}
+		if (r.kind == CommandWait.Kind.CHANGE) {
+			c.retargetCommandWait(r.index, r.delayMs);
+			return null;
+		}
 		if (r.kind == CommandWait.Kind.ERROR) {
 			c.sendDataToWindow(getErrorMessage("Wait command usage:",
 					r.message == null ? CommandWait.USAGE : r.message));
