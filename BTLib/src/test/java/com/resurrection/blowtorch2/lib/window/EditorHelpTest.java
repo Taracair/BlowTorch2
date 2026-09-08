@@ -17,6 +17,7 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.TRIGGERS.contains("CONDITIONS"));
 		assertTrue(EditorHelp.TRIGGERS.contains("KEEP GOING"));
 		assertTrue(EditorHelp.TRIGGERS.contains("ORDER"));
+		assertTrue(EditorHelp.TRIGGERS.contains("not a second pattern"));
 		assertTrue(EditorHelp.TRIGGERS.contains("not \"on top\""));
 		assertTrue(EditorHelp.TRIGGER_ORDER.contains("colour at 11"));
 		assertTrue(EditorHelp.TRIGGERS.contains(EditorHelp.TRIGGER_ORDER));

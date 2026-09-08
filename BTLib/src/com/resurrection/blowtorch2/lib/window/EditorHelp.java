@@ -235,7 +235,9 @@ public final class EditorHelp {
 			+ "colour or a tappable word can be checked on a line you wrote.\n\n"
 			+ "MATCH STYLE\n"
 			+ "Require or forbid colour and SGR flags on the matched glyphs. The "
-			+ "pattern may be blank when a style is set. .grabber copies layers from a "
+			+ "pattern may be blank when a style is set. Pattern is the line matcher; "
+			+ "Run text is an extra layer on that match, not a second pattern. "
+			+ ".grabber copies layers from a "
 			+ "finger into a new trigger. Colour you paint with a Color action is not "
 			+ "the world's style.";
 

@@ -671,7 +671,9 @@ In the trigger editor:
   Pattern may be blank when a Require or Forbid is set — colour-only.
   Then `$0` and `$1` are the styled run, so Ack `look $1` sends that
   phrase; there is no regex group. Pattern plus style: the text matches
-  as today, and the matched span must also pass the style. Colour from a
+  as today, and the matched span must also pass the style. Pattern is the
+  line matcher; Run text is an extra layer on that match, not a second
+  pattern. Colour from a
   Color action is not the world's style. `.grabber` fills these layers
   from a glyph — see `.grabber` below.
 
@@ -1632,7 +1634,8 @@ still get the whole phrase. ✕ in the corner turns grabber off.
 The first line of the list is the title **Grabber** (not a tap). Only
 attributes that are **on that glyph** appear — underline, bright, a painted
 background, a link. Empty off-rows stay out. Foreground starts ticked; Text
-does not (tick Text if the new trigger's pattern should be that phrase).
+does not (tick Text if the new trigger's **pattern** should be that phrase —
+it does not fill Run text).
 
 **Copy** puts the ticked layers on the clipboard. **New trigger** opens the
 editor with those layers already Required and actions empty. Pattern may be

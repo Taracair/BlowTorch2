@@ -876,7 +876,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "The pattern may be blank when Match style is active — then every run "
 			+ "of that recipe fires, and $0 and $1 are that run (Ack $1 works; there "
 			+ "is no regex group). Pattern plus style: the regex matches as today, "
-			+ "and the matched span must also pass the style. Tap MATCH STYLE to "
+			+ "and the matched span must also pass the style. Pattern is the line "
+			+ "matcher (blank = every run of that colour). Run text is an extra "
+			+ "layer on that match or run, not a second pattern — leave it empty "
+			+ "unless the pattern is blank and the coloured run must contain that "
+			+ "phrase. Tap MATCH STYLE to "
 			+ "expand or collapse the layers. .grabber copies layers into a new "
 			+ "trigger or the clipboard.";
 

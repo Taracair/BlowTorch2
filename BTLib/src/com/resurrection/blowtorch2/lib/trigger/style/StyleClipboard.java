@@ -185,10 +185,8 @@ public final class StyleClipboard {
 			spec.setBlink(snap.blink() ? Gate.REQUIRE : Gate.FORBID);
 		} else if ("href".equals(id)) {
 			spec.setHref(snap.hasHref() ? Gate.REQUIRE : Gate.FORBID, snap.href);
-		} else if ("text".equals(id)) {
-			spec.setText(glyphText == null ? "" : glyphText);
-			spec.setTextRegex(false);
 		}
+		// "text" is not a style layer here: grabber seeds Pattern in openTrigger.
 	}
 
 	public static final class LayerRow {

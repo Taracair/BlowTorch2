@@ -12,6 +12,7 @@ import org.junit.Test;
 
 import com.resurrection.blowtorch2.lib.service.SgrStyle;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleClipboard.LayerRow;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec.Gate;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleSnapshot.ColorSpace;
 
 public class StyleClipboardTest {
@@ -48,6 +49,21 @@ public class StyleClipboardTest {
 				40, true, SgrStyle.WEIGHT, null);
 		assertEquals(Arrays.asList("fg", "bright", "weight"),
 				ids(StyleClipboard.layers(s, "")));
+	}
+
+	@Test
+	public void grabberTextTickDoesNotFillRunText() {
+		StyleSnapshot s = new StyleSnapshot(ColorSpace.ANSI16, 32, ColorSpace.ANSI16,
+				40, false, 0, null);
+		List<LayerRow> rows = StyleClipboard.layers(s, "loot");
+		boolean[] on = new boolean[rows.size()];
+		for (int i = 0; i < rows.size(); i++) {
+			on[i] = "fg".equals(rows.get(i).id) || "text".equals(rows.get(i).id);
+		}
+		StyleMatchSpec spec = StyleClipboard.specFromChecks(s, "loot", on, false,
+				false, false);
+		assertEquals(Gate.REQUIRE, spec.getFgGate());
+		assertTrue(spec.getText() == null || spec.getText().length() == 0);
 	}
 
 	private static List<String> ids(final List<LayerRow> rows) {
