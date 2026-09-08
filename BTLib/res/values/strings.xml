@@ -33,6 +33,9 @@
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
     <string name="launcher_menu_manage_storage">Manage Storage Access</string>
+    <string name="launcher_menu_app_settings">App Settings</string>
+    <string name="launcher_perm_granted">granted</string>
+    <string name="launcher_perm_not_granted">not granted</string>
     <string name="launcher_star">Add to favorites</string>
     <string name="launcher_unstar">Remove from favorites</string>
     <string name="launcher_pin_to_home">Pin to home</string>

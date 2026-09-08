@@ -51,4 +51,7 @@
     <color name="chrome_preview">#FF1A1A1A</color>
     <!-- Checkbox / radio "on". Locked so OEM accents cannot turn ticks green. -->
     <color name="chrome_accent">#FF66CCFF</color>
+    <!-- Modest overflow-menu permission status. Dark popup; keep saturation low. -->
+    <color name="launcher_perm_granted">#FF8FAE8F</color>
+    <color name="launcher_perm_not_granted">#FFC49A9A</color>
 </resources>

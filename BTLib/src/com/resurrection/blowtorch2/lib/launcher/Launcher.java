@@ -107,6 +107,10 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.UpdateChecker;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
+import com.resurrection.blowtorch2.lib.util.BatteryOptimizationHelper;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 
 
 import dalvik.system.PathClassLoader;
@@ -2147,7 +2151,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (ConfigurationLoader.isTestMode(this)) {
 		}
 		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, R.string.launcher_menu_manage_storage);
-		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
+		menu.add(0, MENU_APP_SETTINGS, 0, R.string.launcher_menu_app_settings);
 		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
 				.setCheckable(true);
 		menu.add(0, MENU_CHECK_UPDATES_NOW, 0, R.string.launcher_menu_check_updates_now);
@@ -2173,7 +2177,44 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (updates != null) {
 			updates.setChecked(UpdateChecker.isEnabled(this));
 		}
+		applyPermissionMenuBadges(menu);
 		return super.onPrepareOptionsMenu(menu);
+	}
+
+	private void applyPermissionMenuBadges(final Menu menu) {
+		MenuItem storage = menu.findItem(MENU_SDCARD_PERMISSIONS);
+		if (storage != null) {
+			storage.setTitle(permissionMenuTitle(
+					getString(R.string.launcher_menu_manage_storage),
+					SDCardUtils.hasStoragePermissions(this)));
+		}
+		MenuItem app = menu.findItem(MENU_APP_SETTINGS);
+		if (app != null) {
+			boolean notifications = PermissionHelper.allGranted(this,
+					PermissionHelper.getNotificationPermissions());
+			boolean battery = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this);
+			app.setTitle(permissionMenuTitle(
+					getString(R.string.launcher_menu_app_settings),
+					notifications && battery));
+		}
+	}
+
+	private CharSequence permissionMenuTitle(final String title, final boolean granted) {
+		String status = getString(granted
+				? R.string.launcher_perm_granted
+				: R.string.launcher_perm_not_granted);
+		// AppCompat overflow titles are singleLine; a newline becomes a space.
+		String sep = " · ";
+		SpannableString s = new SpannableString(title + sep + status);
+		int start = title.length() + sep.length();
+		s.setSpan(new RelativeSizeSpan(0.72f), start, s.length(),
+				Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		int color = ContextCompat.getColor(this, granted
+				? R.color.launcher_perm_granted
+				: R.color.launcher_perm_not_granted);
+		s.setSpan(new ForegroundColorSpan(color), start, s.length(),
+				Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		return s;
 	}
 
 	private void AskExportFileName(final boolean external) {
