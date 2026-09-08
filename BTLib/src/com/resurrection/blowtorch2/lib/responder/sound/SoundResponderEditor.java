@@ -19,6 +19,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.InputFilter;
+import android.text.Spanned;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
@@ -84,6 +86,21 @@ public class SoundResponderEditor extends Dialog {
 
 		EditText volume = (EditText) findViewById(R.id.responder_sound_volume);
 		EditText gap = (EditText) findViewById(R.id.responder_sound_gap);
+		volume.setFilters(new InputFilter[] {
+				new InputFilter() {
+					@Override
+					public CharSequence filter(CharSequence source, int start, int end,
+							Spanned dest, int dstart, int dend) {
+						String next = dest.subSequence(0, dstart).toString()
+								+ source.subSequence(start, end)
+								+ dest.subSequence(dend, dest.length());
+						if (VolumePercentInput.allow(next)) {
+							return null;
+						}
+						return "";
+					}
+				}
+		});
 		volume.setText(Integer.toString(the_responder.getVolumePercent()));
 		gap.setText(Integer.toString(the_responder.getMinGapMs()));
 		android.widget.CheckBox warn =
@@ -311,7 +328,7 @@ public class SoundResponderEditor extends Dialog {
 				+ " fight that beats speaking: a ping is over in a fifth of a second"
 				+ " where a sentence takes two.\n\n");
 		text.append("Where the sound comes from:\n\n"
-				+ "1. The five sounds that ship with BlowTorch. These can never go"
+				+ "1. The sounds that ship with BlowTorch. These can never go"
 				+ " missing.\n"
 				+ "2. Your own files, from ")
 			.append(userSoundsDir().getAbsolutePath())
