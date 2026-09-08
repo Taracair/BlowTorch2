@@ -228,6 +228,8 @@ public final class PermissionHelper {
                 return R.string.permission_feature_import;
             case 104:
                 return R.string.permission_feature_startup;
+            case 106:
+                return R.string.permission_feature_notifications;
             case 5000:
                 return R.string.permission_feature_storage_info;
             case 5001:

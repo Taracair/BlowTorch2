@@ -3,7 +3,7 @@
     <string name="launcher_btn_new">New MUD</string>
     <string name="launcher_menu_welcome">Welcoming message</string>
     <string name="first_run_title">Welcoming message</string>
-    <string name="first_run_message">Hi! Thanks for installing my app.\n\nAt first the client may seem overwhelming — there is a lot in here: triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support. All of it at once would be a wall, so nearly everything starts switched off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nThat feeling changes with time. Have a look at Help and at the interactive Starter Tutorial in your world list — between them they cover everything here, and nothing you switch on is permanent: every switch has an off.\n\nHave fun!\n\nTaracair</string>
+    <string name="first_run_message">Hi! Thanks for installing my app.\n\nAt first the client may seem overwhelming — there is a lot in here: triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support. All of it at once would be a wall, so nearly everything starts switched off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nKeep CPU Awake starts on. Leave it on so .wait and triggers keep time with the screen off. You can turn it off in Options → Service if you want to save a little battery.\n\nThat feeling changes with time. Have a look at Help and at the interactive Starter Tutorial in your world list — between them they cover everything here, and nothing you switch on is permanent: every switch has an off.\n\nHave fun!\n\nTaracair</string>
     <string name="first_run_guide">Open Help</string>
     <string name="first_run_dismiss">Don\'t show again</string>
     <string name="launcher_btn_guide">Help</string>
@@ -33,6 +33,8 @@
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
     <string name="launcher_menu_manage_storage">Manage Storage Access</string>
+    <string name="launcher_menu_notifications">Notifications</string>
+    <string name="launcher_menu_unrestricted_battery">Unrestricted battery</string>
     <string name="launcher_menu_app_settings">App Settings</string>
     <string name="launcher_perm_granted">granted</string>
     <string name="launcher_perm_not_granted">not granted</string>

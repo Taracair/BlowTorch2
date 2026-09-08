@@ -144,6 +144,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int RP_EXPORT = 102;
 	protected static final int RP_IMPORT = 103;
 	protected static final int RP_STARTUP = 104;
+	protected static final int RP_NOTIFICATIONS = 106;
 	protected static final int MENU_IMPORT_SERVER_LIST = 100;
 	protected static final int MENU_EXPORT_SERVER_LIST = 105;
 	protected static final int MENU_SDCARD_PERMISSIONS = 108;
@@ -156,6 +157,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_CHECK_UPDATES_NOW = 115;
 	protected static final int MENU_WELCOME_NOTICE = 116;
 	protected static final int MENU_HELP = 117;
+	protected static final int MENU_NOTIFICATIONS = 118;
+	protected static final int MENU_BATTERY = 119;
 	
 	private IConnectionBinder service = null;
 	
@@ -2151,6 +2154,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (ConfigurationLoader.isTestMode(this)) {
 		}
 		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, R.string.launcher_menu_manage_storage);
+		menu.add(0, MENU_NOTIFICATIONS, 0, R.string.launcher_menu_notifications);
+		menu.add(0, MENU_BATTERY, 0, R.string.launcher_menu_unrestricted_battery);
 		menu.add(0, MENU_APP_SETTINGS, 0, R.string.launcher_menu_app_settings);
 		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
 				.setCheckable(true);
@@ -2188,14 +2193,22 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					getString(R.string.launcher_menu_manage_storage),
 					SDCardUtils.hasStoragePermissions(this)));
 		}
+		MenuItem notifications = menu.findItem(MENU_NOTIFICATIONS);
+		if (notifications != null) {
+			notifications.setTitle(permissionMenuTitle(
+					getString(R.string.launcher_menu_notifications),
+					PermissionHelper.allGranted(this,
+							PermissionHelper.getNotificationPermissions())));
+		}
+		MenuItem battery = menu.findItem(MENU_BATTERY);
+		if (battery != null) {
+			battery.setTitle(permissionMenuTitle(
+					getString(R.string.launcher_menu_unrestricted_battery),
+					BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this)));
+		}
 		MenuItem app = menu.findItem(MENU_APP_SETTINGS);
 		if (app != null) {
-			boolean notifications = PermissionHelper.allGranted(this,
-					PermissionHelper.getNotificationPermissions());
-			boolean battery = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this);
-			app.setTitle(permissionMenuTitle(
-					getString(R.string.launcher_menu_app_settings),
-					notifications && battery));
+			app.setTitle(R.string.launcher_menu_app_settings);
 		}
 	}
 
@@ -2215,6 +2228,21 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		s.setSpan(new ForegroundColorSpan(color), start, s.length(),
 				Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 		return s;
+	}
+
+	private void openNotificationsPermission() {
+		String[] needed = PermissionHelper.getNotificationPermissions();
+		if (needed.length > 0 && !PermissionHelper.allGranted(this, needed)) {
+			ActivityCompat.requestPermissions(this, needed, RP_NOTIFICATIONS);
+			return;
+		}
+		openAppNotificationSettings();
+	}
+
+	private void openAppNotificationSettings() {
+		Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+		intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+		startActivity(intent);
 	}
 
 	private void AskExportFileName(final boolean external) {
@@ -2333,6 +2361,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			if(state == true) {
 				showPermissionsMessage(true);
 			}
+			break;
+		case MENU_NOTIFICATIONS:
+			openNotificationsPermission();
+			break;
+		case MENU_BATTERY:
+			BatteryOptimizationHelper.openExemptionSettings(this);
 			break;
 		case MENU_APP_SETTINGS:
 			Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
@@ -2639,6 +2673,16 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		final int featureRes = PermissionHelper.featureMessageForRequestCode(requestCode);
 
 		switch(requestCode) {
+			case RP_NOTIFICATIONS:
+				if (!PermissionHelper.allGranted(this,
+						PermissionHelper.getNotificationPermissions())) {
+					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+							&& !ActivityCompat.shouldShowRequestPermissionRationale(this,
+									Manifest.permission.POST_NOTIFICATIONS)) {
+						openAppNotificationSettings();
+					}
+				}
+				break;
 			case RP_STARTUP:
 				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_STARTUP, permissions,
 						grantResults, featureRes, new Runnable() {
