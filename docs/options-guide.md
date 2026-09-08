@@ -212,7 +212,10 @@ patterns.
 
 - Enable: **Options → Service → Log Session to File?**
 - Blank directory = `/BlowTorch/session_logs/`. Use **Browse…** for SAF or an absolute path.
-- Incremental plain text of **incoming game output** (ANSI stripped), not keyboard input.
+- Incremental plain text of **incoming game output** (ANSI stripped). Tick
+  **Include Local Echo in Session Log?** to also append what Local Echo paints
+  in the window (what you typed and saw locally). Passwords stay out while the
+  server is echoing. Off by default.
 - Files are named `{profile}_{yyyy-MM-dd}.txt` (one file per world per local
   day). Reconnects, option re-applies, and later sessions the same day append.
   Older `{profile}_{yyyy-MM-dd_HH-mm-ss}.txt` leftovers still list in Search.

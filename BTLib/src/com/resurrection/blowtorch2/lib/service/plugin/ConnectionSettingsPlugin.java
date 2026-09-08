@@ -391,6 +391,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		session_log.setValue(false);
 		servOptions.addOption(session_log);
 
+		BooleanOption session_log_echo = new BooleanOption();
+		session_log_echo.setTitle("Include Local Echo in Session Log?");
+		session_log_echo.setDescription("When logging to file, also append what Local Echo paints in the window (what you typed and saw locally). Off: incoming game text only. Passwords stay out while the server is echoing.");
+		session_log_echo.setKey("session_log_echo");
+		session_log_echo.setValue(false);
+		servOptions.addOption(session_log_echo);
+
 		StringOption session_log_directory = new StringOption();
 		session_log_directory.setTitle("Session Log Directory");
 		session_log_directory.setDescription("Leave blank for /BlowTorch/session_logs/. Browse… for SAF, or enter an absolute path.");

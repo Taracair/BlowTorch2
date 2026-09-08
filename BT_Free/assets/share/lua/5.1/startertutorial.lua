@@ -857,6 +857,7 @@ Session log files (this world only):
 Files are {world}_{yyyy-MM-dd}.txt (one file per world per local day;
 reconnects append) in the folder Options → Service
 → Session Log Directory names (blank = /BlowTorch/session_logs/).
+Incoming game text only unless Include Local Echo in Session Log? is on.
 Overflow ⋮ → Session logs: pick dates, tap Load (a large folder can
 take a while). The box filters file names as you type. Search looks
 inside the files still listed and stays on the list (matching files

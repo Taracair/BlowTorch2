@@ -5779,6 +5779,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case session_log:
 				mSessionLog.doSetSessionLog((Boolean) o.getValue());
 				break;
+			case session_log_echo:
+				break;
 			case session_log_directory:
 				mSessionLog.doSetSessionLogDirectory((String) o.getValue());
 				break;
@@ -7088,6 +7090,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		show_regex_warning,
 		/** Append game output to session .txt log. */
 		session_log,
+		/** Also append local-echo text to that session log. */
+		session_log_echo,
 		/** Custom session log directory (blank = /BlowTorch/session_logs). */
 		session_log_directory,
 		/** Default import/export settings directory. */
@@ -7283,6 +7287,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (mLocalEcho) {
 					mWindows.get(0).getBuffer().addBytesImplSimple(d.mVisString.getBytes(mSettings.getEncoding()));
 					sendBytesToWindow(d.mVisString.getBytes(mSettings.getEncoding()));
+					if (readBoolOption("session_log_echo", false)) {
+						SessionLogger.appendIncoming(mService.getApplicationContext(),
+								mDisplay, d.mVisString);
+					}
 				}
 			}
 	}

@@ -114,6 +114,14 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void sessionLogEchoIsConnectionOwnedNotWindow() {
+		assertTrue("session_log_echo must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("session_log_echo"));
+		assertFalse("session_log_echo must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("session_log_echo"));
+	}
+
+	@Test
 	public void chatKeysAreConnectionOwnedNotWindow() {
 		String[] chatKeys = { "chat_unread_dot", "chat_announce",
 				"chat_announce_seconds", "chat_android_notify",

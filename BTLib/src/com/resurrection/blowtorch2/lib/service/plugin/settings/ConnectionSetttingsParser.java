@@ -95,7 +95,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		use_mcp, mcp_packages, log_mcp, mcp_feed, mcp_omit_output, mcp_auto_negotiate,
 		use_mtts, use_msdp, use_mssp, use_mccp, use_mxp, log_mxp, mxp_feed,
 		show_regex_warning,
-		session_log, session_log_directory, default_settings_directory,
+		session_log, session_log_echo, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint,
 		persistent_connection,
 		overflow_button_opacity, overflow_button_background, overflow_button_border,
@@ -804,6 +804,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case session_log:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case session_log_echo:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
