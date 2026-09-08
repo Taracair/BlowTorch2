@@ -12,6 +12,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 
+import com.resurrection.blowtorch2.lib.R;
+
 /**
  * Prompts the user to exempt BlowTorch from battery optimization so background
  * keepalive / foreground-service connections are less likely to be killed.
@@ -34,6 +36,20 @@ public final class BatteryOptimizationHelper {
 			return true;
 		}
 		return pm.isIgnoringBatteryOptimizations(context.getPackageName());
+	}
+
+	/** Overflow ⋮: toast when already granted (REQUEST is a no-op then), else the exemption screen. */
+	public static void openFromOverflow(Activity activity) {
+		if (activity == null || activity.isFinishing()) {
+			return;
+		}
+		if (isIgnoringBatteryOptimizations(activity)) {
+			Toast.makeText(activity, R.string.launcher_battery_already_unrestricted,
+					Toast.LENGTH_SHORT).show();
+			openAppBatterySettings(activity);
+			return;
+		}
+		openExemptionSettings(activity);
 	}
 
 	/** Opens the system battery-exemption screen for this package when possible. */

@@ -38,6 +38,7 @@
     <string name="launcher_menu_app_settings">App Settings</string>
     <string name="launcher_perm_granted">granted</string>
     <string name="launcher_perm_not_granted">not granted</string>
+    <string name="launcher_battery_already_unrestricted">Unrestricted battery is already granted</string>
     <string name="launcher_star">Add to favorites</string>
     <string name="launcher_unstar">Remove from favorites</string>
     <string name="launcher_pin_to_home">Pin to home</string>

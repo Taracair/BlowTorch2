@@ -2366,7 +2366,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			openNotificationsPermission();
 			break;
 		case MENU_BATTERY:
-			BatteryOptimizationHelper.openExemptionSettings(this);
+			BatteryOptimizationHelper.openFromOverflow(this);
 			break;
 		case MENU_APP_SETTINGS:
 			Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
