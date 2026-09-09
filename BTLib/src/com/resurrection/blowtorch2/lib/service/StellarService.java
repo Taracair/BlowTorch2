@@ -1112,6 +1112,9 @@ public class StellarService extends Service {
 	
 	/** Implementation of the visual bell callback. Called from a Connection. */
 	public final void doDisplayBell() {
+		if (!mWindowShowing) {
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
