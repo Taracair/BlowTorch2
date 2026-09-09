@@ -21,7 +21,6 @@ import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.TextTree;
-import com.resurrection.blowtorch2.lib.ping.PingHudLayout;
 import com.resurrection.blowtorch2.lib.window.TimestampFormat;
 
 import android.sax.Element;
@@ -310,7 +309,6 @@ public final class WindowTokenParser {
 					case dim_repeated_lines:
 					case light_paper:
 					case scroll_dates:
-					case ping_hud:
 					case line_stamps:
 					case line_stamps_log:
 					case android_fling:
@@ -356,46 +354,6 @@ public final class WindowTokenParser {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
-							out.endTag("", "option");
-						}
-						break;
-					case ping_opacity:
-						if (((Integer) ((IntegerOption) o).getValue()).intValue()
-								!= PingHudLayout.DEFAULT_OPACITY) {
-							out.startTag("", "option");
-							out.attribute("", "key", key.toString());
-							out.text(Integer.toString(PingHudLayout.clampOpacity(
-									((Integer) ((IntegerOption) o).getValue()).intValue())));
-							out.endTag("", "option");
-						}
-						break;
-					case ping_size:
-						if (((Integer) ((IntegerOption) o).getValue()).intValue()
-								!= PingHudLayout.DEFAULT_SIZE) {
-							out.startTag("", "option");
-							out.attribute("", "key", key.toString());
-							out.text(Integer.toString(PingHudLayout.clampSize(
-									((Integer) ((IntegerOption) o).getValue()).intValue())));
-							out.endTag("", "option");
-						}
-						break;
-					case ping_x:
-						if (((Integer) ((IntegerOption) o).getValue()).intValue()
-								!= PingHudLayout.DEFAULT_X) {
-							out.startTag("", "option");
-							out.attribute("", "key", key.toString());
-							out.text(Integer.toString(PingHudLayout.clampPercent(
-									((Integer) ((IntegerOption) o).getValue()).intValue())));
-							out.endTag("", "option");
-						}
-						break;
-					case ping_y:
-						if (((Integer) ((IntegerOption) o).getValue()).intValue()
-								!= PingHudLayout.DEFAULT_Y) {
-							out.startTag("", "option");
-							out.attribute("", "key", key.toString());
-							out.text(Integer.toString(PingHudLayout.clampPercent(
-									((Integer) ((IntegerOption) o).getValue()).intValue())));
 							out.endTag("", "option");
 						}
 						break;

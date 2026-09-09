@@ -71,7 +71,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("timestamp", "The window", "time each line arrived, on the right; .timestamp log");
-		cmd("ping", "The window", "command round-trip chip; .ping show|hide, opacity, size");
+		cmd("ping", "The window", "kept so it is not sent to the world; there is no overlay");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
@@ -313,14 +313,9 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .ping:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .ping                 — on/off, opacity, size, place\n"
-					+ "  .ping show|hide|toggle | on|off\n"
-					+ "  .ping opacity N       — how solid the chip is (15–100)\n"
-					+ "  .ping size N          — type size (12–36)\n"
-					+ "  .ping pos X Y         — 0–100 percent (or long-press and drag)\n"
-					+ "Not ICMP. Times a command you send until the next game line.\n"
-					+ "Type something; the number is one round trip plus the world thinking.\n"
-					+ "A long look costs more than a short Ok — that is the reply, not a worse link.\n";
+					+ "  .ping  — prints why there is no overlay; not sent to the world\n"
+					+ "Typical MUDs do not answer Timing Mark or Core.Ping. Timing a\n"
+					+ "typed command is not network ping. This client does not ICMP.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"

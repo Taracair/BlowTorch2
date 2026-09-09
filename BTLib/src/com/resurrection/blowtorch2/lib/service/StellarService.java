@@ -1231,20 +1231,6 @@ public class StellarService extends Service {
 		}
 		mCallbacks.finishBroadcast();
 	}
-
-	/** Live RTT for the ping chip. {@code rttMs} −1 means no sample. */
-	public final void notifyPingHud(final String display, final int rttMs) {
-		final int n = mCallbacks.beginBroadcast();
-		for (int i = 0; i < n; i++) {
-			try {
-				mCallbacks.getBroadcastItem(i).pingHud(display, rttMs);
-			} catch (RemoteException e) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
-						"StellarService.ping hud broadcast", e);
-			}
-		}
-		mCallbacks.finishBroadcast();
-	}
 	
 	/** Gets a new unique id for notifications. Always increments the value so it will be unique with each call.
 	 * 

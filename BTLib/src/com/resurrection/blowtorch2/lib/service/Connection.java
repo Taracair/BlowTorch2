@@ -323,13 +323,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Resume the rest of a {@code .wait} / {@code #wait} batch. obj is {@link PausedOutbound}. */
 	public static final int MESSAGE_WAIT_RESUME = 55;
 
-	/** Ping overlay: command-RTT timeout; does not put a probe on the wire. */
-	public static final int MESSAGE_PING_TICK = 61;
-	/** Inbound IAC WILL/WONT Timing Mark (ignored for the overlay). */
-	public static final int MESSAGE_PING_MARK = 62;
-	/** Inbound GMCP Core.Ping (ignored for the overlay). */
-	public static final int MESSAGE_PING_GMCP = 63;
-
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
 	/** Very large value. */
@@ -399,7 +392,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final ConnectionExtraText mExtraText = new ConnectionExtraText(this);
 	/** Overlay gauges (HP/mana/timer). Filled by ConnectionGaugeWidgets when present. */
 	ConnectionGaugeWidgets mGauges;
-	final ConnectionPing mPing;
 	/** The auto reconnect limit helper varialbe. */
 	/** Auto-reconnect / persistent-connection state and scheduling. */
 	private final ConnectionReconnect mReconnect = new ConnectionReconnect(this);
@@ -732,7 +724,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 		mMapper = new MapperController(this);
 		mGauges = new ConnectionGaugeWidgets(this);
-		mPing = new ConnectionPing(this);
 		
 		mPlugins = new ArrayList<Plugin>();
 		mHandler = new Handler(new ConnectionHandler());
@@ -786,7 +777,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// Reconnect: treat the close like a network flap.
 				doDisconnect(!mReconnect.reconnectOnPeerClose());
 				mIsConnected = false;
-				mPing.onDisconnected();
 				break;
 			case MESSAGE_CHARSET:
 				if (msg.obj instanceof String) {
@@ -863,7 +853,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					applyMcpSettings();
 				}
 				maybeShowTerminalSizeHint();
-				mPing.onConnected();
 				break;
 			case MESSAGE_SEND_NAWS:
 				if (mIsConnected && mProcessor != null && mLiveCols > 0 && mLiveRows > 0) {
@@ -875,15 +864,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						Log.i("BlowTorch", "NAWS sent " + mLiveCols + "x" + mLiveRows);
 					}
 				}
-				break;
-			case MESSAGE_PING_TICK:
-				mPing.tick();
-				break;
-			case MESSAGE_PING_MARK:
-				mPing.onTimingMark();
-				break;
-			case MESSAGE_PING_GMCP:
-				mPing.onGmcpPing();
 				break;
 			case MESSAGE_DELETEPLUGIN:
 				doDeletePlugin((String) msg.obj);
@@ -1110,7 +1090,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				killNetThreads(true);
 				doDisconnect(false);
 				mIsConnected = false;
-				mPing.onDisconnected();
 				break;
 			default:
 				break;
@@ -2882,8 +2861,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mGauges.onOutputLine(text);
 			}
 			mService.doPromptLine(mDisplay, text);
-			// This path never reaches dispatchWholeLines.
-			mPing.onIncomingGameText(text);
 			return;
 		}
 		dispatchWholeLines(held);
@@ -2963,16 +2940,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mWorking.setBleedColor(tmpcolor);
 		mFinished.setBleedColor(tmpcolor);
 
+		mWorking.addBytesImpl(raw);
+		mWorking.setModCount(0);
+
 		// Strip for triggers + session log. Display parsing (TextTree holdover) can
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
-		// Stop the clock before TextTree eats the chunk: a long look must not
-		// look like a slower link.
-		mPing.onIncomingGameText(stripped);
-
-		mWorking.addBytesImpl(raw);
-		mWorking.setModCount(0);
 		String toLog = stripped;
 		if (getMainWindowBooleanOption(TimestampCommand.OPTION_LOG, false)) {
 			int fields = TimestampFormat.clamp(getMainWindowIntegerOption(
@@ -5469,9 +5443,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				cb.updateSetting(key, text);
 			}
 			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
-			if (value && "ping_hud".equals(key)) {
-				mHandler.sendEmptyMessage(MESSAGE_PING_TICK);
-			}
 			return true;
 		} catch (Exception e) {
 			Log.w("BlowTorch", "updateMainWindowBooleanOption " + key, e);
@@ -7340,7 +7311,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				
 				if (mPump != null && mPump.isConnected()) {
 					mPump.sendData(tosend);
-					mPing.onCommandSent();
 				} else if (isOfflineMode()) {
 					// Offer the line to the tutorial's practice world first. It
 					// answers through sendBytesToWindow, which is the same path
@@ -7370,7 +7340,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					// The blank line is still echoed either way.
 					if (mPump != null && mPump.isConnected()) {
 						mPump.sendData(mCRLF.getBytes(mSettings.getEncoding()));
-						mPing.onCommandSent();
 					}
 					if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho,
 							AliasLocalEcho.INHERIT)) {

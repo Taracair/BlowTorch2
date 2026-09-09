@@ -18,8 +18,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
-import com.resurrection.blowtorch2.lib.ping.PingHudController;
-import com.resurrection.blowtorch2.lib.ping.PingHudView;
 import com.resurrection.blowtorch2.lib.util.DisplayCutoutPad;
 
 /**
@@ -339,13 +337,6 @@ public final class ChromeController {
 			if (tagObj != null && GaugeWidgetController.LAYER_TAG.equals(tagObj.toString())) {
 				// Same keep-text rule as Window, not the extra-text pin.
 				child.setTranslationY(keepText ? 0f : ty);
-				continue;
-			}
-			if (tagObj != null && PingHudController.LAYER_TAG.equals(tagObj.toString())) {
-				if (child instanceof PingHudView && ((PingHudView) child).isDragging()) {
-					continue;
-				}
-				child.setTranslationY(0f);
 				continue;
 			}
 			child.setTranslationY(ty);

@@ -91,7 +91,6 @@ public final class UserManualIndex {
 		m.put("Light theme", CATEGORY_WINDOW);
 		m.put("Scroll dates", CATEGORY_WINDOW);
 		m.put("Line timestamps", CATEGORY_WINDOW);
-		m.put("Ping overlay", CATEGORY_WINDOW);
 		m.put("Newest text at top", CATEGORY_WINDOW);
 		m.put("Padding, notch, and the keyboard", CATEGORY_WINDOW);
 		m.put("Extra text windows", CATEGORY_WINDOW);

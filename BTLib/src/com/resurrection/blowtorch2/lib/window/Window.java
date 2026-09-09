@@ -6787,15 +6787,6 @@ end
 				}
 				this.invalidate();
 				break;
-			case ping_hud:
-			case ping_opacity:
-			case ping_size:
-			case ping_x:
-			case ping_y:
-				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
-					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_PING_HUD);
-				}
-				break;
 			case line_stamps:
 				mLineStamps = (Boolean) o.getValue();
 				this.invalidate();
@@ -6961,11 +6952,6 @@ end
 		light_paper_shade,
 		scroll_dates,
 		scroll_dates_opacity,
-		ping_hud,
-		ping_opacity,
-		ping_size,
-		ping_x,
-		ping_y,
 		line_stamps,
 		line_stamps_log,
 		line_stamps_fields,

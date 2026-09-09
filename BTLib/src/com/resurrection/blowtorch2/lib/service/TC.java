@@ -59,7 +59,7 @@ public final class TC {
 	/** Telnet ECHO constant. */
 	public static final byte ECHO = 0x01;
 
-	/** Telnet Timing Mark (RFC 860, option 6). Used as an RTT probe, not ICMP. */
+	/** Telnet Timing Mark (RFC 860, option 6). */
 	public static final byte TM = 0x06;
 	
 	/** Telnet TTYPE constant. */
