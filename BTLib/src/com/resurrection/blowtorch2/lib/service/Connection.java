@@ -7334,8 +7334,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// (password masking) remains absolute here — FORCE_ON must not
 				// put a password in the scrollback or session log.
 				if (mLocalEcho) {
-					mWindows.get(0).getBuffer().addBytesImplSimple(d.mVisString.getBytes(mSettings.getEncoding()));
-					sendBytesToWindow(d.mVisString.getBytes(mSettings.getEncoding()));
+					byte[] echo = d.mVisString.getBytes(mSettings.getEncoding());
+					mWindows.get(0).getBuffer().addBytesImplSimple(echo);
+					notifyMainWindow(echo);
 					if (readBoolOption("session_log_echo", false)) {
 						SessionLogger.appendIncoming(mService.getApplicationContext(),
 								mDisplay, d.mVisString);
