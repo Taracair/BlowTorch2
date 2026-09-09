@@ -1581,7 +1581,7 @@ is enabled; `.alias list` shows every alias at once.
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Line timestamps?
-    `.ping`                             Kept so the line is not sent to the world. There is no overlay (typical MUDs do not answer Timing Mark or Core.Ping; timing a look is not ping).
+    `.ping`                             One ICMP echo to this world's host. Not sent to the world. A world that drops ICMP can still answer on the game port.
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below

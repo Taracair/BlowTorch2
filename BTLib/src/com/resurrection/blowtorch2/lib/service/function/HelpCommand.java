@@ -71,7 +71,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("timestamp", "The window", "time each line arrived, on the right; .timestamp log");
-		cmd("ping", "The window", "kept so it is not sent to the world; there is no overlay");
+		cmd("ping", "The window", "one ICMP echo to this world's host; not sent to the world");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
@@ -313,9 +313,9 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .ping:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .ping  — prints why there is no overlay; not sent to the world\n"
-					+ "Typical MUDs do not answer Timing Mark or Core.Ping. Timing a\n"
-					+ "typed command is not network ping. This client does not ICMP.\n";
+					+ "  .ping  — one ICMP echo to this world's host\n"
+					+ "Not sent to the world. A world that drops ICMP can still\n"
+					+ "answer on the game port.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"
