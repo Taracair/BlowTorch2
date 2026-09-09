@@ -22,8 +22,8 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.TRIGGER_ORDER.contains("colour at 11"));
 		assertTrue(EditorHelp.TRIGGERS.contains(EditorHelp.TRIGGER_ORDER));
 		assertTrue(EditorHelp.TRIGGERS.contains("WHO ELSE FIRES"));
-		assertTrue(EditorHelp.TRIGGERS.contains("ALSO ON THIS LINE"));
-		assertTrue(EditorHelp.TRIGGERS.contains("including Also"));
+		assertTrue(EditorHelp.TRIGGERS.contains("TWO PATTERNS ON ONE LINE"));
+		assertTrue(EditorHelp.TRIGGERS.contains("It tries one line"));
 		assertTrue(EditorHelp.TRIGGERS.contains("shade title is the world name"));
 		assertTrue(EditorHelp.TIMERS.contains("timer has no game line"));
 	}

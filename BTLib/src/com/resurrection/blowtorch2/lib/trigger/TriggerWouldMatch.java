@@ -6,8 +6,8 @@ import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 
 /**
  * Look-ahead: would this other trigger hit the same {@code \\n} line as
- * {@code matchStart}? Pattern, Match style and Also only — not its
- * conditions, not its actions.
+ * {@code matchStart}? Pattern and Match style — not its conditions, not
+ * its actions. Also-contains from an older profile is still checked.
  */
 public final class TriggerWouldMatch {
 

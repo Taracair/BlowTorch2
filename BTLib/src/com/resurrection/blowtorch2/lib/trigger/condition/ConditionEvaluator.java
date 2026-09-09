@@ -14,9 +14,9 @@ import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup.Op;
  * Evaluates trigger/timer conditions after a pattern match (or timer fire) and
  * before responders run. Empty conditions = true (backward compatible).
  * Trigger/alias enabled gates only read {@code isEnabled()} (no recursive
- * condition evaluation). {@code TRIGGER_MATCHED} looks at Pattern, Match
- * style and Also on the current line — not that trigger's conditions or
- * actions.
+ * condition evaluation). {@code TRIGGER_MATCHED} looks at Pattern and Match
+ * style — not that trigger's conditions or actions. An older profile may
+ * still have an also-contains gate; that is still checked.
  */
 public final class ConditionEvaluator {
 

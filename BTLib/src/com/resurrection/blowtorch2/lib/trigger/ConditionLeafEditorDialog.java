@@ -124,7 +124,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 		conditionHint.setPadding(0, 0, 0, 8);
 		conditionHint.setVisibility(View.GONE);
 		conditionHint.setText(
-				"Uses that trigger's Pattern, Match style and Also on this same line. "
+				"Uses that trigger's Pattern and Match style. "
 						+ "Does not run its actions. Off or missing is closed. "
 						+ "A timer has no line, so this stays closed there.");
 		root.addView(conditionHint);
