@@ -470,6 +470,9 @@ seven switches was making the Input page a wall.
 
 ## Notification responders
 
+The shade title is the world display name, then the title you typed
+(`world-a · goblin`), so several sessions can be told apart.
+
 Trigger/timer notification responders can use the system default sound, five
 bundled presets (soft chime/tap, mid ping/pluck, loud alert), files under
 `/BlowTorch/` on shared storage, or **Pick from storage…** (SAF content URI).

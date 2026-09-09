@@ -216,11 +216,13 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 			}
 		}
 		
-		String xformedtitle = this.translate(title, captureMap);
+		String rawTitle = this.translate(title, captureMap);
+		String xformedtitle = NotificationAlertTitle.withWorld(displayname, rawTitle);
 		String xformedmessage = this.translate(message, captureMap);
 
-		// Anti-spam: skip identical title+message within a short window when not spawning new ids.
-		String throttleKey = xformedtitle + "\n" + xformedmessage;
+		// Anti-spam: skip identical world+title+message within a short window when not spawning new ids.
+		String throttleKey = NotificationAlertTitle.throttleKey(displayname,
+				rawTitle, xformedmessage);
 		long now = System.currentTimeMillis();
 		if (!this.isSpawnNewNotification()
 				&& throttleKey.equals(sLastThrottleKey)
