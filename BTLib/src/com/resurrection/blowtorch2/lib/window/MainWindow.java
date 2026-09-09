@@ -133,6 +133,10 @@ import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
+import com.resurrection.blowtorch2.lib.ping.PingHudController;
+import com.resurrection.blowtorch2.lib.ping.PingHudLayout;
+import com.resurrection.blowtorch2.lib.ping.PingProbe;
+import com.resurrection.blowtorch2.lib.service.function.PingCommand;
 import com.resurrection.blowtorch2.lib.launcher.LauncherShortcutExtras;
 import com.resurrection.blowtorch2.lib.launcher.PinLaunch;
 import com.resurrection.blowtorch2.lib.launcher.WorldLaunch;
@@ -327,6 +331,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_GAUGE_WIDGET_VALUES = 941;
 	/** Command history browse; arg1 negative = older. */
 	protected static final int MESSAGE_INPUT_HISTORY = 942;
+	/** Re-read ping overlay window options. */
+	public static final int MESSAGE_REFRESH_PING_HUD = 945;
+	/** obj: DisplayedString display + rtt as the value string. */
+	protected static final int MESSAGE_PING_HUD = 946;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -371,6 +379,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mPinLaunchPending;
 	/** Overlay gauges over the game; see ensureGaugeWidgets(). */
 	private GaugeWidgetController gaugeWidgets;
+	private PingHudController pingHud;
 	/** Floating button copies over the game; see ensureFloatingButtons(). */
 	private FloatingButtonController floatingButtons;
 	/** Options → Input master switch; default on. */
@@ -870,6 +879,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						DisplayedString scoped = (DisplayedString) msg.obj;
 						if (isForegroundDisplay(scoped.display)) {
 							MainWindow.this.handleGaugeWidgetValues(scoped.value);
+						}
+					}
+					break;
+				case MESSAGE_REFRESH_PING_HUD:
+					MainWindow.this.ensurePingHud();
+					if (pingHud != null) {
+						pingHud.applyFromWindow();
+					}
+					break;
+				case MESSAGE_PING_HUD:
+					if (msg.obj instanceof DisplayedString) {
+						DisplayedString scoped = (DisplayedString) msg.obj;
+						if (isForegroundDisplay(scoped.display)) {
+							int rtt = PingProbe.NO_SAMPLE;
+							try {
+								rtt = Integer.parseInt(scoped.value);
+							} catch (NumberFormatException ignored) {
+							}
+							if (pingHud != null) {
+								pingHud.setRtt(rtt);
+							}
 						}
 					}
 					break;
@@ -5999,6 +6029,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_GAUGE_WIDGET_VALUES,
 					new DisplayedString(display, json == null ? "[]" : json)));
 		}
+
+		@Override
+		public void pingHud(String display, int rttMs) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PING_HUD,
+					new DisplayedString(display, Integer.toString(rttMs))));
+		}
 	};
 	
 	boolean windowsInitialized = false;
@@ -6228,6 +6264,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ensureExtraTextOverlays();
 		ensureFloatingButtons();
 		ensureGaugeWidgets();
+		ensurePingHud();
 		raiseFloatingButtons();
 		// Windows (and extra-text slots) now have live binders. End the hold that
 		// onPause / a recents kill left behind — not earlier in onServiceConnected,
@@ -7083,6 +7120,113 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	private void ensurePingHud() {
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
+		if (pingHud == null) {
+			pingHud = new PingHudController(new PingHudController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public void bringViewUnderChrome(View overlay) {
+					if (chrome != null) {
+						chrome.bringViewUnderChrome(overlay);
+					}
+				}
+
+				@Override
+				public boolean updateMainWindowInteger(String key, int value) {
+					if (service == null) {
+						return false;
+					}
+					try {
+						service.updateMainWindowInteger(key, value);
+						return true;
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.pingHud.persist", e);
+						return false;
+					}
+				}
+			});
+		}
+		pingHud.attach();
+	}
+
+	public boolean pingHudEnabled() {
+		return readLiveMainWindowBoolean(PingCommand.OPTION_ENABLED, false);
+	}
+
+	public int pingHudOpacity() {
+		return PingHudLayout.clampOpacity(
+				readLiveMainWindowInteger(PingCommand.OPTION_OPACITY,
+						PingHudLayout.DEFAULT_OPACITY));
+	}
+
+	public int pingHudSizeSp() {
+		return PingHudLayout.clampSize(
+				readLiveMainWindowInteger(PingCommand.OPTION_SIZE,
+						PingHudLayout.DEFAULT_SIZE));
+	}
+
+	public int pingHudX() {
+		return PingHudLayout.clampPercent(
+				readLiveMainWindowInteger(PingCommand.OPTION_X, PingHudLayout.DEFAULT_X));
+	}
+
+	public int pingHudY() {
+		return PingHudLayout.clampPercent(
+				readLiveMainWindowInteger(PingCommand.OPTION_Y, PingHudLayout.DEFAULT_Y));
+	}
+
+	private boolean readLiveMainWindowBoolean(final String key, final boolean fallback) {
+		Object opt = findLiveMainWindowOption(key);
+		if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+			return ((Boolean) ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+					.getValue()).booleanValue();
+		}
+		return readMainWindowBooleanOption(key, fallback);
+	}
+
+	private int readLiveMainWindowInteger(final String key, final int fallback) {
+		Object opt = findLiveMainWindowOption(key);
+		if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption) {
+			return ((Integer) ((com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption) opt)
+					.getValue()).intValue();
+		}
+		if (mWindows != null) {
+			for (WindowToken tok : mWindows) {
+				if (tok == null || !"mainDisplay".equals(tok.getName())) {
+					continue;
+				}
+				Object o = tok.getSettings().findOptionByKey(key);
+				if (o instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption) {
+					return ((Integer) ((com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption) o)
+							.getValue()).intValue();
+				}
+			}
+		}
+		return fallback;
+	}
+
+	private Object findLiveMainWindowOption(final String key) {
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			return null;
+		}
+		View main = rl.findViewWithTag("mainDisplay");
+		if (!(main instanceof com.resurrection.blowtorch2.lib.window.Window)) {
+			return null;
+		}
+		com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup g =
+				((com.resurrection.blowtorch2.lib.window.Window) main).getSettings();
+		return g == null ? null : g.findOptionByKey(key);
+	}
+
 	private void handleMapperUiAction(int action) {
 		ensureMapperOverlay();
 		if (mapperOverlay == null) {
@@ -7277,6 +7421,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (gaugeWidgets != null) {
 			gaugeWidgets.detach();
+		}
+		if (pingHud != null) {
+			pingHud.detach();
+			pingHud = null;
 		}
 		if (floatingButtons != null) {
 			floatingButtons.detach();

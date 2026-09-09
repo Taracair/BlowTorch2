@@ -1256,4 +1256,13 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		return c != null ? c.getGaugeWidgetValuesJson() : "[]";
 	}
 
+	@Override
+	public void updateMainWindowInteger(final String key, final int value)
+			throws RemoteException {
+		Connection c = active();
+		if (c != null) {
+			c.updateMainWindowIntegerOption(key, value);
+		}
+	}
+
 }

@@ -202,4 +202,9 @@ interface IConnectionBinder {
 	String getGaugeWidgetsJson();
 	/** Live values JSON [{"id","v","m"}] (never null). For UI start / switchTo only. */
 	String getGaugeWidgetValuesJson();
+	/**
+	 * Window integer (font size, ping size, …). Window keys must not go through
+	 * {@link #updateIntegerSetting} alone — that writes the connection plugin.
+	 */
+	void updateMainWindowInteger(String key, int value);
 }

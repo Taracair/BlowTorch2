@@ -70,6 +70,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
+		cmd("ping", "The window", "RTT chip on the game; .ping show|hide, opacity, size");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
@@ -294,6 +295,17 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .when on|off|toggle\n"
 					+ "  .when opacity N    — how solid that date is (15–100)\n"
 					+ "  .search 14:32 | 18 Aug  — jump to that moment (while on)\n";
+		}
+		if (filter.equals("ping")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .ping:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .ping                 — on/off, opacity, size, place\n"
+					+ "  .ping show|hide|toggle | on|off\n"
+					+ "  .ping opacity N       — how solid the chip is (15–100)\n"
+					+ "  .ping size N          — type size (12–36)\n"
+					+ "  .ping pos X Y         — 0–100 percent (or long-press and drag)\n"
+					+ "Not ICMP. Telnet Timing Mark, and GMCP Core.Ping when GMCP is on.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"

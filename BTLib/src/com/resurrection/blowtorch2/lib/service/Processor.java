@@ -537,6 +537,10 @@ public class Processor {
 		sb.setData(b);
 		mReportTo.sendMessage(sb);
 		
+		if ((action == TC.WILL || action == TC.WONT) && option == TC.TM) {
+			mReportTo.sendEmptyMessage(Connection.MESSAGE_PING_MARK);
+		}
+
 		if (action == TC.WILL && option == TC.GMCP) {
 			logGmcp("NEG", "IAC WILL GMCP → " + (mUseGMCP ? "DO + hello/supports" : "DONT (use_gmcp off)"));
 			//so we are responding accordingly, but we want to "initialize" the gmcp
@@ -667,6 +671,10 @@ public class Processor {
 					break;
 				}
 				dispatchGmcpExtraText(module, body.json());
+				if (module != null
+						&& "core.ping".equalsIgnoreCase(module.trim())) {
+					mReportTo.sendEmptyMessage(Connection.MESSAGE_PING_GMCP);
+				}
 				
 				//TODO: THIS IS WHERE THE ACTUAL WORK IS DONE TO SEND MUD DATA.
 				ArrayList<GMCPWatcher> list = mGMCPTriggers.get(module);

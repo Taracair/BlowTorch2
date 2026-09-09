@@ -58,6 +58,9 @@ public final class TC {
 	
 	/** Telnet ECHO constant. */
 	public static final byte ECHO = 0x01;
+
+	/** Telnet Timing Mark (RFC 860, option 6). Used as an RTT probe, not ICMP. */
+	public static final byte TM = 0x06;
 	
 	/** Telnet TTYPE constant. */
 	public static final byte TTYPE = 0x18;
@@ -193,6 +196,9 @@ public final class TC {
 			break;
 		case TC.ECHO:
 			output = "ECHO";
+			break;
+		case TC.TM:
+			output = "TM";
 			break;
 		case TC.CHARSET:
 			output = "CHARSET";

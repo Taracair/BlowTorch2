@@ -20,6 +20,7 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
+import com.resurrection.blowtorch2.lib.ping.PingHudLayout;
 
 import android.content.res.Configuration;
 import android.os.Parcel;
@@ -127,6 +128,12 @@ public class WindowToken implements Parcelable {
 		scroll_dates,
 		/** Opacity of that date overlay, percent. Default 75. .when opacity N */
 		scroll_dates_opacity,
+		/** RTT chip over the game. .ping show|hide */
+		ping_hud,
+		ping_opacity,
+		ping_size,
+		ping_x,
+		ping_y,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -466,6 +473,44 @@ public class WindowToken implements Parcelable {
 		scrollDatesOpacity.setKey("scroll_dates_opacity");
 		scrollDatesOpacity.setValue(DEFAULT_SCROLL_DATES_OPACITY);
 		window.addOption(scrollDatesOpacity);
+
+		BooleanOption pingHud = new BooleanOption();
+		pingHud.setTitle("Ping overlay?");
+		pingHud.setDescription("Show round-trip time to this world as a small chip on the game. Long-press then drag to move. Not ICMP: telnet Timing Mark, and GMCP Core.Ping when GMCP is on. Off by default. .ping show|hide");
+		pingHud.setKey("ping_hud");
+		pingHud.setValue(false);
+		window.addOption(pingHud);
+
+		IntegerOption pingOpacity = new IntegerOption();
+		pingOpacity.setTitle("Ping opacity (%)");
+		pingOpacity.setDescription("How solid the ping chip is. "
+				+ PingHudLayout.OPACITY_MIN + "–100. .ping opacity N");
+		pingOpacity.setKey("ping_opacity");
+		pingOpacity.setValue(PingHudLayout.DEFAULT_OPACITY);
+		window.addOption(pingOpacity);
+
+		IntegerOption pingSize = new IntegerOption();
+		pingSize.setTitle("Ping size");
+		pingSize.setDescription("Type size of the ping chip. "
+				+ PingHudLayout.SIZE_MIN + "–" + PingHudLayout.SIZE_MAX
+				+ ". .ping size N");
+		pingSize.setKey("ping_size");
+		pingSize.setValue(PingHudLayout.DEFAULT_SIZE);
+		window.addOption(pingSize);
+
+		IntegerOption pingX = new IntegerOption();
+		pingX.setTitle("Ping X (%)");
+		pingX.setDescription("Horizontal place of the ping chip, 0 left – 100 right. Long-press and drag, or .ping pos X Y");
+		pingX.setKey("ping_x");
+		pingX.setValue(PingHudLayout.DEFAULT_X);
+		window.addOption(pingX);
+
+		IntegerOption pingY = new IntegerOption();
+		pingY.setTitle("Ping Y (%)");
+		pingY.setDescription("Vertical place of the ping chip, 0 top – 100 bottom. Long-press and drag, or .ping pos X Y");
+		pingY.setKey("ping_y");
+		pingY.setValue(PingHudLayout.DEFAULT_Y);
+		window.addOption(pingY);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

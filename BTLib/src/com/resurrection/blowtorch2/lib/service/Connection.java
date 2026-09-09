@@ -320,6 +320,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Resume the rest of a {@code .wait} / {@code #wait} batch. obj is {@link PausedOutbound}. */
 	public static final int MESSAGE_WAIT_RESUME = 55;
 
+	/** Ping overlay: send the next Timing Mark / Core.Ping. */
+	public static final int MESSAGE_PING_TICK = 61;
+	/** Inbound IAC WILL/WONT Timing Mark while a ping is in flight. */
+	public static final int MESSAGE_PING_MARK = 62;
+	/** Inbound GMCP Core.Ping while a ping is in flight. */
+	public static final int MESSAGE_PING_GMCP = 63;
+
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
 	/** Very large value. */
@@ -389,6 +396,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final ConnectionExtraText mExtraText = new ConnectionExtraText(this);
 	/** Overlay gauges (HP/mana/timer). Filled by ConnectionGaugeWidgets when present. */
 	ConnectionGaugeWidgets mGauges;
+	final ConnectionPing mPing;
 	/** The auto reconnect limit helper varialbe. */
 	/** Auto-reconnect / persistent-connection state and scheduling. */
 	private final ConnectionReconnect mReconnect = new ConnectionReconnect(this);
@@ -645,6 +653,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.WhenCommand whencmd =
 				new com.resurrection.blowtorch2.lib.service.function.WhenCommand();
 		mSpecialCommands.put(whencmd.commandName, whencmd);
+		com.resurrection.blowtorch2.lib.service.function.PingCommand pingcmd =
+				new com.resurrection.blowtorch2.lib.service.function.PingCommand();
+		mSpecialCommands.put(pingcmd.commandName, pingcmd);
 		com.resurrection.blowtorch2.lib.service.function.Osc8Command osc8cmd =
 				new com.resurrection.blowtorch2.lib.service.function.Osc8Command();
 		mSpecialCommands.put(osc8cmd.commandName, osc8cmd);
@@ -715,6 +726,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 		mMapper = new MapperController(this);
 		mGauges = new ConnectionGaugeWidgets(this);
+		mPing = new ConnectionPing(this);
 		
 		mPlugins = new ArrayList<Plugin>();
 		mHandler = new Handler(new ConnectionHandler());
@@ -768,6 +780,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// Reconnect: treat the close like a network flap.
 				doDisconnect(!mReconnect.reconnectOnPeerClose());
 				mIsConnected = false;
+				mPing.onDisconnected();
 				break;
 			case MESSAGE_CHARSET:
 				if (msg.obj instanceof String) {
@@ -844,6 +857,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					applyMcpSettings();
 				}
 				maybeShowTerminalSizeHint();
+				mPing.onConnected();
 				break;
 			case MESSAGE_SEND_NAWS:
 				if (mIsConnected && mProcessor != null && mLiveCols > 0 && mLiveRows > 0) {
@@ -855,6 +869,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						Log.i("BlowTorch", "NAWS sent " + mLiveCols + "x" + mLiveRows);
 					}
 				}
+				break;
+			case MESSAGE_PING_TICK:
+				mPing.tick();
+				break;
+			case MESSAGE_PING_MARK:
+				mPing.onTimingMark();
+				break;
+			case MESSAGE_PING_GMCP:
+				mPing.onGmcpPing();
 				break;
 			case MESSAGE_DELETEPLUGIN:
 				doDeletePlugin((String) msg.obj);
@@ -1081,6 +1104,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				killNetThreads(true);
 				doDisconnect(false);
 				mIsConnected = false;
+				mPing.onDisconnected();
 				break;
 			default:
 				break;
@@ -5426,6 +5450,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				cb.updateSetting(key, text);
 			}
 			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+			if (value && "ping_hud".equals(key)) {
+				mHandler.sendEmptyMessage(MESSAGE_PING_TICK);
+			}
 			return true;
 		} catch (Exception e) {
 			Log.w("BlowTorch", "updateMainWindowBooleanOption " + key, e);
@@ -5496,6 +5523,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param value the value to use.
 	 */
 	public final void updateIntegerSetting(final String key, final int value) {
+		if (WindowTokenParser.isWindowOptionKey(key)) {
+			updateMainWindowIntegerOption(key, value);
+			return;
+		}
 		mSettings.updateIntegerSetting(key, value);
 	}
 	

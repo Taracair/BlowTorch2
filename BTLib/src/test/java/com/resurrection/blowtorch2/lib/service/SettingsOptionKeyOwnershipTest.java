@@ -25,6 +25,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"newest_at_top", "dim_repeated_lines", "dim_repeated_window", "dim_repeated_strength",
 				"light_paper", "light_paper_shade",
 				"scroll_dates", "scroll_dates_opacity",
+				"ping_hud", "ping_opacity", "ping_size", "ping_x", "ping_y",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
 				"cutout_portrait", "cutout_landscape",
 				"hyperlinks_enabled", "osc8_links",

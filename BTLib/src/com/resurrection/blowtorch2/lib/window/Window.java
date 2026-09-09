@@ -582,6 +582,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Object mToken = new Object(); //token for synchronization.
 	/** The user configurable settings for this window. */
 	private SettingsGroup mSettings = null;
+
+	public SettingsGroup getSettings() {
+		return mSettings;
+	}
 	/** Application context. */
 	//private Context mContext = null;
 	/** Bitmap that holds the selection indicator widget. */
@@ -6768,6 +6772,15 @@ end
 				}
 				this.invalidate();
 				break;
+			case ping_hud:
+			case ping_opacity:
+			case ping_size:
+			case ping_x:
+			case ping_y:
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_PING_HUD);
+				}
+				break;
 			case osc8_links:
 				applyOsc8Links((Boolean) o.getValue());
 				this.invalidate();
@@ -6919,6 +6932,11 @@ end
 		light_paper_shade,
 		scroll_dates,
 		scroll_dates_opacity,
+		ping_hud,
+		ping_opacity,
+		ping_size,
+		ping_x,
+		ping_y,
 		osc8_links,
 		top_padding,
 		bottom_padding,

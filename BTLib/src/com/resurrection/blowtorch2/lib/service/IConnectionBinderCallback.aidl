@@ -185,4 +185,10 @@ oneway interface IConnectionBinderCallback {
 	void inputBarHistory(int delta);
 	/** Style grabber overlay. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
 	void executeGrabber(int mode);
+	/**
+	 * Live RTT for the ping chip. {@code rttMs} is {@code -1} when there is no
+	 * sample (timeout, or not connected). Appended: do not insert above existing
+	 * methods. Same display filter as {@link #gaugeWidgetValues}.
+	 */
+	void pingHud(String display, int rttMs);
 }
