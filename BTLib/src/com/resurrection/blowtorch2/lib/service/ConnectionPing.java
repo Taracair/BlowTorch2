@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.service;
 
 import com.resurrection.blowtorch2.lib.ping.PingProbe;
+import com.resurrection.blowtorch2.lib.ping.PingSendPolicy;
 import com.resurrection.blowtorch2.lib.service.function.PingCommand;
 
 import android.os.Bundle;
@@ -8,8 +9,8 @@ import android.os.Message;
 import android.os.SystemClock;
 
 /**
- * RTT while the ping overlay is on: GMCP {@code Core.Ping} when GMCP is on,
- * plus telnet Timing Mark (option 6). First reply wins. Not ICMP.
+ * RTT while the ping overlay is on. Sends GMCP {@code Core.Ping} only after
+ * the world offered GMCP, and Timing Mark only after WILL TM. Not ICMP.
  */
 final class ConnectionPing {
 
@@ -76,16 +77,30 @@ final class ConnectionPing {
 
 	private void sendProbe(final long now) {
 		Processor p = host.getProcessor();
-		if (p != null && p.isUseGMCP()) {
+		boolean gmcp = false;
+		boolean tm = false;
+		if (p != null && p.getOptionHandler() != null) {
+			gmcp = PingSendPolicy.sendGmcp(p.isUseGMCP(),
+					p.getOptionHandler().serverOffered(TC.GMCP));
+			tm = PingSendPolicy.sendTimingMark(
+					p.getOptionHandler().serverOffered(TC.TM));
+		}
+		if (!gmcp && !tm) {
+			notifyHud(PingProbe.NO_SAMPLE);
+			return;
+		}
+		if (gmcp) {
 			host.mHandler.obtainMessage(Connection.MESSAGE_SENDGMCPDATA, "Core.Ping")
 					.sendToTarget();
 		}
-		byte[] tm = new byte[] { TC.IAC, TC.DO, TC.TM };
-		Message opt = host.mHandler.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
-		Bundle b = opt.getData();
-		b.putByteArray("THE_DATA", tm);
-		opt.setData(b);
-		host.mHandler.sendMessage(opt);
+		if (tm) {
+			byte[] bytes = new byte[] { TC.IAC, TC.DO, TC.TM };
+			Message opt = host.mHandler.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
+			Bundle b = opt.getData();
+			b.putByteArray("THE_DATA", bytes);
+			opt.setData(b);
+			host.mHandler.sendMessage(opt);
+		}
 		probe.markSent(now);
 	}
 

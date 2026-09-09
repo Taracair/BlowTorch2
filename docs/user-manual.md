@@ -1577,7 +1577,7 @@ is enabled; `.alias list` shows every alias at once.
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
-    `.ping [show|hide|toggle|opacity N|size N|pos X Y]`  Round-trip chip on the game. Long-press then drag. Not ICMP (telnet Timing Mark, and GMCP Core.Ping when GMCP is on). Also Options → Window → Ping overlay?
+    `.ping [show|hide|toggle|opacity N|size N|pos X Y]`  Round-trip chip on the game. Long-press then drag. Not ICMP. Number only if the world offered GMCP (Core.Ping) or Timing Mark. Also Options → Window → Ping overlay?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -2549,9 +2549,10 @@ the session log is the archive for that.
 
 **Options → Window → Ping overlay?** (off by default). A small chip on the
 game shows round-trip time to this world (`42 ms`, or `—` when there is no
-sample). Long-press the number, then drag. It is not ICMP: BlowTorch sends
-a telnet Timing Mark, and GMCP `Core.Ping` when GMCP is on. First reply
-wins. A world that answers neither keeps showing `—`.
+sample). Long-press the number, then drag. It is not ICMP. BlowTorch sends
+GMCP `Core.Ping` only after the world offered GMCP, and a telnet Timing
+Mark only if the world offered that option. It does not send a fake typed
+command. First reply wins. A world that offers neither keeps showing `—`.
 
 **Ping opacity (%)** (default 85), **Ping size** (12–36, default 18), and
 place as percent (0–100). ⋮ stays bottom-right; the default place is

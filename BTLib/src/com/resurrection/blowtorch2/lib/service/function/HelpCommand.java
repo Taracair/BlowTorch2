@@ -305,7 +305,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .ping opacity N       — how solid the chip is (15–100)\n"
 					+ "  .ping size N          — type size (12–36)\n"
 					+ "  .ping pos X Y         — 0–100 percent (or long-press and drag)\n"
-					+ "Not ICMP. Telnet Timing Mark, and GMCP Core.Ping when GMCP is on.\n";
+					+ "Not ICMP. GMCP Core.Ping only after the world offered GMCP;\n"
+					+ "Timing Mark only if it offered that option. Else the chip stays —.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"
