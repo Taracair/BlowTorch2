@@ -108,7 +108,7 @@
   					android:textColor="@color/chrome_section_text"/>
   				<EditText
   					android:id="@+id/trigger_editor_also"
-  					android:hint="optional; e.g. a channel tag"
+  					android:hint="text, regex"
   					android:layout_marginRight="10dip"
   					android:layout_marginTop="4dip"
   					android:layout_marginBottom="4dip"
