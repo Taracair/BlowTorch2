@@ -108,6 +108,7 @@ public final class PingCommandParser {
 
 	public static String usage() {
 		return "Usage: .ping show|hide|toggle | opacity N | size N | pos X Y\n"
+				+ "Times a command you send until the next game line (not ICMP).\n"
 				+ "Long-press the number, then drag. Opacity "
 				+ PingHudLayout.OPACITY_MIN + "–"
 				+ PingHudLayout.OPACITY_MAX + ", size "

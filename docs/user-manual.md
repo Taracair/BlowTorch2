@@ -1590,7 +1590,7 @@ is enabled; `.alias list` shows every alias at once.
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Line timestamps?
-    `.ping [show|hide|toggle|opacity N|size N|pos X Y]`  Round-trip chip on the game. Long-press then drag. Not ICMP. Number only if the world offered GMCP (Core.Ping) or Timing Mark. Also Options → Window → Ping overlay?
+    `.ping [show|hide|toggle|opacity N|size N|pos X Y]`  Round-trip chip on the game. Long-press then drag. Not ICMP. Times a command you send until the next game line. Also Options → Window → Ping overlay?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -2585,11 +2585,13 @@ scrolled back.
 ## Ping overlay
 
 **Options → Window → Ping overlay?** (off by default). A small chip on the
-game shows round-trip time to this world (`42 ms`, or `—` when there is no
-sample). Long-press the number, then drag. It is not ICMP. BlowTorch sends
-GMCP `Core.Ping` only after the world offered GMCP, and a telnet Timing
-Mark only if the world offered that option. It does not send a fake typed
-command. First reply wins. A world that offers neither keeps showing `—`.
+game shows round-trip time to this world (`42 ms`, or `—` until you send
+a command). Long-press the number, then drag. It is not ICMP. The number
+is the time from a command written to the socket until the next line of
+game text — one trip there and back, plus the world thinking. That is
+how ping works; it is not counted twice. BlowTorch does not send GMCP
+`Core.Ping` or a telnet Timing Mark for this (most worlds do not reply,
+and some treat those as typed commands).
 
 **Ping opacity (%)** (default 85), **Ping size** (12–36, default 18), and
 place as percent (0–100). ⋮ stays bottom-right; the default place is

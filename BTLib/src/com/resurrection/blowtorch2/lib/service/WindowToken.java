@@ -483,7 +483,7 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption pingHud = new BooleanOption();
 		pingHud.setTitle("Ping overlay?");
-		pingHud.setDescription("Show round-trip time to this world as a small chip on the game. Long-press then drag to move. Not ICMP. Sends GMCP Core.Ping only after the world offered GMCP, Timing Mark only if it offered that option. Off by default. .ping show|hide");
+		pingHud.setDescription("Show round-trip time to this world as a small chip on the game. Long-press then drag to move. Not ICMP. Times your command until the next game line (one trip there and back, plus the world thinking). Does not send Core.Ping or Timing Mark. Off by default. .ping show|hide");
 		pingHud.setKey("ping_hud");
 		pingHud.setValue(false);
 		window.addOption(pingHud);

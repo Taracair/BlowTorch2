@@ -71,7 +71,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("timestamp", "The window", "time each line arrived, on the right; .timestamp log");
-		cmd("ping", "The window", "RTT chip on the game; .ping show|hide, opacity, size");
+		cmd("ping", "The window", "command round-trip chip; .ping show|hide, opacity, size");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
@@ -318,8 +318,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .ping opacity N       — how solid the chip is (15–100)\n"
 					+ "  .ping size N          — type size (12–36)\n"
 					+ "  .ping pos X Y         — 0–100 percent (or long-press and drag)\n"
-					+ "Not ICMP. GMCP Core.Ping only after the world offered GMCP;\n"
-					+ "Timing Mark only if it offered that option. Else the chip stays —.\n";
+					+ "Not ICMP. Times a command you send until the next game line.\n"
+					+ "Type something; the number is one round trip plus the world thinking.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"

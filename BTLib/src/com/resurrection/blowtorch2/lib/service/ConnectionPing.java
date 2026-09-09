@@ -1,33 +1,33 @@
 package com.resurrection.blowtorch2.lib.service;
 
+import com.resurrection.blowtorch2.lib.ping.CommandRtt;
 import com.resurrection.blowtorch2.lib.ping.PingProbe;
-import com.resurrection.blowtorch2.lib.ping.PingSendPolicy;
 import com.resurrection.blowtorch2.lib.service.function.PingCommand;
 
-import android.os.Bundle;
-import android.os.Message;
 import android.os.SystemClock;
 
 /**
- * RTT while the ping overlay is on. Sends GMCP {@code Core.Ping} only after
- * the world offered GMCP, and Timing Mark only after WILL TM. Not ICMP.
+ * RTT while the ping overlay is on: time from a command written to the
+ * socket until the next game line. Not ICMP. Does not send {@code Core.Ping}
+ * or Timing Mark — most worlds do not reply, and some parse those as typed
+ * commands.
  */
 final class ConnectionPing {
 
 	private final Connection host;
-	private final PingProbe probe = new PingProbe();
+	private final CommandRtt rtt = new CommandRtt();
 
 	ConnectionPing(final Connection host) {
 		this.host = host;
 	}
 
 	void onConnected() {
-		probe.clear();
-		scheduleTick(0);
+		rtt.clear();
+		notifyHud(PingProbe.NO_SAMPLE);
 	}
 
 	void onDisconnected() {
-		probe.clear();
+		rtt.clear();
 		if (host.mHandler != null) {
 			host.mHandler.removeMessages(Connection.MESSAGE_PING_TICK);
 		}
@@ -39,69 +39,46 @@ final class ConnectionPing {
 			return;
 		}
 		host.mHandler.removeMessages(Connection.MESSAGE_PING_TICK);
-		if (!host.isConnected()) {
-			return;
-		}
-		if (!hudOn()) {
-			probe.clear();
+		if (!host.isConnected() || !hudOn()) {
+			rtt.dropPending();
 			return;
 		}
 		long now = SystemClock.elapsedRealtime();
-		if (probe.timedOut(now)) {
-			probe.complete(now);
-			notifyHud(PingProbe.NO_SAMPLE);
+		rtt.onTimeout(now);
+		if (rtt.isPending()) {
+			scheduleTick(rtt.msUntilTimeout(now));
 		}
-		if (probe.isPending()) {
-			scheduleTick(probe.msUntilTimeout(now));
-			return;
-		}
-		sendProbe(now);
-		scheduleTick(PingProbe.INTERVAL_MS);
 	}
 
+	void onCommandSent() {
+		if (!host.isConnected() || !hudOn()) {
+			return;
+		}
+		boolean wasPending = rtt.isPending();
+		rtt.onCommandSent(SystemClock.elapsedRealtime());
+		if (!wasPending && rtt.isPending()) {
+			scheduleTick(PingProbe.TIMEOUT_MS);
+		}
+	}
+
+	void onIncomingGameText(final String stripped) {
+		if (!hudOn()) {
+			return;
+		}
+		int sample = rtt.onIncomingGameText(stripped, SystemClock.elapsedRealtime());
+		if (sample != PingProbe.NO_SAMPLE) {
+			notifyHud(sample);
+			if (host.mHandler != null) {
+				host.mHandler.removeMessages(Connection.MESSAGE_PING_TICK);
+			}
+		}
+	}
+
+	/** Unsolicited WILL TM / Core.Ping is not a command round-trip. */
 	void onTimingMark() {
-		finish(SystemClock.elapsedRealtime());
 	}
 
 	void onGmcpPing() {
-		finish(SystemClock.elapsedRealtime());
-	}
-
-	private void finish(final long now) {
-		int rtt = probe.complete(now);
-		if (rtt == PingProbe.NO_SAMPLE) {
-			return;
-		}
-		notifyHud(rtt);
-	}
-
-	private void sendProbe(final long now) {
-		Processor p = host.getProcessor();
-		boolean gmcp = false;
-		boolean tm = false;
-		if (p != null && p.getOptionHandler() != null) {
-			gmcp = PingSendPolicy.sendGmcp(p.isUseGMCP(),
-					p.getOptionHandler().serverOffered(TC.GMCP));
-			tm = PingSendPolicy.sendTimingMark(
-					p.getOptionHandler().serverOffered(TC.TM));
-		}
-		if (!gmcp && !tm) {
-			notifyHud(PingProbe.NO_SAMPLE);
-			return;
-		}
-		if (gmcp) {
-			host.mHandler.obtainMessage(Connection.MESSAGE_SENDGMCPDATA, "Core.Ping")
-					.sendToTarget();
-		}
-		if (tm) {
-			byte[] bytes = new byte[] { TC.IAC, TC.DO, TC.TM };
-			Message opt = host.mHandler.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
-			Bundle b = opt.getData();
-			b.putByteArray("THE_DATA", bytes);
-			opt.setData(b);
-			host.mHandler.sendMessage(opt);
-		}
-		probe.markSent(now);
 	}
 
 	private boolean hudOn() {

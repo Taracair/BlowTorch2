@@ -323,11 +323,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Resume the rest of a {@code .wait} / {@code #wait} batch. obj is {@link PausedOutbound}. */
 	public static final int MESSAGE_WAIT_RESUME = 55;
 
-	/** Ping overlay: send the next Timing Mark / Core.Ping. */
+	/** Ping overlay: command-RTT timeout; does not put a probe on the wire. */
 	public static final int MESSAGE_PING_TICK = 61;
-	/** Inbound IAC WILL/WONT Timing Mark while a ping is in flight. */
+	/** Inbound IAC WILL/WONT Timing Mark (ignored for the overlay). */
 	public static final int MESSAGE_PING_MARK = 62;
-	/** Inbound GMCP Core.Ping while a ping is in flight. */
+	/** Inbound GMCP Core.Ping (ignored for the overlay). */
 	public static final int MESSAGE_PING_GMCP = 63;
 
 	/** Toast message offset from the top of the screen. */
@@ -2882,6 +2882,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mGauges.onOutputLine(text);
 			}
 			mService.doPromptLine(mDisplay, text);
+			// This path never reaches dispatchWholeLines.
+			mPing.onIncomingGameText(text);
 			return;
 		}
 		dispatchWholeLines(held);
@@ -2969,6 +2971,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
+		mPing.onIncomingGameText(stripped);
 		String toLog = stripped;
 		if (getMainWindowBooleanOption(TimestampCommand.OPTION_LOG, false)) {
 			int fields = TimestampFormat.clamp(getMainWindowIntegerOption(
@@ -7336,6 +7339,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				
 				if (mPump != null && mPump.isConnected()) {
 					mPump.sendData(tosend);
+					mPing.onCommandSent();
 				} else if (isOfflineMode()) {
 					// Offer the line to the tutorial's practice world first. It
 					// answers through sendBytesToWindow, which is the same path
@@ -7365,6 +7369,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					// The blank line is still echoed either way.
 					if (mPump != null && mPump.isConnected()) {
 						mPump.sendData(mCRLF.getBytes(mSettings.getEncoding()));
+						mPing.onCommandSent();
 					}
 					if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho,
 							AliasLocalEcho.INHERIT)) {

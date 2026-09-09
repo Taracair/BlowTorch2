@@ -43,6 +43,7 @@ public class PingCommand extends SpecialCommand {
 					+ ", opacity " + opacity + "%, size " + size
 					+ ", pos " + x + " " + y + ".\n"
 					+ PingCommandParser.usage()
+					+ "Type a command; the chip is round-trip until the next game line.\n"
 					+ "Also: Options → Window → Ping overlay?\n");
 			return null;
 		}
