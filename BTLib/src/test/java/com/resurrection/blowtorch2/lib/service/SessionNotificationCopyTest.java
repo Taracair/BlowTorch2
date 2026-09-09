@@ -37,6 +37,19 @@ public class SessionNotificationCopyTest {
 	}
 
 	@Test
+	public void connectingWorldListedBesideConnected() {
+		Model m = SessionNotificationCopy.build(Arrays.asList(
+				new World("world-a", "Connected · a.example:4000 · 12m 00s", true),
+				new World("world-b", "Connecting to b.example:4001…", false)));
+		assertEquals(2, m.count);
+		assertTrue(m.expand());
+		assertEquals("world-a · world-b", m.collapsed);
+		assertEquals(Arrays.asList(
+				"▸ world-a · Connected · a.example:4000 · 12m 00s",
+				"world-b · Connecting to b.example:4001…"), m.inboxLines);
+	}
+
+	@Test
 	public void twoWorldsExpandWithCurrentFirst() {
 		Model m = SessionNotificationCopy.build(Arrays.asList(
 				new World("world-a", "Connected · a.example:4000 · 1h 00m", false),

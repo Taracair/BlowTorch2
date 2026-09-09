@@ -1325,13 +1325,22 @@ public class StellarService extends Service {
 				new java.util.ArrayList<SessionNotificationCopy.World>();
 		if (mConnections != null) {
 			for (Connection c : mConnections.values()) {
-				if (c == null || !c.isConnected()) {
+				if (c == null) {
+					continue;
+				}
+				boolean connected = c.isConnected();
+				boolean starting = c.isStarting();
+				if (!SessionNotificationListing.include(connected, starting)) {
 					continue;
 				}
 				boolean current = c.getDisplay() != null
 						&& c.getDisplay().equals(mConnectionClutch);
+				String status = connected
+						? buildConnectedStatus(c)
+						: getString(R.string.notification_status_connecting,
+								c.getHost(), c.getPort());
 				worlds.add(new SessionNotificationCopy.World(
-						c.getDisplay(), buildConnectedStatus(c), current));
+						c.getDisplay(), status, current));
 			}
 		}
 		SessionNotificationCopy.Model model = SessionNotificationCopy.build(worlds);

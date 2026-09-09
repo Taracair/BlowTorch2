@@ -824,6 +824,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
 				clearStartupInProgress();
+				mService.showConnectionNotification(mDisplay, mHost, mPort);
 				mService.noteConnectionStarted(mDisplay);
 				mStyleRegisters = SgrRegisters.defaults();
 				mDispatchStyleModels = null;
@@ -3636,6 +3637,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mStartupInProgress = false;
 		}
 		mService.syncCpuWakeLock();
+		mService.updateForegroundNotification(null, null);
 	}
 	
 	/** Literal triggers starting with {@link McpEngine#TRIGGER_CHAR} ({@code @}) fire on MCP messages. */
@@ -8334,6 +8336,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final boolean isConnected() {
 		return mIsConnected;
+	}
+
+	/** True while {@link #doStartup} has begun and TCP has not yet come up. */
+	public final boolean isStarting() {
+		synchronized (mStartupLock) {
+			return mStartupInProgress;
+		}
 	}
 
 	/** True while the socket is up, handshake is running, reconnect is armed,
