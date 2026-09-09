@@ -3314,6 +3314,8 @@ this menu — they live under **Options → Miscellaneous**, beside the storage
 settings they depend on. Storage access is there too.
 
 Connection duration appears on the ongoing notification and launcher row.
+With more than one world connected, that notification expands: every live
+session is listed, and each name is a button that opens that world.
 
 **Persistent Connection?** (Options → Miscellaneous): only while **Auto
 Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for

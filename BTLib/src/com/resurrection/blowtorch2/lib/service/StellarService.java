@@ -484,18 +484,16 @@ public class StellarService extends Service {
 	 * @param c The connection that disconnected.
 	 */
 	public final void doDisconnect(final Connection c) {
-		String lasted = "";
 		long ms = c.getLastDurationMs();
 		if (ms <= 0L && c.getConnectedAtElapsed() > 0L) {
 			ms = android.os.SystemClock.elapsedRealtime() - c.getConnectedAtElapsed();
 		}
 		if (ms > 0L) {
 			mLastDurationMs.put(c.getDisplay(), ms);
-			lasted = " · " + getString(R.string.notification_status_lasted, ConnectionDuration.formatElapsed(ms));
 		}
-		// Reflect real state on the ongoing notification before any shutdown/dialog path.
-		updateForegroundNotification(c.getDisplay(),
-				getString(R.string.notification_status_disconnected, c.getHost()) + lasted);
+		// FGS lists every world that is still up; the drop itself is the
+		// auto-cancel alert from showDisconnectedNotification, not this bar.
+		updateForegroundNotification(null, null);
 
 		//attempt to display the disconnection dialog.
 		if (c.getDisplay().equals(mConnectionClutch)) {
@@ -666,13 +664,7 @@ public class StellarService extends Service {
 	}
 
 	private void refreshConnectedNotificationDuration() {
-		Connection active = null;
-		if (mConnectionClutch != null && mConnections != null) {
-			active = mConnections.get(mConnectionClutch);
-		}
-		if (active != null && active.isConnected()) {
-			updateForegroundNotification(active.getDisplay(), buildConnectedStatus(active));
-		}
+		updateForegroundNotification(null, null);
 		scheduleDurationRefresh();
 		notifyLauncherDurationChanged();
 	}
@@ -1316,7 +1308,9 @@ public class StellarService extends Service {
 	}
 	
 	/**
-	 * Buduje i wyświetla/odświeża jedno powiadomienie foreground dla aktywnego połączenia.
+	 * Rebuild the one ongoing FGS notification from every connected world.
+	 * {@code display} / {@code statusText} are ignored: the shade must not keep
+	 * naming a previous clutch after a second world is up.
 	 */
 	public final void updateForegroundNotification(final String display, final CharSequence statusText) {
 		int resId = this.getResources().getIdentifier(
@@ -1326,20 +1320,76 @@ public class StellarService extends Service {
 			resId = android.R.drawable.stat_notify_chat;
 		}
 		String channelId = createNotificationChannel();
+		CharSequence brand = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this);
+		java.util.ArrayList<SessionNotificationCopy.World> worlds =
+				new java.util.ArrayList<SessionNotificationCopy.World>();
+		if (mConnections != null) {
+			for (Connection c : mConnections.values()) {
+				if (c == null || !c.isConnected()) {
+					continue;
+				}
+				boolean current = c.getDisplay() != null
+						&& c.getDisplay().equals(mConnectionClutch);
+				worlds.add(new SessionNotificationCopy.World(
+						c.getDisplay(), buildConnectedStatus(c), current));
+			}
+		}
+		SessionNotificationCopy.Model model = SessionNotificationCopy.build(worlds);
+		String title;
+		String body;
+		if (model.count == 0) {
+			title = brand == null ? "" : brand.toString();
+			body = getString(R.string.notification_status_idle);
+		} else if (model.count == 1) {
+			title = model.tapDisplay;
+			body = model.collapsed;
+		} else {
+			title = getString(R.string.notification_session_many_title, brand, Integer.valueOf(model.count));
+			body = model.collapsed;
+		}
+		Intent tapIntent = sessionWindowIntent(model.tapDisplay);
+		PendingIntent contentIntent = PendingIntent.getActivity(
+				this, FOREGROUND_NOTIFICATION_ID, tapIntent, activityPendingIntentFlags());
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+				.setContentTitle(title)
+				.setContentText(body)
+				.setSmallIcon(resId)
+				.setOngoing(true)
+				.setOnlyAlertOnce(true)
+				.setPriority(NotificationCompat.PRIORITY_LOW)
+				.setContentIntent(contentIntent);
+		if (model.expand()) {
+			NotificationCompat.InboxStyle inbox = new NotificationCompat.InboxStyle()
+					.setBigContentTitle(title);
+			for (int i = 0; i < model.inboxLines.size(); i++) {
+				inbox.addLine(model.inboxLines.get(i));
+			}
+			builder.setStyle(inbox);
+			for (int i = 0; i < model.actionDisplays.size(); i++) {
+				String name = model.actionDisplays.get(i);
+				PendingIntent actionIntent = PendingIntent.getActivity(
+						this, 0x1201 + i, sessionWindowIntent(name),
+						activityPendingIntentFlags());
+				builder.addAction(resId, sessionActionLabel(name), actionIntent);
+			}
+		}
+		Notification note = builder.build();
+		startForeground(FOREGROUND_NOTIFICATION_ID, note);
+		mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
+		mHasForegroundNotification = true;
+	}
 
+	private Intent sessionWindowIntent(final String display) {
 		Intent notificationIntent = new Intent(
 				ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext()));
-		// The Class object was only ever used for the ComponentName the intent
-		// carries, but getting it built a PathClassLoader over our own APK and a
-		// second package Context on every notification refresh: 380 ms of disk
-		// reads on the service main thread, measured with StrictMode. MainWindow
-		// is declared in the manifest under exactly this name, so naming the
-		// component directly produces the identical ComponentName.
+		// Naming the component avoids a PathClassLoader over our APK on every
+		// refresh (measured 380 ms on the service thread under StrictMode).
 		notificationIntent.setClassName(this.getPackageName(), MAIN_WINDOW_CLASS);
-		if (display != null) {
-			notificationIntent.putExtra("DISPLAY", display);
-		}
-		Connection active = (display != null) ? mConnections.get(display) : null;
+		notificationIntent.setPackage(getPackageName());
+		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+				| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		Connection active = (display != null && display.length() > 0)
+				? mConnections.get(display) : null;
 		if (active == null && mConnectionClutch != null && !mConnectionClutch.isEmpty()) {
 			active = mConnections.get(mConnectionClutch);
 		}
@@ -1348,28 +1398,20 @@ public class StellarService extends Service {
 			notificationIntent.putExtra("HOST", active.getHost());
 			notificationIntent.putExtra("PORT", Integer.toString(active.getPort()));
 			notificationIntent.putExtra("TLS", active.isUseTls());
+		} else if (display != null && display.length() > 0) {
+			notificationIntent.putExtra("DISPLAY", display);
 		}
-		notificationIntent.setPackage(getPackageName());
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-		PendingIntent contentIntent = PendingIntent.getActivity(
-				this, FOREGROUND_NOTIFICATION_ID, notificationIntent, activityPendingIntentFlags());
+		return notificationIntent;
+	}
 
-		CharSequence brand = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this);
-		CharSequence title = (display != null && !display.isEmpty()) ? display : brand;
-
-		Notification note = new androidx.core.app.NotificationCompat.Builder(this, channelId)
-				.setContentTitle(title)
-				.setContentText(statusText)
-				.setSmallIcon(resId)
-				.setOngoing(true)
-				.setOnlyAlertOnce(true)
-				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-				.setContentIntent(contentIntent)
-				.build();
-
-		startForeground(FOREGROUND_NOTIFICATION_ID, note);
-		mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
-		mHasForegroundNotification = true;
+	private static String sessionActionLabel(final String display) {
+		if (display == null) {
+			return "";
+		}
+		if (display.length() <= 22) {
+			return display;
+		}
+		return display.substring(0, 21) + "…";
 	}
 
 	@SuppressWarnings("deprecation")

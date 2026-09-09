@@ -9110,6 +9110,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (service.isConnectedTo(display)) {
 						service.switchTo(display);
 						switched = true;
+						// Clutch moves on the service handler after this
+						// returns; onResume must not switchTo the old clutch.
+						mPinLaunchPending = true;
+						rememberForegroundConnection(display);
 					}
 				}
 				// Notification tap while disconnected: reconnect the still-tracked session.
