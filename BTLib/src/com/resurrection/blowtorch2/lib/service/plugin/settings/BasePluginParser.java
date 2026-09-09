@@ -37,6 +37,8 @@ public class BasePluginParser {
 	public static final String ATTR_SEQUENCE = "sequence";
 	public static final String ATTR_GROUP = "group";
 	public static final String ATTR_KEEPEVALUATING = "keepEvaluating";
+	public static final String ATTR_TRIGGER_ALSO = "also";
+	public static final String ATTR_TRIGGER_ALSO_LITERAL = "alsoLiteral";
 	public static final String ATTR_SCRIPT = "script";
 	
 	

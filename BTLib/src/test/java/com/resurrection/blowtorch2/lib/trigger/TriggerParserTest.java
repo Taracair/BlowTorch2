@@ -159,4 +159,49 @@ public class TriggerParserTest {
 		TriggerParser.saveTriggerToXML(out, trigger);
 		assertTrue(out.toString().contains("fireOnce=\"send\""));
 	}
+
+	@Test
+	public void saveTriggerToXmlOmitsAlsoWhenEmpty() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("plain");
+		trigger.setPattern("x");
+		trigger.setSave(true);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertFalse(xml.contains("also="));
+		assertFalse(xml.contains("alsoLiteral"));
+	}
+
+	@Test
+	public void saveTriggerToXmlWritesAlsoAndOmitsLiteralWhenTrue() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("spam");
+		trigger.setPattern("--");
+		trigger.setSave(true);
+		trigger.setAlsoContains("[chan]:");
+		trigger.setAlsoLiteral(true);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertTrue(xml.contains("also=\"[chan]:\""));
+		assertFalse(xml.contains("alsoLiteral"));
+	}
+
+	@Test
+	public void saveTriggerToXmlWritesAlsoLiteralFalse() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("spam");
+		trigger.setPattern("--");
+		trigger.setSave(true);
+		trigger.setAlsoContains("\\[chan\\]:");
+		trigger.setAlsoLiteral(false);
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertTrue(xml.contains("alsoLiteral=\"false\""));
+	}
 }

@@ -52,6 +52,10 @@ public class TriggerElementListener implements ElementListener {
 		current_trigger.setGroup( (a.getValue("",BasePluginParser.ATTR_GROUP) == null) ? "" : a.getValue("",BasePluginParser.ATTR_GROUP));
 		current_trigger.setKeepEvaluating(TriggerParser.keepEvaluatingFromAttribute(
 				a.getValue("", BasePluginParser.ATTR_KEEPEVALUATING)));
+		String also = a.getValue("", BasePluginParser.ATTR_TRIGGER_ALSO);
+		current_trigger.setAlsoContains(also == null ? "" : also);
+		String alsoLit = a.getValue("", BasePluginParser.ATTR_TRIGGER_ALSO_LITERAL);
+		current_trigger.setAlsoLiteral(alsoLit == null || "true".equals(alsoLit));
 		
 		current_trigger.setResponders(new ArrayList<TriggerResponder>());
 		current_trigger.setConditions(new ConditionGroup());

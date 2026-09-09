@@ -117,4 +117,19 @@ public class TriggerSampleHitsTest {
 				"CORPCHAT: Name opens north", cands, null, null, 8);
 		assertEquals(Arrays.asList("_channel (10)", "_colour (11)"), hits);
 	}
+
+	@Test
+	public void alsoContainsSkipsALineWithoutTheTag() {
+		TriggerData spam = line("_spam", "--", false);
+		spam.setAlsoContains("[chan]:");
+		spam.setAlsoLiteral(true);
+		List<TriggerSampleHits.Candidate> cands =
+				new ArrayList<TriggerSampleHits.Candidate>();
+		cands.add(TriggerSampleHits.Candidate.tryCreate(TriggerSampleHits.MAIN_PLUGIN, spam));
+		assertTrue(TriggerSampleHits.matchingLabels(
+				"-- map --", cands, null, null, 8).isEmpty());
+		assertEquals(Collections.singletonList("_spam (10)"),
+				TriggerSampleHits.matchingLabels(
+						"[chan]: title -- spam", cands, null, null, 8));
+	}
 }

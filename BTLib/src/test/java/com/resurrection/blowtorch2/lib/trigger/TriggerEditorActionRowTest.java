@@ -75,12 +75,17 @@ public class TriggerEditorActionRowTest {
 	}
 
 	@Test
-	public void editorHelpMergesPatternAndConditions() {
+	public void editorHelpMergesPatternAndConditions() throws Exception {
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("LITERAL?"));
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("KEEP GOING"));
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("ORDER"));
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("not \"on top\""));
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("WHO ELSE FIRES"));
+		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("ALSO ON THIS LINE"));
+		assertTrue(TriggerEditorDialog.MATCH_STYLE_HELP_TEXT.contains("not a second Match style"));
+		assertTrue("the Also field sits under Pattern",
+				read(new java.io.File(layoutDir(), "trigger_editor_dialog.xml"))
+						.contains("android:id=\"@+id/trigger_editor_also\""));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
 	}

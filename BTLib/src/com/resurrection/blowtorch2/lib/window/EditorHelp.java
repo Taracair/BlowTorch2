@@ -167,8 +167,8 @@ public final class EditorHelp {
 			+ "WHO ELSE FIRES\n"
 			+ "Type a game line under Order. Other enabled triggers that also match "
 			+ "that line are listed with their numbers, so you can see the replace "
-			+ "is at 10 and put the colour at 11. It tries one line; it does not "
-			+ "compare patterns.\n\n";
+			+ "is at 10 and put the colour at 11. It tries one line, including Also "
+			+ "on this line. It does not compare patterns.\n\n";
 
 	public static final String TRIGGERS =
 			"A trigger matches a line the GAME sent, and runs its actions. It never "
@@ -183,6 +183,13 @@ public final class EditorHelp {
 			+ "The preview under the pattern box says what your pattern will really "
 			+ "do, and the ? in the trigger editor explains the box in full -- "
 			+ "including using an alias's text as the pattern.\n\n"
+			+ "ALSO ON THIS LINE\n"
+			+ "Optional second gate after Pattern and Match style. The same line must "
+			+ "also contain this text (its own Literal?). Empty means no gate. Pattern "
+			+ "-- plus Also [chan]: hides that channel's spam and leaves a minimap "
+			+ "-- alone. Conditions are not this: two triggers plus trigger-ON does "
+			+ "not AND two patterns on one line. Match style still applies only to "
+			+ "the Pattern span — two colours on two spans is not this field.\n\n"
 			+ "MORE THAN ONE LINE\n"
 			+ "Write \\n where the line break is, and one trigger matches a block:\n\n"
 			+ "    Pattern  You see (.+) here\\.\\nIt looks (\\w+)\n"
@@ -236,7 +243,8 @@ public final class EditorHelp {
 			+ "MATCH STYLE\n"
 			+ "Require or forbid colour and SGR flags on the matched glyphs. The "
 			+ "pattern may be blank when a style is set. Pattern is the line matcher; "
-			+ "Run text is an extra layer on that match, not a second pattern. "
+			+ "Run text is an extra layer on that match, not a second pattern. Also "
+			+ "on this line is a separate text gate, not a second colour recipe. "
 			+ ".grabber copies layers from a "
 			+ "finger into a new trigger. Colour you paint with a Color action is not "
 			+ "the world's style.";

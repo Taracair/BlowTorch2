@@ -336,6 +336,10 @@ public class HyperSAXParser extends BaseParser {
 				//Log.e("PARSER","PARSING NOTIFICATION ELEMENT");
 				current_trigger.setName(attr.getValue("",ATTR_TRIGGERTITLE));
 				current_trigger.setPattern(attr.getValue("",ATTR_TRIGGERPATTERN));
+				String also = attr.getValue("", ATTR_TRIGGER_ALSO);
+				current_trigger.setAlsoContains(also == null ? "" : also);
+				String alsoLit = attr.getValue("", ATTR_TRIGGER_ALSO_LITERAL);
+				current_trigger.setAlsoLiteral(alsoLit == null || "true".equals(alsoLit));
 				// "true".equals rather than the other way round: a profile written
 				// before this attribute existed has no value here, and the old form
 				// NPE'd in the middle of the SAX parse. Missing means false, which

@@ -245,12 +245,20 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//if(isEditor) {
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
+		EditText also = (EditText)findViewById(R.id.trigger_editor_also);
 		AutoCompleteTextView group = (AutoCompleteTextView)findViewById(R.id.trigger_editor_group);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
+		CheckBox alsoLiteral = (CheckBox)findViewById(R.id.trigger_also_literal_checkbox);
 		
 		title.setText(the_trigger.getName());
 		pattern.setText(the_trigger.getPattern());
+		if (also != null) {
+			also.setText(the_trigger.getAlsoContains());
+		}
+		if (alsoLiteral != null) {
+			alsoLiteral.setChecked(the_trigger.isAlsoLiteral());
+		}
 		if (group != null) {
 			String g = the_trigger.getGroup();
 			group.setText(g != null ? g : "");
@@ -686,6 +694,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		}
 	}
 
+	private void applyAlsoFromEditor() {
+		EditText also = (EditText) findViewById(R.id.trigger_editor_also);
+		if (also != null) {
+			the_trigger.setAlsoContains(also.getText().toString());
+		}
+		CheckBox alsoLiteral = (CheckBox) findViewById(R.id.trigger_also_literal_checkbox);
+		if (alsoLiteral != null) {
+			the_trigger.setAlsoLiteral(alsoLiteral.isChecked());
+		}
+	}
+
 	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
 		String patternText = pattern.getText().toString();
 		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture =
@@ -820,6 +839,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "puts the name in $1, which you can use in the responses. If it does not "
 			+ "compile it is matched as plain text instead, and the preview under the "
 			+ "box says what was wrong.\n\n"
+			+ "ALSO ON THIS LINE\n"
+			+ "A second gate after Pattern (and Match style) succeed. The same line "
+			+ "as the Pattern match must also contain this text. Also literal? under "
+			+ "the field is independent of Pattern Literal?. Empty means no gate.\n\n"
+			+ "Pattern -- with Also [chan]: gags that channel's spam line and leaves "
+			+ "a minimap -- alone, even when those dashes use the same colour. Two "
+			+ "triggers plus a Condition do not AND two patterns on one line — "
+			+ "Conditions are trigger ON/OFF and session variables.\n\n"
+			+ "This field is text, not a second colour recipe. Match style still "
+			+ "applies only to the Pattern span. Two different colours on two spans "
+			+ "is not this field.\n\n"
 			+ "USING AN ALIAS\n"
 			+ "Type an alias's name on its own and the trigger watches for that alias's "
 			+ "text instead of the name. So with an alias item that types "
@@ -880,7 +910,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "matcher (blank = every run of that colour). Run text is an extra "
 			+ "layer on that match or run, not a second pattern — leave it empty "
 			+ "unless the pattern is blank and the coloured run must contain that "
-			+ "phrase. Tap MATCH STYLE to "
+			+ "phrase. Also on this line is a separate text gate on the whole line, "
+			+ "not a second Match style. Tap MATCH STYLE to "
 			+ "expand or collapse the layers. .grabber copies layers into a new "
 			+ "trigger or the clipboard.";
 
@@ -927,6 +958,15 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		boolean retval = false;
 		if(!(title.getText().toString().equals(test.getName()))) retval = true;
 		if(!(pattern.getText().toString().equals(test.getPattern()))) retval = true;
+		EditText alsoField = (EditText)findViewById(R.id.trigger_editor_also);
+		if (alsoField != null
+				&& !alsoField.getText().toString().equals(test.getAlsoContains())) {
+			retval = true;
+		}
+		CheckBox alsoLitBox = (CheckBox)findViewById(R.id.trigger_also_literal_checkbox);
+		if (alsoLitBox != null && test.isAlsoLiteral() != alsoLitBox.isChecked()) {
+			retval = true;
+		}
 		String groupText = readGroupField();
 		String existingGroup = test.getGroup() != null ? test.getGroup() : "";
 		if(!groupText.equals(existingGroup)) retval = true;
@@ -1100,6 +1140,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				//do editor type action
 				the_trigger.setName(title.getText().toString());
 				the_trigger.setPattern(pattern.getText().toString());
+				applyAlsoFromEditor();
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				applySequenceFromEditor();
@@ -1127,6 +1168,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			} else {	
 				the_trigger.setName(title.getText().toString());
 				the_trigger.setPattern(pattern.getText().toString());
+				applyAlsoFromEditor();
 				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				applySequenceFromEditor();

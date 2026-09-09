@@ -36,13 +36,18 @@ public final class TriggerSampleHits {
 		public final String name;
 		final int sequence;
 		final Pattern multiline;
+		final String alsoContains;
+		final boolean alsoLiteral;
 
 		Candidate(final String plugin, final String name, final int sequence,
-				final Pattern multiline) {
+				final Pattern multiline, final String alsoContains,
+				final boolean alsoLiteral) {
 			this.plugin = plugin;
 			this.name = name;
 			this.sequence = sequence;
 			this.multiline = multiline;
+			this.alsoContains = alsoContains != null ? alsoContains : "";
+			this.alsoLiteral = alsoLiteral;
 		}
 
 		public String label() {
@@ -64,7 +69,8 @@ public final class TriggerSampleHits {
 			try {
 				Pattern dispatch = Pattern.compile(
 						t.getCompiledPattern().pattern(), Pattern.MULTILINE);
-				return new Candidate(plugin, t.getName(), t.getSequence(), dispatch);
+				return new Candidate(plugin, t.getName(), t.getSequence(), dispatch,
+						t.getAlsoContains(), t.isAlsoLiteral());
 			} catch (PatternSyntaxException e) {
 				return null;
 			}
@@ -117,7 +123,12 @@ public final class TriggerSampleHits {
 			if (sameTrigger(c, skipPlugin, skipNames)) {
 				continue;
 			}
-			if (!c.multiline.matcher(sample).find()) {
+			java.util.regex.Matcher m = c.multiline.matcher(sample);
+			if (!m.find()) {
+				continue;
+			}
+			if (!AlsoContainsGate.passes(sample, m.start(), c.alsoContains,
+					c.alsoLiteral)) {
 				continue;
 			}
 			if (hits.size() < cap) {

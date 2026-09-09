@@ -312,4 +312,25 @@ public class TriggerCascadeTest {
 		TriggerCascade c = compile(t);
 		assertTrue(c.isEmpty());
 	}
+
+	@Test
+	public void alsoContainsSkipsADashWithoutTheTag() {
+		TriggerData t = trigger("spam", "--");
+		t.setInterpretAsRegex(false);
+		t.setAlsoContains("[chan]:");
+		t.setAlsoLiteral(true);
+		String chunk = "[chan]: title -- spam\n-- map --\n";
+		List<TriggerCascade.Hit> hits = drain(compile(t), chunk);
+		assertEquals(1, hits.size());
+		assertEquals("--", hits.get(0).matched());
+		assertEquals(chunk.indexOf("-- spam"), hits.get(0).start);
+	}
+
+	@Test
+	public void emptyAlsoContainsDoesNotFilter() {
+		TriggerData t = trigger("dash", "--");
+		t.setInterpretAsRegex(false);
+		List<TriggerCascade.Hit> hits = drain(compile(t), "[chan]: --\n-- map\n");
+		assertEquals(2, hits.size());
+	}
 }

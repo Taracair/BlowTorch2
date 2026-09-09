@@ -41,6 +41,8 @@ public class TriggerData implements Parcelable {
 	private List<TriggerResponder> responders;
 	private ConditionGroup conditions;
 	private StyleMatchSpec styleMatch;
+	private String alsoContains = "";
+	private boolean alsoLiteral = true;
 	
 	private Pattern p = null;
 	private Matcher m = null;
@@ -79,6 +81,8 @@ public class TriggerData implements Parcelable {
 		}
 		tmp.conditions = this.conditions != null ? this.conditions.copy() : new ConditionGroup();
 		tmp.styleMatch = this.styleMatch != null ? this.styleMatch.copy() : new StyleMatchSpec();
+		tmp.alsoContains = this.alsoContains != null ? this.alsoContains : "";
+		tmp.alsoLiteral = this.alsoLiteral;
 		tmp.buildData();
 		return tmp;
 	}
@@ -233,6 +237,10 @@ public class TriggerData implements Parcelable {
 		StyleMatchSpec otherStyle = test.styleMatch != null ? test.styleMatch : new StyleMatchSpec();
 		StyleMatchSpec myStyle = this.styleMatch != null ? this.styleMatch : new StyleMatchSpec();
 		if(!otherStyle.equals(myStyle)) return false;
+		String otherAlso = test.alsoContains != null ? test.alsoContains : "";
+		String myAlso = this.alsoContains != null ? this.alsoContains : "";
+		if(!otherAlso.equals(myAlso)) return false;
+		if(test.alsoLiteral != this.alsoLiteral) return false;
 		if(test.responders.size() != this.responders.size()) return false;
 		Iterator<TriggerResponder> test_responders = test.responders.iterator();
 		Iterator<TriggerResponder> my_responders = this.responders.iterator();
@@ -360,6 +368,8 @@ public class TriggerData implements Parcelable {
 		if (styleMatch == null) {
 			styleMatch = new StyleMatchSpec();
 		}
+		setAlsoContains(in.readString());
+		setAlsoLiteral(in.readInt() == 1);
 	}
 	
 	//save these for later.
@@ -394,6 +404,8 @@ public class TriggerData implements Parcelable {
 		}
 		out.writeParcelable(conditions != null ? conditions : new ConditionGroup(), 0);
 		out.writeParcelable(styleMatch != null ? styleMatch : new StyleMatchSpec(), 0);
+		out.writeString(alsoContains != null ? alsoContains : "");
+		out.writeInt(alsoLiteral ? 1 : 0);
 	}
 
 	public void setName(String name) {
@@ -541,6 +553,22 @@ public class TriggerData implements Parcelable {
 
 	public void setStyleMatch(StyleMatchSpec styleMatch) {
 		this.styleMatch = styleMatch != null ? styleMatch : new StyleMatchSpec();
+	}
+
+	public String getAlsoContains() {
+		return alsoContains != null ? alsoContains : "";
+	}
+
+	public void setAlsoContains(String alsoContains) {
+		this.alsoContains = alsoContains != null ? alsoContains : "";
+	}
+
+	public boolean isAlsoLiteral() {
+		return alsoLiteral;
+	}
+
+	public void setAlsoLiteral(boolean alsoLiteral) {
+		this.alsoLiteral = alsoLiteral;
 	}
 
 	public boolean isBlankPattern() {

@@ -623,6 +623,13 @@ In the trigger editor:
 
 - **Literal?** on → match the pattern as plain text (no regex)  
 - **Literal?** off → pattern is a regular expression  
+- **Also on this line** → optional second gate after Pattern and Match
+  style. The same line must also contain this text (its own **Also
+  literal?**). Empty = no gate. Pattern `--` plus Also `[chan]:` hides
+  that channel's spam and leaves a minimap `--` alone. Conditions are not
+  this (two triggers plus trigger-ON do not AND two patterns on one
+  line). Match style still applies only to the Pattern span — two colours
+  on two spans is not this field.  
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
   Off → after this trigger fires, later triggers are not tried on this line.
@@ -648,8 +655,8 @@ In the trigger editor:
   each plugin.  
 - **Who else fires** → type a game line under Order. Other enabled triggers
   that also match that line are listed **with their numbers**, so you can
-  see the replace is at 10 and put the colour at 11. It tries one line; it
-  does not compare patterns.  
+  see the replace is at 10 and put the colour at 11. It tries one line,
+  including Also on this line. It does not compare patterns.  
 - **Preview** under the pattern box is three lines; **Show all** / **Show less**
   opens the rest (what the pattern will really match, alias paste, compile).
   **New Action** stays pinned above Cancel / ? / Done.  
@@ -679,7 +686,8 @@ In the trigger editor:
   phrase; there is no regex group. Pattern plus style: the text matches
   as today, and the matched span must also pass the style. Pattern is the
   line matcher; Run text is an extra layer on that match, not a second
-  pattern. Colour from a
+  pattern. Also on this line is a separate text gate, not a second colour
+  recipe. Colour from a
   Color action is not the world's style. `.grabber` fills these layers
   from a glyph — see `.grabber` below.
 

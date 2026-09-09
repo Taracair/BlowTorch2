@@ -104,6 +104,8 @@ public class BaseParser {
 	static final String TAG_TRIGGER = "trigger";
 	static final String ATTR_TRIGGERTITLE = "title";
 	static final String ATTR_TRIGGERPATTERN = "pattern";
+	static final String ATTR_TRIGGER_ALSO = "also";
+	static final String ATTR_TRIGGER_ALSO_LITERAL = "alsoLiteral";
 	static final String ATTR_TRIGGERLITERAL = "interpretLiteral";
 	static final String ATTR_TRIGGERONCE = "fireOnce";
 	static final String ATTR_TRIGGERHIDDEN = "hidden";

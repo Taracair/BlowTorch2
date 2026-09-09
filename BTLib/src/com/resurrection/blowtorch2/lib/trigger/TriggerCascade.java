@@ -63,6 +63,7 @@ public final class TriggerCascade {
 	private int[] styleStrippedLens;
 	private int styleRunLine;
 	private int styleRunIdx;
+	private CharSequence sourceText = "";
 
 	private TriggerCascade(final Entry[] entries) {
 		this.entries = entries;
@@ -131,6 +132,7 @@ public final class TriggerCascade {
 	 */
 	public void reset(final CharSequence text) {
 		CharSequence src = text == null ? "" : text;
+		sourceText = src;
 		idx = 0;
 		stopped = false;
 		styleRunLine = 0;
@@ -208,6 +210,9 @@ public final class TriggerCascade {
 						continue;
 					}
 				}
+				if (!alsoOk(e.trigger, m.start())) {
+					continue;
+				}
 				int count = m.groupCount();
 				String[] groups = new String[count + 1];
 				for (int i = 0; i <= count; i++) {
@@ -245,14 +250,26 @@ public final class TriggerCascade {
 				if (!StyleMatcher.matches(run.snapshot, spec, run.text)) {
 					continue;
 				}
+				int hitStart = base + run.start;
+				if (!alsoOk(t, hitStart)) {
+					continue;
+				}
 				// No regex groups; $1 is the run so Ack $1 matches alias habit.
-				return new Hit(t, base + run.start, base + run.end,
+				return new Hit(t, hitStart, base + run.end,
 						new String[] { run.text, run.text });
 			}
 			styleRunLine++;
 			styleRunIdx = 0;
 		}
 		return null;
+	}
+
+	private boolean alsoOk(final TriggerData t, final int matchStart) {
+		if (t == null) {
+			return true;
+		}
+		return AlsoContainsGate.passes(sourceText, matchStart,
+				t.getAlsoContains(), t.isAlsoLiteral());
 	}
 
 	private boolean spanMatches(final int start, final int end,

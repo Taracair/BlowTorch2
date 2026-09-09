@@ -341,6 +341,12 @@ public class HyperSettings {
 				out.startTag("", BaseParser.TAG_TRIGGER);
 				out.attribute("", BaseParser.ATTR_TRIGGERTITLE, trigger.getName());
 				out.attribute("", BaseParser.ATTR_TRIGGERPATTERN, trigger.getPattern());
+				if (trigger.getAlsoContains().length() > 0) {
+					out.attribute("", BaseParser.ATTR_TRIGGER_ALSO, trigger.getAlsoContains());
+					if (!trigger.isAlsoLiteral()) {
+						out.attribute("", BaseParser.ATTR_TRIGGER_ALSO_LITERAL, "false");
+					}
+				}
 				out.attribute("", BaseParser.ATTR_TRIGGERLITERAL, trigger.isInterpretAsRegex() ? "true" : "false");
 				String once = trigger.getFireOnce().xmlValue();
 				out.attribute("", BaseParser.ATTR_TRIGGERONCE, once != null ? once : "false");

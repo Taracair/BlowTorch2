@@ -74,6 +74,12 @@ public final class TriggerParser {
 			if(!trigger.isKeepEvaluating()) {
 				out.attribute("", BasePluginParser.ATTR_KEEPEVALUATING, "false");
 			}
+			if (trigger.getAlsoContains().length() > 0) {
+				out.attribute("", BasePluginParser.ATTR_TRIGGER_ALSO, trigger.getAlsoContains());
+				if (!trigger.isAlsoLiteral()) {
+					out.attribute("", BasePluginParser.ATTR_TRIGGER_ALSO_LITERAL, "false");
+				}
+			}
 			
 			ConditionParser.saveConditionsToXML(out, trigger);
 			com.resurrection.blowtorch2.lib.trigger.style.StyleMatchXml.saveToXML(out,
