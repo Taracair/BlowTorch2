@@ -100,6 +100,8 @@ import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
+import com.resurrection.blowtorch2.lib.window.TimestampFormat;
+import com.resurrection.blowtorch2.lib.service.function.TimestampCommand;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.alias.AliasLocalEcho;
 
@@ -653,6 +655,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.WhenCommand whencmd =
 				new com.resurrection.blowtorch2.lib.service.function.WhenCommand();
 		mSpecialCommands.put(whencmd.commandName, whencmd);
+		com.resurrection.blowtorch2.lib.service.function.TimestampCommand timestampcmd =
+				new com.resurrection.blowtorch2.lib.service.function.TimestampCommand();
+		mSpecialCommands.put(timestampcmd.commandName, timestampcmd);
 		com.resurrection.blowtorch2.lib.service.function.PingCommand pingcmd =
 				new com.resurrection.blowtorch2.lib.service.function.PingCommand();
 		mSpecialCommands.put(pingcmd.commandName, pingcmd);
@@ -2963,7 +2968,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
-		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
+		String toLog = stripped;
+		if (getMainWindowBooleanOption(TimestampCommand.OPTION_LOG, false)) {
+			int fields = TimestampFormat.clamp(getMainWindowIntegerOption(
+					TimestampCommand.OPTION_FIELDS, TimestampFormat.DEFAULT));
+			toLog = TimestampFormat.prefixLog(stripped, System.currentTimeMillis(), fields);
+		}
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, toLog);
 		// Measured here rather than anywhere else on purpose: this is the exact
 		// string the trigger cascade is matched against, so it is the
 		// only place that can answer whether a pattern could span lines.

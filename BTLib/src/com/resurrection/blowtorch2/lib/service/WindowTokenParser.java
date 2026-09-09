@@ -22,6 +22,7 @@ import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.ping.PingHudLayout;
+import com.resurrection.blowtorch2.lib.window.TimestampFormat;
 
 import android.sax.Element;
 import android.util.Log;
@@ -310,6 +311,8 @@ public final class WindowTokenParser {
 					case light_paper:
 					case scroll_dates:
 					case ping_hud:
+					case line_stamps:
+					case line_stamps_log:
 					case android_fling:
 						// Default is false; persist only when enabled.
 						if ((Boolean) ((BooleanOption) o).getValue()) {
@@ -392,6 +395,17 @@ public final class WindowTokenParser {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text(Integer.toString(PingHudLayout.clampPercent(
+									((Integer) ((IntegerOption) o).getValue()).intValue())));
+							out.endTag("", "option");
+						}
+						break;
+					case line_stamps_fields:
+						if (TimestampFormat.clamp(
+								((Integer) ((IntegerOption) o).getValue()).intValue())
+								!= TimestampFormat.DEFAULT) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(Integer.toString(TimestampFormat.clamp(
 									((Integer) ((IntegerOption) o).getValue()).intValue())));
 							out.endTag("", "option");
 						}

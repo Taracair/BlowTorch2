@@ -1571,6 +1571,7 @@ is enabled; `.alias list` shows every alias at once.
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
+    `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Line timestamps?
     `.ping [show|hide|toggle|opacity N|size N|pos X Y]`  Round-trip chip on the game. Long-press then drag. Not ICMP. Number only if the world offered GMCP (Core.Ping) or Timing Mark. Also Options → Window → Ping overlay?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
@@ -2536,6 +2537,30 @@ the session log is the archive for that.
 .when
 .when on | off | toggle
 .when opacity N
+```
+
+## Line timestamps
+
+**Options → Window → Line timestamps?** (off by default). Each line shows
+when it arrived, on the **right** of its first row. The game text itself is
+unchanged: wrapping, triggers, maps and copy stay as they were. Extra-text
+windows stay off unless that window's option is on (those tokens are not
+saved for extra-text slots).
+
+**Timestamps in session log?** prefixes the same stamp on the **left** of
+each incoming line written to the session log. Copy from the screen does
+not add it.
+
+`.timestamp hour | minute | second | month | year` chooses parts (default
+hour and minute, e.g. `14:32`). Month adds the day (`18 Aug 14:32`). This
+is not `.when`, which is history chrome to the left of ⋮ while you have
+scrolled back.
+
+```
+.timestamp
+.timestamp on | off | toggle
+.timestamp log on | off | toggle
+.timestamp hour | minute | second | month | year [on|off]
 ```
 
 ## Ping overlay

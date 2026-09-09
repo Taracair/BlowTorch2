@@ -70,6 +70,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
+		cmd("timestamp", "The window", "time each line arrived, on the right; .timestamp log");
 		cmd("ping", "The window", "RTT chip on the game; .ping show|hide, opacity, size");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
@@ -295,6 +296,18 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .when on|off|toggle\n"
 					+ "  .when opacity N    — how solid that date is (15–100)\n"
 					+ "  .search 14:32 | 18 Aug  — jump to that moment (while on)\n";
+		}
+		if (filter.equals("timestamp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .timestamp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .timestamp                 — on/off, log, which parts\n"
+					+ "  .timestamp on|off|toggle | show|hide\n"
+					+ "  .timestamp log on|off|toggle\n"
+					+ "  .timestamp hour|minute|second|month|year [on|off]\n"
+					+ "On the right of each line. Does not change wrapping, triggers or copy.\n"
+					+ "Log prefixes the same stamp on the left of each session-log line.\n"
+					+ "Not the same as .when (that is history chrome next to ⋮).\n";
 		}
 		if (filter.equals("ping")) {
 			return "\n"

@@ -26,6 +26,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"light_paper", "light_paper_shade",
 				"scroll_dates", "scroll_dates_opacity",
 				"ping_hud", "ping_opacity", "ping_size", "ping_x", "ping_y",
+				"line_stamps", "line_stamps_log", "line_stamps_fields",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
 				"cutout_portrait", "cutout_landscape",
 				"hyperlinks_enabled", "osc8_links",

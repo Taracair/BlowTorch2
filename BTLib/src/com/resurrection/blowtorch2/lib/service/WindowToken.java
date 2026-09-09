@@ -21,6 +21,7 @@ import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 import com.resurrection.blowtorch2.lib.ping.PingHudLayout;
+import com.resurrection.blowtorch2.lib.window.TimestampFormat;
 
 import android.content.res.Configuration;
 import android.os.Parcel;
@@ -134,6 +135,12 @@ public class WindowToken implements Parcelable {
 		ping_size,
 		ping_x,
 		ping_y,
+		/** Per-line arrival time on the right of the game. .timestamp on|off */
+		line_stamps,
+		/** Prefix that stamp on the left of each session-log line. .timestamp log */
+		line_stamps_log,
+		/** Hour/minute/second/month/year bits. Default hour+minute. */
+		line_stamps_fields,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -511,6 +518,27 @@ public class WindowToken implements Parcelable {
 		pingY.setKey("ping_y");
 		pingY.setValue(PingHudLayout.DEFAULT_Y);
 		window.addOption(pingY);
+
+		BooleanOption lineStamps = new BooleanOption();
+		lineStamps.setTitle("Line timestamps?");
+		lineStamps.setDescription("Show when each line arrived, on the right. Maps stay left-aligned. Does not change wrapping, triggers or copy. Off by default. .timestamp on|off");
+		lineStamps.setKey("line_stamps");
+		lineStamps.setValue(false);
+		window.addOption(lineStamps);
+
+		BooleanOption lineStampsLog = new BooleanOption();
+		lineStampsLog.setTitle("Timestamps in session log?");
+		lineStampsLog.setDescription("Prefix the same stamp on the left of each logged incoming line. Off by default. .timestamp log on|off");
+		lineStampsLog.setKey("line_stamps_log");
+		lineStampsLog.setValue(false);
+		window.addOption(lineStampsLog);
+
+		IntegerOption lineStampsFields = new IntegerOption();
+		lineStampsFields.setTitle("Timestamp parts");
+		lineStampsFields.setDescription("Changed with .timestamp hour | minute | second | month | year. Default hour and minute. Stored as bits: hour 1, minute 2, second 4, month 8, year 16.");
+		lineStampsFields.setKey("line_stamps_fields");
+		lineStampsFields.setValue(Integer.valueOf(TimestampFormat.DEFAULT));
+		window.addOption(lineStampsFields);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

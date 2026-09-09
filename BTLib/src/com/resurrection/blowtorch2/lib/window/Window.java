@@ -661,6 +661,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Date overlay + position mark while in history. Options → Window → Scroll dates? */
 	private boolean mScrollDates = false;
 	private int mScrollDatesOpacity = WindowToken.DEFAULT_SCROLL_DATES_OPACITY;
+	/** Per-line arrival time on the right. Options → Window → Line timestamps? */
+	private boolean mLineStamps = false;
+	private int mLineStampsFields = TimestampFormat.DEFAULT;
 	private final Paint mJumpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Path mJumpPath = new Path();
 	private final Paint mWhenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -995,6 +998,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (scrollDatesOpacity != null) {
 			mScrollDatesOpacity = WindowToken.clampScrollDatesOpacity(
 					((Integer) scrollDatesOpacity.getValue()).intValue());
+		}
+		BooleanOption lineStamps = (BooleanOption) settings.findOptionByKey("line_stamps");
+		if (lineStamps != null) {
+			mLineStamps = (Boolean) lineStamps.getValue();
+		}
+		IntegerOption lineStampsFields =
+				(IntegerOption) settings.findOptionByKey("line_stamps_fields");
+		if (lineStampsFields != null) {
+			mLineStampsFields = TimestampFormat.clamp(
+					((Integer) lineStampsFields.getValue()).intValue());
 		}
 		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
 		if (osc8Links != null) {
@@ -3279,6 +3292,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					x = -mScrollX;
 					drawnlines += lineRows;
 					workingline = workingline - lineRows;
+					drawLineStamp(hw, l, y0);
 					if (drawnlines > mCalculatedLinesInWindow + extraLines) {
 						stop = true;
 					}
@@ -3677,6 +3691,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						c = hw;
 					}
 				}
+				drawLineStamp(hw, l, y0);
 			}
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
@@ -6781,6 +6796,20 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_PING_HUD);
 				}
 				break;
+			case line_stamps:
+				mLineStamps = (Boolean) o.getValue();
+				this.invalidate();
+				break;
+			case line_stamps_log:
+				break;
+			case line_stamps_fields:
+				{
+					int n = TimestampFormat.clamp(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mLineStampsFields = n;
+				}
+				this.invalidate();
+				break;
 			case osc8_links:
 				applyOsc8Links((Boolean) o.getValue());
 				this.invalidate();
@@ -6937,6 +6966,9 @@ end
 		ping_size,
 		ping_x,
 		ping_y,
+		line_stamps,
+		line_stamps_log,
+		line_stamps_fields,
 		osc8_links,
 		top_padding,
 		bottom_padding,
@@ -7858,6 +7890,46 @@ end
 		mJumpPaint.setStyle(Paint.Style.FILL);
 		mJumpPaint.setColor(0xBB2A4A6E);
 		c.drawPath(mJumpPath, mJumpPaint);
+	}
+
+	/**
+	 * Arrival time of this logical line, on the right of its first visual row.
+	 * Paint-only: not in the tree, so wrap / triggers / copy stay unchanged.
+	 * Drawn on the hardware canvas after a tile blit so toggling does not
+	 * require baking the stamp into the tile.
+	 */
+	private void drawLineStamp(final Canvas hw, final Line l, final float y0) {
+		if (!mLineStamps || hw == null || l == null) {
+			return;
+		}
+		long at = l.getReceivedAt();
+		if (at <= 0L) {
+			return;
+		}
+		String label = TimestampFormat.lineLabel(at, mLineStampsFields);
+		if (label.length() == 0) {
+			return;
+		}
+		float baseline = screenBaselineY(y0);
+		float size = Math.max(8f * mDensity, mPrefLineSize * 0.7f);
+		mWhenPaint.setTextSize(size);
+		mWhenPaint.setTypeface(Typeface.SANS_SERIF);
+		mWhenPaint.setTextAlign(Paint.Align.RIGHT);
+		float pad = 3f * mDensity;
+		float textX = mWidth - 4f * mDensity;
+		float w = mWhenPaint.measureText(label);
+		int scrim = mLightPaper
+				? android.graphics.Color.argb(0xA0, 0xE8, 0xE4, 0xDC)
+				: android.graphics.Color.argb(0xB0, 0x10, 0x14, 0x1C);
+		mWhenPaint.setColor(scrim);
+		hw.drawRect(textX - w - pad, baseline - size + 1f, textX + pad * 0.4f,
+				baseline + 3f * mDensity, mWhenPaint);
+		int ink = android.graphics.Color.argb(0xFF, 0x8A, 0xA4, 0xC0);
+		if (mLightPaper) {
+			ink = LightPaper.remapForeground(ink, true, false, mLightPaperShade);
+		}
+		mWhenPaint.setColor(ink);
+		hw.drawText(label, textX, baseline, mWhenPaint);
 	}
 
 	/**
