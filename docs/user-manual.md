@@ -2588,8 +2588,9 @@ scrolled back.
 game shows round-trip time to this world (`42 ms`, or `—` until you send
 a command). Long-press the number, then drag. It is not ICMP. The number
 is the time from a command written to the socket until the next line of
-game text — one trip there and back, plus the world thinking. That is
-how ping works; it is not counted twice. BlowTorch does not send GMCP
+game text — one trip there and back, plus the world thinking, plus the
+time to receive that reply. A long room is slower than a short `Ok`;
+that is the payload, not a worse link. It is not counted twice. BlowTorch does not send GMCP
 `Core.Ping` or a telnet Timing Mark for this (most worlds do not reply,
 and some treat those as typed commands).
 

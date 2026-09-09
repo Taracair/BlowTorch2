@@ -319,7 +319,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .ping size N          — type size (12–36)\n"
 					+ "  .ping pos X Y         — 0–100 percent (or long-press and drag)\n"
 					+ "Not ICMP. Times a command you send until the next game line.\n"
-					+ "Type something; the number is one round trip plus the world thinking.\n";
+					+ "Type something; the number is one round trip plus the world thinking.\n"
+					+ "A long look costs more than a short Ok — that is the reply, not a worse link.\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"

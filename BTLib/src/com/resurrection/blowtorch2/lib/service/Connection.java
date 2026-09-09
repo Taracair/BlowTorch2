@@ -2963,15 +2963,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mWorking.setBleedColor(tmpcolor);
 		mFinished.setBleedColor(tmpcolor);
 
-		mWorking.addBytesImpl(raw);
-	
-		mWorking.setModCount(0);
-		
 		// Strip for triggers + session log. Display parsing (TextTree holdover) can
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
+		// Stop the clock before TextTree eats the chunk: a long look must not
+		// look like a slower link.
 		mPing.onIncomingGameText(stripped);
+
+		mWorking.addBytesImpl(raw);
+		mWorking.setModCount(0);
 		String toLog = stripped;
 		if (getMainWindowBooleanOption(TimestampCommand.OPTION_LOG, false)) {
 			int fields = TimestampFormat.clamp(getMainWindowIntegerOption(

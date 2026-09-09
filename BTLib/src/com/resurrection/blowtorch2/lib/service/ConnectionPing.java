@@ -10,7 +10,8 @@ import android.os.SystemClock;
  * RTT while the ping overlay is on: time from a command written to the
  * socket until the next game line. Not ICMP. Does not send {@code Core.Ping}
  * or Timing Mark — most worlds do not reply, and some parse those as typed
- * commands.
+ * commands. Stops the clock before TextTree parses the chunk, so a long look
+ * is not billed as a slower link.
  */
 final class ConnectionPing {
 
