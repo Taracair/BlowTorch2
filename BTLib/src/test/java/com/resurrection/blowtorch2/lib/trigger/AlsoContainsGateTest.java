@@ -41,5 +41,9 @@ public class AlsoContainsGateTest {
 		assertEquals("aaa", AlsoContainsGate.lineAt(chunk, 1));
 		assertEquals("bbb", AlsoContainsGate.lineAt(chunk, 4));
 		assertEquals("ccc", AlsoContainsGate.lineAt(chunk, 8));
+		assertEquals(0, AlsoContainsGate.lineStart(chunk, 1));
+		assertEquals(3, AlsoContainsGate.lineEnd(chunk, 1));
+		assertEquals(4, AlsoContainsGate.lineStart(chunk, 4));
+		assertEquals(7, AlsoContainsGate.lineEnd(chunk, 4));
 	}
 }

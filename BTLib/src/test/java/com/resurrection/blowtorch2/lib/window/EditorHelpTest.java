@@ -25,14 +25,14 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.TRIGGERS.contains("ALSO ON THIS LINE"));
 		assertTrue(EditorHelp.TRIGGERS.contains("including Also"));
 		assertTrue(EditorHelp.TRIGGERS.contains("shade title is the world name"));
-		assertTrue(EditorHelp.TIMERS.contains("CONDITIONS"));
+		assertTrue(EditorHelp.TIMERS.contains("timer has no game line"));
 	}
 
 	@Test
 	public void triggerEditorConditionsEssayHasTheCanvasExample() {
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("CONDITIONS"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
-		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("An extra gate"));
+		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("matches this line"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("${name}"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
 		assertTrue("help must not name a profile-private trigger",

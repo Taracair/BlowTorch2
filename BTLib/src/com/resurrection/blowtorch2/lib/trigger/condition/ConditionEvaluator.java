@@ -7,13 +7,16 @@ import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerWouldMatch;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup.Op;
 
 /**
  * Evaluates trigger/timer conditions after a pattern match (or timer fire) and
  * before responders run. Empty conditions = true (backward compatible).
  * Trigger/alias enabled gates only read {@code isEnabled()} (no recursive
- * condition evaluation).
+ * condition evaluation). {@code TRIGGER_MATCHED} looks at Pattern, Match
+ * style and Also on the current line — not that trigger's conditions or
+ * actions.
  */
 public final class ConditionEvaluator {
 
@@ -24,10 +27,23 @@ public final class ConditionEvaluator {
 		if (trigger == null) {
 			return true;
 		}
-		return evaluate(trigger.getConditions(), connection);
+		return evaluate(trigger.getConditions(), connection, null);
+	}
+
+	public static boolean evaluate(TriggerData trigger, Connection connection,
+			LineMatchContext line) {
+		if (trigger == null) {
+			return true;
+		}
+		return evaluate(trigger.getConditions(), connection, line);
 	}
 
 	public static boolean evaluate(ConditionGroup group, Connection connection) {
+		return evaluate(group, connection, null);
+	}
+
+	public static boolean evaluate(ConditionGroup group, Connection connection,
+			LineMatchContext line) {
 		if (group == null || group.isEmpty()) {
 			return true;
 		}
@@ -38,14 +54,14 @@ public final class ConditionEvaluator {
 		Op op = group.getOp() != null ? group.getOp() : Op.AND;
 		if (op == Op.OR) {
 			for (ConditionLeaf leaf : children) {
-				if (evaluateLeaf(leaf, connection)) {
+				if (evaluateLeaf(leaf, connection, line)) {
 					return true;
 				}
 			}
 			return false;
 		}
 		for (ConditionLeaf leaf : children) {
-			if (!evaluateLeaf(leaf, connection)) {
+			if (!evaluateLeaf(leaf, connection, line)) {
 				return false;
 			}
 		}
@@ -53,6 +69,11 @@ public final class ConditionEvaluator {
 	}
 
 	static boolean evaluateLeaf(ConditionLeaf leaf, Connection connection) {
+		return evaluateLeaf(leaf, connection, null);
+	}
+
+	static boolean evaluateLeaf(ConditionLeaf leaf, Connection connection,
+			LineMatchContext line) {
 		if (leaf == null || leaf.getType() == null) {
 			return true;
 		}
@@ -61,6 +82,8 @@ public final class ConditionEvaluator {
 			return isTriggerEnabled(connection, leaf.getName(), leaf.getPlugin());
 		case TRIGGER_DISABLED:
 			return !isTriggerEnabled(connection, leaf.getName(), leaf.getPlugin());
+		case TRIGGER_MATCHED:
+			return triggerWouldMatch(connection, leaf, line);
 		case ALIAS_ENABLED:
 			return isAliasEnabled(connection, leaf.getName(), leaf.getPlugin());
 		case ALIAS_DISABLED:
@@ -220,6 +243,27 @@ public final class ConditionEvaluator {
 			}
 		}
 		return found;
+	}
+
+	/**
+	 * Pattern + Match style + Also of {@code leaf}'s trigger on the same line
+	 * as {@code line.matchStart}. Does not run actions or that trigger's
+	 * conditions. Missing, disabled, self, or no line → false.
+	 */
+	static boolean triggerWouldMatch(final Connection c, final ConditionLeaf leaf,
+			final LineMatchContext line) {
+		if (line == null || line.chunk == null) {
+			return false;
+		}
+		TriggerData other = resolveTrigger(c, leaf.getName(), leaf.getPlugin());
+		if (other == null) {
+			return false;
+		}
+		if (line.current != null && other == line.current) {
+			return false;
+		}
+		return TriggerWouldMatch.onSameLine(other, line.chunk, line.matchStart,
+				line.models, line.lineStarts, line.strippedLens);
 	}
 
 	/**

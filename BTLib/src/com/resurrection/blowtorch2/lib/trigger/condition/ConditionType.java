@@ -6,6 +6,7 @@ package com.resurrection.blowtorch2.lib.trigger.condition;
 public enum ConditionType {
 	TRIGGER_ENABLED("triggerEnabled"),
 	TRIGGER_DISABLED("triggerDisabled"),
+	TRIGGER_MATCHED("triggerMatched"),
 	ALIAS_ENABLED("aliasEnabled"),
 	ALIAS_DISABLED("aliasDisabled"),
 	ALIAS_EQUALS("aliasEquals"),
@@ -39,6 +40,9 @@ public enum ConditionType {
 		if ("triggerDisabled".equalsIgnoreCase(s) || "trigger_disabled".equalsIgnoreCase(s)) {
 			return TRIGGER_DISABLED;
 		}
+		if ("triggerMatched".equalsIgnoreCase(s) || "trigger_matched".equalsIgnoreCase(s)) {
+			return TRIGGER_MATCHED;
+		}
 		if ("aliasEnabled".equalsIgnoreCase(s) || "alias_enabled".equalsIgnoreCase(s)) {
 			return ALIAS_ENABLED;
 		}
@@ -69,6 +73,8 @@ public enum ConditionType {
 			return "Only if trigger is ON";
 		case TRIGGER_DISABLED:
 			return "Only if trigger is OFF";
+		case TRIGGER_MATCHED:
+			return "Only if trigger matches this line";
 		case ALIAS_ENABLED:
 			return "Only if alias is ON";
 		case ALIAS_DISABLED:
@@ -90,7 +96,8 @@ public enum ConditionType {
 
 	/** True when this leaf picks a trigger by name (and optional plugin). */
 	public boolean isTriggerGate() {
-		return this == TRIGGER_ENABLED || this == TRIGGER_DISABLED;
+		return this == TRIGGER_ENABLED || this == TRIGGER_DISABLED
+				|| this == TRIGGER_MATCHED;
 	}
 
 	/** True when this leaf picks an alias by name (and optional plugin). */

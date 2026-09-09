@@ -32,10 +32,10 @@ public final class AlsoContainsGate {
 		}
 	}
 
-	/** The {@code \\n}-delimited line that contains {@code index}. */
-	public static String lineAt(final CharSequence chunk, final int index) {
+	/** Inclusive start of the {@code \\n}-delimited line that contains {@code index}. */
+	public static int lineStart(final CharSequence chunk, final int index) {
 		if (chunk == null || chunk.length() == 0) {
-			return "";
+			return 0;
 		}
 		int n = chunk.length();
 		int i = index;
@@ -49,10 +49,34 @@ public final class AlsoContainsGate {
 		while (from > 0 && chunk.charAt(from - 1) != '\n') {
 			from--;
 		}
+		return from;
+	}
+
+	/** Exclusive end of that line (index of {@code \\n}, or {@code chunk.length()}). */
+	public static int lineEnd(final CharSequence chunk, final int index) {
+		if (chunk == null || chunk.length() == 0) {
+			return 0;
+		}
+		int n = chunk.length();
+		int i = index;
+		if (i < 0) {
+			i = 0;
+		}
+		if (i > n) {
+			i = n;
+		}
 		int to = i;
 		while (to < n && chunk.charAt(to) != '\n') {
 			to++;
 		}
-		return chunk.subSequence(from, to).toString();
+		return to;
+	}
+
+	/** The {@code \\n}-delimited line that contains {@code index}. */
+	public static String lineAt(final CharSequence chunk, final int index) {
+		if (chunk == null || chunk.length() == 0) {
+			return "";
+		}
+		return chunk.subSequence(lineStart(chunk, index), lineEnd(chunk, index)).toString();
 	}
 }

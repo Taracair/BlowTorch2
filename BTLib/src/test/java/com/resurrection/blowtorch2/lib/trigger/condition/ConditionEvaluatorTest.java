@@ -21,6 +21,8 @@ public class ConditionEvaluatorTest {
 			assertEquals(t, ConditionType.fromXml(t.getXmlValue()));
 		}
 		assertEquals(ConditionType.TRIGGER_ENABLED, ConditionType.fromXml("trigger_enabled"));
+		assertEquals(ConditionType.TRIGGER_MATCHED, ConditionType.fromXml("trigger_matched"));
+		assertEquals(ConditionType.TRIGGER_MATCHED, ConditionType.fromXml("triggerMatched"));
 		assertEquals(ConditionType.ALIAS_ENABLED, ConditionType.fromXml("alias_enabled"));
 		assertEquals(ConditionType.ALIAS_DISABLED, ConditionType.fromXml("aliasDisabled"));
 		assertEquals(ConditionType.ALIAS_EQUALS, ConditionType.fromXml("alias_equals"));
@@ -29,6 +31,9 @@ public class ConditionEvaluatorTest {
 		ConditionLeaf leaf = new ConditionLeaf(ConditionType.TRIGGER_ENABLED, "loot", "hunt", "");
 		assertEquals("hunt:loot", leaf.qualifiedName());
 		assertTrue(leaf.summary().contains("ON"));
+		ConditionLeaf matched = new ConditionLeaf(ConditionType.TRIGGER_MATCHED, "tag", "", "");
+		assertTrue(matched.summary().contains("matches this line"));
+		assertFalse(ConditionType.TRIGGER_MATCHED.needsExpectedValue());
 		ConditionLeaf alias = new ConditionLeaf(ConditionType.ALIAS_DISABLED, "kk", "", "");
 		assertEquals("kk", alias.qualifiedName());
 		assertTrue(alias.summary().contains("Alias"));
@@ -39,6 +44,7 @@ public class ConditionEvaluatorTest {
 	}
 	@Test public void gateHelpers() {
 		assertTrue(ConditionType.TRIGGER_ENABLED.isTriggerGate());
+		assertTrue(ConditionType.TRIGGER_MATCHED.isTriggerGate());
 		assertTrue(ConditionType.ALIAS_ENABLED.isAliasGate());
 		assertTrue(ConditionType.ALIAS_EQUALS.isAliasGate());
 		assertTrue(ConditionType.ALIAS_EQUALS.needsExpectedValue());

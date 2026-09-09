@@ -626,10 +626,11 @@ In the trigger editor:
 - **Also on this line** → optional second gate after Pattern and Match
   style. The same line must also contain this text (its own **Also
   literal?**). Empty = no gate. Pattern `--` plus Also `[chan]:` hides
-  that channel's spam and leaves a minimap `--` alone. Conditions are not
-  this (two triggers plus trigger-ON do not AND two patterns on one
-  line). Match style still applies only to the Pattern span — two colours
-  on two spans is not this field.  
+  that channel's spam and leaves a minimap `--` alone. Two colours on
+  two spans: make another trigger for the other Pattern + Match style,
+  then **Conditions** → *Only if trigger matches this line* and pick it
+  (look-ahead; it does not run that trigger's actions). Match style
+  still applies only to this trigger's Pattern span.  
 - **Keep going?** on (default) → every trigger that matches this line still
   runs. One can rewrite a channel tag and another can gag the spam inside it.
   Off → after this trigger fires, later triggers are not tried on this line.  
@@ -664,7 +665,9 @@ In the trigger editor:
 - **Conditions** → extra gate after the pattern matches — not a substitute
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
-  `plugin:name` ok), Alias enabled/disabled, Alias replacement equals,
+  `plugin:name` ok), **Only if trigger matches this line** (that trigger's
+  Pattern + Match style + Also on this same line; not its actions or
+  conditions; off/missing/self/timer = closed), Alias enabled/disabled, Alias replacement equals,
   Variable equals/exists/below/above. Set vars with the **Set Variable** responder or
   Lua `SetVariable` / `GetVariable` / `UnsetVariable` (Lua stays session-only).
 - **Match style** → Ignore / Require / Forbid each incoming colour and SGR
@@ -781,6 +784,14 @@ a second trigger, under **Conditions**, Add → Trigger enabled → pick
 `combat_mode`. Responders on the second trigger run only while `combat_mode`
 is enabled (`.trigger on combat_mode`).
 
+**Sample — gag a channel line, leave a minimap `--`:** trigger `tag` with
+Pattern `[chan]:` and Match style on the tag colour. Trigger `dash` with
+Pattern `--` and Match style on the dash colour. Trigger `spam` with the
+same `--` pattern and dash style, Conditions → *Only if trigger matches
+this line* → pick `tag`, action Gag. A minimap `--` has no tag, so `tag`
+would not match that line and the gag stays closed. `tag` and `dash` need
+no actions; they are the conditions `spam` looks at.
+
 **Using an alias in the pattern.** Type an alias's **name on its own** in the
 pattern box and the trigger watches for that alias's *text* instead of the name.
 Edit the alias later and every trigger using it follows at once.
@@ -855,7 +866,8 @@ triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 Timers also support **Conditions** in the timer editor — an extra gate when
 the timer fires (same AND/OR types as triggers). Empty = always fire
 responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Alias
-replacement equals, Variable equals/exists/below/above. Set vars with the **Set
+replacement equals, Variable equals/exists/below/above. *Only if trigger
+matches this line* stays closed on a timer (no game line). Set vars with the **Set
 Variable** responder (Set, Add number, Subtract number, Append, Unset; optional
 **Keep after restart**) or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
 (Lua stays session-only). Use `${name}` in alias or action text — variables are not

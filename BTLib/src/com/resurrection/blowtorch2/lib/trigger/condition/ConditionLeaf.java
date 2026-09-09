@@ -4,8 +4,8 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * Single condition: trigger/alias on or off, or a session variable
- * equals / exists / below / above.
+ * Single condition: trigger/alias on or off, another trigger matching this
+ * line, or a session variable equals / exists / below / above.
  */
 public class ConditionLeaf implements Parcelable {
 
@@ -115,6 +115,8 @@ public class ConditionLeaf implements Parcelable {
 			return "Trigger " + qualifiedName() + " is ON";
 		case TRIGGER_DISABLED:
 			return "Trigger " + qualifiedName() + " is OFF";
+		case TRIGGER_MATCHED:
+			return "Trigger " + qualifiedName() + " matches this line";
 		default:
 			return type != null ? type.displayLabel() : "";
 		}

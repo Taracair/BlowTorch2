@@ -58,6 +58,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 	private LinearLayout nameRow;
 	private LinearLayout valueRow;
 	private TextView variableHint;
+	private TextView conditionHint;
 
 	private ArrayList<String> triggerChoices = new ArrayList<String>();
 	private ArrayList<String> aliasChoices = new ArrayList<String>();
@@ -116,6 +117,17 @@ public class ConditionLeafEditorDialog extends Dialog {
 		triggerSpinner.setAdapter(trigAdapter);
 		triggerRow = labeled("Trigger", triggerSpinner);
 		root.addView(triggerRow);
+
+		conditionHint = new TextView(getContext());
+		conditionHint.setTextColor(0xFFCCCCCC);
+		conditionHint.setTextSize(12);
+		conditionHint.setPadding(0, 0, 0, 8);
+		conditionHint.setVisibility(View.GONE);
+		conditionHint.setText(
+				"Uses that trigger's Pattern, Match style and Also on this same line. "
+						+ "Does not run its actions. Off or missing is closed. "
+						+ "A timer has no line, so this stays closed there.");
+		root.addView(conditionHint);
 
 		aliasSpinner = new Spinner(getContext());
 		loadAliasChoices();
@@ -308,6 +320,10 @@ public class ConditionLeafEditorDialog extends Dialog {
 		}
 		valueRow.setVisibility(needsValue ? View.VISIBLE : View.GONE);
 		variableHint.setVisibility(variableType ? View.VISIBLE : View.GONE);
+		if (conditionHint != null) {
+			conditionHint.setVisibility(
+					type == ConditionType.TRIGGER_MATCHED ? View.VISIBLE : View.GONE);
+		}
 		if (nameLabel != null) {
 			nameLabel.setText("Variable");
 		}

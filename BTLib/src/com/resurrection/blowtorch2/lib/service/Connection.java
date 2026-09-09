@@ -35,6 +35,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
+import com.resurrection.blowtorch2.lib.trigger.condition.LineMatchContext;
 import com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SessionVariableSidecar;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableApply;
@@ -3082,7 +3083,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 									gate = live;
 								}
 							}
-							if (ConditionEvaluator.evaluate(gate, Connection.this)) {
+							if (ConditionEvaluator.evaluate(gate, Connection.this,
+									new LineMatchContext(stripped, s, gate,
+											mDispatchStyleModels, mDispatchStyleStarts,
+											mDispatchStyleLens))) {
 							if (gate.isFireOnce() && gate.isFired()) {
 								continue;
 							}
