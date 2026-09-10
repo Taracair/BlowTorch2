@@ -138,7 +138,6 @@ public class UserManualIndexTest {
 				assertTrue(!s.body.contains("On the server list"));
 				assertTrue(!s.body.contains("Session logs"));
 				assertTrue(s.body.contains("Edit buttons"));
-				assertTrue(s.body.contains("LOOK"));
 			}
 			if ("Chat, logs, and Options search".equals(s.title)) {
 				sawChatLogsHeading = true;

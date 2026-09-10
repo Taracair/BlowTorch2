@@ -556,7 +556,7 @@ Examples:
     `c`
         With: `cast`
         You type: `c fireball`
-        Sent: (word alias; see below)
+        Sent: `cast fireball`
 
     `^cast (.+)$`
         With: `c $1`
@@ -1027,8 +1027,556 @@ the submenu are that chat only.
 
 ## Recipes
 
-Worked examples. Each one is a complete thing you can build; the field names
-match what you see in the editors.
+**Ready examples** you can copy into the editors, then slower walkthroughs
+(items 1–15). Field names match what you see. If a field is not listed, leave
+the default.
+
+### Ready examples — aliases
+
+Copy these into Options → Aliases → new. **Replace** is the pattern box;
+**With** is what is sent. Do not type `^` or `$` into Replace — use the
+**start of line (^)** / **end of line ($)** boxes. Those ticks change how
+`$1` is filled — see **Aliases** above.
+
+**A1. Word shortcut that keeps the rest of the line**
+
+    Replace              `c`
+    start of line (^)    off
+    end of line ($)      off
+    With                 `cast`
+
+You type `c fireball` → the game receives `cast fireball`. The match is only
+the word `c`; the rest of the line is kept. Without word-boundary wrapping,
+`c` would also fire inside `cast`.
+
+**A2. Shortcut that takes the next words (`^` only)**
+
+    Replace              `kk`
+    start of line (^)    on
+    end of line ($)      off
+    With                 `kill $1`
+
+You type `kk goblin` → `kill goblin`. With only `^`, the whole typed line is
+split on spaces: `$0` is `kk`, `$1` is `goblin`, `$2` the word after that.
+`kk goblin sword` with With `kill $1 with $2` sends `kill goblin with sword`.
+
+A bare Replace `kk` and With `kill $1` (no group, no `^`) sends the characters
+`kill $1` — there is no capture to fill.
+
+**A3. Whole-line regex (`^` and `$`)**
+
+    Replace              `cast (.+)`
+    start of line (^)    on
+    end of line ($)      on
+    With                 `c $1`
+
+You type `cast fireball` → `c fireball`. `$1` is the first `(…)` group, not
+the second word of the line.
+
+**A4. Repeat in front of the alias, not inside With**
+
+With A2 built, type `#3 kk goblin`. The game receives `kill goblin` three
+times. An alias whose With is `#3 kick troll` sends that string as one
+command — `#` is read before aliases expand.
+
+**A5. Two commands and a pause from one shortcut**
+
+    Replace              `gc`
+    start of line (^)    on
+    end of line ($)      on
+    With                 `get all;.wait 400ms;i`
+
+Needs **Options → Service → Process Semicolons?** on (the default). You type
+`gc` → `get all`, wait 400 ms, then `i`. `.wait` pauses the rest of **that
+same line** (max 1 h). A semicolon the game should see is `;;`.
+
+**A6. Hide a password-like shortcut**
+
+    Replace              `pw`
+    start of line (^)    on
+    end of line ($)      on
+    With                 `password hunter2`
+    Local echo           **Always hide**
+
+The typed shortcut is never what appears; Always hide suppresses the
+**expanded** echo even when Local Echo is on. Telnet password masking still
+wins while the server holds ECHO.
+
+**A7. Remember the target and count kills as you type**
+
+    Replace              `kk`
+    start of line (^)    on
+    end of line ($)      off
+    With                 `kill $1`
+    Set Variable  name `target`, value `$1` (Set)
+    Set Variable  name `kills`, Add number `1`
+                  tick **Keep after restart** on `kills` if the count should
+                  survive closing the world (sidecar next to the profile, not
+                  the XML)
+
+You type `kk goblin` → game gets `kill goblin`, `target` becomes `goblin`,
+`kills` goes up by one. `$1` here is the next word (A2 rule).
+
+**A8. Spend a sticky note the game filled in**
+
+    Replace    `att`
+    With       `kill ${target}`
+
+A trigger (or A7) must have set `target` first. Braces are required. Only
+letters, digits, and `_` inside `${…}` — `${device.battery}` is not
+substituted in alias text (use Conditions or Lua for dotted names). An unset
+variable stays written as `${target}` rather than vanishing.
+
+**A9. Rewrite With from the input bar**
+
+    Replace    `tgt`
+    With       `nothing`
+
+Type `.tgt goblin` (or tap a Tappable Word whose command is `.tgt $1`). The
+shortcut only works for a simple `\w+` key — no spaces, no regex in Replace.
+Then buttons that say `kill tgt` follow whatever you last set.
+
+**A10. Turn a travel alias off while fighting**
+
+Aliases have no Conditions. From the input bar or a trigger **Ack With**:
+
+    .alias off travel_home
+    .alias on kk
+
+Lua `EnableAlias` only toggles aliases in **the plugin that runs it**. Main
+profile aliases use `.alias on|off`. `.alias list` shows every alias and
+whether it is on.
+
+**A11. A plugin alias from a trigger in that same plugin**
+
+Ack With (leading `/` = inline Lua), only when this trigger lives in the
+plugin that owns the alias:
+
+    /EnableAlias("kk", true)
+    /EnableAlias("travel_home", false)
+
+**A12. Literal dollar in With**
+
+    Replace    `price`
+    With       `say it costs $5`
+
+`$5` is left as written when there is no capture 5.
+
+### Ready examples — triggers
+
+Copy these into Options → Triggers → new. **Literal?** off means regex.
+**New triggers default to Literal on** — turn it off for every regex below.
+**Keep going?** defaults on. **Fire** defaults to Every time. **Order**
+defaults to 10. **Conditions** empty means always fire after the pattern
+matches. Conditions → Add: Type starts as **Only if trigger is ON**. Set Type
+to **Variable equals** (or another variable type) so **The phone** row
+appears, then pick a label such as Headphones are plugged in. Each action
+has **Open** (game window on screen) and **Closed**
+(window in the background). Tick both to always run; tick neither and that
+action never fires.
+
+**T1. Literal spam gag**
+
+    Pattern     `This is spam.`
+    Literal?    on
+    Action      Gag
+
+Matches those characters, not a regex. `[ 9 | -4 | 1 ]` as Literal is those
+glyphs, not a character class.
+
+**T2. Something appears — send a kill**
+
+    Pattern     `A (.+) appears`
+    Literal?    off
+    Action      Ack With `kill $1`
+
+`$1` is the first `(…)` group. Add a second action **Ack With**
+`.note FIRED: $1` while you are building it (recipe 15).
+
+**T3. Rewrite a channel tag, then colour a word**
+
+Two triggers, **Keep going?** on both:
+
+    Name / Order  `chan_tag` / `10`
+    Pattern       `^CORPCHAT:`
+    Literal?      off
+    Action        Replace  (rewrite the tag as you like)
+
+    Name / Order  `opens_word` / `11`
+    Pattern       `\bopens\b`
+    Literal?      off
+    Action        Color  (yellow on that word)
+
+Order 11 runs **after** a default replace at 10, so the colour is not wiped.
+**9 is not "on top"** — it runs *before* the replace. **Who else fires**
+under Order: type a sample line to see the other numbers.
+
+**T4. Gag, then stop later triggers on that line**
+
+    Pattern        `You are hungry`
+    Keep going?    **off**
+    Action         Gag
+
+Later triggers are not tried on this line. Leave Keep going on when one
+trigger should rewrite a tag and another should still colour a word inside
+it (T3).
+
+**T5. First name after you look, then quiet until you type again**
+
+    Pattern     `\b([A-Z][a-z]+)\b`
+    Fire        **Once, until I send**
+    Action      Color  (or Tappable Word on group 1)
+
+`look` with thirty bright names: the first phrase is `$1`, the rest of that
+look is ignored, the next `look` is free. **Ack from this trigger does not
+count** as a send — you have to type, or tap a word whose command takes the
+input-bar road (not Ack).
+
+**T6. Welcome banner once per enable**
+
+    Pattern     `Welcome to`
+    Fire        **Once, until enabled**
+    Action      Toast  `session started`
+
+Fires on the first match, then stays quiet until you turn the trigger off
+and on (`.trigger off` / `.trigger on`, or the list).
+
+**T7. Hide a three-line box**
+
+    Pattern     `^\+-+\+$\n^\| (.+) \|$\n^\+-+\+$`
+    Literal?    off
+    Action      Gag
+
+`.` never crosses a line break; write `\n` for every break. `^` and `$` bind
+to each line. Gag removes the **whole block**. `$1` is still the text inside
+the box (Toast / Set Variable can use it). Colour still marks only the first
+line of a match.
+
+**T8. Colour-only, blank pattern**
+
+Seed with `.grabber`, or by hand:
+
+    Pattern        (leave blank)
+    Match style    Require the colour/style you care about
+    Action         Color or Ack `look $1`
+
+`$0` and `$1` are that styled run — there is no regex group. Pattern plus
+style: the text matches as usual, and the matched span must also pass the
+style. Colour you paint with a Color action is not the world's style.
+
+**T9. Tappable name plus a colour**
+
+    Pattern          `(\w+) is standing here`
+    Literal?         off
+    Tappable Word    part `1`, command `.tgt $1`
+    Color            on the same trigger (colour is not a Tappable field)
+
+Tap goes through aliases, `.` commands, and `;`. See recipe **9c**.
+
+**T10. Move a line to an extra window**
+
+    Pattern     `^\[ooc\]`
+    Action      Gag, retarget `chat`
+
+The line leaves the main window and appears in the extra-text slot named
+`chat` (recipe 8). This is not the chat drawer.
+
+**T11. Copy a tell into the chat drawer**
+
+    Pattern           `(\w+) tells you, '(.+)'`
+    Literal?          off
+    Send to thread    thread id `$1`
+    (line still stays in the game window — this does not gag)
+
+Thread is a name you choose, or `$1` for whoever sent it. Reply templates in
+⚙ do not keep leftover `$1` — put the name in the template (`tell Bob $text`).
+
+**T12. Speak a tell only in your ears**
+
+    Pattern      `(\w+) tells you`
+    Action       Speak Out Loud  `$1 is talking to you`
+    Conditions   Add → Type **Variable equals** → **The phone** →
+                 Headphones are plugged in
+
+Turn on **Options → Device → Device state as variables** (or `.sensor watch
+on`). With it off, `device.*` conditions are **false** and the trigger never
+speaks. This is a condition, not a `headphonesin` sensor trigger.
+
+**T13. Shade ping when the window is in the background**
+
+    Pattern        `(\w+) tells you`
+    Notification   title `tell`, body `$1` — **Closed** on, **Open** off
+    Toast          `$1` — **Open** on, **Closed** off
+
+Notification shade title is the world name, then the title you typed.
+
+**T14. Make a noise**
+
+    Pattern     `You are hungry`
+    Action      Sound  (pick a file)  and/or Ack `.dobell`
+
+`.sound stream notification` chooses which volume. `.dobell` fires the Bell
+options (vibrate / notification / on-screen).
+
+**T15. Combat group from the input bar (main profile)**
+
+Give healing triggers **Group** `combat`. Then:
+
+    .trigger group on combat
+    .trigger group off combat
+
+That reaches main settings **and** every plugin. Lua
+`EnableTriggerGroup("combat", true)` in **Ack With** `/…` only toggles
+triggers in **the plugin that runs it**. The **Script** action field is a
+Lua **function name**, not inline code and not a dot command.
+
+**T16. Gag channel dashes, leave a minimap `--`**
+
+    Trigger `tag`   Pattern `[chan]:`  Match style on the tag colour  (no actions)
+    Trigger `dash`  Pattern `--`       Match style on the dash colour (no actions)
+    Trigger `spam`  Pattern `--`       same dash style
+                    Conditions → **Only if trigger matches this line** → `tag`
+                    Action Gag
+
+A minimap `--` has no tag, so `tag` would not match that line and the gag
+stays closed. Looks at the other trigger's Pattern + Match style, not its
+actions or conditions. Missing, disabled, or **self** is closed. On a
+**timer** this condition stays closed (no game line).
+
+**T17. Sip when a numeric variable is low**
+
+    Pattern      (whatever prints after you already stored `hp`)
+    Conditions   **Variable is below**  name `hp`  value `30`
+    Action       Ack With `sip health`
+
+Equal is false (`30` below `30` does not fire). Non-numeric is false.
+**Variable equals** is an exact string (`1` is not `01`).
+
+**T18. All of these must be true (AND)**
+
+Conditions spinner **AND** (the default). Hint: "All conditions must be true
+(AND)." One flat list — there is no nested `(A AND B) OR C`.
+
+    Variable equals     `fighting` = `1`
+    Variable is below   `hp`  `30`
+
+**T19. Any of these may be true (OR)**
+
+Conditions spinner **OR**. Hint: "Any condition may be true (OR)."
+
+    Only if alias is ON    `kk`
+    Only if alias is ON    `att`
+
+**T20. Alias With equals a specific command**
+
+    Conditions   **Alias replacement equals**  alias `tgt`  value `goblin`
+    Action       Color
+
+True only while that alias's **With** text is exactly `goblin`.
+
+**T21. Ack with a pause (same road as typing)**
+
+    Pattern     `You see a pile of coins`
+    Action      Ack With `get all;.wait 400ms;i`
+
+Semicolon split and `.wait` run on the outbound line, same as A5.
+
+**T22. Watch for whatever an alias currently says**
+
+    Alias     name `item`, With `circuit`
+    Pattern   `You see a $alias{item} here\.`
+    Literal?  off
+
+Matches `You see a circuit here.` Edit the alias later and the trigger
+follows. Four aliases cannot be used (preview says which): missing name;
+several commands (`sip health;stand`); `$1` in the alias; nested alias.
+A **disabled** alias still gives its text. A pattern that is *exactly* the
+alias name (no `$alias{…}`) also pastes that text.
+
+**T23. Phone in a pocket — do not send**
+
+    Pattern      `A (.+) attacks you`
+    Action       Ack With `flee`
+    Conditions   Add → Type **Variable equals** → **The phone** →
+                 Nothing is over the screen
+
+Needs Device state as variables, and a proximity sensor (`.sensor caps`).
+Hardware sensor **triggers** (`wave`, `cover`, …) fire in **every open
+world**. A condition on one trigger does not.
+
+**T24. Wave the hand over the screen**
+
+Quick: `.sensor wave flee`. Or Triggers editor, **Fires on:** *Wave a hand
+over the screen*, Ack `flee`. `.sensor fire wave` runs it without moving the
+phone. More than one trigger can answer the same reading — both run.
+
+**T25. GMCP hook is not a line trigger**
+
+A **Literal** trigger whose pattern starts with `%` (default GMCP character)
+is a GMCP hook (`%Char.Vitals`), not a line wildcard. It is taken out of the
+text cascade. The hook registers a **Script** action (Lua function name) as
+a watcher — Ack / Color / Gag on that pattern will not paint game text.
+**Options → Service → Protocols → Use GMCP?** must be on. See **GMCP
+(short)**.
+
+### Ready examples — aliases, triggers, timers and conditions
+
+Build these as a set. Timers: Options → Timers → new. Same Conditions
+AND/OR as triggers. Timer actions have Open/Closed too. Timers have no
+Tappable Word and no Send to thread. There is no `.timer group` command
+(the Group field is only for finding them in the list).
+
+**C1. Combat kit: flag, alias, gated heal timer**
+
+1. Alias A2 (`kk`, start of line on) → `kill $1`, plus Set Variable `target` = `$1`.
+2. Trigger named `fight_start` (pattern as your world prints a fight starting;
+   Literal on if that line is fixed text):
+
+       Action  Set Variable  `fighting` = `1`
+
+3. Trigger named `fight_end`:
+
+       Action  Set Variable  `fighting` = `0`
+
+4. Timer `heal`: Every `15` s, Repeat on, Ack With `drink health`.
+   Conditions → **Variable equals** `fighting` = `1`.
+   Optionally tick **Show as overlay widget**.
+
+Leave the timer running. It ticks all the time but only acts while
+`fighting` is `1`. Prefer this over start/stop (recipe 12). `.timer play
+heal silent` if a trigger must start it without a toast.
+
+**C2. Hungry flag, then auto-eat only when hungry**
+
+1. Trigger `You are hungry` → Set Variable `hungry` = `1`.
+2. Trigger `You are satiated` → Set Variable `hungry` = `0` (or Unset).
+3. Trigger `A loaf of bread is here`:
+
+       Conditions  Variable equals  `hungry` = `1`
+       Action      Ack With `get bread;eat bread`
+
+**C3. Game names a target; you type `att`; a timer considers it**
+
+1. Trigger (Literal off):
+
+       Pattern   `A plush suede (\w+) sits against the wall\.`
+       Action    Set Variable  `target` = `$1`
+
+2. Alias A8: `att` → `kill ${target}`.
+3. Timer `consider`, Repeat on, Every `30` s, Ack With `att`
+   (that **alias** spends `${target}`; putting `kill ${target}` on the
+   timer Ack does **not** substitute the variable — only alias With does).
+   Conditions → **Variable exists** `target`.
+
+Walk into the room, then type `att`. The timer keeps sending `att` while
+`target` is set.
+
+**C4. Tap a standing name onto every button**
+
+Recipe **9c**: alias `tgt` = `nothing`; trigger Tappable Word `.tgt $1`;
+buttons `kill tgt`, `look tgt`. To hide those taps out of combat, put the
+tappable trigger in Group `combat` and `.trigger group off combat` — that
+**disables** it, and disabled triggers are not marked. A **Variable equals**
+`fighting` = `1` condition does **not** unmark words: tap rules ignore
+conditions.
+
+**C5. Mode switch: travel aliases vs fight aliases**
+
+1. Aliases `travel_home`, `kk` in the **main** profile.
+2. Trigger `You attack`:
+
+       Ack With  `.alias off travel_home;.alias on kk`
+       Set Variable  `fighting` = `1`
+
+3. Trigger `You flee` / fight end:
+
+       Ack With  `.alias on travel_home;.alias off kk`
+       Set Variable  `fighting` = `0`
+
+One Ack line, Process Semicolons on. For plugin-owned aliases use A11
+instead.
+
+**C6. Heal only in combat and only when hp is low**
+
+Timer `sip`, Repeat on, Every `8` s, Ack With `sip health`.
+Conditions **AND**:
+
+    Variable equals      `fighting` = `1`
+    Variable is below    `hp`  `30`
+
+A separate trigger must **Set Variable** `hp` from a **finished line in the
+game window** (`You have (\d+) hp` → name `hp`, value `$1`, Literal off).
+Leave `.prompt on` **off** for that capture: the prompt bar takes the
+unfinished prompt and does not run triggers on it. Gauges can still read
+that line; this Set Variable trigger cannot while the bar is on.
+
+**C7. Trigger starts a one-shot reminder**
+
+1. Timer `pot_ready`: Repeat **off**, Every `30` s, Notification
+   "potion ready" (Closed on so it shows if you switched away).
+2. Trigger `You quaff a potion`:
+
+       Ack With  `.timer play pot_ready silent`
+
+**C8. Combat group plus a gated timer**
+
+Healing triggers in Group `combat`. Trigger fight start:
+
+    Ack With  `.trigger group on combat`
+    Set Variable  `fighting` = `1`
+    Ack With  `.timer play heal silent`
+
+Fight end: group off, `fighting` = `0`. The timer can still use
+Conditions on `fighting` so a missed group-off does not keep sipping.
+
+**C9. Speak tells on headphones; notify when the screen is off**
+
+Conditions sit on the **trigger**, not on each action. Open/Closed can
+differ per action (T13); two different phone gates need two triggers.
+
+    Pattern  `(\w+) tells you`
+
+    Trigger `tell_speak`
+      Speak Out Loud  `$1`
+      Conditions      Add → Type **Variable equals** → **The phone** →
+                      Headphones are plugged in
+      Open and Closed both on
+
+    Trigger `tell_shade`
+      Notification    `$1`
+      Conditions      Add → Type **Variable equals** → **The phone** →
+                      Screen is off
+      Closed on
+
+Device state as variables must be on. Two triggers on the same line both
+run when Keep going is on (default).
+
+**C10. Auto-loot while an alias is armed**
+
+    Alias `lootmode`  Replace `lootmode`, both ^ and $ on, With `loot`
+    (or any With you like)
+
+    Trigger `A corpse is here`
+      Conditions  Only if alias is ON  `lootmode`
+      Action      Ack With `get all from corpse`
+
+`.alias on lootmode` / `.alias off lootmode` from a button.
+
+**C11. `.wait` on a button, alias, and trigger together**
+
+    Alias `gc`     With `get all;.wait 400ms;i`          (A5)
+    Button         Command `gc`                          (alias expands)
+    Trigger        Ack With `open bag;.wait 200ms;gc`    (then the alias)
+
+Ack and button commands take the same outbound road as typing: aliases,
+`;`, `.wait`, `#n` in **front** of the alias.
+
+**C12. Debug the chain before you trust it**
+
+On the capture trigger, extra Ack `.note got target=$1`.
+On the timer, extra Toast `heal tick` (Open on) while testing.
+`.trigger status fight_start` / `.alias status att` / `.timer info heal`.
+Delete the `.note` when it works (recipe 15).
 
 ### 1. A shortcut that takes an argument
 
@@ -1335,8 +1883,10 @@ Things worth knowing when the pattern gets ambitious:
 - **Literal? on** matches the pattern as plain text, exactly as it does for
   firing the trigger — `[ 9 | -4 | 1 ]` is those characters, not a regex
   character class.
-- **Conditions and groups work as usual**: a tappable trigger that is disabled,
-  or whose condition is false, marks nothing.
+- **Disabled unmarks; a false condition does not.** `.trigger off` (or a
+  group off) skips that trigger in the tappable-word list. Conditions are
+  not consulted when words are marked, so a **Variable equals** gate will
+  not hide a tap.
 - **Overlapping triggers**: two different triggers matching the same word each
   mark it; the press uses the last box drawn there. Two Tappable Word actions
   on *one* trigger are merged instead (see above).
