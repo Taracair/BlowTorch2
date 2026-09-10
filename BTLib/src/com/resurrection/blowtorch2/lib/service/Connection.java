@@ -109,6 +109,9 @@ import com.resurrection.blowtorch2.lib.alias.AliasLocalEcho;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -415,6 +418,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private ColourBleedProbe mColourBleed = null;
 	private ColourBleedProbe mColourBleedHeld = null;
+	/**
+	 * Null unless the player ran {@code .probe connection on}. Same cost model
+	 * as the chunk probe: one reference compare on the ordinary path.
+	 */
+	private ConnectionHealthProbe mHealth = null;
+	private ConnectionHealthProbe mHealthHeld = null;
+	private Runnable mHealthBeat;
 	/**
 	 * The half-line at the end of a chunk waits here for the rest of itself, so
 	 * that triggers, gags and the display only ever see finished lines.
@@ -772,6 +782,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			switch(msg.what) {
 			case MESSAGE_TERMINATED_BY_PEER:
 				clearStartupInProgress();
+				noteHealthDisconnect("peer");
 				killNetThreads(true);
 				// Default: peer closed → no auto-reconnect. Persistent + Auto
 				// Reconnect: treat the close like a network flap.
@@ -1077,6 +1088,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_PROCESS:
 				try {
+					ConnectionHealthProbe hp = mHealth;
+					if (hp != null) {
+						hp.recordDispatch(SystemClock.uptimeMillis());
+					}
 					dispatch((byte[]) msg.obj);
 				} catch (UnsupportedEncodingException e) {
 					reportRuntimeError("incoming text encoding", e);
@@ -1087,6 +1102,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_DISCONNECTED:
 				cancelCommandWaits();
 				clearStartupInProgress();
+				noteHealthDisconnect("disconnected");
 				killNetThreads(true);
 				doDisconnect(false);
 				mIsConnected = false;
@@ -1300,6 +1316,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 *  <p>False by default, so a Connection built without a service — offline
 	 *  and test paths — never holds anything. */
 	private boolean mHoldingForHiddenUi = false;
+	/** {@link SystemClock#uptimeMillis()} when hold last started; 0 if never. */
+	private volatile long mHoldStartedUptime;
+	/** Same clock, last flush of held text; 0 if never. */
+	private volatile long mFlushUptime;
 	/** Per window, the text its UI copy has not been given yet. */
 	private final HashMap<String, java.io.ByteArrayOutputStream> mHeldWhileHidden =
 			new HashMap<String, java.io.ByteArrayOutputStream>();
@@ -1311,8 +1331,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * <p>Idempotent. Called from {@link StellarService#setWindowShowing(boolean)}.
 	 */
 	public final void holdTextWhileHidden() {
+		long now = SystemClock.uptimeMillis();
+		boolean became = false;
 		synchronized (mHeldSynch) {
-			mHoldingForHiddenUi = true;
+			if (!mHoldingForHiddenUi) {
+				mHoldingForHiddenUi = true;
+				mHoldStartedUptime = now;
+				became = true;
+			}
+		}
+		if (became) {
+			ConnectionHealthProbe p = mHealth;
+			if (p != null) {
+				p.recordHoldStart(now);
+			}
 		}
 	}
 
@@ -1326,6 +1358,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (window == null || data == null || data.length == 0) {
 			return false;
 		}
+		boolean overflowedNow = false;
+		int heldThis = 0;
 		synchronized (mHeldSynch) {
 			if (!mHoldingForHiddenUi) {
 				return false;
@@ -1341,9 +1375,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (held.size() + data.length > MAX_REPLAY_BYTES) {
 				mHeldWhileHidden.remove(window);
 				mHeldOverflowed.add(window);
-				return true;
+				overflowedNow = true;
+			} else {
+				held.write(data, 0, data.length);
+				heldThis = data.length;
 			}
-			held.write(data, 0, data.length);
+		}
+		ConnectionHealthProbe p = mHealth;
+		if (p != null) {
+			if (overflowedNow) {
+				p.recordHoldOverflow();
+			} else if (heldThis > 0) {
+				p.recordHold(heldThis);
+			}
 		}
 		return true;
 	}
@@ -1365,7 +1409,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * process, so the lock is held for a queue append and nothing more.
 	 */
 	public final void flushTextHeldWhileHidden() {
+		boolean wasHolding;
 		synchronized (mHeldSynch) {
+			wasHolding = mHoldingForHiddenUi;
 			// Skip dead binders — a UI process killed from recents leaves corpses
 			// in mWindowCallbackMap, and a oneway call at them is a silent no-op.
 			// Always clear the hold at the end: keeping mHoldingForHiddenUi true
@@ -1407,6 +1453,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mHeldWhileHidden.clear();
 			mHeldOverflowed.clear();
 			mHoldingForHiddenUi = false;
+			if (wasHolding) {
+				mFlushUptime = SystemClock.uptimeMillis();
+			}
+		}
+		if (wasHolding) {
+			ConnectionHealthProbe probe = mHealth;
+			if (probe != null) {
+				probe.recordFlush(mFlushUptime);
+			}
 		}
 	}
 
@@ -3286,6 +3341,190 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/**
+	 * Turn the connection-health probe on or off. Off keeps the reading, same
+	 * as {@link #setChunkProbe}.
+	 *
+	 * @param on True to record heartbeats and hold/read/write events.
+	 */
+	public final void setConnectionHealthProbe(final boolean on) {
+		if (on) {
+			if (mHealthHeld == null) {
+				mHealthHeld = new ConnectionHealthProbe();
+			}
+			mHealthHeld.setOn(true);
+			mHealthHeld.markStarted(SystemClock.uptimeMillis());
+			mHealth = mHealthHeld;
+			if (mPump != null) {
+				mPump.setHealthProbe(mHealth);
+			}
+			startHealthBeat();
+		} else {
+			if (mHealthHeld != null) {
+				mHealthHeld.setOn(false);
+			}
+			mHealth = null;
+			if (mPump != null) {
+				mPump.setHealthProbe(null);
+			}
+			stopHealthBeat();
+		}
+	}
+
+	public final void resetConnectionHealthProbe() {
+		stopHealthBeat();
+		if (mHealthHeld != null) {
+			mHealthHeld.reset();
+			if (mHealth != null) {
+				mHealthHeld.markStarted(SystemClock.uptimeMillis());
+				startHealthBeat();
+			}
+		}
+	}
+
+	public final String connectionHealthReport() {
+		ConnectionHealthProbe.Live live = captureHealthLive();
+		ConnectionHealthProbe src = mHealthHeld;
+		if (src == null) {
+			src = new ConnectionHealthProbe();
+			src.setOn(false);
+		}
+		String body = src.report(live, SystemClock.uptimeMillis());
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, body);
+		return body;
+	}
+
+	private void noteHealthDisconnect(final String reason) {
+		ConnectionHealthProbe p = mHealth;
+		if (p != null) {
+			p.recordDisconnect(SystemClock.uptimeMillis(), reason);
+		}
+	}
+
+	private void startHealthBeat() {
+		if (mHandler == null) {
+			return;
+		}
+		if (mHealthBeat == null) {
+			mHealthBeat = new Runnable() {
+				@Override
+				public void run() {
+					ConnectionHealthProbe p = mHealth;
+					if (p == null || mHandler == null) {
+						return;
+					}
+					String line = healthBeatLine();
+					p.beat(SystemClock.uptimeMillis(), line);
+					Log.i(ConnectionHealthProbe.LOG_TAG, line);
+					mHandler.postDelayed(this, ConnectionHealthProbe.HEARTBEAT_MS);
+				}
+			};
+		}
+		mHandler.removeCallbacks(mHealthBeat);
+		mHandler.post(mHealthBeat);
+	}
+
+	private void stopHealthBeat() {
+		if (mHandler != null && mHealthBeat != null) {
+			mHandler.removeCallbacks(mHealthBeat);
+		}
+	}
+
+	private String healthBeatLine() {
+		ConnectionHealthProbe.Live live = captureHealthLive();
+		long now = SystemClock.uptimeMillis();
+		StringBuilder b = new StringBuilder(160);
+		b.append("rx=").append(ConnectionHealthProbe.age(live.lastRxUptime, now));
+		b.append(" tx=").append(ConnectionHealthProbe.age(live.lastTxUptime, now));
+		b.append(" held=").append(live.heldBytes);
+		b.append(" holding=").append(live.holdingUi ? 1 : 0);
+		b.append(" show=").append(live.windowShowing ? 1 : 0);
+		b.append(" screen=").append(live.screenInteractive ? 1 : 0);
+		b.append(" conn=").append(live.appConnected ? 1 : 0);
+		b.append(" net=").append(live.network);
+		return b.toString();
+	}
+
+	private ConnectionHealthProbe.Live captureHealthLive() {
+		ConnectionHealthProbe.Live live = new ConnectionHealthProbe.Live();
+		live.probeOn = mHealth != null;
+		live.appConnected = mIsConnected;
+		live.tls = mUseTls;
+		if (mConnectedAtElapsed > 0L && mIsConnected) {
+			live.connectedForMs = SystemClock.elapsedRealtime() - mConnectedAtElapsed;
+		}
+		live.keepCpuAwake = readBoolOption("keep_cpu_awake", true);
+		live.needsCpuKeepalive = needsCpuKeepalive();
+		live.keepWifiAlive = readBoolOption("keep_wifi_alive", true);
+		mReconnect.fillHealthLive(live);
+		if (mService != null) {
+			live.worldCount = mService.openWorldCount();
+			live.windowShowing = mService.isWindowConnected();
+			live.screenInteractive = isScreenInteractive();
+			fillNetworkLive(live);
+		}
+		synchronized (mHeldSynch) {
+			live.holdingUi = mHoldingForHiddenUi;
+			int bytes = 0;
+			for (java.io.ByteArrayOutputStream held : mHeldWhileHidden.values()) {
+				if (held != null) {
+					bytes += held.size();
+				}
+			}
+			live.heldBytes = bytes;
+			live.heldWindows = mHeldWhileHidden.size();
+			live.heldOverflows = mHeldOverflowed.size();
+			live.holdStartedUptime = mHoldStartedUptime;
+			live.flushUptime = mFlushUptime;
+		}
+		if (mPump != null) {
+			mPump.fillHealthLive(live);
+		}
+		return live;
+	}
+
+	private void fillNetworkLive(final ConnectionHealthProbe.Live live) {
+		try {
+			ConnectivityManager cm = (ConnectivityManager)
+					mService.getSystemService(Context.CONNECTIVITY_SERVICE);
+			if (cm == null) {
+				live.network = "no-cm";
+				return;
+			}
+			Network active = cm.getActiveNetwork();
+			if (active == null) {
+				live.network = "none";
+				return;
+			}
+			NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+			if (caps == null) {
+				live.network = "no-caps";
+				return;
+			}
+			live.vpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+			String transport;
+			if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+				transport = "wifi";
+			} else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+				transport = "cell";
+			} else if (live.vpn) {
+				transport = "vpn";
+			} else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+				transport = "eth";
+			} else {
+				transport = "other";
+			}
+			boolean internet = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+			boolean validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+			live.network = transport
+					+ " internet=" + (internet ? "yes" : "no")
+					+ " validated=" + (validated ? "yes" : "no");
+		} catch (RuntimeException e) {
+			String name = e.getClass().getSimpleName();
+			live.network = "error:" + name;
+		}
+	}
+
+	/**
 	 * The probe's reading as text for the game window.
 	 *
 	 * @return The report, or an invitation to turn it on.
@@ -3440,6 +3679,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
 			
 			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler);
+			if (mHealth != null) {
+				mPump.setHealthProbe(mHealth);
+			}
 			
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 			mProcessor.setDisplayName(mDisplay);
@@ -7845,6 +8087,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mSettings.shutdown();
 		mSettings = null;
+		stopHealthBeat();
 		mHandler.removeMessages(MESSAGE_RECONNECT);
 		mHandler = null;
 		mService.removeConnectionNotification(mDisplay);

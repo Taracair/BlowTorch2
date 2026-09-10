@@ -1241,7 +1241,11 @@ Reconnect waits for the network. It does not reconnect on its own, and
 it does not raise the try count.
 
 Use Keep CPU Awake, Keep Wifi Alive (on Wi-Fi) and battery exemption
-when you leave the screen off mid-session.]])
+when you leave the screen off mid-session.
+
+If the game looks frozen but the phone still has internet, type
+.probe connection (local; it does not go to the world) and keep the dump.
+That is how to tell a waiting socket from text sitting in a hidden UI.]])
 end
 
 TOPICS.disconnect_reconnect = function()
@@ -1591,7 +1595,7 @@ local TIPS = {
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
 	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
-	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
+	probe = [[.probe report measures how lines arrive. .probe connection dumps why a session looks frozen. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
 	buttonopacity = [[.buttonopacity 100 forces every tile fully opaque until .buttonopacity restore. .loadset keeps that override.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],

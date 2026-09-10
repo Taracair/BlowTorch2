@@ -1554,6 +1554,7 @@ is enabled; `.alias list` shows every alias at once.
     `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
+    `.probe connection on|off|report|reset`  When the game looks frozen: socket vs held UI vs silence. A one-shot `.probe connection` dump works without turning it on; `on` adds a 15s heartbeat. Also session log; logcat tag `BlowTorchNet`
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
@@ -1714,6 +1715,35 @@ buckets means blocks of text do arrive whole.
 Nothing in the client uses this yet. It exists so that a decision about
 multi-line triggers rests on a measurement from a real session rather than on a
 guess about how the network behaves.
+
+### `.probe connection`
+
+```
+.probe connection on
+.probe connection off
+.probe connection report     (or .probe connection / .probe net)
+.probe connection reset
+```
+
+Answers one question when the game looks frozen but the phone still has
+internet: **is the TCP read waiting forever, or did bytes arrive and sit in a
+hidden UI?**
+
+A one-shot `.probe connection` dump works without turning it on — type it
+while the freeze is happening (the command is local; it does not go to the
+world). That snapshot is also written to the session log. Logcat tag
+`BlowTorchNet`.
+
+`.probe connection on` adds a 15-second heartbeat so a freeze that happens
+with the game in the background still has a trail. It costs nothing while
+off. `.ping` is ICMP to the host; it does not test this TCP socket.
+
+**Reading it.** `soTimeout=0` means a read waits until a byte or a close —
+Auto Reconnect starts only after a close or error, not after silence.
+Inbound silence with the read stack in `getData`/`read` and `connected=yes`
+is a socket that still looks open. Held bytes growing while inbound is
+recent means the socket is alive and the UI is not being pushed until you
+come back.
 
 ### `.probe bleed`
 

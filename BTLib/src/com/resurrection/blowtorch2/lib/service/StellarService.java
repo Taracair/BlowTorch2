@@ -1741,6 +1741,10 @@ public class StellarService extends Service {
 		return mWindowShowing;
 	}
 
+	final int openWorldCount() {
+		return mConnections == null ? 0 : mConnections.size();
+	}
+
 	/** Record whether the game window is on screen, and catch up if it just came back.
 	 *
 	 * <p>While it is off screen the connections stop pushing text at the UI

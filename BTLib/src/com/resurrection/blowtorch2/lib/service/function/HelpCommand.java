@@ -108,6 +108,7 @@ public class HelpCommand extends SpecialCommand {
 				"fire the bell reaction now; .dobell vibrate / .dobell alert ignore Options");
 		cmd("probe", "Triggers and scripts",
 				"measure how the world splits its text across packets; "
+				+ ".probe connection dumps why a session looks frozen; "
 				+ ".probe bleed records colour-trigger restores; "
 				+ ".probe truecolor dumps a 24-bit sample; "
 				+ ".probe osc8 dumps tappable OSC 8 samples; "
@@ -525,6 +526,7 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .probe:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .probe lines on|off | report | reset\n"
+					+ "  .probe connection on|off | report | reset\n"
 					+ "  .probe bleed on|off | report | reset\n"
 					+ "  .probe truecolor | color — 24-bit sample in this window\n"
 					+ "  .probe osc8 — OSC 8 sample (tap the marked words)\n"

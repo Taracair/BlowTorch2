@@ -274,6 +274,17 @@ final class ConnectionReconnect {
 		}
 	}
 
+	void fillHealthLive(final ConnectionHealthProbe.Live live) {
+		if (live == null) {
+			return;
+		}
+		live.autoReconnect = wantsReconnect();
+		live.persistent = isPersistent();
+		live.retryPending = isRetryPending();
+		live.reconnectAttempt = attempt;
+		live.reconnectLimit = effectiveLimit();
+	}
+
 	/** Drop any pending network wait and unregister the callback. */
 	void clearNetworkWait() {
 		if (host == null) {

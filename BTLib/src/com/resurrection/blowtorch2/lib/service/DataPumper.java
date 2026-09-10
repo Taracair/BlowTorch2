@@ -30,6 +30,7 @@ import javax.net.ssl.SSLSocketFactory;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Log;
 
 /** Data pumper thread implementation. This object manages itself as a thread, as well as a child
@@ -101,6 +102,12 @@ public class DataPumper extends Thread {
 	private boolean mConnected = false;
 	/** Tracker for the intention of closing the socket. */
 	private boolean mClosing = false;
+	/** Null unless {@code .probe connection on}. One reference compare per read/write. */
+	private volatile ConnectionHealthProbe mHealth;
+	/** Last successful socket read, {@link SystemClock#uptimeMillis()}, 0 if none. */
+	private volatile long mLastRxUptime;
+	/** Last successful socket write, same clock, 0 if none. */
+	private volatile long mLastTxUptime;
 	/** Init already posted MESSAGE_DODIALOG — skip duplicate MESSAGE_DISCONNECTED. */
 	private boolean mConnectFailureReported = false;
 	
@@ -154,6 +161,7 @@ public class DataPumper extends Thread {
 		}
 		@Override
 		public void run() {
+			setName("DataPumper-writer");
 			Looper.prepare();
 			mOutputHandler = new Handler(new WriteHandler());
 			Looper.loop();
@@ -173,6 +181,7 @@ public class DataPumper extends Thread {
 				try {
 					mWriterThread.mWriter.write(data);
 					mWriterThread.mWriter.flush();
+					noteTx(data == null ? 0 : data.length);
 				} catch (IOException e1) {
 					dispatchDialog(e1.getMessage());
 					mConnected = false;
@@ -567,7 +576,7 @@ public class DataPumper extends Thread {
 			byte[] data = new byte[numtoread];
 			try {
 				mReader.read(data, 0, numtoread);
-			
+				noteRx(numtoread);
 			} catch (IOException e) {
 				if (!mClosing) {
 					Log.w("BlowTorch", "Socket read failed — disconnect", e);
@@ -683,6 +692,62 @@ public class DataPumper extends Thread {
 	 */
 	public final boolean isConnected() {
 		return mConnected;
+	}
+
+	void setHealthProbe(final ConnectionHealthProbe probe) {
+		mHealth = probe;
+	}
+
+	private void noteRx(final int bytes) {
+		long now = SystemClock.uptimeMillis();
+		mLastRxUptime = now;
+		ConnectionHealthProbe h = mHealth;
+		if (h != null) {
+			h.recordRx(now, bytes);
+		}
+	}
+
+	private void noteTx(final int bytes) {
+		long now = SystemClock.uptimeMillis();
+		mLastTxUptime = now;
+		ConnectionHealthProbe h = mHealth;
+		if (h != null) {
+			h.recordTx(now, bytes);
+		}
+	}
+
+	void fillHealthLive(final ConnectionHealthProbe.Live live) {
+		if (live == null) {
+			return;
+		}
+		live.pumpConnected = mConnected;
+		live.closing = mClosing;
+		live.compressed = mCompressed;
+		live.lastRxUptime = mLastRxUptime;
+		live.lastTxUptime = mLastTxUptime;
+		live.pumpThread = ConnectionHealthProbe.describeThread(this, 8);
+		live.writerThread = ConnectionHealthProbe.describeThread(mWriterThread, 8);
+		live.writerHasQueuedSend = mWriterThread != null && mWriterThread.mOutputHandler != null
+				&& mWriterThread.mOutputHandler.hasMessages(OutputWriterThread.MESSAGE_SEND);
+		if (mSocket == null) {
+			live.socketPresent = false;
+			return;
+		}
+		live.socketPresent = true;
+		live.socketConnected = mSocket.isConnected();
+		live.socketClosed = mSocket.isClosed();
+		live.socketInputShutdown = mSocket.isInputShutdown();
+		live.socketOutputShutdown = mSocket.isOutputShutdown();
+		try {
+			live.keepAlive = mSocket.getKeepAlive();
+		} catch (SocketException e) {
+			live.keepAlive = false;
+		}
+		try {
+			live.soTimeoutMs = mSocket.getSoTimeout();
+		} catch (SocketException e) {
+			live.soTimeoutMs = -1;
+		}
 	}
 
 	/** True while MCCP2 decompression is active on the inbound stream. */

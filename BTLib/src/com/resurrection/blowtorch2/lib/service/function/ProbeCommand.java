@@ -25,6 +25,52 @@ public class ProbeCommand extends SpecialCommand {
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
 
+		if (arg.startsWith("connection") || arg.startsWith("conn")
+				|| arg.startsWith("net") || arg.startsWith("socket")) {
+			String rest;
+			if (arg.startsWith("connection")) {
+				rest = arg.substring("connection".length()).trim();
+			} else if (arg.startsWith("socket")) {
+				rest = arg.substring("socket".length()).trim();
+			} else if (arg.startsWith("conn")) {
+				rest = arg.substring("conn".length()).trim();
+			} else {
+				rest = arg.substring("net".length()).trim();
+			}
+			if (rest.equals("on")) {
+				c.setConnectionHealthProbe(true);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Connection probe on. Play until it freezes, then .probe connection report."
+						+ Colorizer.getWhiteColor()
+						+ "\nLogcat tag BlowTorchNet. A one-shot dump also works without this.\n");
+				return null;
+			}
+			if (rest.equals("off")) {
+				c.setConnectionHealthProbe(false);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Connection probe off. The reading is kept; .probe connection reset clears it."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("reset")) {
+				c.resetConnectionHealthProbe();
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Connection probe cleared."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("report") || rest.equals("status") || rest.length() == 0) {
+				c.sendDataToWindow(c.connectionHealthReport());
+				return null;
+			}
+			c.sendDataToWindow(getErrorMessage("Probe usage",
+					".probe connection on     — record reads/writes/holds and a 15s heartbeat\n"
+					+ ".probe connection off    — stop; the reading is kept\n"
+					+ ".probe connection report — dump now (also session log). Works without on\n"
+					+ ".probe connection reset  — clear the reading"));
+			return null;
+		}
+
 		if (arg.startsWith("bleed") || arg.startsWith("colourbleed")
 				|| arg.startsWith("colorbleed")) {
 			String rest = arg.startsWith("bleed")
@@ -176,10 +222,15 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe lines off   — stop; the reading is kept\n"
 				+ ".probe report      — show the reading (also plain .probe)\n"
 				+ ".probe reset       — clear the reading\n\n"
+				+ ".probe connection on     — record reads, writes, held UI, 15s heartbeat\n"
+				+ ".probe connection report — dump now (also session log). Works without on\n"
+				+ ".probe connection off    — stop; the reading is kept\n\n"
 				+ ".probe bleed on    — record colour-trigger restores (logcat BlowTorchBleed)\n"
 				+ ".probe bleed report — dump that reading here\n\n"
 				+ "This answers one question: can a trigger pattern span several\n"
 				+ "lines on this world, or do the lines arrive too cut up for that?\n\n"
+				+ ".probe connection answers a different one: when the game looks\n"
+				+ "frozen, is the socket waiting, or is text sitting in a hidden UI?\n\n"
 				+ ".probe sensors          — what sensors this phone has\n"
 				+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
 				+ ".probe sensors light 10 — how bright the room is, in lux\n\n"
