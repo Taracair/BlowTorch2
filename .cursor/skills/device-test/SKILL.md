@@ -20,20 +20,7 @@ The card must include:
 
 They play on **btTest** (`com.resurrection.blowtorch2.test`). Crash log: `/sdcard/BlowTorch/logs/blowtorch2.log`. Protocol: `/sdcard/BlowTorch/logs/gmcp.log`.
 
-`scripts/deploy.sh` posts **BlowTorch deployed** on the phone (wifi ADB
-included). After that, post this card with the same tag so it replaces the
-ping:
-
-```sh
-scripts/notify-device.sh "Do sprawdzenia" "$(cat <<'EOF'
-## Do sprawdzenia (jedna runda)
-
-1. [gdzie] [gest / komenda].
-   Sukces: [co widać / co gra dostaje].
-   Porażka: [co widać zamiast tego].
-EOF
-)"
-```
+`scripts/deploy.sh` already posts a title-only ping on the phone (**BlowTorch deployed**, empty body). Put this card in the **chat reply** only. Do not send the card body over ADB (`scripts/notify-device.sh` with a body, or stdin).
 
 ## Card template
 
@@ -55,4 +42,5 @@ Po rundzie (tylko jeśli potrzebny log):
 - Say "works". Report "installed", then what **they** still have to try.
 - Invent a passing device test.
 - Name a live MUD, guild, character, or profile filename.
+- ADB the test-card body onto the phone. Title-only ping is enough.
 ---

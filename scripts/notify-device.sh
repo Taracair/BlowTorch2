@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Post a status-bar notification on the phone over adb (USB or wifi).
 #
-#   scripts/notify-device.sh                       # "BlowTorch deployed"
-#   scripts/notify-device.sh "Do sprawdzenia" $'1. …\n2. …'
-#   scripts/notify-device.sh "Do sprawdzenia" < card.txt
+#   scripts/notify-device.sh                       # title "BlowTorch deployed", empty body
+#   scripts/notify-device.sh "BlowTorch deployed"  # same, empty body
 #
-# Same tag every time, so a later card replaces the install ping.
+# Title-only is the usual ping after install. Do not put a test-card body here.
 # Does not fail the caller if the phone is gone or notifications are off.
 
 set -uo pipefail
@@ -18,10 +17,8 @@ MAX_CHARS=4000
 
 if [ $# -ge 2 ]; then
 	BODY="$2"
-elif [ ! -t 0 ]; then
-	BODY="$(cat)"
 else
-	BODY="APK zainstalowany."
+	BODY=""
 fi
 
 if [ "${#BODY}" -gt "$MAX_CHARS" ]; then
