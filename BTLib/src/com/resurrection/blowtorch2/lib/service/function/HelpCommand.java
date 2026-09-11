@@ -11,6 +11,8 @@ import java.util.Map;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
+import com.resurrection.blowtorch2.lib.service.OptionNegotiator;
+import com.resurrection.blowtorch2.lib.service.Processor;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
 
 /**
@@ -101,20 +103,13 @@ public class HelpCommand extends SpecialCommand {
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
 		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
 		cmd("wait", "Triggers and scripts",
-				"pause the rest of this line (.wait 5s / #wait 5m10s); .wait stop cancels; .wait show lists the queue; .wait change 1 60s retargets that row");
+				"pause the rest of this line (.wait 5s / #wait 5m10s); stop cancels; show lists the queue");
 		cmd("sound", "Triggers and scripts",
 				"which volume a trigger's sound uses, and warning when it is off");
 		cmd("dobell", "Triggers and scripts",
 				"fire the bell reaction now; .dobell vibrate / .dobell alert ignore Options");
 		cmd("probe", "Triggers and scripts",
-				"measure how the world splits its text across packets; "
-				+ ".probe connection dumps why a session looks frozen; "
-				+ ".probe bleed records colour-trigger restores; "
-				+ ".probe truecolor dumps a 24-bit sample; "
-				+ ".probe osc8 dumps tappable OSC 8 samples; "
-				+ ".probe mxp dumps MXP SEND/colour samples; "
-				+ ".probe protocols is the same as .protocols; "
-				+ ".probe sensors for what this phone can feel");
+				"list of probes; .probe connection dumps why a freeze looks frozen");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
 		cmd("colordebug", "Triggers and scripts", "show the colour codes in a line");
@@ -141,6 +136,7 @@ public class HelpCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String filter = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
+		int width = wrapWidth(c);
 		List<String> names = c == null ? new ArrayList<String>() : c.getSystemCommands();
 		if (names == null) {
 			names = new ArrayList<String>();
@@ -168,8 +164,8 @@ public class HelpCommand extends SpecialCommand {
 			if (section == null || bySection.get(section) == null) {
 				section = "Other";
 			}
-			bySection.get(section).add(pad("." + name) + " "
-					+ (what == null ? "(no description yet)" : what));
+			bySection.get(section).add(HelpColumn.formatRow("." + name,
+					what == null ? "(no description yet)" : what, width));
 		}
 
 		StringBuilder out = new StringBuilder();
@@ -183,7 +179,7 @@ public class HelpCommand extends SpecialCommand {
 			out.append(Colorizer.getBrightCyanColor()).append(section)
 				.append(Colorizer.getWhiteColor()).append("\n");
 			for (String row : rows) {
-				out.append("  ").append(row).append("\n");
+				out.append(row).append("\n");
 				shown++;
 			}
 		}
@@ -197,7 +193,9 @@ public class HelpCommand extends SpecialCommand {
 		if (sub != null) {
 			out.append(sub);
 		}
-		c.sendDataToWindow(out.toString());
+		if (c != null) {
+			c.sendDataToWindow(out.toString());
+		}
 		return null;
 	}
 
@@ -525,7 +523,7 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .probe:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .probe lines on|off | report | reset\n"
+					+ "  .probe — this list of probes\n"
 					+ "  .probe connection on|off | report | reset\n"
 					+ "  .probe bleed on|off | report | reset\n"
 					+ "  .probe truecolor | color — 24-bit sample in this window\n"
@@ -533,7 +531,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .probe mxp — MXP SEND/colour sample (tap the marked words)\n"
 					+ "  .probe protocols — same as .protocols\n"
 					+ "  .probe sensors | sensors state\n"
-					+ "  .probe sensors shake|light [seconds]\n";
+					+ "  .probe sensors shake|light [seconds]\n"
+					+ "  .probe lines on|off | report | reset — optional chunk measurement\n";
 		}
 		if (filter.equals("sensor")) {
 			return "\n"
@@ -721,12 +720,18 @@ public class HelpCommand extends SpecialCommand {
 		return null;
 	}
 
-	/** Line up the descriptions without needing a monospace assumption to hold. */
-	private static String pad(final String name) {
-		StringBuilder b = new StringBuilder(name);
-		while (b.length() < 18) {
-			b.append(' ');
+	/** NAWS columns when they leave room for a description; otherwise 48. Missing connection does not throw. */
+	static int wrapWidth(final Connection c) {
+		int reported = 0;
+		if (c != null) {
+			Processor p = c.getProcessor();
+			if (p != null) {
+				OptionNegotiator n = p.getOptionHandler();
+				if (n != null) {
+					reported = n.getColumns();
+				}
+			}
 		}
-		return b.toString();
+		return HelpColumn.wrapWidth(reported);
 	}
 }
