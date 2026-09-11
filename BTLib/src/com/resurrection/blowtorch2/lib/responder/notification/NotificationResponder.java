@@ -14,7 +14,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -183,16 +182,6 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 	private static String sLastThrottleKey = "";
 	private static long sLastThrottleAt = 0L;
 
-	long[] very_short = {0,200,50,200};
-	long[] normal_short = {0,500,100,300};
-	long[] normal_long = {0,1000,500,1000};
-	long[] super_long = {0,2000,1000,2000,1000,2000};
-	//long[] vp = new long[4];
-	//vp[0] = 0;
-	//vp[1] = 200;
-	//vp[2] = 50;
-	//vp[3] = 200;
-	
 	@Override
 	public boolean doResponse(Context c,TextTree tree,int lineNumber,ListIterator<TextTree.Line> iterator,TextTree.Line line,int start,int end,String matched,Object source,String displayname,String host,int port,int triggernumber,boolean windowIsOpen,Handler dispatcher,HashMap<String,String> captureMap,LuaState L,String name,String encoding) {
 		//we are going to do the window response now.
@@ -239,11 +228,33 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 
 		NotificationManager NM = (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
 		NotificationChannels.ensureChannels(c);
-		Uri customSound = null;
-		if (useDefaultSound && soundPath != null && !soundPath.equals("")) {
-			customSound = com.resurrection.blowtorch2.lib.util.NotificationSounds.resolveUri(c, soundPath);
+		String channelId = NotificationChannels.ensureSilentCustomAlertChannel(c);
+
+		String soundToPlay = null;
+		if (NotificationAlertEffects.usePhoneDefaultSound(useDefaultSound, soundPath)) {
+			soundToPlay = com.resurrection.blowtorch2.lib.util.NotificationSounds.phoneDefaultPath(c);
+		} else {
+			soundToPlay = NotificationAlertEffects.customSoundPath(useDefaultSound, soundPath);
 		}
-		String channelId = NotificationChannels.ensureAlertChannel(c, customSound);
+		try {
+			if (soundToPlay != null) {
+				if (com.resurrection.blowtorch2.lib.util.NotificationSounds
+						.isSettingsContentUri(soundToPlay)) {
+					com.resurrection.blowtorch2.lib.util.TriggerSounds.playUri(c,
+							android.net.Uri.parse(soundToPlay));
+				} else {
+					com.resurrection.blowtorch2.lib.util.TriggerSounds.play(
+							c, soundToPlay, 1f, "notification:" + myTriggerId, 0, true);
+				}
+			}
+			long[] vibrate = NotificationAlertEffects.vibratePattern(useDefaultVibrate, vibrateLength);
+			if (vibrate != null) {
+				com.resurrection.blowtorch2.lib.util.BellVibrator.waveform(c, vibrate);
+			}
+		} catch (RuntimeException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"NotificationResponder.doResponse", e);
+		}
 		//Notification note = new Notification(resId,xformedtitle,System.currentTimeMillis());
 		//Intent notificationIntent  = new Intent(c,com.resurrection.blowtorch2.lib.window.MainWindow.class);
 		Intent notificationIntent = null;
@@ -325,44 +336,10 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		//note.setLatestEventInfo(c, xformedtitle, xformedmessage, contentIntent);
 		
 		int defaults = 0;
-		if (useDefaultSound && (soundPath == null || soundPath.equals(""))) {
-			defaults |= Notification.DEFAULT_SOUND;
-		} else if (useDefaultSound && customSound != null) {
-			// Do not set DEFAULT_SOUND — that forces the system channel tone.
-			// Play custom sound ourselves; channel is silent for custom alerts.
-			builder.setSound(null);
-			com.resurrection.blowtorch2.lib.util.NotificationSounds.play(c, customSound);
-		} else if (useDefaultSound) {
-			defaults |= Notification.DEFAULT_SOUND;
-		}
-		
-		if(useDefaultVibrate && vibrateLength == 0) {
-			defaults |= Notification.DEFAULT_VIBRATE;
-		} else if(useDefaultVibrate) {
-			switch(vibrateLength) {
-			case 1:
-				builder.setVibrate(very_short);
-				break;
-			case 2:
-				builder.setVibrate(normal_short);
-				break;
-			case 3:
-				builder.setVibrate(normal_long);
-				break;
-			case 4:
-				builder.setVibrate(super_long);
-				break;
-			}
-		}
-		
 		if(useDefaultLight && colorToUse == 0) {
 			defaults |= Notification.DEFAULT_LIGHTS;
 		} else if(useDefaultLight) {
 			builder.setLights(colorToUse,300,300);
-			//note.flags |= Notification.FLAG_SHOW_LIGHTS;
-			//note.ledARGB = colorToUse;
-			//note.ledOnMS = 300;
-			//note.ledOffMS = 300;
 		}
 
 		builder.setOnlyAlertOnce(true)

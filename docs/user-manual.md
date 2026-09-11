@@ -898,7 +898,7 @@ one that covers something. Also in **Options → Miscellaneous → Tapped-word m
 
 ### Making a trigger make a noise
 
-Three ways, and they answer different questions.
+Four ways, and they answer different questions.
 
 **Play a sound.** Give the trigger a **Play a Sound** action and it plays a
 short sound file. In a fight this is the one you want: a ping is over in a fifth
@@ -998,6 +998,15 @@ trigger that rings it sounds the same, and it plays the system notification
 sound rather than a file of your choosing. That is what **Play a Sound** above
 is for; the bell is still the quickest way to get a buzz out of a trigger
 without choosing anything.
+
+**Notification.** Posts a line in the shade. The Sound and Vibrate boxes on
+that action play through the same paths as **Play a Sound** and `.dobell
+vibrate` — not through the Android notification channel (that one follows the
+ringer, so a silenced phone is silent, and Android 8+ ignores a per-notification
+tone on a channel). **Phone notification sound** is the ringtone the phone uses
+for notifications, played on the Play a Sound volume (media by default).
+**Default pulse** is a short double buzz. The shade still appears if you turn
+both off.
 
 ### Send to thread
 

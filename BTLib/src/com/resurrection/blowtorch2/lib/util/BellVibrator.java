@@ -7,9 +7,10 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 
 /**
- * One-shot buzz for the bell. The service process is often treated as
- * background, so the UI process should call this; amplitude 255 because
- * {@code DEFAULT_AMPLITUDE} (-1) is a no-op on some phones.
+ * Bell and trigger-notification buzz. Amplitude 255 because
+ * {@code DEFAULT_AMPLITUDE} (-1) is a no-op on some phones. The service
+ * process is often treated as background; {@code .dobell} still prefers the
+ * UI process while the game window is showing.
  */
 public final class BellVibrator {
 
@@ -26,6 +27,27 @@ public final class BellVibrator {
 		}
 		int amp = clampAmp(amplitude);
 		play(vibrator, VibrationEffect.createOneShot(durationMs, amp));
+	}
+
+	/**
+	 * Off-on timings in the old {@code Notification.vibrate} shape:
+	 * {@code {delay, buzz, gap, buzz, …}}. Amplitude 255 — {@code DEFAULT_AMPLITUDE}
+	 * is a no-op on some phones.
+	 */
+	public static void waveform(Context context, long[] offOn) {
+		if (context == null || offOn == null || offOn.length < 2) {
+			return;
+		}
+		Vibrator vibrator = vibratorOf(context);
+		if (vibrator == null) {
+			return;
+		}
+		int amp = clampAmp(255);
+		int[] amps = new int[offOn.length];
+		for (int i = 0; i < offOn.length; i++) {
+			amps[i] = (i % 2 == 1) ? amp : 0;
+		}
+		play(vibrator, VibrationEffect.createWaveform(offOn, amps, -1));
 	}
 
 	/**

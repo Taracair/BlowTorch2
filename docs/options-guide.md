@@ -478,6 +478,9 @@ seven switches was making the Input page a wall.
 The shade title is the world display name, then the title you typed
 (`world-a · goblin`), so several sessions can be told apart.
 
-Trigger/timer notification responders can use the system default sound, five
-bundled presets (soft chime/tap, mid ping/pluck, loud alert), files under
-`/BlowTorch/` on shared storage, or **Pick from storage…** (SAF content URI).
+Trigger/timer notification responders can use **Phone notification sound** (the
+phone's notification ringtone, played on the Play a Sound volume — media by
+default, not the ringer), bundled presets (soft chime/tap, mid ping/pluck, loud
+alert, chirp, 5s/10s pulse), files under `/BlowTorch/` on shared storage, or
+**Pick from storage…** (SAF content URI). Sound and vibrate are played by the
+app; the shade entry is silent. **Default pulse** is a short double buzz.

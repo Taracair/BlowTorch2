@@ -84,10 +84,35 @@ public final class NotificationSounds {
 		return 0;
 	}
 
-	/** Resolve stored soundPath to a playable Uri, or null for system default. */
+	/**
+	 * The phone's notification ringtone as a media URI {@link TriggerSounds} can
+	 * load. {@code getDefaultUri} is a settings symlink; SoundPool needs the
+	 * actual file.
+	 */
+	public static String phoneDefaultPath(Context context) {
+		if (context == null) {
+			return null;
+		}
+		Uri uri = android.media.RingtoneManager.getActualDefaultRingtoneUri(
+				context.getApplicationContext(),
+				android.media.RingtoneManager.TYPE_NOTIFICATION);
+		if (uri == null) {
+			uri = android.media.RingtoneManager.getDefaultUri(
+					android.media.RingtoneManager.TYPE_NOTIFICATION);
+		}
+		return uri == null ? null : uri.toString();
+	}
+
+	/** Settings provider symlink. SoundPool cannot seek these; use MediaPlayer. */
+	public static boolean isSettingsContentUri(String path) {
+		return path != null && path.startsWith("content://settings/");
+	}
+
+	/** Resolve stored soundPath to a playable Uri, or the phone default when empty. */
 	public static Uri resolveUri(Context context, String soundPath) {
 		if (soundPath == null || soundPath.isEmpty()) {
-			return null;
+			String def = phoneDefaultPath(context);
+			return def == null ? null : Uri.parse(def);
 		}
 		String key = bundledKey(soundPath);
 		if (key != null) {

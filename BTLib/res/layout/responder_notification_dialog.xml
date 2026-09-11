@@ -94,7 +94,7 @@
   						android:id="@+id/responder_notification_sound_extra"
   						android:layout_width="match_parent"
   						android:layout_height="wrap_content"
-  						android:text="Currently using default sound."
+  						android:text="Currently using: phone notification sound"
   						android:textColor="@color/chrome_description"
   						android:textSize="12sp"/>
   				</LinearLayout>
@@ -128,7 +128,7 @@
   						android:id="@+id/responder_notification_vibrate_extra"
   						android:layout_width="match_parent"
   						android:layout_height="wrap_content"
-  						android:text="Currently using: default"
+  						android:text="Currently using: Default pulse"
   						android:textColor="@color/chrome_description"
   						android:textSize="12sp"/>
   				</LinearLayout>

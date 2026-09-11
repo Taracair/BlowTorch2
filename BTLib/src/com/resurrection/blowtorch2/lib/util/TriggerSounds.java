@@ -313,6 +313,76 @@ public final class TriggerSounds {
 	}
 
 	/**
+	 * Play a URI the SoundPool cannot seek (settings ringtone symlink).
+	 * Same stream as {@link #play}. Does not hold the SoundPool lock across
+	 * {@code prepare()}.
+	 */
+	public static void playUri(final Context context, final Uri uri) {
+		if (context == null || uri == null) {
+			return;
+		}
+		final int streamIndex;
+		synchronized (TriggerSounds.class) {
+			streamIndex = sStream;
+		}
+		android.media.MediaPlayer player = null;
+		try {
+			player = new android.media.MediaPlayer();
+			player.setDataSource(context, uri);
+			int usage = android.media.AudioAttributes.USAGE_MEDIA;
+			int androidStream = android.media.AudioManager.STREAM_MUSIC;
+			if (streamIndex == STREAM_NOTIFICATION) {
+				usage = android.media.AudioAttributes.USAGE_NOTIFICATION;
+				androidStream = android.media.AudioManager.STREAM_NOTIFICATION;
+			} else if (streamIndex == STREAM_ALARM) {
+				usage = android.media.AudioAttributes.USAGE_ALARM;
+				androidStream = android.media.AudioManager.STREAM_ALARM;
+			}
+			if (android.os.Build.VERSION.SDK_INT >= 21) {
+				player.setAudioAttributes(new android.media.AudioAttributes.Builder()
+						.setUsage(usage)
+						.setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+						.build());
+			} else {
+				player.setAudioStreamType(androidStream);
+			}
+			final android.media.MediaPlayer toRelease = player;
+			player.setOnErrorListener(new android.media.MediaPlayer.OnErrorListener() {
+				@Override
+				public boolean onError(android.media.MediaPlayer mp, int what, int extra) {
+					try {
+						mp.release();
+					} catch (Exception e) {
+						BlowTorchLogger.logMinor("TriggerSounds.playUri", e);
+					}
+					return true;
+				}
+			});
+			player.setOnCompletionListener(new android.media.MediaPlayer.OnCompletionListener() {
+				@Override
+				public void onCompletion(android.media.MediaPlayer mp) {
+					try {
+						mp.release();
+					} catch (Exception e) {
+						BlowTorchLogger.logMinor("TriggerSounds.playUri", e);
+					}
+				}
+			});
+			player.prepare();
+			player.start();
+			warnIfInaudible(context);
+		} catch (Exception e) {
+			if (player != null) {
+				try {
+					player.release();
+				} catch (Exception ignored) {
+				}
+			}
+			BlowTorchLogger.logMinor("TriggerSounds.playUri", e);
+		}
+	}
+
+	/**
 	 * Is this sound something that can still be played?
 	 *
 	 * <p>For the editor, so a file the player has since deleted says so where

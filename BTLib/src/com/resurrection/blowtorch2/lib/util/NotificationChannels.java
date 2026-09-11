@@ -136,8 +136,9 @@ public final class NotificationChannels {
 	}
 
 	/**
-	 * Silent alert channel for custom sounds played via {@link NotificationSounds#play}.
-	 * Channel sound on O+ is often replaced by the system default for non-file URIs.
+	 * Visual-only channel for trigger notifications. Sound and vibrate are
+	 * played in the service process ({@link TriggerSounds}, {@link BellVibrator});
+	 * Android O+ ignores those fields on the notification itself.
 	 */
 	@TargetApi(26)
 	public static String ensureSilentCustomAlertChannel(Context context) {
@@ -151,7 +152,10 @@ public final class NotificationChannels {
 		}
 		String id = alertChannelId(context) + "_custom_silent";
 		NotificationChannel existing = nm.getNotificationChannel(id);
-		if (existing == null) {
+		if (existing == null || existing.getSound() != null || existing.shouldVibrate()) {
+			if (existing != null) {
+				nm.deleteNotificationChannel(id);
+			}
 			String brand = baseLabel(context);
 			NotificationChannel custom = new NotificationChannel(
 					id,
@@ -159,17 +163,7 @@ public final class NotificationChannels {
 					NotificationManager.IMPORTANCE_DEFAULT);
 			custom.setShowBadge(true);
 			custom.setSound(null, null);
-			nm.createNotificationChannel(custom);
-		} else if (existing.getSound() != null) {
-			// Force silent if an older build created this channel with a sound.
-			nm.deleteNotificationChannel(id);
-			String brand = baseLabel(context);
-			NotificationChannel custom = new NotificationChannel(
-					id,
-					brand + " — custom alert",
-					NotificationManager.IMPORTANCE_DEFAULT);
-			custom.setShowBadge(true);
-			custom.setSound(null, null);
+			custom.enableVibration(false);
 			nm.createNotificationChannel(custom);
 		}
 		return id;

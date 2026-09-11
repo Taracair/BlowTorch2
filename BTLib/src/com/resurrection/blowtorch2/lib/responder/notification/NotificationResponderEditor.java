@@ -119,7 +119,7 @@ public class NotificationResponderEditor extends Dialog {
 		if (the_responder.isUseDefaultSound()) {
 			sound.setChecked(true);
 			if (the_responder.getSoundPath().equals("")) {
-				sound_extra.setText("Currently using default sound.");
+				sound_extra.setText(PHONE_DEFAULT_MSG);
 			} else {
 				sound_extra.setText("Currently using: " + NotificationSounds.displayLabel(the_responder.getSoundPath()));
 			}
@@ -145,7 +145,7 @@ public class NotificationResponderEditor extends Dialog {
 			if (the_responder.getVibrateLength() != 0) {
 				vibrate_extra.setText("Currently using: " + lookupVibrateLength(the_responder.getVibrateLength()));
 			} else {
-				vibrate_extra.setText("Currently using: default");
+				vibrate_extra.setText(VIBRATE_DEFAULT_MSG);
 			}
 		} else {
 			vibrate.setChecked(false);
@@ -229,12 +229,12 @@ public class NotificationResponderEditor extends Dialog {
 
 	private String lookupVibrateLength(int i) {
 		switch (i) {
-		case 0: return "default";
+		case 0: return "Default pulse";
 		case 1: return "Very Short";
 		case 2: return "Short";
 		case 3: return "Long";
 		case 4: return "Suuper Long";
-		default: return "default";
+		default: return "Default pulse";
 		}
 	}
 
@@ -289,6 +289,8 @@ public class NotificationResponderEditor extends Dialog {
 
 	private static final String DISABLED_MSG = "Currently disabled.";
 	private static final String DEFAULT_MSG = "Currently using: default";
+	private static final String PHONE_DEFAULT_MSG = "Currently using: phone notification sound";
+	private static final String VIBRATE_DEFAULT_MSG = "Currently using: Default pulse";
 
 	private class CheckChangedListener implements CompoundButton.OnCheckedChangeListener {
 
@@ -325,7 +327,7 @@ public class NotificationResponderEditor extends Dialog {
 			case VIBRATE:
 				if (arg1) {
 					AlertDialog.Builder vibrate_builder = new AlertDialog.Builder(NotificationResponderEditor.this.getContext());
-					CharSequence[] vibrate_types = {"Default", "Very Short", "Short", "Long", "Suuuper Long"};
+					CharSequence[] vibrate_types = {"Default pulse", "Very Short", "Short", "Long", "Suuuper Long"};
 					vibrate_builder.setTitle("Select Sequence:");
 					vibrate_builder.setItems(vibrate_types, new VibrateListReturnListener());
 					AlertDialog vibrate_dialog = vibrate_builder.create();
@@ -367,7 +369,7 @@ public class NotificationResponderEditor extends Dialog {
 		private void showSoundPicker() {
 			final LinkedHashMap<String, String> choices = new LinkedHashMap<String, String>();
 			choices.put("Disabled", "");
-			choices.put("Default", "");
+			choices.put("Phone notification sound", "");
 			for (NotificationSounds.SoundPreset preset : NotificationSounds.BUNDLED) {
 				choices.put(preset.label, NotificationSounds.bundledPath(preset.key));
 			}
@@ -411,7 +413,7 @@ public class NotificationResponderEditor extends Dialog {
 			choices.put("Pick from storage…", "__PICK__");
 
 			final ArrayList<String> labels = new ArrayList<String>(choices.keySet());
-			int selected = 1; // Default
+			int selected = 1; // Phone notification sound
 			String current = the_responder.getSoundPath();
 			if (!the_responder.isUseDefaultSound()) {
 				selected = 0;
@@ -450,7 +452,8 @@ public class NotificationResponderEditor extends Dialog {
 							the_responder.setUseDefaultSound(true);
 							if (which == 1) {
 								the_responder.setSoundPath("");
-								sound_extra.setText(DEFAULT_MSG);
+								sound_extra.setText(PHONE_DEFAULT_MSG);
+								previewSound("");
 							} else {
 								the_responder.setSoundPath(path);
 								sound_extra.setText("Currently using: " + label);
@@ -520,7 +523,7 @@ public class NotificationResponderEditor extends Dialog {
 				if (arg1 != 0) {
 					vibrate_extra.setText("Currently using: " + lookupVibrateLength(arg1));
 				} else {
-					vibrate_extra.setText(DEFAULT_MSG);
+					vibrate_extra.setText(VIBRATE_DEFAULT_MSG);
 				}
 			}
 		}
