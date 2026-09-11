@@ -134,7 +134,7 @@ screen — is the source of truth. Please report mistakes on GitHub:
 Try it now:
   • Tap NEXT / PREV / TOPICS on the pad (or type .tutorial next)
   • Tap HELP anytime to restart (.tutorial start)
-  • ⋮ is bottom-right, just above the input bar (Help, Options, Chat, …)
+  • ⋮ is in a corner (bottom-right by default; Options can move it)
   • Tap LOAD to try .loadset tutorial (flip LOAD → .loadset default)
 
 NEXT walks a path: buttons, then aliases and triggers, then the phone, then
@@ -384,7 +384,7 @@ TOPICS.buttons_make = function()
 	noteBlock("Buttons — Make a .loadset button",
 [[Short exercise (about a minute):
 
-  1. Overflow → Edit buttons  (or long-press ⋮ bottom-right)
+  1. Overflow → Edit buttons  (or long-press ⋮)
   2. Tap empty space to add a tile
   3. Tap the new tile to select it, tap again → Edit
   4. Set Label to e.g. COMBAT
@@ -407,8 +407,8 @@ end
 TOPICS.buttons_edit = function()
 	noteBlock("Buttons — Edit layout",
 [[Enter edit mode: overflow menu → Edit buttons, or long-press the ⋮
-bottom-right above the input bar. In edit mode the ⋮ is hidden — use
-the strip: Undo, Redo, gear (set options), Cancel, Done.
+(bottom-right by default; Options can move it). In edit mode the ⋮ is
+hidden — use the strip: Undo, Redo, gear (set options), Cancel, Done.
 
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
@@ -1062,7 +1062,12 @@ end
 
 TOPICS.overflow_menu = function()
 	noteBlock("Overflow menu (⋮)",
-[[The ⋮ list is grouped (no action-bar icons for Aliases / Triggers / Timers):
+[[The ⋮ sits bottom-right above the input bar unless you move it:
+Options → Miscellaneous → Overflow button corner (any of the four
+corners). The editor strip (Undo / Done) follows; the jump-to-live
+chevron stays bottom-right.
+
+The ⋮ list is grouped (no action-bar icons for Aliases / Triggers / Timers):
 
   EDITORS     Aliases, Triggers, Timers, Button Sets, Edit buttons
   SESSION     Options, Speedwalk Directions, Map, Plugins
@@ -1595,7 +1600,7 @@ local TIPS = {
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
 	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
-	probe = [[.probe report measures how lines arrive. .probe connection dumps why a session looks frozen. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
+	probe = [[.probe lists the probes. .probe connection dumps why a freeze looks frozen. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
 	buttonopacity = [[.buttonopacity 100 forces every tile fully opaque until .buttonopacity restore. .loadset keeps that override.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],
@@ -2003,9 +2008,9 @@ lessons.buttons = {
 			.. "  " .. cmd("press a button") .. " - just tap one and watch what it sends\n"
 			.. "  " .. cmd("swipe a button sideways") .. " - many carry a second command\n"
 			.. "  " .. cmd("hold a button") .. " - fires its Hold command (not the editor)\n\n"
-			.. "To change one, open the menu (the three dots bottom-right\n"
-			.. "above the input bar) and choose Edit buttons, or long-press\n"
-			.. "those dots. Give it a label and a\n"
+			.. "To change one, open the menu (the three dots — bottom-right\n"
+			.. "by default, or wherever Options put them) and choose Edit\n"
+			.. "buttons, or long-press those dots. Give it a label and a\n"
 			.. "command, and save.\n\n"
 			.. "When you have pressed one and made one, tell me:\n"
 			.. "  " .. cmd("bex i am done"))

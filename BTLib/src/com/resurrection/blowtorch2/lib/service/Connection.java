@@ -5983,8 +5983,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case overflow_button_opacity:
 			case overflow_button_background:
 			case overflow_button_border:
+			case overflow_button_corner:
 				// The ⋮ lives in the UI process; MainWindow.loadSettings reads these
-				// three and hands them to ChromeController. Without this the value
+				// and hands them to ChromeController. Without this the value
 				// was stored and only picked up on the next profile load, which is
 				// why the options looked as though they needed a restart.
 				mService.doExecuteRequestLoadSettings();
@@ -7358,6 +7359,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		overflow_button_background,
 		/** Draw the ring around the gameplay ⋮. */
 		overflow_button_border,
+		/** Which corner the gameplay ⋮ sits in (ListOption index). */
+		overflow_button_corner,
 		/** Use GMCP. */
 		use_gmcp, 
 		/** GMCP Supports string. */

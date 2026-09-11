@@ -11,7 +11,7 @@ bottom of Options filters as you type; tap a result to jump to that page.
 | **Service** | Encoding, **Heavier MUD bold (SGR 1)?** (off; world's `[1m` also heavier), background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Chat** | Unread mark on ⋮, a line in the game window, Android notifications, keep-at-most-N messages |
 | **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
+| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button** (corner / opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 Plugins add their own pages, which appear only while that plugin is loaded:
@@ -275,12 +275,17 @@ From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
 
 ## Miscellaneous
 
+- **Overflow button corner** — which corner the gameplay **⋮** sits in.
+  Bottom right is the default (above the input bar). Bottom left stays above
+  the input bar on the other side. Top corners sit under the status bar and
+  do not rise with the keyboard. The editor strip (Undo / Done) follows; the
+  jump-to-live chevron stays bottom-right.
 - **Overflow button opacity (%)** / **Overflow button background?** /
-  **Overflow button ring?** — how the gameplay **⋮** in the bottom corner is
-  drawn. Fade it down when it sits over text you want to read, drop the disc to
-  uncover what is behind it, or keep a ring with no fill. Opacity stops at 15%
-  on purpose: the button keeps its whole 48dp tap area however faint it looks,
-  and an invisible ⋮ is a corner of the screen that quietly eats taps.
+  **Overflow button ring?** — how that **⋮** is drawn. Fade it down when it
+  sits over text you want to read, drop the disc to uncover what is behind it,
+  or keep a ring with no fill. Opacity stops at 15% on purpose: the button
+  keeps its whole 48dp tap area however faint it looks, and an invisible ⋮ is
+  a corner of the screen that quietly eats taps.
 - **Persistent Connection?** — only with **Auto Reconnect** on: after a
   brief network loss wait for connectivity before retrying, and treat a
   peer close as a flap. Does not retry on its own, and does not change the

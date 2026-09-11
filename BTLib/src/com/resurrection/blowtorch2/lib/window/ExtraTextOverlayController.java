@@ -778,10 +778,11 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * Above the input bar so the player can still type, and above the ⋮ strip
+	 * Above the input bar so the player can still type, and clear of the ⋮ strip
 	 * when the window reaches that corner — otherwise this window's resize
 	 * handle and ⋮ sit in the same 48dp box and chrome wins every touch.
-	 * See {@link ChromeController#floatingOverlayBottomLimit}.
+	 * See {@link ChromeController#floatingOverlayBottomLimit} and
+	 * {@link ChromeController#floatingOverlayTopLimit}.
 	 */
 	private int clampFloatTop(int top, int height, View inputbar, int screenH,
 			int left, int right) {
@@ -793,14 +794,16 @@ public class ExtraTextOverlayController {
 		}
 		MainWindow activity = host.getMainWindow();
 		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		int minTop = 0;
 		if (chrome != null) {
 			maxBottom = chrome.floatingOverlayBottomLimit(maxBottom, left, right);
+			minTop = chrome.floatingOverlayTopLimit(0, left, right);
 		}
-		int maxTop = Math.max(0, maxBottom - height);
+		int maxTop = Math.max(minTop, maxBottom - height);
 		if (top > maxTop) {
 			return maxTop;
 		}
-		return Math.max(0, top);
+		return Math.max(minTop, top);
 	}
 
 	private void wireInteractions(final OverlayEntry e) {

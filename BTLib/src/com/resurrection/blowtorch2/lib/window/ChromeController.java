@@ -51,6 +51,8 @@ public final class ChromeController {
 					.OVERFLOW_OPACITY_DEFAULT;
 	private boolean overflowShowBackground = true;
 	private boolean overflowShowBorder = true;
+	/** ListOption index; 0 is bottom-right so older profiles look the same. */
+	private int overflowCorner = OverflowButtonCorner.DEFAULT;
 	/**
 	 * Built plate, kept until the appearance options change.
 	 *
@@ -341,14 +343,11 @@ public final class ChromeController {
 			}
 			child.setTranslationY(ty);
 		}
-		// FAB strip is in a sibling overlay. Keep it locked to the input bar's IME lift
-		// (same translationY). Positioning uses layout bottomMargin only — do not also
-		// recompute from window locations while translated (that double-counts IME height).
+		// FAB strip is in a sibling overlay. Bottom corners copy the input bar's
+		// translationY; top corners stay at 0 so the keyboard does not drag ⋮ down.
 		View inputbar = findGameplayInputBar(rl);
 		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
-		if (fabStrip != null) {
-			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : ty);
-		}
+		applyFabStripImeLift(fabStrip, inputbar, ty);
 		// The floating completion chips are the FAB strip's neighbour in that
 		// same overlay, and they rest on the input bar the same way — so they
 		// need the same lift. Without it they stayed at the bottom of an
@@ -542,14 +541,14 @@ public final class ChromeController {
 	}
 
 	/**
-	 * Anchor ⋮ above the input chrome (never over Edit/Send).
+	 * Anchor ⋮ in the chosen corner.
 	 *
-	 * <p>End and bottom gaps use the same {@code margin} so the corner looks
-	 * even. The strip lives in {@code gameplay_chrome_overlay}, a sibling of
-	 * {@code window_container} that does not share its nav-bar padding — add
-	 * that padding into the bottom inset or ⋮ sits too low by exactly
-	 * {@code bars.bottom}. IME lift stays on translationY via
-	 * {@link #applyImeChromeLift}; do not use window locations here.
+	 * <p>The strip lives in {@code gameplay_chrome_overlay}, a sibling of
+	 * {@code window_container} that does not share its system-bar padding —
+	 * copy that padding into the matching inset or ⋮ sits under the status
+	 * bar / too low by {@code bars.bottom}. Bottom corners also add the input
+	 * bar height so ⋮ stays above Edit/Send. IME lift stays on translationY
+	 * via {@link #applyImeChromeLift}; do not use window locations here.
 	 */
 	void placeGameplayFabStrip(View fabStrip, View inputbar, int margin) {
 		if (fabStrip == null || inputbar == null) {
@@ -559,8 +558,10 @@ public final class ChromeController {
 			return;
 		}
 		float density = activity.getResources().getDisplayMetrics().density;
+		int corner = overflowCorner;
+		boolean top = OverflowButtonCorner.isTop(corner);
 		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
-		if (inputH <= 0) {
+		if (!top && inputH <= 0) {
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
@@ -571,35 +572,67 @@ public final class ChromeController {
 		}
 		int navPad = 0;
 		int navEnd = 0;
+		int navStart = 0;
+		int navTop = 0;
 		View container = activity.findViewById(R.id.window_container);
 		if (container != null) {
 			navPad = container.getPaddingBottom();
 			navEnd = container.getPaddingRight();
+			navStart = container.getPaddingLeft();
+			navTop = container.getPaddingTop();
 		}
-		int bottomInset = inputH + navPad + margin;
+		int left = 0;
+		int topInset = 0;
+		int right = 0;
+		int bottomInset = 0;
+		if (top) {
+			topInset = navTop + margin;
+		} else {
+			bottomInset = inputH + navPad + margin;
+		}
+		if (OverflowButtonCorner.isStart(corner)) {
+			left = margin + navStart;
+		} else {
+			right = margin + navEnd;
+		}
 		android.widget.FrameLayout.LayoutParams stripLp =
 				new android.widget.FrameLayout.LayoutParams(
 						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
-		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-		stripLp.setMargins(0, 0, margin + navEnd, bottomInset);
+		stripLp.gravity = OverflowButtonCorner.gravity(corner);
+		stripLp.setMargins(left, topInset, right, bottomInset);
 		fabStrip.setLayoutParams(stripLp);
-		fabStrip.setTranslationY(inputbar.getTranslationY());
+		applyFabStripImeLift(fabStrip, inputbar, 0f);
+	}
+
+	/**
+	 * Bottom corners copy the input bar's translationY; top corners stay at 0.
+	 *
+	 * @param fallbackTy used when the input bar is missing, from
+	 *        {@link #applyImeChromeLift}'s computed lift
+	 */
+	private void applyFabStripImeLift(View fabStrip, View inputbar, float fallbackTy) {
+		if (fabStrip == null) {
+			return;
+		}
+		if (OverflowButtonCorner.liftWithIme(overflowCorner)) {
+			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : fallbackTy);
+		} else {
+			fabStrip.setTranslationY(0f);
+		}
 	}
 
 	/**
 	 * Lowest screen y a floating overlay may reach without burying ⋮.
 	 *
 	 * <p>Floating overlays (frame, extra text) clamp their bottom to the top of
-	 * the input bar so the player can still type. The ⋮ strip sits in that gap,
-	 * bottom-end, so an overlay taken all the way down at the right-hand edge
-	 * lands its own drag/resize handle in exactly the ⋮'s 48dp box. Chrome is
-	 * above the overlay, so ⋮ wins the touch and the overlay's handle becomes the
-	 * thing that cannot be grabbed — the mirror image of the reported bug, and
-	 * just as annoying.
+	 * the input bar so the player can still type. When ⋮ is in a bottom corner
+	 * the strip sits in that gap, so an overlay taken all the way down across
+	 * that X range lands its drag/resize handle in the ⋮ box. Chrome is above
+	 * the overlay, so ⋮ would win the touch.
 	 *
-	 * <p>So an overlay that reaches across the strip stops above it instead. An
-	 * overlay that does not reach that far is unaffected: most of the screen
-	 * width still goes right down to the input bar.
+	 * <p>When ⋮ is in a top corner this returns {@code inputBarTop} unchanged —
+	 * there is no hole to punch at the bottom. Use
+	 * {@link #floatingOverlayTopLimit} for the top edge.
 	 *
 	 * @param inputBarTop Limit the caller would otherwise use (screen y).
 	 * @param overlayLeft Overlay's left edge, screen pixels.
@@ -607,6 +640,9 @@ public final class ChromeController {
 	 * @return inputBarTop, or the strip's top when the two would overlap.
 	 */
 	int floatingOverlayBottomLimit(int inputBarTop, int overlayLeft, int overlayRight) {
+		if (!OverflowButtonCorner.keepOutAtBottom(overflowCorner)) {
+			return inputBarTop;
+		}
 		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
 		if (fabStrip == null || fabStrip.getVisibility() != View.VISIBLE
 				|| fabStrip.getWidth() <= 0 || fabStrip.getHeight() <= 0) {
@@ -616,13 +652,35 @@ public final class ChromeController {
 		fabStrip.getLocationOnScreen(loc);
 		int stripLeft = loc[0];
 		int stripRight = loc[0] + fabStrip.getWidth();
-		if (overlayRight <= stripLeft || overlayLeft >= stripRight) {
-			return inputBarTop;
-		}
+		boolean overlaps = OverflowButtonCorner.overlapsX(
+				overlayLeft, overlayRight, stripLeft, stripRight);
 		// getLocationOnScreen already includes the IME translationY, so no
 		// separate IME term here — see placeGameplayFabStrip.
-		int stripTop = loc[1];
-		return stripTop < inputBarTop ? stripTop : inputBarTop;
+		return OverflowButtonCorner.clampBottomKeepOut(
+				overflowCorner, inputBarTop, overlaps, loc[1]);
+	}
+
+	/**
+	 * Highest screen y an overlay's top may sit at without burying a top-corner ⋮.
+	 *
+	 * <p>No-op when ⋮ is in a bottom corner. {@code getLocationOnScreen} already
+	 * includes translationY; top corners keep that at 0.
+	 */
+	int floatingOverlayTopLimit(int minTop, int overlayLeft, int overlayRight) {
+		if (!OverflowButtonCorner.keepOutAtTop(overflowCorner)) {
+			return minTop;
+		}
+		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip == null || fabStrip.getVisibility() != View.VISIBLE
+				|| fabStrip.getWidth() <= 0 || fabStrip.getHeight() <= 0) {
+			return minTop;
+		}
+		int[] loc = new int[2];
+		fabStrip.getLocationOnScreen(loc);
+		boolean overlaps = OverflowButtonCorner.overlapsX(
+				overlayLeft, overlayRight, loc[0], loc[0] + fabStrip.getWidth());
+		return OverflowButtonCorner.clampTopKeepOut(
+				overflowCorner, minTop, overlaps, loc[1] + fabStrip.getHeight());
 	}
 
 	/** True when the ⋮ strip has been measured, so the keep-out can be computed. */
@@ -683,6 +741,14 @@ public final class ChromeController {
 	 * @param showBackground Draw the translucent disc behind the glyph.
 	 * @param showBorder     Draw the thin ring around the disc.
 	 */
+	void setOverflowCorner(int corner) {
+		overflowCorner = OverflowButtonCorner.clamp(corner);
+	}
+
+	int getOverflowCorner() {
+		return overflowCorner;
+	}
+
 	void setOverflowAppearance(int opacityPct, boolean showBackground, boolean showBorder) {
 		int pct = opacityPct;
 		if (pct < com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin
@@ -745,7 +811,7 @@ public final class ChromeController {
 		return d;
 	}
 
-	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
+	/** Wrench + (during edit) settings/done/cancel sit in the gameplay FAB strip. */
 	void bindGameplayFabControls() {
 		final View overflowMenu = activity.findViewById(R.id.overflow_menu);
 		if (overflowMenu != null) {

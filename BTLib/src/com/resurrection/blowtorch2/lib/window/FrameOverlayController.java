@@ -484,8 +484,8 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 
 	/**
 	 * Keep a floating frame above the input bar, so the player can still type,
-	 * and above the ⋮ strip when it reaches that corner, so neither the frame's
-	 * handles nor ⋮ ends up buried under the other.
+	 * and clear of the ⋮ strip when it reaches that corner, so neither the
+	 * frame's handles nor ⋮ ends up buried under the other.
 	 *
 	 * <p>{@code left}/{@code right} are the frame's own edges in the container,
 	 * which is match_parent, so they are screen x as well.
@@ -501,11 +501,13 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 		}
 		MainWindow activity = host.getMainWindow();
 		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		int minTop = 0;
 		if (chrome != null) {
 			maxBottom = chrome.floatingOverlayBottomLimit(maxBottom, left, right);
+			minTop = chrome.floatingOverlayTopLimit(0, left, right);
 		}
-		int maxTop = Math.max(0, maxBottom - height);
-		return top > maxTop ? maxTop : Math.max(0, top);
+		int maxTop = Math.max(minTop, maxBottom - height);
+		return top > maxTop ? maxTop : Math.max(minTop, top);
 	}
 
 	private View findInputBar() {

@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -45,6 +46,14 @@ public class ChromeSmokeTest {
 		int gravity = params.gravity;
 		assertTrue((gravity & Gravity.BOTTOM) != 0);
 		assertTrue((gravity & Gravity.END) != 0 || (gravity & Gravity.RIGHT) != 0);
+		assertEquals(Gravity.BOTTOM | Gravity.END,
+				OverflowButtonCorner.gravity(OverflowButtonCorner.DEFAULT));
+		assertEquals(Gravity.BOTTOM | Gravity.START,
+				OverflowButtonCorner.gravity(OverflowButtonCorner.BOTTOM_LEFT));
+		assertEquals(Gravity.TOP | Gravity.END,
+				OverflowButtonCorner.gravity(OverflowButtonCorner.TOP_RIGHT));
+		assertEquals(Gravity.TOP | Gravity.START,
+				OverflowButtonCorner.gravity(OverflowButtonCorner.TOP_LEFT));
 		RelativeLayout.LayoutParams inputLp = (RelativeLayout.LayoutParams) inputbar.getLayoutParams();
 		assertTrue(inputLp.getRule(RelativeLayout.ALIGN_PARENT_BOTTOM) == RelativeLayout.TRUE);
 	}

@@ -957,8 +957,23 @@ public class ConnectionSettingsPlugin extends Plugin {
 				com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY);
 		miscOptions.addOption(tap_menu_opacity);
 
+		ListOption overflow_corner = new ListOption();
+		overflow_corner.setTitle("Overflow button corner");
+		overflow_corner.setDescription("Which corner the ⋮ sits in. Bottom right is the default, just above the input bar. Bottom left stays above the input bar on the other side. Top corners sit under the status bar, not under the keyboard. The editor strip (Undo / Done) follows; the jump-to-live chevron stays bottom-right.");
+		overflow_corner.setKey("overflow_button_corner");
+		// Added in this order: the values are indices into this list, and they are
+		// what lands in the profile. Anything inserted in the middle renames every
+		// saved choice after it.
+		overflow_corner.addItem("Bottom right");
+		overflow_corner.addItem("Bottom left");
+		overflow_corner.addItem("Top right");
+		overflow_corner.addItem("Top left");
+		overflow_corner.setValue(
+				com.resurrection.blowtorch2.lib.window.OverflowButtonCorner.DEFAULT);
+		miscOptions.addOption(overflow_corner);
+
 		overflow_opacity.setTitle("Overflow button opacity (%)");
-		overflow_opacity.setDescription("How solid the ⋮ button in the bottom corner is drawn "
+		overflow_opacity.setDescription("How solid the ⋮ button is drawn "
 				+ "(" + OVERFLOW_OPACITY_MIN + "–100). Lower it when it sits "
 				+ "over text you want to read. It never goes fully invisible on purpose: the "
 				+ "button keeps its whole tap area whatever it looks like, and an unseen ⋮ is a "

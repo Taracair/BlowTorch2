@@ -233,6 +233,11 @@ public class FloatingButtonController {
 		@Override
 		public void moveTo(FloatingButtonView view, int x, int y) {
 			// x,y are the visible button's top-left — the same space as floatX/Y.
+			int buttonW = Math.max(view.buttonWidthPx(), 1);
+			int minTop = chromeKeepOutTop(0, x, x + buttonW);
+			if (y < minTop) {
+				y = minTop;
+			}
 			OverlayWindows pair = overlays.get(view);
 			if (pair != null) {
 				updateOverlayPairLayout(pair, x, y);
@@ -1046,6 +1051,10 @@ public class FloatingButtonController {
 					int y = FloatingLayerGeometry.clampY(
 							Math.max(0, maxBottom - buttonH),
 							buttonH, maxBottom);
+					int minTop = chromeKeepOutTop(0, x, x + buttonW);
+					if (y < minTop) {
+						y = minTop;
+					}
 					applyLayoutParams(v, x - padLeft, y - padTop, w, h);
 					return;
 				}
@@ -1060,6 +1069,10 @@ public class FloatingButtonController {
 				}
 				int x = FloatingLayerGeometry.clampX(resolvedX, buttonW, layer.getWidth());
 				int y = FloatingLayerGeometry.clampY(resolvedY, buttonH, maxBottom);
+				int minTop = chromeKeepOutTop(0, x, x + buttonW);
+				if (y < minTop) {
+					y = minTop;
+				}
 				applyLayoutParams(v, x - padLeft, y - padTop, w, h);
 			}
 		});
@@ -1280,11 +1293,39 @@ public class FloatingButtonController {
 	}
 
 	/**
+	 * Lowest y a floating button may sit at without burying a top-corner ⋮.
+	 * No-op when ⋮ is in a bottom corner.
+	 */
+	private int chromeKeepOutTop(int minTop, int overlayLeft, int overlayRight) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || layer == null) {
+			return minTop;
+		}
+		ChromeController chrome = activity.getChromeController();
+		if (chrome == null) {
+			return minTop;
+		}
+		int[] layerLoc = new int[2];
+		layer.getLocationOnScreen(layerLoc);
+		int screenMin = layerLoc[1] + minTop;
+		int limited = chrome.floatingOverlayTopLimit(
+				screenMin, layerLoc[0] + overlayLeft, layerLoc[0] + overlayRight);
+		return Math.max(0, limited - layerLoc[1]);
+	}
+
+	/**
 	 * ⋮ keep-out in resting (keyboard-down) space: undo the FAB strip's IME
 	 * translation so Mode B is not clamped upward while the keyboard is up.
+	 * Only when ⋮ is in a bottom corner — a top-corner strip must not punch a
+	 * hole at the bottom-right.
 	 */
 	private int restingFabKeepOut(MainWindow activity, int maxBottom,
 			int overlayLeft, int overlayRight) {
+		ChromeController chrome = activity.getChromeController();
+		if (chrome != null
+				&& !OverflowButtonCorner.keepOutAtBottom(chrome.getOverflowCorner())) {
+			return maxBottom;
+		}
 		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
 		if (fabStrip == null || fabStrip.getVisibility() != View.VISIBLE
 				|| fabStrip.getWidth() <= 0 || fabStrip.getHeight() <= 0

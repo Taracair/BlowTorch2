@@ -2447,7 +2447,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		popup.setModal(true);
 		popup.setAdapter(adapter);
 		popup.setPromptPosition(androidx.appcompat.widget.ListPopupWindow.POSITION_PROMPT_ABOVE);
-		popup.setDropDownGravity(Gravity.END);
+		int corner = chrome != null
+				? chrome.getOverflowCorner()
+				: OverflowButtonCorner.DEFAULT;
+		popup.setDropDownGravity(OverflowButtonCorner.isStart(corner)
+				? Gravity.START : Gravity.END);
 		popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
 				themed, R.drawable.dialog_window_crawler1));
 
@@ -2459,12 +2463,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			loc[1] -= (int) fabStrip.getTranslationY();
 		}
 		int margin = (int) (4 * density);
-		int height = Math.max(loc[1] - margin, (int) (160 * density));
 		int screenH = getResources().getDisplayMetrics().heightPixels;
-		height = Math.min(height, (int) (screenH * 0.85f));
-		popup.setHeight(height);
-		popup.setVerticalOffset(-height);
-		popup.setOverlapAnchor(true);
+		int imeCover = chrome != null ? Math.max(0, chrome.getImeLiftPx()) : 0;
+		int[] place = OverflowButtonCorner.popupVertical(
+				corner, loc[1], safeAnchor.getHeight(), screenH, margin,
+				(int) (160 * density), imeCover);
+		popup.setHeight(place[0]);
+		popup.setVerticalOffset(place[1]);
+		popup.setOverlapAnchor(place[2] != 0);
 		popup.setContentWidth(Math.min(
 				getResources().getDisplayMetrics().widthPixels,
 				(int) (280 * density)));
@@ -3374,7 +3380,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private int defaultSuggestionLeftMargin() {
 		View container = findViewById(R.id.window_container);
-		return container == null ? 0 : container.getPaddingLeft();
+		int left = container == null ? 0 : container.getPaddingLeft();
+		int corner = chrome != null
+				? chrome.getOverflowCorner()
+				: OverflowButtonCorner.DEFAULT;
+		View fabStrip = findViewById(R.id.gameplay_fab_strip);
+		float density = getResources().getDisplayMetrics().density;
+		int stripW = (fabStrip != null && fabStrip.getWidth() > 0)
+				? fabStrip.getWidth()
+				: (int) (48 * density + 0.5f);
+		return OverflowButtonCorner.unplacedChipLeft(
+				corner, left, stripW, (int) (4 * density + 0.5f));
 	}
 
 	/**
@@ -5095,6 +5111,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			chrome.setFullScreen(fullscreen);
 			applyOverflowAppearance(group);
 			refreshGameChrome();
+			positionWordSuggestionOverlay();
 			final View chromeRootRefresh = findViewById(R.id.window_container);
 			if (chromeRootRefresh != null) {
 				ViewCompat.requestApplyInsets(chromeRootRefresh);
@@ -6252,7 +6269,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * Push Options → Miscellaneous → Overflow button … onto the ⋮.
 	 *
 	 * <p>Read fresh on every settings apply; missing options mean an older
-	 * profile, which keeps the look the drawable always had.
+	 * profile, which keeps the look and bottom-right corner the drawable always had.
 	 *
 	 * @param group Program settings.
 	 */
@@ -6264,6 +6281,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				.ConnectionSettingsPlugin.OVERFLOW_OPACITY_DEFAULT;
 		boolean background = true;
 		boolean border = true;
+		int corner = OverflowButtonCorner.DEFAULT;
 		BaseOption opacityOpt = (BaseOption) group.findOptionByKey("overflow_button_opacity");
 		if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {
 			opacity = (Integer) opacityOpt.getValue();
@@ -6276,6 +6294,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (borderOpt != null && borderOpt.getValue() instanceof Boolean) {
 			border = (Boolean) borderOpt.getValue();
 		}
+		BaseOption cornerOpt = (BaseOption) group.findOptionByKey("overflow_button_corner");
+		if (cornerOpt != null && cornerOpt.getValue() instanceof Integer) {
+			corner = (Integer) cornerOpt.getValue();
+		}
+		chrome.setOverflowCorner(corner);
 		chrome.setOverflowAppearance(opacity, background, border);
 	}
 
@@ -7025,6 +7048,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					return chrome.floatingOverlayBottomLimit(inputBarTop, overlayLeft,
 							overlayRight);
+				}
+
+				@Override
+				public int floatingOverlayTopLimit(int minTop, int overlayLeft,
+						int overlayRight) {
+					if (chrome == null) {
+						return minTop;
+					}
+					return chrome.floatingOverlayTopLimit(minTop, overlayLeft, overlayRight);
 				}
 
 				@Override

@@ -133,6 +133,14 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void overflowButtonCornerIsConnectionOwnedNotWindow() {
+		assertTrue("overflow_button_corner must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("overflow_button_corner"));
+		assertFalse("overflow_button_corner must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("overflow_button_corner"));
+	}
+
+	@Test
 	public void chatKeysAreConnectionOwnedNotWindow() {
 		String[] chatKeys = { "chat_unread_dot", "chat_announce",
 				"chat_announce_seconds", "chat_android_notify",

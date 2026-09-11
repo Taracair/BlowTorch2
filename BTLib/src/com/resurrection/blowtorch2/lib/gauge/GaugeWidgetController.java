@@ -66,6 +66,8 @@ public class GaugeWidgetController {
 		int floatingOverlayBottomLimit(int inputBarTop, int overlayLeft,
 				int overlayRight);
 
+		int floatingOverlayTopLimit(int minTop, int overlayLeft, int overlayRight);
+
 		void whenFabStripMeasured(Runnable action);
 
 		boolean fabStripHasSize();
@@ -751,8 +753,16 @@ public class GaugeWidgetController {
 		int limited = host.floatingOverlayBottomLimit(screenMaxBottom, screenLeft,
 				screenRight);
 		maxBottom = limited - parentLoc[1];
+		int minTop = host.floatingOverlayTopLimit(parentLoc[1], screenLeft, screenRight)
+				- parentLoc[1];
+		if (minTop < 0) {
+			minTop = 0;
+		}
 		int cx = FloatingLayerGeometry.clampX(x, w, parentW);
 		int cy = FloatingLayerGeometry.clampY(y, h, maxBottom);
+		if (cy < minTop) {
+			cy = minTop;
+		}
 		return new int[] { cx, cy };
 	}
 
