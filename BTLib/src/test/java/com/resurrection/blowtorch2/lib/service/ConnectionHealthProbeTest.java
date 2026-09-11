@@ -87,10 +87,22 @@ public class ConnectionHealthProbeTest {
 		live.heldBytes = 4096;
 		live.heldWindows = 1;
 		live.windowShowing = false;
+		live.uiCallbackCount = 1;
 		String report = new ConnectionHealthProbe().report(live, 1000L);
 		assertTrue(report, report.contains("Holding for hidden UI: yes"));
 		assertTrue(report, report.contains("held now: 4096 bytes / 1 windows"));
 		assertTrue(report, report.contains("Game window on screen: no"));
+		assertTrue(report, report.contains("Bell vibrate: service"));
+	}
+
+	@Test
+	public void dumpSaysBellVibrateGoesToUiWhenWindowShowing() {
+		ConnectionHealthProbe.Live live = new ConnectionHealthProbe.Live();
+		live.windowShowing = true;
+		live.uiCallbackCount = 1;
+		String report = new ConnectionHealthProbe().report(live, 1000L);
+		assertTrue(report, report.contains("Game window on screen: yes"));
+		assertTrue(report, report.contains("Bell vibrate: UI"));
 	}
 
 	@Test

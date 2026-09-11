@@ -3459,6 +3459,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mService != null) {
 			live.worldCount = mService.openWorldCount();
 			live.windowShowing = mService.isWindowConnected();
+			live.uiCallbackCount = mService.uiCallbackCount();
 			live.screenInteractive = isScreenInteractive();
 			fillNetworkLive(live);
 		}

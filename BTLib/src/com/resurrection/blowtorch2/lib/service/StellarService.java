@@ -743,8 +743,19 @@ public class StellarService extends Service {
 		return c != null && c.isUseTls();
 	}
 
-	/** Buzz now. Prefers the UI process; the service process is often background. */
+	/** How many UI binders are registered, for bell-vibrate routing and the connection probe. */
+	final int uiCallbackCount() {
+		return mCallbacks.getRegisteredCallbackCount();
+	}
+
+	/** Buzz now. UI process may be frozen; FGS vibrates here when the window is not showing. */
 	public final void doVibrateBell(final int durationMs, final int amplitude) {
+		if (com.resurrection.blowtorch2.lib.util.BellVibrateRoute.inService(
+				mWindowShowing, uiCallbackCount())) {
+			com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
+					this, durationMs, amplitude);
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		try {
 			for (int i = 0; i < n; i++) {
@@ -757,15 +768,17 @@ public class StellarService extends Service {
 		} finally {
 			mCallbacks.finishBroadcast();
 		}
-		if (n < 1) {
-			com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
-					this, durationMs, amplitude);
-		}
 	}
 
-	/** Three short pulses. Same UI-process reason as {@link #doVibrateBell}. */
+	/** Three short pulses. Same route as {@link #doVibrateBell}. */
 	public final void doVibrateBellBurst(final int pulseMs, final int gapMs,
 			final int count, final int amplitude) {
+		if (com.resurrection.blowtorch2.lib.util.BellVibrateRoute.inService(
+				mWindowShowing, uiCallbackCount())) {
+			com.resurrection.blowtorch2.lib.util.BellVibrator.burst(
+					this, pulseMs, gapMs, count, amplitude);
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		try {
 			for (int i = 0; i < n; i++) {
@@ -778,10 +791,6 @@ public class StellarService extends Service {
 			}
 		} finally {
 			mCallbacks.finishBroadcast();
-		}
-		if (n < 1) {
-			com.resurrection.blowtorch2.lib.util.BellVibrator.burst(
-					this, pulseMs, gapMs, count, amplitude);
 		}
 	}
 

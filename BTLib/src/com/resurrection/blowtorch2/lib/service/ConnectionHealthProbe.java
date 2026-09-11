@@ -2,6 +2,8 @@ package com.resurrection.blowtorch2.lib.service;
 
 import java.util.ArrayDeque;
 
+import com.resurrection.blowtorch2.lib.util.BellVibrateRoute;
+
 /**
  * {@code .probe connection} — socket vs held UI vs inbound silence.
  *
@@ -202,6 +204,7 @@ public final class ConnectionHealthProbe {
 		public int reconnectLimit;
 		public int worldCount;
 		public boolean windowShowing;
+		public int uiCallbackCount;
 		public boolean screenInteractive;
 		public String network = "";
 		public boolean vpn;
@@ -273,6 +276,10 @@ public final class ConnectionHealthProbe {
 		s.append("  the UI is not pushed until the game window comes back.\n");
 		s.append("- Shade still says Connected when this dump shows inbound silence:\n");
 		s.append("  the app has not seen a disconnect.\n");
+		s.append("- Bell vibrate: service = buzz in the connection process (screen off /\n");
+		s.append("  game window not showing). UI = posted to the game window.\n");
+		s.append("- Game window on screen: no: trigger actions set to Window Open only\n");
+		s.append("  do not run; Window Closed and Always still do.\n");
 		return s.toString();
 	}
 
@@ -293,6 +300,9 @@ public final class ConnectionHealthProbe {
 		s.append("Persistent Connection?: ").append(yn(live.persistent)).append('\n');
 		s.append("Worlds open: ").append(live.worldCount).append('\n');
 		s.append("Game window on screen: ").append(yn(live.windowShowing)).append('\n');
+		s.append("Bell vibrate: ").append(
+				BellVibrateRoute.inService(live.windowShowing, live.uiCallbackCount)
+						? "service" : "UI").append('\n');
 		s.append("Screen on: ").append(yn(live.screenInteractive)).append('\n');
 		s.append("Network: ").append(live.network == null ? "" : live.network)
 				.append("  vpn: ").append(yn(live.vpn)).append('\n');
