@@ -52,6 +52,7 @@ local body = table.concat(lines, "\n", first, stop - 1)
 	.. "__TEST_BOTTOM_CHROME = PACK_BOTTOM_CHROME_DP\n"
 	.. "__TEST_TOP_PAD = PACK_TOP_PAD_DP\n"
 	.. "__TEST_HAS_ACCORDION = packHasAccordion\n"
+	.. "__TEST_CARDINAL_PRIMARY = CARDINAL_PRIMARY_COLOR\n"
 
 assert(loadfn(body, "pack-extract"))()
 assert(type(rebuildPackSet) == "function", "rebuildPackSet missing")
@@ -369,6 +370,30 @@ for _, poison in ipairs({ "-152", "0", "-1", "99999", "not a number" }) do
 	end
 end
 GetActionBarHeight = realActionBar
+
+print("13. N/E/W/S tiles use the cardinal amber; diagonals and U/D do not")
+local cardinal = __TEST_CARDINAL_PRIMARY
+check(cardinal ~= nil and cardinal < 0,
+	"CARDINAL_PRIMARY_COLOR is a Java-signed ARGB (alpha bit set)")
+local cr = math.floor((cardinal + 4294967296) / 65536) % 256
+local cg = math.floor((cardinal + 4294967296) / 256) % 256
+local cb = (cardinal + 4294967296) % 256
+check(cr == 0xFF and cg == 0xA7 and cb == 0x00,
+	string.format("cardinal RGB is 255,167,0 (got %s,%s,%s)",
+		tostring(cr), tostring(cg), tostring(cb)))
+local cardinalLabels = { N = true, E = true, W = true, S = true }
+for id, source in pairs(sources) do
+	for _, b in ipairs(source) do
+		local label = tostring(b.label)
+		if cardinalLabels[label] then
+			check(b.primaryColor == cardinal,
+				id .. " " .. label .. " has cardinal amber")
+		else
+			check(b.primaryColor == nil,
+				id .. " " .. label .. " keeps set default (no own primaryColor)")
+		end
+	end
+end
 
 if failures > 0 then
 	print(failures .. " failure(s)")

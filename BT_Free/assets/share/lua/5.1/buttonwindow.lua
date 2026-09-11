@@ -3190,12 +3190,20 @@ function showLayoutWizardOffer(args)
 	local builder = luajava.newInstance("android.app.AlertDialog$Builder", mContext)
 	builder:setTitle("Button layout")
 	builder:setMessage(
-		"This is the first launch of this MUD — the button layout wizard can help set up your buttons.")
+		"This is the first launch of this MUD. Choose a button layout, or start with none.\n\n"
+		.. "To open this wizard later: Options → Button → Load button set from wizard.")
 	builder:setPositiveButton("Open wizard", luajava.createProxy(
 		"android.content.DialogInterface$OnClickListener", {
 		onClick = function(d, which)
 			layoutWizardSoftPrompt = nil
 			showLayoutWizard("")
+		end
+	}))
+	builder:setNeutralButton("No buttons", luajava.createProxy(
+		"android.content.DialogInterface$OnClickListener", {
+		onClick = function(d, which)
+			layoutWizardSoftPrompt = nil
+			PluginXCallS("applyLayoutWizardClean", "")
 		end
 	}))
 	builder:setNegativeButton("Not now", luajava.createProxy(

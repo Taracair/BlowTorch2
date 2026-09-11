@@ -3291,29 +3291,34 @@ gallery. Dragging still follows your finger 1:1. While this is on,
 ## On-screen buttons: swipe + accordion
 
 **Load a button set from the wizard:** **Options → Button → Load button set from wizard**
-(or type `.layoutwizard`). Check one or more packs (Compass, Newbie, Combat,
-Explorer, Social), give each a set name, and pick size / alignment / colors.
-Packs install complete — there is no Simple/Advanced choice any more; it was
-worth three tiles on Compass and nothing at all on Newbie, and an unwanted tile
-is easier to delete than a missing one is to discover. Apply only writes the
-named sets you checked — other sets stay put; same name overwrites after a
-warning.
+(or type `.layoutwizard`). That is also how you come back to the wizard later.
+Check one or more packs (Compass, Newbie, Combat, Explorer, Social), give each
+a set name, and pick size / alignment / colors. On a new profile the wizard
+offers **Start clean — no buttons** (the first-connect prompt also has
+**No buttons**): the screen stays empty until you add tiles yourself or run
+the wizard again. Packs install complete — there is no Simple/Advanced choice
+any more; it was worth three tiles on Compass and nothing at all on Newbie, and
+an unwanted tile is easier to delete than a missing one is to discover. Apply
+only writes the named sets you checked — other sets stay put; same name
+overwrites after a warning. In the wizard packs, **N / E / W / S** are amber so
+the four cardinals stand out from the rest of the pad.
 
 Set names are folded to lowercase and to `a–z 0–9 _ -` when you Apply (spaces
 become `_`), because the name also goes into the `.loadset <name>` cross-links
 the packs write between each other; the wizard tells you the name it will
 actually use.
 
-New MUD profiles may offer a soft prompt once after connect; turn
+New MUD profiles start with **no buttons** on screen and may offer a prompt once
+after connect. Choose a pack, tap **Start clean — no buttons**, or skip; turn
 **Options → Button → Offer button layout wizard** back on to see that prompt
 again. Offline Starter Tutorial keeps its own teaching pad.
 
 The pad lands just under the action bar, high enough that the soft keyboard
 cannot cover it — a pad anchored near the bottom of the screen disappears behind
 the keyboard the moment you type. On a new layout the Compass rose (LOOK in the
-middle) sits **bottom-right** for thumb reach. Skipping the wizard still pins
-that pad to the **right**; left / center / right in the wizard still wins.
-Existing worlds keep saved positions until you run the wizard or reset.
+middle) sits **bottom-right** for thumb reach. Left / center / right in the
+wizard still wins. Existing worlds keep saved positions until you run the wizard
+or reset.
 Accordion parents in the wizard packs use labels like **MORE**, **NAV**, **TIP**,
 **CAST**, **DOORS**, and **CHAT** — each pack puts its own on its bottom row,
 opening **downward** into the empty game area beneath it, so they never cover

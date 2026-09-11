@@ -404,14 +404,38 @@ function showWizard(state)
 	if pending then
 		local banner = luajava.new(TextView, context)
 		banner:setText(
-			"This is the first launch of this MUD — the button layout wizard "
-			.. "can help set up your buttons.")
+			"This is the first launch of this MUD. Choose a button layout, "
+			.. "or start with none.")
 		banner:setTextSize(13)
 		banner:setPadding(
 			math.floor(4 * density), math.floor(4 * density),
 			math.floor(4 * density), math.floor(8 * density))
 		banner:setLayoutParams(fill)
 		body:addView(banner)
+	end
+
+	addHint(body,
+		"To open this wizard later: Options → Button → Load button set from wizard.")
+
+	if pending then
+		local cleanBtn = luajava.new(Button, context)
+		cleanBtn:setText("Start clean — no buttons")
+		cleanBtn:setTextSize(13)
+		cleanBtn:setLayoutParams(fillParams())
+		body:addView(cleanBtn)
+		addHint(body,
+			"Blank screen. You can add buttons later from that same Options row.")
+		cleanBtn:setOnClickListener(luajava.createProxy(
+			"android.view.View$OnClickListener", {
+			onClick = function(v)
+				local ok, err = pcall(function()
+					PluginXCallS("applyLayoutWizardClean", "")
+				end)
+				if not ok then
+					Note("\nButton layout start-clean failed: " .. tostring(err) .. "\n")
+				end
+			end
+		}))
 	end
 
 	addSectionHeader(body, "Install packs")
@@ -511,9 +535,9 @@ function showWizard(state)
 		local title = tostring(p.title or p.id)
 		local blurb = p.blurb ~= nil and tostring(p.blurb) or ""
 		local suggested = suggestSetName(packId, existingNames)
-		-- First-run: check all packs so starters are one Apply away.
+		-- First-run: nothing checked — pick packs or Start clean.
 		-- Re-entry: only the first pack, so Apply stays scoped.
-		local defaultChecked = pending or (i == 1)
+		local defaultChecked = (not pending) and (i == 1)
 
 		local rowBox = luajava.new(LinearLayout, context)
 		rowBox:setOrientation(LinearLayout.VERTICAL)
@@ -785,8 +809,8 @@ function showWizard(state)
 	addHint(body,
 		"Edit later: Overflow → Edit buttons, or long-press the ⋮ (three dots).")
 	addHint(body,
-		"Re-open anytime from Options → Button → Load button set from wizard, "
-		.. "or .layoutwizard.")
+		"To open this wizard later: Options → Button → Load button set from wizard "
+		.. "(or type .layoutwizard).")
 
 	local function buildPayload()
 		local installs = {}

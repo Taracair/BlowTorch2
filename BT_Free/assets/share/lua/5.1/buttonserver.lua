@@ -370,6 +370,10 @@ function bset.start(a)
 	--tmp.primaryColor = a:getValue("","priary
 	buttonset_defaults[tmp.name] = tmp
 	working_set = tmp.name
+	-- A <buttonset> with no children must still exist as an empty table.
+	-- New MUD profiles seed default that way; without this, loadButtonSet
+	-- treats the missing key as "set does not exist" and leaves leftover tiles.
+	buttonsets[tmp.name] = {}
 	
 	--printTable(string.format("defaults[%s]",working_set),buttonset_defaults[working_set])
 	
@@ -811,7 +815,7 @@ android_R_dimen = luajava.bindClass("android.R$dimen")
 -- Canonical offline-tutorial pad in density-independent pixels (centers).
 -- Columns 1-3 are a full eight-direction compass rose so the player can see the
 -- diagonal layout straight away; column 4 is tutorial navigation. Same gesture map
--- as the fresh-MUD default: tap=walk, outward swipe=look, opposite swipe=open,
+-- as the wizard compass pack: tap=walk, outward swipe=look, opposite swipe=open,
 -- flip/hold=close. The diagonal tiles use the diagonal swipes for that, which
 -- doubles as a live demo of eight-way gestures.
 local STARTER_DEFAULT_BUTTONS = {
@@ -1152,6 +1156,12 @@ function rebuildPackSet(setName, source, pitchDp, sizeDp)
 	buttonsets[setName] = set
 end
 
+-- Cardinal walk tiles (N/E/W/S only). Amber at the same alpha as the pack
+-- default blue. Diagonals and U/D stay on the set default.
+-- Java ARGB int (signed). Unsigned 0x88FFA700 saturates at Paint.setColor
+-- via LuaJava Double.intValue() → Integer.MAX_VALUE (opaque near-white).
+local CARDINAL_PRIMARY_COLOR = 0x88FFA700 - 4294967296
+
 -- Compass rose tile: tap=walk, outward swipe=look, opposite swipe=open,
 -- flip/hold=close. Matches the shipped default_settings_main.xml dialect
 -- (full walk cmds + short look/open/close forms: "look n", "open nw", …).
@@ -1161,6 +1171,9 @@ local function compassDir(x, y, label, walkCmd, dirShort)
 		flipCommand = "close " .. dirShort,
 		holdCommand = "close " .. dirShort,
 	}
+	if label == "N" or label == "E" or label == "W" or label == "S" then
+		b.primaryColor = CARDINAL_PRIMARY_COLOR
+	end
 	local look = "look " .. dirShort
 	local open = "open " .. dirShort
 	if dirShort == "n" or dirShort == "u" then
@@ -1922,6 +1935,33 @@ function applyLayoutWizardFinish(data)
 	doInstallBatch(t)
 end
 
+-- First-run "start clean": empty the default pad, do not install packs.
+-- Offline tutorial keeps its own pad. Does not delete named sets the player
+-- already made — only the selected default set, which is what a new profile
+-- shows on screen.
+function applyLayoutWizardClean(args)
+	if isOfflineLayoutSession() then
+		Note("\nlayout wizard refused: offline / Starter Tutorial session.\n")
+		return
+	end
+	options.layout_wizard_pending = "false"
+	persistLayoutOption("layout_wizard_pending", false, true)
+	buttonsets["default"] = {}
+	if buttonset_defaults["default"] == nil then
+		buttonset_defaults["default"] = {}
+		for k, v in pairs(PACK_SET_DEFAULTS) do
+			buttonset_defaults["default"][k] = v
+		end
+	end
+	current_set = "default"
+	pcall(loadButtonSet, "default")
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	WindowXCallS(buttonWindowName, "onLayoutPackInstalled", "")
+	pcall(loadOptions)
+end
+
 -- Pull every tile of a set back onto the screen.
 --
 -- Pure clamping, never scaling. Saved sets already hold pixel coordinates, and
@@ -2145,11 +2185,13 @@ function alignDefaultButtons()
 	alignButtonSet("tutorial", "center")
 end
 
--- Fresh MUD from default_settings XML. Wizard skip leaves this pad in place,
--- so pin default right — the same side the wizard itself defaults to. Still
--- density-scale tutorial: the XML set is in dp, and skipping the scale left
--- .loadset tutorial as 42dp tiles on a 45px pitch in the corner. Offline
--- starter stays on alignDefaultButtons (both centered).
+-- Fresh MUD from default_settings XML. The default set is empty; the wizard
+-- offers packs or start-clean. Pinning still runs so a non-empty default (an
+-- older profile, or a set the player filled in) lands on the right — the same
+-- side the wizard itself defaults to. Still density-scale tutorial: the XML
+-- set is in dp, and skipping the scale left .loadset tutorial as 42dp tiles
+-- on a 45px pitch in the corner. Offline starter stays on alignDefaultButtons
+-- (both centered).
 function alignMudDefaultButtons()
 	alignButtonSet("default", "right")
 	alignButtonSet("tutorial", "center")
@@ -2186,7 +2228,7 @@ function ensureLayoutSettingsOptions()
 			opt:setKey("layout_wizard_pending")
 			opt:setTitle("Offer button layout wizard")
 			opt:setDescription(
-				"Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Options → Button → Load button set from wizard.")
+				"Show the pack picker once after connect on a new profile. Finish, skip, or start clean to clear it. Re-enable anytime, or use Options → Button → Load button set from wizard.")
 			-- Upgrades: never auto-offer; new profiles already have true from XML.
 			opt:setValue(false)
 			settings:addOption(opt)

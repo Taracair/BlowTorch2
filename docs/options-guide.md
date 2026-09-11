@@ -298,8 +298,8 @@ it cannot be disabled or deleted.
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Show gesture hints** | on | Draw swipe arrows, hold (**H**) and accordion chevrons on the tiles. Off is a cleaner pad you have to remember. The same switch is in Edit mode under the gear, as **Markings on buttons**, which is where to look on a profile too old to have this row. It is the master: with it off nothing is drawn anywhere, and with it on each button may still opt out in its own Swipe tab |
-| **Offer button layout wizard** | on | Show the pack/size picker once after connect on a new profile. Cleared when you finish or skip it; turn it back on to see the prompt again |
-| **Load button set from wizard** | — | Opens the wizard right now, at any time. Same as `.layoutwizard`. Writes only the sets you name; removes nothing |
+| **Offer button layout wizard** | on | Show the pack picker once after connect on a new profile. Cleared when you finish, skip, or start clean; turn it back on to see the prompt again |
+| **Load button set from wizard** | — | Opens the wizard right now, at any time. Same as `.layoutwizard`. First launch can start with no buttons. Writes only the sets you name; removes nothing |
 | **Button size** | Comfortable | Compact / Comfortable / Large / Extra large / **Fit to screen**. Picking one resizes the **current** set immediately, keeping its arrangement — tile size and grid spacing move together, so a compass rose stays a rose. Also becomes the wizard's default |
 | **Layout template** | Compass | Compass / Newbie / Combat / Explorer / Social. Only chooses which pack the wizard offers first — **it installs nothing on its own** |
 | **Button roundness** | 6 | Corner radius of a tile (key is `roundess`, spelled that way on disk) |
@@ -311,8 +311,8 @@ empty cell pastes copied buttons. The old **Automatically create buttons** /
 had them.
 
 The Compass pack's rose sits **bottom-right** on a new layout (thumb reach).
-Skipping the wizard still pins that pad to the **right**; left / center / right
-in the wizard still wins.
+A new profile starts with no pad; **Start clean — no buttons** keeps it that
+way. Left / center / right in the wizard still wins.
 
 Both dropdowns used to be free-text fields. A profile keeps whatever option
 *type* it was created with, so an older profile is migrated to the dropdown on
