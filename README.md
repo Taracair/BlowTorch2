@@ -1,5 +1,21 @@
 # BlowTorch 2
 
+<p align="center">
+  <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/"><img src="https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid" alt="F-Droid"></a>
+  <a href="https://github.com/Taracair/BlowTorch2/releases/latest"><img src="https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github" alt="Latest GitHub release"></a>
+  <a href="https://discord.gg/AvyUUtRmtQ"><img src="https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white" alt="Discord: B.U.R.N."></a>
+  <a href="#credit"><img src="https://img.shields.io/badge/fork-unofficial-orange" alt="Unofficial fork"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/">
+    <img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">
+  </a>
+</p>
+
+<p align="center"><em>Unofficial fork. Daily driver. Same client, current Android.</em></p>
+
 An Android client for MUDs — text worlds you play over the network.
 MUD stands for Multi-User Dungeon. They are an old kind of game people
 still play: immersive text rooms, meeting other players, fighting and
@@ -14,16 +30,25 @@ You pick a host, connect, type commands, and read what the game sends back: room
 combat, chat, the lot. No graphics engine; the screen is the game's text,
 plus whatever you put on it (buttons, a map, an HP bar).
 
-This is a fork of BlowTorch (2010–2018). The original stopped getting
-updates, Android moved on, and it quietly became uninstallable. Same client
-underneath, running again, with a lot built for a phone on top. The
+This is an unofficial fork of BlowTorch (2010–2018). The original stopped
+getting updates, Android moved on, and it quietly became uninstallable. Same
+client underneath, running again, with a lot built for a phone on top. The
 [user guide](docs/user-manual.md) is the full picture (also in-app under
 **Help**). Settings: [`docs/options-guide.md`](docs/options-guide.md). Lua
-plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md).
+plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md). Players hang
+out in [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) (Blowtorch Users Rogues'
+Network) — Discord, not a second bug tracker. GitHub Issues still get the
+ones with steps.
 
-**Work in progress.** A lot has been tested on a real phone, but I do not
-promise it is perfect. If you hit a bug, a report with steps is the most
-useful thing you can send.
+Install from [F-Droid](https://f-droid.org/packages/com.resurrection.blowtorch2/)
+or [GitHub Releases](https://github.com/Taracair/BlowTorch2/releases/latest),
+not both on top of each other: two bakeries, same recipe, different keys.
+Android will not let you swap the pie without uninstalling.
+
+**Daily driver.** I play on this build. It is past the science-project
+stage — stable enough for everyday use, not a promise that a 1990s TCP
+socket on a 2026 phone will never surprise you. If you hit a bug, a
+report with steps is still the most useful thing you can send.
 
 ---
 
@@ -140,8 +165,9 @@ I definitely listen to your feedback too.
 After all, the client is here for you, not only me.
 
 This is my first public repo of any size. Bug reports with steps to reproduce are
-worth a great deal. How the work is actually done lives under **Building**, for
-anyone about to change the code.
+worth a great deal. Discord is [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) if you
+would rather talk than file. How the work is actually done lives under
+**Building**, for anyone about to change the code.
 
 ---
 
