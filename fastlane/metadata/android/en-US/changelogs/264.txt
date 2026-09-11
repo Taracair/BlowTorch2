@@ -1,0 +1,5 @@
+BlowTorch 2 v2.4.4
+• New drawing engine (tiles): scrolling stays smooth even when the feed is full of colour
+• Style triggers match the world's bold and colour, not only the letters
+• Grabber copies those layers; a Condition can require another match on the same line
+• Notification sound and vibrate actually play, plus many other fixes
