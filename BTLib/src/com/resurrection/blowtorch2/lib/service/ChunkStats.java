@@ -109,7 +109,7 @@ public final class ChunkStats {
 		StringBuilder s = new StringBuilder();
 		s.append("\nChunk probe — how the game's text arrives\n");
 		if (chunks == 0) {
-			s.append("Nothing recorded yet. Play for a while, then .probe report.\n");
+			s.append("Nothing recorded yet. Play for a while, then .probe lines report.\n");
 			return s.toString();
 		}
 		s.append("Chunks seen:        ").append(chunks).append('\n');

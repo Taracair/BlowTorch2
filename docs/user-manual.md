@@ -6,8 +6,9 @@ Source of truth for in-app **Help**. Keep this file in sync with
 ## Before you start
 
 **Options, Help, Chat, and the rest** live behind the three dots (⋮)
-bottom-right, just above the input bar. Tap ⋮ → **Options** for settings.
-Options has a search field at the bottom; type `font` (or any other word)
+in a corner of the game window — bottom-right by default, just above
+the input bar. Options → Miscellaneous can move ⋮ to any corner.
+Tap ⋮ → **Options** for settings. Options has a search field at the bottom; type `font` (or any other word)
 and tap a hit to jump to that page. ⋮ → **Help** is this guide. `.help`
 in the input bar is a short list of every `.command`, printed into the
 game window — not this manual. From the launcher, **Help** is also a
@@ -2103,9 +2104,10 @@ is enabled; `.alias list` shows every alias at once.
     `.prompt [on|off]`                  Pin the world's prompt above the input bar
     `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
-    `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
+    `.probe`                            List available probes in this window. Type `.probe` for the list; `.probe connection` dumps why a freeze looks frozen
     `.probe connection on|off|report|reset`  When the game looks frozen: socket vs held UI vs silence. A one-shot `.probe connection` dump works without turning it on; `on` adds a 15s heartbeat. Also session log; logcat tag `BlowTorchNet`
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
+    `.probe lines on|off|report|reset`  Optional chunk measurement (how text is cut up on the way in); see below. Not the default of `.probe`. Off by default, costs nothing when off
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
@@ -2228,17 +2230,32 @@ paper is the same.
 
 A Color action you painted is not the world's style; the grabber skips it.
 
+### `.probe`
+
+```
+.probe
+.probe connection
+```
+
+Type `.probe` to see the list. Each name is one or two lines of what question it
+answers. `.probe connection` dumps why a freeze looks frozen (socket waiting vs
+text sitting in a hidden UI). A one-shot dump works without `on`.
+
+`.probe on` / `.probe report` / `.probe reset` without a name do not start a
+measurement — they show the list. The chunk measurement is `.probe lines`, not
+the default of `.probe`.
+
 ### `.probe lines`
 
 ```
 .probe lines on
 .probe lines off
-.probe report        (or plain .probe)
-.probe reset
+.probe lines report     (or .probe lines)
+.probe lines reset
 ```
 
-Answers one question about the world you are on: **do several lines of game text
-arrive together, or cut up?**
+Optional. Answers one question about the world you are on: **do several lines of
+game text arrive together, or cut up?**
 
 Text does not arrive one line at a time. It arrives in whatever pieces the
 network hands over, and a trigger sees a whole piece at once. That is why a
@@ -2246,8 +2263,9 @@ pattern can only ever match across several lines if those lines came in the same
 piece. This tells you whether they do.
 
 Turn it on, play normally for a few minutes — walk around, fight something, read
-a long room description — then `.probe report`. It costs nothing while it is off,
-and next to nothing while it is on: it counts, it does not store your text.
+a long room description — then `.probe lines report`. It costs nothing while it
+is off, and next to nothing while it is on: it counts, it does not store your
+text.
 
 The reading looks like this:
 
@@ -3115,7 +3133,8 @@ theme is off.
 into history, a small day and time sits to the left of ⋮ (same
 calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark to the
 right of the date shows where you are in the buffer (thumb at the bottom =
-live text). The jump-to-live arrow sits above ⋮. Dates are not printed into
+live text). The jump-to-live arrow stays bottom-right above the input bar
+(the same corner as ⋮ by default). Dates are not printed into
 the game text, so triggers, wrapping and copy are unchanged.
 **Scroll date opacity (%)** (default 75) only affects that date and mark.
 
@@ -3337,7 +3356,7 @@ moves with the tiles rather than leaving them to overlap, and nothing is
 re-flowed into rows. **Layout template** next to it only chooses which pack the
 wizard offers first; it installs nothing on its own.
 
-**Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
+**Edit layout:** open **⋮ → Edit buttons**, or long-press **⋮**. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
 
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.

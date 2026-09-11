@@ -7,7 +7,11 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.sensor.SensorProbe;
 
 /**
- * {@code .probe} — turn on the chunk measurement, read it, clear it.
+ * {@code .probe} — list measurements, then run one.
+ *
+ * <p>Bare {@code .probe} prints the catalogue. Session health is
+ * {@code .probe connection}. The chunk measurement is {@code .probe lines},
+ * not the default.
  *
  * <p>A measurement the player runs, not instrumentation left in the code: off
  * unless asked for, and it prints its answer into the game window rather than
@@ -186,64 +190,68 @@ public class ProbeCommand extends SpecialCommand {
 			return null;
 		}
 
-		// "lines" is the only probe there is so far; accept it as a prefix so
-		// ".probe lines on" reads the way it is documented, and ".probe on"
-		// works too rather than being a silent usage error.
 		if (arg.startsWith("lines")) {
-			arg = arg.substring("lines".length()).trim();
+			String rest = arg.substring("lines".length()).trim();
+			if (rest.equals("on")) {
+				c.setChunkProbe(true);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Chunk probe on. Play normally, then .probe lines report."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("off")) {
+				c.setChunkProbe(false);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Chunk probe off. The reading is kept; .probe lines reset clears it."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("reset")) {
+				c.resetChunkProbe();
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Chunk probe cleared." + Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("report") || rest.equals("status") || rest.length() == 0) {
+				c.sendDataToWindow(c.chunkProbeReport());
+				return null;
+			}
 		}
 
-		if (arg.equals("on")) {
-			c.setChunkProbe(true);
-			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-					+ "Chunk probe on. Play normally, then .probe report."
-					+ Colorizer.getWhiteColor() + "\n");
-			return null;
-		}
-		if (arg.equals("off")) {
-			c.setChunkProbe(false);
-			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-					+ "Chunk probe off. The reading is kept; .probe reset clears it."
-					+ Colorizer.getWhiteColor() + "\n");
-			return null;
-		}
-		if (arg.equals("reset")) {
-			c.resetChunkProbe();
-			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-					+ "Chunk probe cleared." + Colorizer.getWhiteColor() + "\n");
-			return null;
-		}
-		if (arg.equals("report") || arg.equals("status") || arg.length() == 0) {
-			c.sendDataToWindow(c.chunkProbeReport());
-			return null;
-		}
-		c.sendDataToWindow(getErrorMessage("Probe special command usage:",
-				".probe lines on    — start measuring how text arrives\n"
-				+ ".probe lines off   — stop; the reading is kept\n"
-				+ ".probe report      — show the reading (also plain .probe)\n"
-				+ ".probe reset       — clear the reading\n\n"
-				+ ".probe connection on     — record reads, writes, held UI, 15s heartbeat\n"
-				+ ".probe connection report — dump now (also session log). Works without on\n"
-				+ ".probe connection off    — stop; the reading is kept\n\n"
-				+ ".probe bleed on    — record colour-trigger restores (logcat BlowTorchBleed)\n"
-				+ ".probe bleed report — dump that reading here\n\n"
-				+ "This answers one question: can a trigger pattern span several\n"
-				+ "lines on this world, or do the lines arrive too cut up for that?\n\n"
-				+ ".probe connection answers a different one: when the game looks\n"
-				+ "frozen, is the socket waiting, or is text sitting in a hidden UI?\n\n"
-				+ ".probe sensors          — what sensors this phone has\n"
-				+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
-				+ ".probe sensors light 10 — how bright the room is, in lux\n\n"
-				+ "Those two answer a different question: which sensor readings\n"
-				+ "this device could support, and how hard a shake has to be here.\n\n"
-				+ ".probe truecolor   — dump a 24-bit RGB sample into this window\n"
-				+ "                    (also .probe color). Does not wait for a MUD.\n"
-				+ ".probe osc8        — dump OSC 8 hyperlink samples into this window\n"
-				+ "                    (tap the marked words). Does not wait for a MUD.\n"
-				+ ".probe mxp         — dump MXP SEND/colour samples into this window\n"
-				+ "                    (tap the marked words). Does not wait for a MUD.\n"
-				+ ".probe protocols   — same as .protocols (what was offered vs on)\n"));
+		c.sendDataToWindow(catalogue());
 		return null;
+	}
+
+	/**
+	 * What {@code .probe} with no args prints. Connection first; the chunk
+	 * measurement is only {@code .probe lines}.
+	 */
+	static String catalogue() {
+		String reset = Colorizer.getResetColor();
+		StringBuilder out = new StringBuilder();
+		out.append("\n").append(Colorizer.getBrightCyanColor())
+				.append("Type .probe to see this list. .probe connection dumps why a freeze looks frozen.")
+				.append(reset).append("\n");
+		out.append("on / off / report / reset need a name: .probe connection on, not .probe on.\n\n");
+		out.append(".probe connection [on|off|report|reset]\n");
+		out.append("  When the game looks frozen: is the socket waiting, or is text sitting in a hidden UI?\n");
+		out.append("  Type .probe connection to dump now (works without on). Also conn, net, socket.\n");
+		out.append(".probe bleed [on|off|report|reset]\n");
+		out.append("  What a colour trigger restored. Play until the leak, then .probe bleed report.\n");
+		out.append(".probe sensors [state|shake|light [seconds]]\n");
+		out.append("  What this phone can feel, and what those sensors deliver.\n");
+		out.append("  .probe sensors shake 10 samples movement; .probe sensors light 10 is lux.\n");
+		out.append(".probe truecolor\n");
+		out.append("  24-bit RGB sample in this window (also .probe color). Does not wait for a MUD.\n");
+		out.append(".probe osc8\n");
+		out.append("  OSC 8 hyperlink samples (tap the marked words). Does not wait for a MUD.\n");
+		out.append(".probe mxp\n");
+		out.append("  MXP SEND/colour samples (tap the marked words). Does not wait for a MUD.\n");
+		out.append(".probe protocols\n");
+		out.append("  Same as .protocols: what this world offered vs what is on.\n");
+		out.append(".probe lines [on|off|report|reset]\n");
+		out.append("  Optional: how this world's text arrives in chunks. Type .probe lines on, play, then .probe lines report.\n");
+		return out.toString();
 	}
 
 	/**
