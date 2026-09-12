@@ -28,6 +28,8 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String TYPOS_KEY = "word_complete_typos";
+	public static final String SKIP_HEAD_KEY = "word_complete_skip_head";
+	public static final String WRONG_FIRST_KEY = "word_complete_wrong_first";
 	public static final String PHRASES_KEY = "word_complete_phrases";
 	/** Plain word before the whole name built on it — reached by .suggest plain. */
 	public static final String SHORT_FIRST_KEY = "word_complete_short_first";
@@ -105,6 +107,33 @@ public class CompleteCommand extends SpecialCommand {
 						+ " prefix finds nothing; two such mistakes on a longer"
 						+ " word.",
 					"Nearby misspellings off.");
+		}
+		if (arg.startsWith("engine") || arg.startsWith("experimental")
+				|| arg.startsWith("skiphead") || arg.startsWith("skip-head")
+				|| arg.startsWith("skip")) {
+			int skip;
+			if (arg.startsWith("experimental")) {
+				skip = "experimental".length();
+			} else if (arg.startsWith("engine")) {
+				skip = "engine".length();
+			} else if (arg.startsWith("skiphead")) {
+				skip = "skiphead".length();
+			} else if (arg.startsWith("skip-head")) {
+				skip = "skip-head".length();
+			} else {
+				skip = "skip".length();
+			}
+			return setFlag(arg.substring(skip).trim(), c, SKIP_HEAD_KEY,
+					"Skip the start of a long name: onhelmet finds ironhelmet"
+						+ " when the exact prefix finds nothing.",
+					"No longer matching from the tail of a long name.");
+		}
+		if (arg.startsWith("firstletter") || arg.startsWith("first")) {
+			int skip = arg.startsWith("firstletter")
+					? "firstletter".length() : "first".length();
+			return setFlag(arg.substring(skip).trim(), c, WRONG_FIRST_KEY,
+					"Two mistakes on a longer word may change the first letter.",
+					"Two mistakes still need the first letter to match.");
 		}
 		if (arg.startsWith("phrases")) {
 			return setFlag(arg.substring("phrases".length()).trim(), c, PHRASES_KEY,
@@ -254,8 +283,10 @@ public class CompleteCommand extends SpecialCommand {
 						? ", after the plain word" : "")
 					+ ".\nShorter suggestions " + (flagOn(c, SHORTER_KEY)
 						? "first" : "not lifted")
-					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
+					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven (skipped letters)" : "not forgiven")
 					+ ", nearby misspellings " + (flagOn(c, TYPOS_KEY) ? "on" : "off")
+					+ ", skip-head " + (flagOn(c, SKIP_HEAD_KEY) ? "on" : "off")
+					+ ", wrong first letter " + (flagOn(c, WRONG_FIRST_KEY) ? "on" : "off")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ (!flagOn(c, GHOST_KEY) ? ""
 						: ghostLines(c) > 1
@@ -277,7 +308,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/typos/ghost/caret/persist/rank/pairs/short/plain on|off,"
+					+ " phrases/loose/typos/skiphead/firstletter/ghost/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
 			return null;
@@ -291,6 +322,9 @@ public class CompleteCommand extends SpecialCommand {
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest typos on|off    — swapped letters still find the word\n"
+				+ ".suggest skiphead on|off — onhelmet finds ironhelmet\n"
+				+ ".suggest firstletter on|off — two mistakes may change the"
+				+ "                           first letter\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
 				+ ".suggest caret on|off    — prefix chips follow the cursor into"
 				+ "                           the middle of a line\n"

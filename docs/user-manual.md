@@ -79,7 +79,9 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest where floating | bar | off | next
     .suggest opacity N | persist on | off
     .suggest phrases on | off | plain on | off | short on | off
-    .suggest loose on | off | typos on | off | ghost on | off | ghostlines N
+    .suggest loose on | off | typos on | off
+    .suggest skiphead on | off | firstletter on | off
+    .suggest ghost on | off | ghostlines N
     .suggest caret on | off | rank on | off | pairs on | off
     .suggest learned | clear
     .suggest forget <word>
@@ -308,6 +310,19 @@ still only prefix-matches. Four-letter minimum. Works on the word at the
 cursor in the middle of a line (`look helmte now`) as well as at the end.
 `.suggest typos off` turns it off. The ghost uses the same correction arrow
 as a forgiven typo: `helmte → helmet`.
+
+**Skipped start of a long name.** `.suggest skiphead on` — **on by default**
+once suggestions and nearby misspellings are on. A long name can match from
+its distinctive tail: `onhelmet` finds `ironhelmet`, including while you are
+still typing `onhel`. One extra or missing letter in that tail is allowed
+from six letters. Prefix chips still win: if an exact prefix found something,
+this does not run. `.suggest skiphead off` turns it off. `.suggest engine`
+is the same switch under the old name.
+
+**Two mistakes may change the first letter.** `.suggest firstletter on` —
+**off by default.** Two edits on a longer word may disagree on the first
+letter (`hxizzled` → `grizzled`). Three edits still miss. One nearby mistake
+already may change the first letter without this.
 
 **The rest of the word, as you type.** `.suggest ghost on` draws the top
 suggestion's remaining letters after the cursor in dimmed type, with a small `1`
@@ -2194,7 +2209,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
     `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
-    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`typos`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`typos`/`skiphead`/`firstletter`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)

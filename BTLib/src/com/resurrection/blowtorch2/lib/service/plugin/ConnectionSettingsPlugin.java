@@ -188,10 +188,24 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_loose.setKey("word_complete_loose");
 		word_complete_loose.setValue(false);
 
+		BooleanOption word_complete_skip_head = new BooleanOption();
+		word_complete_skip_head.setTitle("Skip the start of a long name");
+		word_complete_skip_head.setDescription("When the exact prefix finds nothing, a long name can match from its distinctive tail: onhelmet finds ironhelmet, including while you are still typing onhel. One extra or missing letter in that tail is allowed from six letters. On by default. Needs Correct nearby misspellings. .suggest skiphead on/off");
+		word_complete_skip_head.setKey("word_complete_skip_head");
+		word_complete_skip_head.setValue(true);
+
+		BooleanOption word_complete_wrong_first = new BooleanOption();
+		word_complete_wrong_first.setTitle("Two mistakes may change the first letter");
+		word_complete_wrong_first.setDescription("Two edits on a longer word may disagree on the first letter: hxizzled finds grizzled. Three edits still miss. One nearby mistake already may change the first letter without this. Off by default. Needs Correct nearby misspellings. .suggest firstletter on/off");
+		word_complete_wrong_first.setKey("word_complete_wrong_first");
+		word_complete_wrong_first.setValue(false);
+
 		SettingsGroup spelling = new SettingsGroup();
 		spelling.setTitle("When spelling is inexact");
 		spelling.addOption(word_complete_typos);
 		spelling.addOption(word_complete_loose);
+		spelling.addOption(word_complete_skip_head);
+		spelling.addOption(word_complete_wrong_first);
 		suggestions.addOption(spelling);
 
 		BooleanOption word_complete_phrases = new BooleanOption();

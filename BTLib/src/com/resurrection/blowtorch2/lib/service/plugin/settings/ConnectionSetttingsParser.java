@@ -57,6 +57,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_lines,
 		word_complete_loose,
 		word_complete_typos,
+		word_complete_skip_head,
+		word_complete_wrong_first,
 		word_complete_phrases,
 		word_complete_short_first,
 		word_complete_shorter_first,
@@ -574,6 +576,16 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case word_complete_typos:
 						// Default is true; persist when the player turns it off.
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_skip_head:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_wrong_first:
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

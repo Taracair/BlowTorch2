@@ -276,6 +276,96 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void skipHeadIsOnUntilAskedOff() {
+		WordSuggestions w = new WordSuggestions();
+		assertTrue(w.isSkipHead());
+	}
+
+	@Test
+	public void skipHeadOffLeavesAlignedTyposUnchanged() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSkipHead(false);
+		w.learn("helmet\n");
+		w.learn("ironhelmet\n");
+		w.learn("A grizzled cave troll lumbers in.\n");
+		w.learn("helper kelp\n");
+		assertEquals(java.util.Arrays.asList("helmet"), w.suggest("helmte", 5));
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("girz", 5));
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("gxizzlxd", 5));
+		assertTrue(w.suggest("xxizzlxd", 5).isEmpty());
+		assertTrue(w.suggest("onhelmet", 5).isEmpty());
+		assertTrue(w.suggest("hxizzled", 5).isEmpty());
+		assertEquals(java.util.Arrays.asList("helper"), w.suggest("help", 5));
+	}
+
+	@Test
+	public void skipHeadFindsTheTailOfALongName() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("ironhelmet\n");
+		assertEquals(java.util.Arrays.asList("ironhelmet"),
+				w.suggest("onhelmet", 5));
+		assertEquals(java.util.Arrays.asList("ironhelmet"),
+				w.suggest("onhel", 5));
+	}
+
+	@Test
+	public void skipHeadNeedsFiveLetters() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("ironhelmet\n");
+		assertTrue(w.suggest("onhe", 5).isEmpty());
+	}
+
+	@Test
+	public void skipHeadFindsADroppedFirstLetterWhileStillTyping() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("rizzle", 5));
+	}
+
+	@Test
+	public void skipHeadAllowsOneEditInTheTail() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("ironhelmet\n");
+		assertEquals(java.util.Arrays.asList("ironhelmet"),
+				w.suggest("onhelmt", 5));
+	}
+
+	@Test
+	public void skipHeadDoesNotDisplaceAnExactPrefix() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("helper ironhelmet\n");
+		assertEquals(java.util.Arrays.asList("helper"), w.suggest("hel", 5));
+	}
+
+	@Test
+	public void skipHeadOffDoesNotFindTheTail() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSkipHead(false);
+		w.learn("ironhelmet\n");
+		assertTrue(w.suggest("onhelmet", 5).isEmpty());
+	}
+
+	@Test
+	public void wrongFirstLetterAllowsTwoEdits() {
+		WordSuggestions w = new WordSuggestions();
+		w.setWrongFirst(true);
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("hxizzled", 5));
+		assertTrue(w.suggest("xxizzlxd", 5).isEmpty());
+	}
+
+	@Test
+	public void alignedNearTyposLeadSkipHeadWhenBothMatch() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("xhelmet\n");
+		w.learn("helmet\n");
+		assertEquals(java.util.Arrays.asList("helmet", "xhelmet"),
+				w.suggest("helmte", 5));
+	}
+
+	@Test
 	public void oneEditIsOfferedBeforeTwo() {
 		WordSuggestions w = new WordSuggestions();
 		w.learn("gxizzlad\n");

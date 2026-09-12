@@ -702,7 +702,7 @@ public class OptionsDialog extends Dialog {
 			if (rows.get(position).isHeader()) {
 				return false;
 			}
-			return !isScrollSensitivityLocked(rows.get(position).option);
+			return !isOptionLocked(rows.get(position).option);
 		}
 
 		@Override
@@ -729,8 +729,15 @@ public class OptionsDialog extends Dialog {
 			TextView ext = (TextView) v.findViewById(R.id.infoExtended);
 			
 			title.setText(o.getTitle());
-			ext.setText(o.getDescription());
-			final boolean locked = isScrollSensitivityLocked(o);
+			final boolean locked = isOptionLocked(o);
+			String description = o.getDescription();
+			if (locked) {
+				String extra = lockedRequiresSuffix(o.getKey());
+				if (extra.length() > 0) {
+					description = (description == null ? "" : description) + extra;
+				}
+			}
+			ext.setText(description);
 			v.setAlpha(locked ? 0.4f : 1f);
 			title.setEnabled(!locked);
 			ext.setEnabled(!locked);
@@ -758,7 +765,12 @@ public class OptionsDialog extends Dialog {
 					cb.setChecked(true);
 				}
 				cb.setTag(o);
-				cb.setOnCheckedChangeListener(new BooleanCheckChangeListener());
+				cb.setEnabled(!locked);
+				if (locked) {
+					cb.setOnCheckedChangeListener(null);
+				} else {
+					cb.setOnCheckedChangeListener(new BooleanCheckChangeListener());
+				}
 				widget.addView(cb);
 				
 				//must set up the on checkchange listener.
@@ -2416,18 +2428,31 @@ public class OptionsDialog extends Dialog {
 	}
 
 	private boolean isAndroidFlingOptionOn() {
+		return isBooleanOptionOn("android_fling");
+	}
+
+	private boolean isBooleanOptionOn(final String key) {
 		if (mCurrent == null) {
 			return false;
 		}
-		Option found = mCurrent.findOptionByKey("android_fling");
+		Option found = mCurrent.findOptionByKey(key);
 		if (!(found instanceof BooleanOption)) {
 			return false;
 		}
 		return Boolean.TRUE.equals(((BooleanOption) found).getValue());
 	}
 
-	private boolean isScrollSensitivityLocked(final Option o) {
-		return o != null && "scroll_sensitivity".equals(o.getKey()) && isAndroidFlingOptionOn();
+	/** Scroll sensitivity is unused while Android fling is on. */
+	static boolean isRowLocked(final String key, final boolean androidFlingOn) {
+		return "scroll_sensitivity".equals(key) && androidFlingOn;
+	}
+
+	static String lockedRequiresSuffix(final String key) {
+		return "";
+	}
+
+	private boolean isOptionLocked(final Option o) {
+		return o != null && isRowLocked(o.getKey(), isAndroidFlingOptionOn());
 	}
 
 	private void notifyCurrentPageAdapter() {
@@ -2452,7 +2477,7 @@ public class OptionsDialog extends Dialog {
 		@Override
 		public void onClick(View v) {
 			ListOption o = (ListOption)v.getTag();
-			if (isScrollSensitivityLocked(o)) {
+			if (isOptionLocked(o)) {
 				return;
 			}
 			

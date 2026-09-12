@@ -794,6 +794,10 @@ actually said. All of it is off until you ask, under Options → Input or on
                           letter still finds the word the game just used;
                           two such mistakes on a longer word. Only after
                           the exact prefix finds nothing
+  .suggest skiphead on|off
+                          onhelmet finds ironhelmet (on by default)
+  .suggest firstletter on|off
+                          two mistakes may change the first letter
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent

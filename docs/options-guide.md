@@ -437,6 +437,11 @@ seven switches was making the Input page a wall.
   matches (`gxizzlxd` → `grizzled`). Same-length words count. Four-letter
   minimum. Works on the word at the cursor in the middle of a line as well as
   at the end. Accurate prefix matches are unchanged.
+- **Skip the start of a long name** — `.suggest skiphead on|off` (alias
+  `engine`). **On by default.** `onhelmet` → `ironhelmet`, including while still
+  typing `onhel`. Prefix chips still win.
+- **Two mistakes may change the first letter** — `.suggest firstletter on|off`.
+  **Off by default.** `hxizzled` → `grizzled`; three edits still miss.
 - **Show the rest of the word as you type** — `.suggest ghost on|off`. Draws the
   top suggestion after the cursor, dimmed, with a micro `1`. **Tap it to take
   it** — the ghost is a target, not just a hint. Drawn only, never inserted, so

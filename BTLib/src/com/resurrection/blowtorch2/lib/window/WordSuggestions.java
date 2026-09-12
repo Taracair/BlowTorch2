@@ -105,6 +105,18 @@ public final class WordSuggestions {
 	public static final int MIN_TYPO_TWO_EDITS = 6;
 
 	/**
+	 * Below this a skipped-head match is a common tail ({@code ring}, {@code ling}).
+	 * Five letters is the distinctive end of a long compound.
+	 */
+	public static final int MIN_SKIP_PREFIX_LENGTH = 5;
+
+	/**
+	 * One edit after skipping the head. Same floor as two aligned edits: four
+	 * letters plus a skipped head is still noise.
+	 */
+	public static final int MIN_SKIP_ONE_EDIT = 6;
+
+	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
 	 * the time the suggestion appears, and short words are the common ones that
 	 * would crowd out the useful proper nouns.
@@ -254,6 +266,11 @@ public final class WordSuggestions {
 	 */
 	private boolean typoMatching = true;
 
+	/** Match a long name from its distinctive tail. On by default. */
+	private boolean skipHead = true;
+
+	private boolean wrongFirst = false;
+
 	/** Offer the words that followed, not only the word itself. */
 	private boolean phrases = false;
 
@@ -344,6 +361,22 @@ public final class WordSuggestions {
 
 	public boolean isTypoMatching() {
 		return typoMatching;
+	}
+
+	public void setSkipHead(final boolean on) {
+		this.skipHead = on;
+	}
+
+	public boolean isSkipHead() {
+		return skipHead;
+	}
+
+	public void setWrongFirst(final boolean on) {
+		this.wrongFirst = on;
+	}
+
+	public boolean isWrongFirst() {
+		return wrongFirst;
 	}
 
 	/**
@@ -934,25 +967,40 @@ public final class WordSuggestions {
 
 	/**
 	 * A word a few edits away, or whose start is. Same-length needles are
-	 * allowed, unlike {@link #suggestLoosely}. Distance 1 first, then 2.
+	 * allowed, unlike {@link #suggestLoosely}. Distance 1 first, then an
+	 * optional skipped head, then distance 2.
 	 */
 	private void suggestTypos(final String needle, final int max,
 			final List<String> out) {
 		List<String> near = new ArrayList<String>();
+		List<String> skipExact = new ArrayList<String>();
+		List<String> skipNear = new ArrayList<String>();
 		List<String> far = new ArrayList<String>();
+		final boolean skip = skipHead;
+		final boolean wrong = wrongFirst;
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			String key = e.getKey();
 			if (key.equals(needle)) {
 				continue;
 			}
-			int d = typoDistance(needle, key);
+			int d = typoDistance(needle, key, wrong);
 			if (d == 1) {
 				near.add(e.getValue().spelling);
 			} else if (d == 2) {
 				far.add(e.getValue().spelling);
 			}
+			if (skip) {
+				int s = skipPrefixRank(needle, key);
+				if (s == 1) {
+					skipExact.add(e.getValue().spelling);
+				} else if (s == 2) {
+					skipNear.add(e.getValue().spelling);
+				}
+			}
 		}
 		appendNewestFirst(near, out, max);
+		appendNewestFirst(skipExact, out, max);
+		appendNewestFirst(skipNear, out, max);
 		appendNewestFirst(far, out, max);
 	}
 
@@ -972,6 +1020,19 @@ public final class WordSuggestions {
 	 * {@code girz} never finds {@code grizzled} until the last letter.
 	 */
 	static int typoDistance(final String needle, final String word) {
+		return typoDistance(needle, word, false);
+	}
+
+	/**
+	 * 1 or 2, or 3 when it should not be offered. Compares the typed letters
+	 * to the whole word and to a prefix of the same length — otherwise
+	 * {@code girz} never finds {@code grizzled} until the last letter.
+	 *
+	 * @param allowWrongFirst when true, two edits may disagree on the first
+	 *        letter. One edit already may. Three edits still miss.
+	 */
+	static int typoDistance(final String needle, final String word,
+			final boolean allowWrongFirst) {
 		int n = needle.length();
 		int w = word.length();
 		int best = 3;
@@ -983,7 +1044,7 @@ public final class WordSuggestions {
 			return 1;
 		}
 		if (n < MIN_TYPO_TWO_EDITS || w == 0
-				|| needle.charAt(0) != word.charAt(0)) {
+				|| (!allowWrongFirst && needle.charAt(0) != word.charAt(0))) {
 			return best;
 		}
 		if (gap <= 2) {
@@ -996,6 +1057,42 @@ public final class WordSuggestions {
 			int d = damerauAtMost(needle, word.substring(0, n), 2);
 			if (d >= 1 && d < best) {
 				best = d;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Needle is the distinctive tail of {@code word} after dropping 1 or 2
+	 * leading letters. 1 = exact remainder (or still-typing prefix of it);
+	 * 2 = one edit on that remainder. 0 = no skip match. Never k=3: that is
+	 * a three-letter tail.
+	 */
+	static int skipPrefixRank(final String needle, final String word) {
+		int n = needle.length();
+		if (n < MIN_SKIP_PREFIX_LENGTH || word == null) {
+			return 0;
+		}
+		int best = 0;
+		for (int k = 1; k <= 2; k++) {
+			if (word.length() <= k) {
+				continue;
+			}
+			String rest = word.substring(k);
+			if (rest.length() == 0) {
+				continue;
+			}
+			if (rest.equals(needle) || rest.startsWith(needle)) {
+				return 1;
+			}
+			if (n < MIN_SKIP_ONE_EDIT) {
+				continue;
+			}
+			if (isNearbyTypo(needle, rest)) {
+				best = 2;
+			} else if (rest.length() > n
+					&& isNearbyTypo(needle, rest.substring(0, n))) {
+				best = 2;
 			}
 		}
 		return best;

@@ -218,6 +218,17 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
+	public void skipHeadAndWrongFirstAreNotLocked() {
+		assertFalse(OptionsDialog.isRowLocked("word_complete_skip_head", false));
+		assertFalse(OptionsDialog.isRowLocked("word_complete_wrong_first", false));
+		assertFalse(OptionsDialog.isRowLocked("word_complete_skip_head", true));
+		assertTrue(OptionsDialog.isRowLocked("scroll_sensitivity", true));
+		assertFalse(OptionsDialog.isRowLocked("scroll_sensitivity", false));
+		assertEquals("", OptionsDialog.lockedRequiresSuffix("word_complete_skip_head"));
+		assertEquals("", OptionsDialog.lockedRequiresSuffix("scroll_sensitivity"));
+	}
+
+	@Test
 	public void hiddenEditorKeysAreOmittedEvenWhenInlined() {
 		SettingsGroup page = new SettingsGroup();
 		page.setTitle("Window");

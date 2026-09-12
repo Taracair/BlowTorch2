@@ -84,6 +84,8 @@ public class SettingsOptionKeyOwnershipTest {
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_where"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_caret"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_typos"));
+		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_skip_head"));
+		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_wrong_first"));
 		assertFalse("the old boolean is read from old profiles, never written back",
 				ConnectionSetttingsParser.isConnectionOptionKey(
 						ConnectionSetttingsParser.LEGACY_OVERLAY_KEY));

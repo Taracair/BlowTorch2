@@ -5427,6 +5427,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setTypoMatching(typosOpt == null
 					|| !(typosOpt.getValue() instanceof Boolean)
 					|| (Boolean) typosOpt.getValue());
+			BaseOption skipHeadOpt =
+					(BaseOption) group.findOptionByKey("word_complete_skip_head");
+			mWordSuggestions.setSkipHead(skipHeadOpt == null
+					|| !(skipHeadOpt.getValue() instanceof Boolean)
+					|| (Boolean) skipHeadOpt.getValue());
+			BaseOption wrongFirstOpt =
+					(BaseOption) group.findOptionByKey("word_complete_wrong_first");
+			mWordSuggestions.setWrongFirst(wrongFirstOpt != null
+					&& wrongFirstOpt.getValue() instanceof Boolean
+					&& (Boolean) wrongFirstOpt.getValue());
 			if (mInputBox != null) {
 				mInputBox.setGhostAtCaret(suggestionsFollowCaret());
 			}
