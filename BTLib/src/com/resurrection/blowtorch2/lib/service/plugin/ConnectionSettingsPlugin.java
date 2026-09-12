@@ -152,14 +152,11 @@ public class ConnectionSettingsPlugin extends Plugin {
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
 
-		// Seven keys about one feature made Input a wall to scroll through, so
-		// they live in their own section. Safe because SettingsGroup's
-		// updateOptionsMap recurses into child GROUPs and flattens their keys
-		// into the parent's map — findOptionByKey is a flat lookup and does not
-		// recurse, so MainWindow's group.findOptionByKey("word_complete_*")
-		// still resolves. What that costs is an ordering rule: every option must
-		// be added to this group BEFORE the group is added to input, or its key
-		// never reaches input's map and the option silently stops being read.
+		// Suggestions is its own page (Input would be a wall). Section groups
+		// inside it are inlined as headers by OptionsDialog (INLINE_GROUP_TITLES).
+		// updateOptionsMap recurses: findOptionByKey("word_complete_*") on
+		// Input still resolves. Every option must be added to its section
+		// before that section is added here, and this group before input.
 		SettingsGroup suggestions = new SettingsGroup();
 		suggestions.setTitle("Suggestions");
 		suggestions.setDescription("Completing words the game has just used, and where those suggestions are shown.");
@@ -179,19 +176,23 @@ public class ConnectionSettingsPlugin extends Plugin {
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
 		suggestions.addOption(word_complete_lines);
 
-		BooleanOption word_complete_loose = new BooleanOption();
-		word_complete_loose.setTitle("Forgive typos");
-		word_complete_loose.setDescription("When the exact spelling finds nothing, take your letters in order with gaps: grzld finds grizzled. Only after an exact match found nothing, so typing accurately never gets a different answer. .suggest loose on/off");
-		word_complete_loose.setKey("word_complete_loose");
-		word_complete_loose.setValue(false);
-		suggestions.addOption(word_complete_loose);
-
 		BooleanOption word_complete_typos = new BooleanOption();
 		word_complete_typos.setTitle("Correct nearby misspellings");
 		word_complete_typos.setDescription("When the exact prefix finds nothing, offer a word the game just used that is close to what you typed: a swapped pair, a wrong letter, a missing or extra letter; two such mistakes on a longer word. Only after an exact prefix found nothing. Four-letter minimum; two mistakes from six letters and the first letter must still match. Works on the word at the cursor and at the end. .suggest typos on/off");
 		word_complete_typos.setKey("word_complete_typos");
 		word_complete_typos.setValue(true);
-		suggestions.addOption(word_complete_typos);
+
+		BooleanOption word_complete_loose = new BooleanOption();
+		word_complete_loose.setTitle("Skipped letters in order");
+		word_complete_loose.setDescription("When the exact spelling finds nothing, take your letters in order with gaps: grzld finds grizzled. Only after an exact match found nothing, so typing accurately never gets a different answer. First letter must still match. .suggest loose on/off");
+		word_complete_loose.setKey("word_complete_loose");
+		word_complete_loose.setValue(false);
+
+		SettingsGroup spelling = new SettingsGroup();
+		spelling.setTitle("When spelling is inexact");
+		spelling.addOption(word_complete_typos);
+		spelling.addOption(word_complete_loose);
+		suggestions.addOption(spelling);
 
 		BooleanOption word_complete_phrases = new BooleanOption();
 		word_complete_phrases.setTitle("Offer whole names");
@@ -201,53 +202,18 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// and becomes a phrase, and the ghost draws it. Change this and the
 		// comparison in ConnectionSetttingsParser together.
 		word_complete_phrases.setValue(false);
-		suggestions.addOption(word_complete_phrases);
-
-		BooleanOption word_complete_ghost = new BooleanOption();
-		word_complete_ghost.setTitle("Ghost after the cursor");
-		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. The inline ghost only appears at the end of the line; in the middle (Complete at the cursor, or a nearby misspelling) the numbered list sits under the line instead. .suggest ghost on/off");
-		word_complete_ghost.setKey("word_complete_ghost");
-		word_complete_ghost.setValue(false);
-		suggestions.addOption(word_complete_ghost);
-
-		BooleanOption word_complete_caret = new BooleanOption();
-		word_complete_caret.setTitle("Complete at the cursor");
-		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). Nearby misspellings already do this even when this is off. Off by default: moving the cursor into a command you already typed used to hide prefix chips. .suggest caret on/off");
-		word_complete_caret.setKey("word_complete_caret");
-		word_complete_caret.setValue(false);
-		suggestions.addOption(word_complete_caret);
 
 		BooleanOption word_complete_short_first = new BooleanOption();
 		word_complete_short_first.setTitle("Plain word before the whole name");
 		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — it does not order one word against another, which is what \"Shorter suggestions first\" does. Does nothing with whole names off. Off by default. .suggest plain on/off");
 		word_complete_short_first.setKey("word_complete_short_first");
 		word_complete_short_first.setValue(false);
-		suggestions.addOption(word_complete_short_first);
 
-		BooleanOption word_complete_shorter_first = new BooleanOption();
-		word_complete_shorter_first.setTitle("Shorter suggestions first");
-		word_complete_shorter_first.setDescription("Order every suggestion by length, shortest first, instead of by what the world said most recently. Type cr and you get crate before crime-and-punishment. \"Order by place in the line\" still decides which group of words leads; this decides the order inside each group, and nothing is ever dropped. Off by default. .suggest short on/off");
-		word_complete_shorter_first.setKey("word_complete_shorter_first");
-		// Off by default: newest-first is what the app has always done, and a
-		// player who never opens this must keep it. Change this and
-		// ConnectionSetttingsParser's comparison together, or the parser quietly
-		// stops saving the value the player chose.
-		word_complete_shorter_first.setValue(false);
-		suggestions.addOption(word_complete_shorter_first);
-
-		IntegerOption word_complete_ghost_lines = new IntegerOption();
-		word_complete_ghost_lines.setTitle("Suggestions under the line");
-		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it grows by nothing, and the others fill what is left of the line you are typing on, each numbered and tappable, with a +N counting any that did not fit. Above that they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
-		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
-		word_complete_ghost_lines.setValue(1);
-		suggestions.addOption(word_complete_ghost_lines);
-
-		IntegerOption word_complete_show = new IntegerOption();
-		word_complete_show.setTitle("Suggestions shown at once");
-		word_complete_show.setDescription("How many suggestions the bar and ghost may offer at once, 1 to 8. The rest are still found — they just do not appear until a higher one is taken or the word changes. .suggest show N");
-		word_complete_show.setKey("word_complete_show");
-		word_complete_show.setValue(8);
-		suggestions.addOption(word_complete_show);
+		SettingsGroup wholeNames = new SettingsGroup();
+		wholeNames.setTitle("Whole names");
+		wholeNames.addOption(word_complete_phrases);
+		wholeNames.addOption(word_complete_short_first);
+		suggestions.addOption(wholeNames);
 
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");
@@ -265,28 +231,36 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// quietly stops saving the value the player chose.
 		word_complete_where.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE);
-		suggestions.addOption(word_complete_where);
 
-		BooleanOption word_complete_rank = new BooleanOption();
-		word_complete_rank.setTitle("Order by place in the line");
-		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. Off by default. .suggest rank on/off");
-		word_complete_rank.setKey("word_complete_rank");
-		word_complete_rank.setValue(false);
-		suggestions.addOption(word_complete_rank);
+		BooleanOption word_complete_ghost = new BooleanOption();
+		word_complete_ghost.setTitle("Ghost after the cursor");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. The inline ghost only appears at the end of the line; in the middle (Complete at the cursor, or a nearby misspelling) the numbered list sits under the line instead. .suggest ghost on/off");
+		word_complete_ghost.setKey("word_complete_ghost");
+		word_complete_ghost.setValue(false);
 
-		BooleanOption word_complete_pairs = new BooleanOption();
-		word_complete_pairs.setTitle("Learn what goes with what");
-		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before: kill offers what you have killed, wear what you have worn. Needs Order by place in the line to be on, and knows nothing until you have played a while. It only changes the order. Off by default. .suggest pairs on/off");
-		word_complete_pairs.setKey("word_complete_pairs");
-		word_complete_pairs.setValue(false);
-		suggestions.addOption(word_complete_pairs);
+		BooleanOption word_complete_caret = new BooleanOption();
+		word_complete_caret.setTitle("Complete at the cursor");
+		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). Nearby misspellings already do this even when this is off. Off by default: moving the cursor into a command you already typed used to hide prefix chips. .suggest caret on/off");
+		word_complete_caret.setKey("word_complete_caret");
+		word_complete_caret.setValue(false);
+
+		IntegerOption word_complete_ghost_lines = new IntegerOption();
+		word_complete_ghost_lines.setTitle("Suggestions under the line");
+		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it grows by nothing, and the others fill what is left of the line you are typing on, each numbered and tappable, with a +N counting any that did not fit. Above that they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
+		word_complete_ghost_lines.setValue(1);
+
+		IntegerOption word_complete_show = new IntegerOption();
+		word_complete_show.setTitle("Suggestions shown at once");
+		word_complete_show.setDescription("How many suggestions the bar and ghost may offer at once, 1 to 8. The rest are still found — they just do not appear until a higher one is taken or the word changes. .suggest show N");
+		word_complete_show.setKey("word_complete_show");
+		word_complete_show.setValue(8);
 
 		BooleanOption word_complete_persist = new BooleanOption();
 		word_complete_persist.setTitle("Keep the bar in place");
 		word_complete_persist.setDescription("Leave the bar up even with nothing to suggest, instead of it coming and going as you type. Below the game this is the one that matters: it holds its height, so the game text stops jumping. Floating, it holds a bar's width and shows its grip. .suggest persist on/off");
 		word_complete_persist.setKey("word_complete_persist");
 		word_complete_persist.setValue(false);
-		suggestions.addOption(word_complete_persist);
 
 		IntegerOption word_complete_opacity = new IntegerOption();
 		word_complete_opacity.setTitle("Chip opacity (%)");
@@ -294,7 +268,46 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_opacity.setKey("word_complete_opacity");
 		word_complete_opacity.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
-		suggestions.addOption(word_complete_opacity);
+
+		SettingsGroup whereShown = new SettingsGroup();
+		whereShown.setTitle("Where they appear");
+		whereShown.addOption(word_complete_where);
+		whereShown.addOption(word_complete_ghost);
+		whereShown.addOption(word_complete_caret);
+		whereShown.addOption(word_complete_ghost_lines);
+		whereShown.addOption(word_complete_show);
+		whereShown.addOption(word_complete_persist);
+		whereShown.addOption(word_complete_opacity);
+		suggestions.addOption(whereShown);
+
+		BooleanOption word_complete_rank = new BooleanOption();
+		word_complete_rank.setTitle("Order by place in the line");
+		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. Off by default. .suggest rank on/off");
+		word_complete_rank.setKey("word_complete_rank");
+		word_complete_rank.setValue(false);
+
+		BooleanOption word_complete_pairs = new BooleanOption();
+		word_complete_pairs.setTitle("Learn what goes with what");
+		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before: kill offers what you have killed, wear what you have worn. Needs Order by place in the line to be on, and knows nothing until you have played a while. It only changes the order. Off by default. .suggest pairs on/off");
+		word_complete_pairs.setKey("word_complete_pairs");
+		word_complete_pairs.setValue(false);
+
+		BooleanOption word_complete_shorter_first = new BooleanOption();
+		word_complete_shorter_first.setTitle("Shorter suggestions first");
+		word_complete_shorter_first.setDescription("Order every suggestion by length, shortest first, instead of by what the world said most recently. Type cr and you get crate before crime-and-punishment. \"Order by place in the line\" still decides which group of words leads; this decides the order inside each group, and nothing is ever dropped. Off by default. .suggest short on/off");
+		word_complete_shorter_first.setKey("word_complete_shorter_first");
+		// Off by default: newest-first is what the app has always done, and a
+		// player who never opens this must keep it. Change this and
+		// ConnectionSetttingsParser's comparison together, or the parser quietly
+		// stops saving the value the player chose.
+		word_complete_shorter_first.setValue(false);
+
+		SettingsGroup order = new SettingsGroup();
+		order.setTitle("Order");
+		order.addOption(word_complete_rank);
+		order.addOption(word_complete_pairs);
+		order.addOption(word_complete_shorter_first);
+		suggestions.addOption(order);
 
 		// After every addOption above, never before one of them.
 		input.addOption(suggestions);

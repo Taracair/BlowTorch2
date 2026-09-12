@@ -185,6 +185,39 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
+	public void suggestionsPageInlinesSpellingWhereAndOrderSections() {
+		SettingsGroup suggestions = new SettingsGroup();
+		suggestions.setTitle("Suggestions");
+		BooleanOption master = new BooleanOption();
+		master.setTitle("Suggest game words");
+		master.setKey("word_complete");
+		master.setValue(false);
+		suggestions.addOption(master);
+		suggestions.addOption(namedGroup("When spelling is inexact",
+				"word_complete_typos", "Correct nearby misspellings"));
+		suggestions.addOption(namedGroup("Whole names",
+				"word_complete_phrases", "Offer whole names"));
+		suggestions.addOption(namedGroup("Where they appear",
+				"word_complete_ghost", "Ghost after the cursor"));
+		suggestions.addOption(namedGroup("Order",
+				"word_complete_rank", "Order by place in the line"));
+
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(suggestions);
+		assertNotNull(optionNamed(rows, "Suggest game words"));
+		assertTrue(hasHeader(rows, "When spelling is inexact"));
+		assertTrue(hasHeader(rows, "Whole names"));
+		assertTrue(hasHeader(rows, "Where they appear"));
+		assertTrue(hasHeader(rows, "Order"));
+		assertNull(optionNamed(rows, "When spelling is inexact"));
+		assertEquals("word_complete_typos",
+				optionNamed(rows, "Correct nearby misspellings").getKey());
+		assertSame(suggestions.findOptionByKey("word_complete_typos"),
+				optionNamed(rows, "Correct nearby misspellings"));
+		assertSame(suggestions.findOptionByKey("word_complete_ghost"),
+				optionNamed(rows, "Ghost after the cursor"));
+	}
+
+	@Test
 	public void hiddenEditorKeysAreOmittedEvenWhenInlined() {
 		SettingsGroup page = new SettingsGroup();
 		page.setTitle("Window");

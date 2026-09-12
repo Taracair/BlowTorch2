@@ -426,7 +426,7 @@ seven switches was making the Input page a wall.
 - **`.suggest 1` … `.suggest 8`** picks that chip. Meant for a super button /
   alias / trigger, not the input bar: typing into the bar replaces the word being
   completed, so the strip empties. Chips are numbered to match.
-- **Forgive typos in suggestions** — `.suggest loose on|off`. Only after an exact
+- **Skipped letters in order** — `.suggest loose on|off`. Only after an exact
   prefix finds nothing: letters in order with gaps, `grzld` → `grizzled`. First
   letter must match, four-letter minimum.
 - **Correct nearby misspellings** — `.suggest typos on|off` (alias `typo`).

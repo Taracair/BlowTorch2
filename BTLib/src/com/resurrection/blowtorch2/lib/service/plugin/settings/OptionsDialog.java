@@ -146,7 +146,8 @@ public class OptionsDialog extends Dialog {
 	 * ConnectionSetttingsParser skip foreign keys; nesting is load-bearing).
 	 *
 	 * Titles are the ones WindowToken / ConnectionSettingsPlugin already use.
-	 * Font, Suggestions, and anything else still drill in.
+		 * Font and Suggestions still drill in; sections inside Suggestions
+		 * flatten on that page.
 	 */
 	static final java.util.HashSet<String> INLINE_GROUP_TITLES =
 			new java.util.HashSet<String>(java.util.Arrays.asList(
@@ -155,7 +156,11 @@ public class OptionsDialog extends Dialog {
 					"Protocols",
 					"GMCP",
 					"MCP",
-					"Telnet"));
+					"Telnet",
+					"When spelling is inexact",
+					"Whole names",
+					"Where they appear",
+					"Order"));
 
 	static boolean isInlineGroup(Option option) {
 		return option != null
