@@ -9,7 +9,7 @@ Source of truth for in-app **Help**. Keep this file in sync with
 in a corner of the game window — bottom-right by default, just above
 the input bar. Options → Miscellaneous can move ⋮ to any corner.
 Tap ⋮ → **Options** for settings. Options has a search field at the bottom; type `font` (or any other word)
-and tap a hit to jump to that page. ⋮ → **Help** is this guide. `.help`
+and tap a hit to jump there and flash the matching row. ⋮ → **Help** is this guide. `.help`
 in the input bar is a short list of every `.command`, printed into the
 game window — not this manual. From the launcher, **Help** is also a
 button at the bottom and an item in that screen's ⋮ menu.
@@ -4018,8 +4018,8 @@ Plugins screen refuses to remove it.
 ## Session overflow menu
 
 Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
-Timers). Options has a search field at the bottom; tap a hit to jump to
-that page.
+Timers). Options has a search field at the bottom; tap a hit to jump there
+and flash the matching row.
 
 - **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons.
   The pack/size wizard is **Options → Button → Load button set from wizard**.

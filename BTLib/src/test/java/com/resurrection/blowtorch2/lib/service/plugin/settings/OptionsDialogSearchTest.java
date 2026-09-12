@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.service.plugin.settings;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -110,6 +111,63 @@ public class OptionsDialogSearchTest {
 	public void emptyQueryReturnsNothing() {
 		assertTrue(OptionsDialog.searchHits(new WindowToken().getSettings(), "  ").isEmpty());
 		assertTrue(OptionsDialog.searchHits(new WindowToken().getSettings(), null).isEmpty());
+	}
+
+	@Test
+	public void highlightKeyIsTheHitOptionKey() {
+		SettingsGroup root = new SettingsGroup();
+		root.setTitle("Program Settings");
+		SettingsGroup service = new SettingsGroup();
+		service.setTitle("Service");
+		SettingsGroup protocols = new SettingsGroup();
+		protocols.setTitle("Protocols");
+		BooleanOption gmcp = new BooleanOption();
+		gmcp.setTitle("Use GMCP?");
+		gmcp.setKey("use_gmcp");
+		gmcp.setValue(true);
+		protocols.addOption(gmcp);
+		service.addOption(protocols);
+		root.addOption(service);
+
+		ArrayList<OptionsDialog.SearchHit> hits = OptionsDialog.searchHits(root, "gmcp");
+		assertEquals(1, hits.size());
+		assertEquals("use_gmcp", OptionsDialog.highlightKey(hits.get(0)));
+		assertNull(OptionsDialog.highlightKey(null));
+		assertNull(OptionsDialog.highlightKey(
+				new OptionsDialog.SearchHit("x", "", new ArrayList<SettingsGroup>(), null)));
+	}
+
+	@Test
+	public void inlinedSearchHitIsTheRowIndexOfOptionFinds() {
+		SettingsGroup root = new SettingsGroup();
+		root.setTitle("Program Settings");
+		SettingsGroup service = new SettingsGroup();
+		service.setTitle("Service");
+		SettingsGroup protocols = new SettingsGroup();
+		protocols.setTitle("Protocols");
+		BooleanOption gmcp = new BooleanOption();
+		gmcp.setTitle("Use GMCP?");
+		gmcp.setKey("use_gmcp");
+		gmcp.setValue(true);
+		protocols.addOption(gmcp);
+		service.addOption(protocols);
+		root.addOption(service);
+
+		ArrayList<OptionsDialog.SearchHit> hits = OptionsDialog.searchHits(root, "gmcp");
+		assertEquals(1, hits.get(0).path.size());
+		assertSame(service, hits.get(0).path.get(0));
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(service);
+		int at = OptionsDialog.indexOfOption(rows, hits.get(0).option);
+		assertTrue(at >= 0);
+		assertFalse(rows.get(at).isHeader());
+		assertSame(gmcp, rows.get(at).option);
+		assertEquals(-1, OptionsDialog.indexOfOption(rows, protocols));
+
+		BooleanOption sameKey = new BooleanOption();
+		sameKey.setKey("use_gmcp");
+		assertEquals(at, OptionsDialog.indexOfOption(rows, sameKey));
+		assertTrue(OptionsDialog.optionMatchesHighlight(gmcp, sameKey));
+		assertFalse(OptionsDialog.optionMatchesHighlight(gmcp, null));
 	}
 
 	private static OptionsDialog.SearchHit named(ArrayList<OptionsDialog.SearchHit> hits,

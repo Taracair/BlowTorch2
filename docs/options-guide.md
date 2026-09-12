@@ -1,7 +1,7 @@
 # Options (session)
 
 In-game **Options** dialog groups (Program Settings). A search field at the
-bottom of Options filters as you type; tap a result to jump to that page.
+bottom of Options filters as you type; tap a result to jump there and flash the matching row.
 
 | Group | Purpose |
 |-------|---------|
