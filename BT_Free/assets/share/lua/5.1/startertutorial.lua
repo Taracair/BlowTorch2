@@ -793,6 +793,8 @@ actually said. All of it is off until you ask, under Options → Input or on
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent
+  .suggest caret on|off   follow the cursor into the middle of a line, not
+                          only the end; taking one replaces the word there
   .suggest show N         at most N suggestions total (bar + ghost), 1-8
   .suggest ghostlines N   extra rows the field may grow by (1-6). At 1 the
                           others still fill the rest of the line you are on;

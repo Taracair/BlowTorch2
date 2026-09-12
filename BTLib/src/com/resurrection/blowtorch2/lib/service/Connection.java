@@ -5932,6 +5932,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_short_first:
 			case word_complete_shorter_first:
 			case word_complete_ghost:
+			case word_complete_caret:
 			case word_complete_ghost_lines:
 			case word_complete_show:
 			case word_complete_persist:
@@ -7296,6 +7297,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		sensor_background,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
+		/** Suggestions follow the caret into the middle of the line. */
+		word_complete_caret,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */
 		word_complete_ghost_lines,
 		/** How many suggestions the completer offers at once. */

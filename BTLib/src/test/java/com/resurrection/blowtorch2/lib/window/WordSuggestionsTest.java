@@ -264,6 +264,48 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void completingInsideAWordReplacesTheRestOfItToo() {
+		// k gr|izzled — taking "grizzled" must not leave "izzled" behind.
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("k grizzled", 4, "grizzled");
+		assertEquals("k grizzled ", c.text());
+		assertEquals("k grizzled ".length(), c.caret());
+	}
+
+	@Test
+	public void completingAtTheStartOfAWordReplacesThatWord() {
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("k troll", 2, "grizzled");
+		assertEquals("k grizzled ", c.text());
+		assertEquals("k grizzled ".length(), c.caret());
+	}
+
+	@Test
+	public void wordAfterIsTheTokenStartingAtTheCaret() {
+		assertEquals("troll", WordSuggestions.wordAfter("k troll", 2));
+		assertEquals("", WordSuggestions.wordAfter("k troll", 1));
+		assertEquals("izzled", WordSuggestions.wordAfter("k grizzled", 4));
+		assertEquals("", WordSuggestions.wordAfter("k gri", 5));
+		assertEquals("", WordSuggestions.wordAfter(null, 3));
+	}
+
+	@Test
+	public void followCaretUsesTheWordTheCursorIsOn() {
+		assertEquals("gri", WordSuggestions.completionPrefix("k gri troll", 5, true));
+		assertEquals("troll", WordSuggestions.completionPrefix("k troll", 2, true));
+		assertEquals("", WordSuggestions.completionPrefix("k troll", 2, false));
+		assertEquals("gr", WordSuggestions.completionPrefix("k grizzled", 4, true));
+	}
+
+	@Test
+	public void tokenStartIsTheFrontOfTheWordTheCaretIsIn() {
+		assertEquals(2, WordSuggestions.tokenStart("k grizzled", 4));
+		assertEquals(2, WordSuggestions.tokenStart("k troll", 2));
+		assertEquals(0, WordSuggestions.tokenStart("kill", 4));
+		assertEquals(2, WordSuggestions.tokenStart("k ", 2));
+	}
+
+	@Test
 	public void twoCompletionsBuildOneCommand() {
 		WordSuggestions.Completion first =
 				WordSuggestions.complete("k gri", 5, "grizzled");
@@ -281,7 +323,7 @@ public class WordSuggestionsTest {
 	@Test
 	public void anOutOfRangeCaretIsClamped() {
 		assertEquals("kill ", WordSuggestions.complete("k", 99, "kill").text());
-		assertEquals("kill k", WordSuggestions.complete("k", -1, "kill").text());
+		assertEquals("kill ", WordSuggestions.complete("k", -1, "kill").text());
 	}
 
 	// --- Phrases (C1). Off by default, so every test above still describes

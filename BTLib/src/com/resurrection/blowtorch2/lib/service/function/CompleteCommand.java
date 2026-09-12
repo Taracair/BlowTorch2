@@ -33,6 +33,7 @@ public class CompleteCommand extends SpecialCommand {
 	/** Shorter completions before longer ones — reached by .suggest short. */
 	public static final String SHORTER_KEY = "word_complete_shorter_first";
 	public static final String GHOST_KEY = "word_complete_ghost";
+	public static final String CARET_KEY = "word_complete_caret";
 	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
 	/** How many suggestions the bar and ghost may show at once. */
 	public static final String SHOW_KEY = "word_complete_show";
@@ -136,6 +137,16 @@ public class CompleteCommand extends SpecialCommand {
 						+ " others are listed beside it, each one tappable too.",
 					"No suggestion drawn after the cursor.");
 		}
+		if (arg.startsWith("caret") || arg.startsWith("cursor")) {
+			int skip = arg.startsWith("caret") ? "caret".length() : "cursor".length();
+			return setFlag(arg.substring(skip).trim(), c, CARET_KEY,
+					"Suggestions now follow the cursor: edit in the middle of a"
+						+ " line and they still offer, and taking one goes in at"
+						+ " the cursor. Put this on a button if you only want it"
+						+ " while rewriting a command.",
+					"Suggestions only appear while the cursor is at the end of"
+						+ " what you have typed.");
+		}
 		if (arg.startsWith("persist")) {
 			return setFlag(arg.substring("persist".length()).trim(), c, PERSIST_KEY,
 					"The suggestion bar stays put now, empty or not, so the words"
@@ -238,6 +249,10 @@ public class CompleteCommand extends SpecialCommand {
 								+ (ghostLines(c) - 1) + " row"
 								+ (ghostLines(c) == 2 ? "" : "s") + " under it"
 							: ", listing the others on the rest of the line")
+					+ ".\nFollow the cursor "
+					+ (flagOn(c, CARET_KEY)
+						? "on — suggestions still offer in the middle of a line"
+						: "off — suggestions only at the end of the line")
 					+ ".\nShowing at most " + showCount(c) + " suggestions"
 					+ " (bar, ghost, and .suggest N — use .suggest show N)."
 					+ "\nOrder is " + (flagOn(c, RANK_KEY)
@@ -245,7 +260,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank/pairs/short/plain on|off,"
+					+ " phrases/loose/ghost/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
 			return null;
@@ -259,6 +274,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
+				+ ".suggest caret on|off    — follow the cursor into the middle of a line\n"
 				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"
 				+ ".suggest ghostlines N    — extra rows the field may grow by, 1-6.\n"
 				+ "                           At 1 the others still fill the rest of\n"

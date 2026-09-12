@@ -2871,6 +2871,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mWordSuggestionsOverlayTracked = false;
 	/** Draw the top suggestion after the caret in dimmed type. */
 	private boolean mWordSuggestionsGhost = false;
+	/**
+	 * Suggestions follow the caret into the middle of a line, not only the end.
+	 * Off, moving the cursor back through a typed command hides them.
+	 */
+	private boolean mWordSuggestionsAtCaret = false;
+	/** True while {@link #refreshWordSuggestions} is already on the stack. */
+	private boolean mWordSuggestionRefreshing = false;
 
 	/**
 	 * Rebuild the completion strip for whatever is half-typed in the input bar.
@@ -2880,6 +2887,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * nothing to offer, so it costs no height the rest of the time.
 	 */
 	private void refreshWordSuggestions() {
+		if (mWordSuggestionRefreshing) {
+			return;
+		}
+		mWordSuggestionRefreshing = true;
+		try {
+			refreshWordSuggestionsNow();
+		} finally {
+			mWordSuggestionRefreshing = false;
+		}
+	}
+
+	private void refreshWordSuggestionsNow() {
 		// Both exist in the layout; the player's choice decides which one is used
 		// and the other stays gone. Two views rather than one that is re-parented:
 		// moving a view between an in-layout parent and the overlay mid-session is
@@ -3023,7 +3042,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
-		String prefix = WordSuggestions.wordBefore(text, caret);
+		String prefix = WordSuggestions.completionPrefix(text, caret,
+				mWordSuggestionsAtCaret);
 		boolean atStart = isAtLineStart(text, caret, prefix);
 		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
 				atStart, atStart ? null : leadingVerb(text)));
@@ -3077,7 +3097,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 *
 	 * @param text the whole input line.
 	 * @param caret where the cursor is.
-	 * @param prefix the partial word ending at the caret.
+	 * @param prefix the partial word at the caret; used only as a null check.
+	 *        The token start is read off the text, so standing at the front of
+	 *        a word still counts as that word, not as a new one.
 	 * @return true when nothing but blanks precedes that word.
 	 */
 	static boolean isAtLineStart(final String text, final int caret,
@@ -3085,7 +3107,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (text == null || prefix == null) {
 			return true;
 		}
-		int start = Math.min(caret, text.length()) - prefix.length();
+		int start = WordSuggestions.tokenStart(text, caret);
 		for (int i = 0; i < start && i < text.length(); i++) {
 			char c = text.charAt(i);
 			// Blanks, and the punctuation a line can open with. A dot command and
@@ -3530,28 +3552,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		final int at = 0;
 		String top = words.get(at);
-		// The field counts what did not fit and draws that count after the last
-		// suggestion it managed to show. A "+2" written here as well would be
-		// counting words the player can already read on the line.
-		String more = "";
+		// Inline ghost sits on top of whatever follows the caret. That is fine
+		// at the end of the line and reads as corruption in the middle, so
+		// mid-line (with Complete at the cursor) the list goes under the line
+		// instead, including the top suggestion the ghost would have been.
+		boolean atEnd = caretAtEndOfInput();
+		boolean inline = atEnd || !mWordSuggestionsAtCaret;
+		if (top.equalsIgnoreCase(prefix)) {
+			if (inline) {
+				mInputBox.setGhostCompletion(null, null, 0);
+				mInputBox.setGhostExtras(null, null, null);
+				return;
+			}
+			mInputBox.setGhostCompletion(null, null, 0);
+			showGhostExtras(words, -1);
+			return;
+		}
 		boolean continues = top.length() > prefix.length()
 				&& top.toLowerCase(java.util.Locale.US)
 						.startsWith(prefix.toLowerCase(java.util.Locale.US));
+		if (!inline) {
+			mInputBox.setGhostCompletion(null, null, 0);
+			showGhostExtras(words, -1);
+			return;
+		}
 		if (continues) {
-			mInputBox.setGhostCompletion(top.substring(prefix.length()) + more, top,
-					at + 1);
+			mInputBox.setGhostCompletion(top.substring(prefix.length()), top, at + 1);
 			showGhostExtras(words, at);
 			return;
 		}
-		if (top.equalsIgnoreCase(prefix)) {
-			// Already typed in full. Nothing to show and nothing to take.
-			mInputBox.setGhostCompletion(null, null, 0);
-			mInputBox.setGhostExtras(null, null, null);
-			return;
-		}
-		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top + more, top, at + 1);
+		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top, top, at + 1);
 		showGhostExtras(words, at);
-		return;
+	}
+
+	private boolean caretAtEndOfInput() {
+		if (mInputBox == null || mInputBox.getText() == null) {
+			return true;
+		}
+		int at = mInputBox.getSelectionStart();
+		return at >= 0 && at == mInputBox.getText().length()
+				&& at == mInputBox.getSelectionEnd();
 	}
 
 	/**
@@ -3567,7 +3607,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		if (!mWordSuggestionsGhost || words.size() < 2) {
+		if (!mWordSuggestionsGhost) {
+			mInputBox.setGhostExtras(null, null, null);
+			return;
+		}
+		if (at >= 0 && words.size() < 2) {
+			mInputBox.setGhostExtras(null, null, null);
+			return;
+		}
+		if (at < 0 && words.isEmpty()) {
 			mInputBox.setGhostExtras(null, null, null);
 			return;
 		}
@@ -3583,7 +3631,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		java.util.List<Integer> nums = new java.util.ArrayList<Integer>(words.size());
 		for (int i = 0; i < words.size(); i++) {
 			if (i == at) {
-				continue;
+				// Negative `at` means the inline ghost is not showing, so the
+				// top suggestion has to live in this list or it vanishes.
+				if (at >= 0) {
+					continue;
+				}
 			}
 			// Numbered the way .suggest numbers them, so what is on screen and
 			// the command that takes one without looking agree.
@@ -3906,6 +3958,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				acceptWordSuggestion(word);
 			}
 
+		});
+		mInputBox.setCaretListener(new BetterEditText.CaretListener() {
+			@Override
+			public void onCaretMoved() {
+				if (mWordSuggestionsAtCaret && mWordSuggestionsOn) {
+					refreshWordSuggestions();
+				}
+			}
 		});
 	}
 
@@ -5207,6 +5267,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestionsGhost = ghostOpt != null
 					&& ghostOpt.getValue() instanceof Boolean
 					&& (Boolean) ghostOpt.getValue();
+			BaseOption caretOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.CompleteCommand.CARET_KEY);
+			mWordSuggestionsAtCaret = caretOpt != null
+					&& caretOpt.getValue() instanceof Boolean
+					&& (Boolean) caretOpt.getValue();
+			if (mInputBox != null) {
+				mInputBox.setGhostAtCaret(mWordSuggestionsAtCaret);
+			}
 			BaseOption ghostLinesOpt =
 					(BaseOption) group.findOptionByKey("word_complete_ghost_lines");
 			int ghostLines = ghostLinesOpt != null
@@ -7621,6 +7689,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// one suggestion whatever the setting said. Re-applied here, where the
 		// field finally exists.
 		mInputBox.setGhostMaxRows(mWordSuggestionsGhost ? mGhostLines - 1 : 0);
+		mInputBox.setGhostAtCaret(mWordSuggestionsAtCaret);
 		// loadSettings can arrive before this runs, and refreshWordSuggestions
 		// gives up with the panel hidden while mInputBox is null. Nothing else
 		// asks again until the first keystroke — so a bar told to stay put would

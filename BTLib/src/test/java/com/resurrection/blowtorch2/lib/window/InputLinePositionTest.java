@@ -21,6 +21,8 @@ public class InputLinePositionTest {
 	@Test
 	public void afterTheFirstWordYouAreNamingSomething() {
 		assertFalse(MainWindow.isAtLineStart("kill tro", 8, "tro"));
+		// Cursor on the target itself, not after typing more of it.
+		assertFalse(MainWindow.isAtLineStart("k troll", 2, "troll"));
 	}
 
 	@Test

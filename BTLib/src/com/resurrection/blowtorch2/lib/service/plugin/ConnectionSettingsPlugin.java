@@ -198,10 +198,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Ghost after the cursor");
-		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. .suggest ghost on/off");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. Off, this only appears while the cursor is at the end of the line; Complete at the cursor follows you into the middle. .suggest ghost on/off");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 		suggestions.addOption(word_complete_ghost);
+
+		BooleanOption word_complete_caret = new BooleanOption();
+		word_complete_caret.setTitle("Complete at the cursor");
+		word_complete_caret.setDescription("Suggestions follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). Off by default: moving the cursor into a command you already typed used to hide them. .suggest caret on/off");
+		word_complete_caret.setKey("word_complete_caret");
+		word_complete_caret.setValue(false);
+		suggestions.addOption(word_complete_caret);
 
 		BooleanOption word_complete_short_first = new BooleanOption();
 		word_complete_short_first.setTitle("Plain word before the whole name");

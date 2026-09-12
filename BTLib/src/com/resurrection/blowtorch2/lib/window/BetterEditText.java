@@ -408,6 +408,20 @@ public class BetterEditText extends EditText {
 
 	private GhostTapListener ghostTapListener = null;
 
+	/** Told when the caret moves, so suggestions can follow it. */
+	public interface CaretListener {
+		void onCaretMoved();
+	}
+
+	private CaretListener caretListener = null;
+
+	/**
+	 * Draw extras (and refresh chips) with the caret off the end of the line.
+	 * Off, the ghost is end-of-text only — drawing it over what follows reads
+	 * as corruption.
+	 */
+	private boolean ghostAtCaret = false;
+
 	/**
 	 * Where the ghost was last drawn, in this view's coordinates, so a tap can be
 	 * matched against what the player can actually see. Two, because a ghost that
@@ -478,6 +492,19 @@ public class BetterEditText extends EditText {
 		this.ghostTapListener = listener;
 	}
 
+	public void setCaretListener(final CaretListener listener) {
+		this.caretListener = listener;
+	}
+
+	public void setGhostAtCaret(final boolean on) {
+		if (ghostAtCaret == on) {
+			return;
+		}
+		ghostAtCaret = on;
+		applyGhostRowPadding(rowsNeeded());
+		invalidate();
+	}
+
 	/**
 	 * Ghost after the caret, drawn not inserted — a span would be seen by Keep
 	 * Last and {@code wordBefore}, and a missed strip would send untyped text.
@@ -511,8 +538,14 @@ public class BetterEditText extends EditText {
 		super.onSelectionChanged(start, end);
 		// Moving the caret off the end takes the ghost away, and the rows held
 		// for its suggestions have to go with it. Nothing else asks again.
-		if (ghostMaxRows > 0) {
+		if (ghostMaxRows > 0 || ghostAtCaret) {
 			applyGhostRowPadding(rowsNeeded());
+		}
+		if (ghostAtCaret) {
+			invalidate();
+		}
+		if (caretListener != null) {
+			caretListener.onCaretMoved();
 		}
 	}
 
@@ -595,7 +628,8 @@ public class BetterEditText extends EditText {
 			// At a ceiling of zero the answer is known without measuring, and
 			// guessing 1 here grew the bar in the one mode that must never grow
 			// it, with nothing to take the row back until the next refresh.
-			return ghostMaxRows > 0 ? 1 : 0;
+			int cap = ghostRowCap();
+			return cap > 0 ? 1 : 0;
 		}
 		return packGhostExtras(null, avail, estimateGhostEndX(), 0f, 0f, 0f, 0f, 0f);
 	}
@@ -604,16 +638,50 @@ public class BetterEditText extends EditText {
 	 * Would the ghost be drawn at all right now?
 	 *
 	 * <p>Room must not be held for something that is not going to appear. The
-	 * ghost is drawn only with the caret at the very end of the text — put it
-	 * back into the middle of the line and the ghost goes, so the rows have to
-	 * go with it or the bar stays tall around nothing.
+	 * inline ghost is drawn only with the caret at the very end of the text —
+	 * put it back into the middle of the line and it would sit on top of what
+	 * follows. With {@link #setGhostAtCaret} the extras can still appear under
+	 * the line, so those rows have to stay.
 	 */
 	private boolean ghostWouldDraw() {
-		if (ghostText == null || getText() == null) {
+		if (getText() == null) {
 			return false;
 		}
 		int at = getSelectionStart();
-		return at >= 0 && at == getText().length() && at == getSelectionEnd();
+		if (at < 0 || at != getSelectionEnd()) {
+			return false;
+		}
+		boolean hasInline = ghostText != null;
+		boolean hasExtras = ghostExtras != null && ghostExtras.length > 0;
+		if (!hasInline && !hasExtras) {
+			return false;
+		}
+		if (at == getText().length()) {
+			return hasInline || hasExtras;
+		}
+		return ghostAtCaret && hasExtras;
+	}
+
+	private boolean caretAtEnd() {
+		CharSequence text = getText();
+		if (text == null) {
+			return true;
+		}
+		int at = getSelectionStart();
+		return at >= 0 && at == text.length() && at == getSelectionEnd();
+	}
+
+	/**
+	 * Extra rows the listing may take. Mid-line the rest of the typed line is
+	 * already occupied, so a ceiling of zero would hide every extra — allow
+	 * one row then, or Complete at the cursor would show nothing under the
+	 * line.
+	 */
+	private int ghostRowCap() {
+		if (ghostAtCaret && !caretAtEnd() && ghostMaxRows < 1) {
+			return 1;
+		}
+		return ghostMaxRows;
 	}
 
 	/**
@@ -626,6 +694,12 @@ public class BetterEditText extends EditText {
 	 * frame, which would size the bar for the line before this one.
 	 */
 	private float estimateGhostEndX() {
+		if (ghostAtCaret && !caretAtEnd()) {
+			// Force extras onto a row under the typed line: the rest of this
+			// line already holds what follows the caret.
+			float avail = ghostRowWidth();
+			return avail > 0 ? avail : 1f;
+		}
 		CharSequence text = getText();
 		String line = text == null ? "" : text.toString();
 		int nl = line.lastIndexOf('\n');
@@ -659,7 +733,7 @@ public class BetterEditText extends EditText {
 	protected void onDraw(android.graphics.Canvas canvas) {
 		super.onDraw(canvas);
 		ghostRectCount = 0;
-		if (ghostText == null) {
+		if (!ghostWouldDraw()) {
 			return;
 		}
 		android.text.Layout layout = getLayout();
@@ -667,78 +741,74 @@ public class BetterEditText extends EditText {
 			return;
 		}
 		int at = getSelectionStart();
-		// Only at the very end. Mid-line the ghost would sit on top of the text
-		// that follows it, which reads as corruption rather than a suggestion.
-		if (at < 0 || at != getText().length() || at != getSelectionEnd()) {
+		if (at < 0) {
 			return;
 		}
+		boolean atEnd = caretAtEnd();
 		if (ghostPaint == null) {
 			ghostPaint = new android.text.TextPaint();
 		}
 		ghostPaint.set(getPaint());
 		ghostPaint.setColor((getCurrentTextColor() & 0x00FFFFFF) | 0x70000000);
-		int line = layout.getLineForOffset(at);
-		float x = layout.getPrimaryHorizontal(at);
 		float lineWidth = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
-		float room = lineWidth - x;
-		float ghostWidth = ghostPaint.measureText(ghostText);
-
-		// The content origin. The scroll offsets matter once the bar has more
-		// lines than it is tall: TextView scrolls its own layout, and a ghost
-		// drawn without them lands under the visible text or off the view.
 		final float originX = getTotalPaddingLeft() - getScrollX();
 		final float originY = getTotalPaddingTop() - getScrollY();
 		canvas.save();
 		canvas.translate(originX, originY);
-		float baseline = layout.getLineBaseline(line);
-		float top = layout.getLineTop(line);
-		float bottom = layout.getLineBottom(line);
-		float lineHeight = bottom - top;
-		float endX;
-		float endBaseline;
 
-		if (ghostWidth <= room) {
-			canvas.drawText(ghostText, x, baseline, ghostPaint);
-			addGhostRect(originX + x, originY + top, originX + x + ghostWidth,
-					originY + bottom);
-			endX = x + ghostWidth;
-			endBaseline = baseline;
-		} else {
-			int fits = ghostPaint.breakText(ghostText, true, room, null);
-			// A next line to continue on only exists if the view is already tall
-			// enough for one. The ghost never adds height — that would mean
-			// putting it in the text, which is the path this deliberately avoids.
-			boolean hasNextLine =
-					bottom + lineHeight <= layout.getHeight()
-					|| bottom + lineHeight <= getHeight() - getTotalPaddingTop()
-							- getTotalPaddingBottom();
-			if (fits > 0 && hasNextLine) {
-				String head = ghostText.substring(0, fits);
-				String tail = ghostText.substring(fits);
-				canvas.drawText(head, x, baseline, ghostPaint);
-				addGhostRect(originX + x, originY + top,
-						originX + x + ghostPaint.measureText(head), originY + bottom);
-				int tailFits = ghostPaint.breakText(tail, true, lineWidth, null);
-				if (tailFits < tail.length()) {
-					tail = tailFits > 0 ? tail.substring(0, tailFits - 1) + "…" : "…";
-				}
-				float tailWidth = ghostPaint.measureText(tail);
-				canvas.drawText(tail, 0, baseline + lineHeight, ghostPaint);
-				addGhostRect(originX, originY + bottom, originX + tailWidth,
-						originY + bottom + lineHeight);
-				endX = tailWidth;
-				endBaseline = baseline + lineHeight;
-			} else {
-				// No second line to use: show as much as the line holds and mark
-				// it cut. Silently drawing nothing was the old behaviour, and it
-				// read as "the ghost is broken".
-				String cut = fits > 1 ? ghostText.substring(0, fits - 1) + "…" : "…";
-				float cutWidth = ghostPaint.measureText(cut);
-				canvas.drawText(cut, x, baseline, ghostPaint);
-				addGhostRect(originX + x, originY + top, originX + x + cutWidth,
+		float endX = lineWidth;
+		float endBaseline = layout.getLineBaseline(layout.getLineCount() - 1);
+		boolean drawInline = atEnd && ghostText != null;
+		if (drawInline) {
+			int line = layout.getLineForOffset(at);
+			float x = layout.getPrimaryHorizontal(at);
+			float room = lineWidth - x;
+			float ghostWidth = ghostPaint.measureText(ghostText);
+			float baseline = layout.getLineBaseline(line);
+			float top = layout.getLineTop(line);
+			float bottom = layout.getLineBottom(line);
+			float lineHeight = bottom - top;
+
+			if (ghostWidth <= room) {
+				canvas.drawText(ghostText, x, baseline, ghostPaint);
+				addGhostRect(originX + x, originY + top, originX + x + ghostWidth,
 						originY + bottom);
-				endX = x + cutWidth;
+				endX = x + ghostWidth;
 				endBaseline = baseline;
+			} else {
+				int fits = ghostPaint.breakText(ghostText, true, room, null);
+				// A next line to continue on only exists if the view is already tall
+				// enough for one. The ghost never adds height — that would mean
+				// putting it in the text, which is the path this deliberately avoids.
+				boolean hasNextLine =
+						bottom + lineHeight <= layout.getHeight()
+						|| bottom + lineHeight <= getHeight() - getTotalPaddingTop()
+								- getTotalPaddingBottom();
+				if (fits > 0 && hasNextLine) {
+					String head = ghostText.substring(0, fits);
+					String tail = ghostText.substring(fits);
+					canvas.drawText(head, x, baseline, ghostPaint);
+					addGhostRect(originX + x, originY + top,
+							originX + x + ghostPaint.measureText(head), originY + bottom);
+					int tailFits = ghostPaint.breakText(tail, true, lineWidth, null);
+					if (tailFits < tail.length()) {
+						tail = tailFits > 0 ? tail.substring(0, tailFits - 1) + "…" : "…";
+					}
+					float tailWidth = ghostPaint.measureText(tail);
+					canvas.drawText(tail, 0, baseline + lineHeight, ghostPaint);
+					addGhostRect(originX, originY + bottom, originX + tailWidth,
+							originY + bottom + lineHeight);
+					endX = tailWidth;
+					endBaseline = baseline + lineHeight;
+				} else {
+					String cut = fits > 1 ? ghostText.substring(0, fits - 1) + "…" : "…";
+					float cutWidth = ghostPaint.measureText(cut);
+					canvas.drawText(cut, x, baseline, ghostPaint);
+					addGhostRect(originX + x, originY + top, originX + x + cutWidth,
+							originY + bottom);
+					endX = x + cutWidth;
+					endBaseline = baseline;
+				}
 			}
 		}
 
@@ -749,12 +819,9 @@ public class BetterEditText extends EditText {
 				ghostExtraRects[i] = null;
 			}
 			float below = layout.getLineBottom(layout.getLineCount() - 1);
-			// The ghost's end, with no gap added here: the packer puts the gap in
-			// itself. Measuring with one value and drawing with another is how
-			// the bar ends up a row short of what it shows, which is the whole
-			// reason one routine does both.
-			int rows = packGhostExtras(canvas, lineWidth, endX, below, endBaseline,
-					ghostPaint.getFontSpacing(), originX, originY);
+			float extrasStartX = drawInline ? endX : lineWidth;
+			packGhostExtras(canvas, lineWidth, extrasStartX, below,
+					endBaseline, ghostPaint.getFontSpacing(), originX, originY);
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;
@@ -776,7 +843,7 @@ public class BetterEditText extends EditText {
 			canvas.drawText(mark, extrasEndX, extrasBaseline, dim);
 		}
 
-		if (ghostNumber > 0) {
+		if (drawInline && ghostNumber > 0) {
 			drawGhostIndex(canvas, ghostPaint, String.valueOf(ghostNumber),
 					endX + 2, endBaseline);
 		}
@@ -822,7 +889,9 @@ public class BetterEditText extends EditText {
 	 */
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		if (ghostText != null && ghostWord != null && ghostTapListener != null) {
+		if (ghostTapListener != null
+				&& (ghostWord != null
+					|| (ghostExtraWords != null && ghostExtraWords.length > 0))) {
 			switch (event.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN:
 				if (hitsGhost(event.getX(), event.getY())) {
@@ -900,7 +969,7 @@ public class BetterEditText extends EditText {
 			float w = indexW + p.measureText(item);
 			float lead = x > 0 ? gap : 0;
 			if (x + lead + w > avail) {
-				if (row + 1 > ghostMaxRows) {
+				if (row + 1 > ghostRowCap()) {
 					// Out of rows. What is left is counted, not dropped in
 					// silence — that count is the only thing telling the player
 					// there is more.

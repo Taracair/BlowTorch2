@@ -63,6 +63,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		sensor_screen_off,
 		sensor_background,
 		word_complete_ghost,
+		word_complete_caret,
 		word_complete_ghost_lines,
 		word_complete_show,
 		word_complete_persist,
@@ -600,6 +601,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_ghost:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_caret:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}

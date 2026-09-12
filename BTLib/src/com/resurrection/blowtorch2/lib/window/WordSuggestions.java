@@ -598,7 +598,7 @@ public final class WordSuggestions {
 		}
 	}
 
-	private static boolean isWordChar(final char c) {
+	static boolean isWordChar(final char c) {
 		return Character.isLetterOrDigit(c) || c == '\'' || c == '-';
 	}
 
@@ -1228,21 +1228,79 @@ public final class WordSuggestions {
 	 * @return the partial word, empty when the caret is not at the end of one.
 	 */
 	public static String wordBefore(final String text, final int caret) {
+		int end = clampCaret(text, caret);
 		if (text == null) {
 			return "";
-		}
-		int end = caret;
-		if (end < 0) {
-			end = 0;
-		}
-		if (end > text.length()) {
-			end = text.length();
 		}
 		int start = end;
 		while (start > 0 && isWordChar(text.charAt(start - 1))) {
 			start--;
 		}
 		return text.substring(start, end);
+	}
+
+	/**
+	 * The word starting at the caret, empty when the next character is not a
+	 * word character — standing at the front of a word, or in the space
+	 * between two.
+	 */
+	public static String wordAfter(final String text, final int caret) {
+		int start = clampCaret(text, caret);
+		if (text == null) {
+			return "";
+		}
+		int end = start;
+		while (end < text.length() && isWordChar(text.charAt(end))) {
+			end++;
+		}
+		return text.substring(start, end);
+	}
+
+	/**
+	 * Where the token the caret is in begins. Same as the start of
+	 * {@link #wordBefore} when the caret sits at the end of a partial word;
+	 * the caret itself when it sits at the front of one.
+	 */
+	public static int tokenStart(final String text, final int caret) {
+		int at = clampCaret(text, caret);
+		if (text == null) {
+			return 0;
+		}
+		int start = at;
+		while (start > 0 && isWordChar(text.charAt(start - 1))) {
+			start--;
+		}
+		return start;
+	}
+
+	/**
+	 * What the completer matches against.
+	 *
+	 * <p>By default that is {@link #wordBefore}: you type the start of a name
+	 * and the rest is offered. With {@code followCaret}, standing at the front
+	 * of an already-typed word still matches that word, so moving the cursor
+	 * into the middle of a line can still complete it.
+	 */
+	public static String completionPrefix(final String text, final int caret,
+			final boolean followCaret) {
+		String before = wordBefore(text, caret);
+		if (before.length() > 0 || !followCaret) {
+			return before;
+		}
+		return wordAfter(text, caret);
+	}
+
+	private static int clampCaret(final String text, final int caret) {
+		if (text == null) {
+			return 0;
+		}
+		if (caret < 0) {
+			return 0;
+		}
+		if (caret > text.length()) {
+			return text.length();
+		}
+		return caret;
 	}
 
 	/** The new contents and caret after accepting a completion. */
@@ -1265,8 +1323,13 @@ public final class WordSuggestions {
 	}
 
 	/**
-	 * Replace the partial word before the caret with the whole one, and leave a
-	 * space so the next word can be typed straight away.
+	 * Replace the token the caret is in with the whole word, and leave a space
+	 * so the next word can be typed straight away.
+	 *
+	 * <p>The token is word characters on both sides of the caret, so completing
+	 * from the middle of {@code grizzled} replaces the whole name rather than
+	 * leaving {@code izzled} behind. A space after the caret is not part of
+	 * that token, so {@code k gri| troll} still keeps what follows.
 	 *
 	 * @param text the input bar's contents.
 	 * @param caret where the cursor is.
@@ -1279,16 +1342,13 @@ public final class WordSuggestions {
 		if (word == null || word.length() == 0) {
 			return new Completion(existing, caret);
 		}
-		int end = caret;
-		if (end < 0) {
-			end = 0;
-		}
-		if (end > existing.length()) {
-			end = existing.length();
-		}
+		int end = clampCaret(existing, caret);
 		int start = end;
 		while (start > 0 && isWordChar(existing.charAt(start - 1))) {
 			start--;
+		}
+		while (end < existing.length() && isWordChar(existing.charAt(end))) {
+			end++;
 		}
 		StringBuilder out = new StringBuilder();
 		out.append(existing, 0, start);

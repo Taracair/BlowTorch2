@@ -440,6 +440,12 @@ seven switches was making the Input page a wall.
   - The ghost never makes the bar taller. If it does not fit the rest of the
     line it continues on the next line when the bar already has one, and is cut
     with `…` when it does not.
+- **Complete at the cursor** — `.suggest caret on|off` (also `.suggest cursor`).
+  **Off by default.** On, suggestions follow the cursor into the middle of a
+  line, not only the end: type two letters of a name while rewriting a command,
+  or stand on the word you want to replace, and taking a chip puts it there.
+  The ghost still only draws at the end of the line (it would cover what
+  follows); with the ghost on, the numbered list sits under the line instead.
 - **Suggestions float over the game** — `.suggest overlay on|off`. **On by
   default.** The strip below the game window takes height, so the text jumps when
   a suggestion appears; floating over the game text costs the layout nothing and
