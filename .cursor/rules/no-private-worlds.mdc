@@ -21,8 +21,8 @@ may appear in UI, Help, README, comments, and tests. It is not a secret.
 
 ```java
 // BAD — names the world they actually play
-// measured on samsaramoo.xml (the profile he plays)
-assertEquals("samsaramoo", world);
+// measured on world-a.xml (the profile he plays)
+assertEquals("world-a", world);
 
 // GOOD
 // measured on a live world (11 of 105 chunks)
