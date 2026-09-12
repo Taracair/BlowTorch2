@@ -790,6 +790,9 @@ actually said. All of it is off until you ask, under Options → Input or on
                           typing into the bar empties the strip
   .suggest loose on|off   forgive typos once the exact spelling finds nothing
                           (grzld finds grizzled)
+  .suggest typos on|off   nearby misspellings: exohelnet finds exohelmet
+                          (one letter swapped, substituted, inserted or deleted)
+                          once the exact prefix finds nothing
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent

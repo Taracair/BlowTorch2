@@ -2876,6 +2876,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * Off, moving the cursor back through a typed command hides them.
 	 */
 	private boolean mWordSuggestionsAtCaret = false;
+
+	/** Follow the cursor for prefix completion, or because nearby-typo matching is on. */
+	private boolean suggestionsFollowCaret() {
+		return mWordSuggestionsAtCaret || mWordSuggestions.isTypoMatching();
+	}
 	/** True while {@link #refreshWordSuggestions} is already on the stack. */
 	private boolean mWordSuggestionRefreshing = false;
 
@@ -3042,8 +3047,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
-		String prefix = WordSuggestions.completionPrefix(text, caret,
-				mWordSuggestionsAtCaret);
+		boolean follow = suggestionsFollowCaret();
+		String prefix = WordSuggestions.completionPrefix(text, caret, follow);
 		boolean atStart = isAtLineStart(text, caret, prefix);
 		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
 				atStart, atStart ? null : leadingVerb(text)));
@@ -3557,7 +3562,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// mid-line (with Complete at the cursor) the list goes under the line
 		// instead, including the top suggestion the ghost would have been.
 		boolean atEnd = caretAtEndOfInput();
-		boolean inline = atEnd || !mWordSuggestionsAtCaret;
+		boolean inline = atEnd || !suggestionsFollowCaret();
 		if (top.equalsIgnoreCase(prefix)) {
 			if (inline) {
 				mInputBox.setGhostCompletion(null, null, 0);
@@ -3962,7 +3967,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.setCaretListener(new BetterEditText.CaretListener() {
 			@Override
 			public void onCaretMoved() {
-				if (mWordSuggestionsAtCaret && mWordSuggestionsOn) {
+				if (suggestionsFollowCaret() && mWordSuggestionsOn) {
 					refreshWordSuggestions();
 				}
 			}
@@ -5272,9 +5277,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestionsAtCaret = caretOpt != null
 					&& caretOpt.getValue() instanceof Boolean
 					&& (Boolean) caretOpt.getValue();
-			if (mInputBox != null) {
-				mInputBox.setGhostAtCaret(mWordSuggestionsAtCaret);
-			}
 			BaseOption ghostLinesOpt =
 					(BaseOption) group.findOptionByKey("word_complete_ghost_lines");
 			int ghostLines = ghostLinesOpt != null
@@ -5308,6 +5310,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setLooseMatching(looseOpt != null
 					&& looseOpt.getValue() instanceof Boolean
 					&& (Boolean) looseOpt.getValue());
+			BaseOption typosOpt = (BaseOption) group.findOptionByKey("word_complete_typos");
+			mWordSuggestions.setTypoMatching(typosOpt == null
+					|| !(typosOpt.getValue() instanceof Boolean)
+					|| (Boolean) typosOpt.getValue());
+			if (mInputBox != null) {
+				mInputBox.setGhostAtCaret(suggestionsFollowCaret());
+			}
 			BaseOption rankOpt = (BaseOption) group.findOptionByKey("word_complete_rank");
 			mWordSuggestions.setRankByPosition(rankOpt != null
 					&& rankOpt.getValue() instanceof Boolean
@@ -7689,7 +7698,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// one suggestion whatever the setting said. Re-applied here, where the
 		// field finally exists.
 		mInputBox.setGhostMaxRows(mWordSuggestionsGhost ? mGhostLines - 1 : 0);
-		mInputBox.setGhostAtCaret(mWordSuggestionsAtCaret);
+		mInputBox.setGhostAtCaret(suggestionsFollowCaret());
 		// loadSettings can arrive before this runs, and refreshWordSuggestions
 		// gives up with the panel hidden while mInputBox is null. Nothing else
 		// asks again until the first keystroke — so a bar told to stay put would

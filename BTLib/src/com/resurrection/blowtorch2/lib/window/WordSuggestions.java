@@ -93,6 +93,12 @@ public final class WordSuggestions {
 	public static final int MIN_LOOSE_PREFIX_LENGTH = 4;
 
 	/**
+	 * Below this a nearby-typo match is noise. Same floor as loose matching:
+	 * three letters are one edit from too many words.
+	 */
+	public static final int MIN_TYPO_PREFIX_LENGTH = 4;
+
+	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
 	 * the time the suggestion appears, and short words are the common ones that
 	 * would crowd out the useful proper nouns.
@@ -233,6 +239,13 @@ public final class WordSuggestions {
 	/** Fall back to a letters-in-order match when the exact prefix finds nothing. */
 	private boolean looseMatching = false;
 
+	/**
+	 * Fall back to a one-edit match when the exact prefix finds nothing.
+	 * On by default: it only runs after prefix matching, so accurate typing
+	 * is unchanged.
+	 */
+	private boolean typoMatching = true;
+
 	/** Offer the words that followed, not only the word itself. */
 	private boolean phrases = false;
 
@@ -304,6 +317,24 @@ public final class WordSuggestions {
 
 	public boolean isLooseMatching() {
 		return looseMatching;
+	}
+
+	/**
+	 * Whether a nearby misspelling still finds the word the game just used.
+	 *
+	 * <p>On by default. It only ever runs when the exact prefix found nothing,
+	 * so {@code hel} still only prefix-matches — but {@code exohelnet} finds
+	 * {@code exohelmet} (one adjacent swap, substitution, insertion or
+	 * deletion). Same-length words are allowed, unlike {@link #setLooseMatching}.
+	 *
+	 * @param on true to allow the fallback.
+	 */
+	public void setTypoMatching(final boolean on) {
+		this.typoMatching = on;
+	}
+
+	public boolean isTypoMatching() {
+		return typoMatching;
 	}
 
 	/**
@@ -774,9 +805,14 @@ public final class WordSuggestions {
 				out.add(second);
 			}
 		}
-		if (out.isEmpty() && looseMatching
-				&& needle.length() >= MIN_LOOSE_PREFIX_LENGTH) {
-			suggestLoosely(needle, max, out);
+		if (out.isEmpty()) {
+			if (typoMatching && needle.length() >= MIN_TYPO_PREFIX_LENGTH) {
+				suggestTypos(needle, max, out);
+			}
+			if (looseMatching && needle.length() >= MIN_LOOSE_PREFIX_LENGTH
+					&& out.size() < max) {
+				suggestLoosely(needle, max, out);
+			}
 		}
 		return out;
 	}
@@ -877,12 +913,106 @@ public final class WordSuggestions {
 		List<String> matches = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			if (isSubsequence(needle, e.getKey())) {
+				String spelling = e.getValue().spelling;
+				if (!out.contains(spelling)) {
+					matches.add(spelling);
+				}
+			}
+		}
+		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
+			out.add(matches.get(i));
+		}
+	}
+
+	/**
+	 * A word one insertion, deletion, substitution or adjacent transposition
+	 * away. Same-length needles are allowed, unlike {@link #suggestLoosely}.
+	 */
+	private void suggestTypos(final String needle, final int max,
+			final List<String> out) {
+		List<String> matches = new ArrayList<String>();
+		for (Map.Entry<String, Seen> e : words.entrySet()) {
+			String key = e.getKey();
+			if (key.equals(needle)) {
+				continue;
+			}
+			int gap = key.length() - needle.length();
+			if (gap < -1 || gap > 1) {
+				continue;
+			}
+			if (isNearbyTypo(needle, key)) {
 				matches.add(e.getValue().spelling);
 			}
 		}
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			out.add(matches.get(i));
 		}
+	}
+
+	/**
+	 * Damerau–Levenshtein distance at most one, without a DP table.
+	 * Identical strings are false — those are not a typo.
+	 */
+	static boolean isNearbyTypo(final String needle, final String word) {
+		int n = needle.length();
+		int w = word.length();
+		int gap = w - n;
+		if (gap < -1 || gap > 1) {
+			return false;
+		}
+		if (gap == 0) {
+			return oneSubstitutionOrTranspose(needle, word);
+		}
+		if (gap == 1) {
+			return oneInsertion(needle, word);
+		}
+		return oneInsertion(word, needle);
+	}
+
+	private static boolean oneSubstitutionOrTranspose(final String a,
+			final String b) {
+		int first = -1;
+		for (int i = 0; i < a.length(); i++) {
+			if (a.charAt(i) == b.charAt(i)) {
+				continue;
+			}
+			if (first < 0) {
+				first = i;
+				continue;
+			}
+			if (i == first + 1
+					&& a.charAt(first) == b.charAt(i)
+					&& a.charAt(i) == b.charAt(first)) {
+				for (int j = i + 1; j < a.length(); j++) {
+					if (a.charAt(j) != b.charAt(j)) {
+						return false;
+					}
+				}
+				return true;
+			}
+			return false;
+		}
+		return first >= 0;
+	}
+
+	private static boolean oneInsertion(final String shorter,
+			final String longer) {
+		int i = 0;
+		int j = 0;
+		boolean skipped = false;
+		while (i < shorter.length() && j < longer.length()) {
+			if (shorter.charAt(i) == longer.charAt(j)) {
+				i++;
+				j++;
+			} else if (!skipped) {
+				skipped = true;
+				j++;
+			} else {
+				return false;
+			}
+		}
+		return i == shorter.length()
+				&& (skipped || j == longer.length() - 1);
 	}
 
 	/**

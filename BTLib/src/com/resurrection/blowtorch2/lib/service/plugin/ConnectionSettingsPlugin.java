@@ -186,6 +186,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_loose.setValue(false);
 		suggestions.addOption(word_complete_loose);
 
+		BooleanOption word_complete_typos = new BooleanOption();
+		word_complete_typos.setTitle("Correct nearby misspellings");
+		word_complete_typos.setDescription("When the exact prefix finds nothing, offer a word the game just used that is one edit away: exohelnet finds exohelmet (swap, substitute, insert or delete one letter). Only after an exact prefix found nothing, so typing accurately never gets a different answer. Works on the word at the cursor (middle of a line) and at the end. Four-letter minimum. .suggest typos on/off");
+		word_complete_typos.setKey("word_complete_typos");
+		word_complete_typos.setValue(true);
+		suggestions.addOption(word_complete_typos);
+
 		BooleanOption word_complete_phrases = new BooleanOption();
 		word_complete_phrases.setTitle("Offer whole names");
 		word_complete_phrases.setDescription("Offer the words that followed too, up to three: after a grizzled cave troll walks in, typing gri offers \"grizzled cave troll\" above plain \"grizzled\". Off, you get single words only, which is what this has always done. .suggest phrases on/off");

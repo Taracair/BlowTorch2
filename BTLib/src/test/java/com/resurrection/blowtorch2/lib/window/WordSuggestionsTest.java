@@ -158,6 +158,89 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void nearbyTyposAreOnUntilAskedOff() {
+		WordSuggestions w = new WordSuggestions();
+		assertTrue(w.isTypoMatching());
+	}
+
+	@Test
+	public void aNearbyMisspellingFindsTheWordTheGameJustUsed() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see an exohelmet here.\n");
+		assertEquals(java.util.Arrays.asList("exohelmet"),
+				w.suggest("exohelnet", 5));
+		w.setTypoMatching(false);
+		assertTrue(w.suggest("exohelnet", 5).isEmpty());
+	}
+
+	@Test
+	public void aTransposedPairOfLettersStillFindsTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("helmet\n");
+		assertEquals(java.util.Arrays.asList("helmet"), w.suggest("helmte", 5));
+	}
+
+	@Test
+	public void aMissingLetterStillFindsTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see an exohelmet here.\n");
+		assertEquals(java.util.Arrays.asList("exohelmet"),
+				w.suggest("exohlmet", 5));
+	}
+
+	@Test
+	public void anExtraLetterStillFindsTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see an exohelmet here.\n");
+		assertEquals(java.util.Arrays.asList("exohelmet"),
+				w.suggest("exohellmet", 5));
+	}
+
+	@Test
+	public void aNearbyTypoDoesNotDisplaceAnExactPrefix() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("helper kelp\n");
+		assertEquals(java.util.Arrays.asList("helper"), w.suggest("help", 5));
+	}
+
+	@Test
+	public void aCorrectlyTypedFullWordIsNotOfferedBackAsATypo() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see an exohelmet here.\n");
+		assertTrue(w.suggest("exohelmet", 5).isEmpty());
+	}
+
+	@Test
+	public void aNearbyTypoNeedsFourLetters() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("help\n");
+		assertTrue("three letters are one edit from too many words",
+				w.suggest("hep", 5).isEmpty());
+		assertEquals(java.util.Arrays.asList("help"), w.suggest("helo", 5));
+	}
+
+	@Test
+	public void completingAMidLineTypoReplacesThatToken() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see an exohelmet here.\n");
+		List<String> found = w.suggest("exohelnet", 5);
+		assertEquals(java.util.Arrays.asList("exohelmet"), found);
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("look exohelnet now", 10, found.get(0));
+		assertEquals("look exohelmet now", c.text());
+	}
+
+	@Test
+	public void nearbyTyposLeadSubsequenceLooseWhenBothAreOn() {
+		WordSuggestions w = new WordSuggestions();
+		w.setLooseMatching(true);
+		w.learn("grald\n");
+		w.learn("grizzled\n");
+		assertEquals(java.util.Arrays.asList("grald", "grizzled"),
+				w.suggest("grzld", 5));
+	}
+
+	@Test
 	public void aWordOlderThanTheWindowIsGone() {
 		WordSuggestions w = new WordSuggestions();
 		w.setMaxLines(3);

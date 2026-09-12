@@ -406,7 +406,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
 					+ "  .suggest opacity N\n"
 					+ "  .suggest persist on|off\n"
-					+ "  .suggest phrases|plain|short|loose on|off\n"
+					+ "  .suggest phrases|plain|short|loose|typos on|off\n"
 					+ "  .suggest rank|pairs on|off\n"
 					+ "  .suggest learned | clear\n"
 					+ "  .suggest forget <word>     — drop that word from the bag\n"

@@ -5928,6 +5928,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case word_complete_lines:
 			case word_complete_loose:
+			case word_complete_typos:
 			case word_complete_phrases:
 			case word_complete_short_first:
 			case word_complete_shorter_first:
@@ -7284,6 +7285,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_lines,
 		/** Forgive typos when the exact prefix finds nothing. */
 		word_complete_loose,
+		/** Nearby misspellings: one edit from a word the game just used. */
+		word_complete_typos,
 		word_complete_phrases,
 		/** Put the plain word before the whole name built on it. */
 		word_complete_short_first,

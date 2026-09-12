@@ -27,6 +27,7 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String LINES_KEY = "word_complete_lines";
 	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
+	public static final String TYPOS_KEY = "word_complete_typos";
 	public static final String PHRASES_KEY = "word_complete_phrases";
 	/** Plain word before the whole name built on it — reached by .suggest plain. */
 	public static final String SHORT_FIRST_KEY = "word_complete_short_first";
@@ -95,6 +96,14 @@ public class CompleteCommand extends SpecialCommand {
 					"Typos forgiven: grzld now finds grizzled when the exact"
 						+ " spelling finds nothing.",
 					"Exact spelling only.");
+		}
+		if (arg.startsWith("typos") || arg.startsWith("typo")) {
+			int skip = arg.startsWith("typos") ? "typos".length() : "typo".length();
+			return setFlag(arg.substring(skip).trim(), c, TYPOS_KEY,
+					"Nearby misspellings: exohelnet now finds exohelmet when the"
+						+ " exact prefix finds nothing (one letter swapped,"
+						+ " substituted, inserted or deleted).",
+					"Nearby misspellings off.");
 		}
 		if (arg.startsWith("phrases")) {
 			return setFlag(arg.substring("phrases".length()).trim(), c, PHRASES_KEY,
@@ -242,6 +251,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ ".\nShorter suggestions " + (flagOn(c, SHORTER_KEY)
 						? "first" : "not lifted")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
+					+ ", nearby misspellings " + (flagOn(c, TYPOS_KEY) ? "on" : "off")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ (!flagOn(c, GHOST_KEY) ? ""
 						: ghostLines(c) > 1
@@ -260,7 +270,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/caret/persist/rank/pairs/short/plain on|off,"
+					+ " phrases/loose/typos/ghost/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
 			return null;
@@ -273,6 +283,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest phrases on|off  — offer whole names: gri gives\n"
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
+				+ ".suggest typos on|off    — exohelnet finds exohelmet\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
 				+ ".suggest caret on|off    — follow the cursor into the middle of a line\n"
 				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"
