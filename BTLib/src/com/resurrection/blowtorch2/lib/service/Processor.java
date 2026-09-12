@@ -54,7 +54,7 @@ public class Processor {
 	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */
 	private byte[] mHoldover = null;
-	/** Bare CR → newline; CRLF across packets stays one LF. */
+	/** Bare CR → newline; CRLF and LFCR across packets stay one LF. */
 	private final CrToNewline mCrToNewline = new CrToNewline();
 	/** GMCP Data holder object. */
 	private GMCPData mGMCP = null;

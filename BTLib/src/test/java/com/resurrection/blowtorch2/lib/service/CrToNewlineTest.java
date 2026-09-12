@@ -10,8 +10,8 @@ import org.junit.Test;
 
 /**
  * Bare CR used to be dropped, so a five-tile flying map sent as CR-separated
- * rows became one 30-character line. CRLF must stay a single newline, including
- * when the pair is split across packets.
+ * rows became one 30-character line. CRLF and LFCR must stay a single newline,
+ * including when the pair is split across packets.
  */
 public class CrToNewlineTest {
 
@@ -37,8 +37,45 @@ public class CrToNewlineTest {
 	}
 
 	@Test
+	public void lfcrIsOneNewline() {
+		assertEquals("one\ntwo\n", s(new CrToNewline().apply(b("one\n\rtwo\n\r"))));
+	}
+
+	@Test
+	public void lfcrSplitAcrossPacketsIsStillOneNewline() {
+		CrToNewline cr = new CrToNewline();
+		assertEquals("one\n", s(cr.apply(b("one\n"))));
+		assertFalse(cr.hasPendingCr());
+		assertEquals("two\n", s(cr.apply(b("\rtwo\n\r"))));
+		assertFalse(cr.hasPendingCr());
+	}
+
+	@Test
+	public void lfcrAtEndOfChunkDropsTheCr() {
+		CrToNewline cr = new CrToNewline();
+		assertEquals("one\n", s(cr.apply(b("one\n\r"))));
+		assertFalse(cr.hasPendingCr());
+		assertEquals("two\n", s(cr.apply(b("two\n\r"))));
+		assertFalse(cr.hasPendingCr());
+	}
+
+	@Test
+	public void lfcrSplitAsNewlineThenBareCrDropsTheCr() {
+		CrToNewline cr = new CrToNewline();
+		assertEquals("one\n", s(cr.apply(b("one\n"))));
+		assertEquals(0, cr.apply(b("\r")).length);
+		assertFalse(cr.hasPendingCr());
+		assertEquals("two\n", s(cr.apply(b("two\n\r"))));
+	}
+
+	@Test
 	public void lfUnchanged() {
 		assertEquals("one\ntwo\n", s(new CrToNewline().apply(b("one\ntwo\n"))));
+	}
+
+	@Test
+	public void twoBareCrsAreTwoNewlines() {
+		assertEquals("a\n\nb\n", s(new CrToNewline().apply(b("a\r\rb\n"))));
 	}
 
 	@Test
