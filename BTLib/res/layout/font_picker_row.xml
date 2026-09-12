@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="56dip"
+    android:minHeight="56dip"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="12dip"
+    android:paddingRight="12dip">
+
+    <RadioButton
+        android:id="@+id/font_picked"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false"
+        android:duplicateParentState="true" />
+
+    <LinearLayout
+        android:layout_width="0dip"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginLeft="8dip"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/font_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/chrome_title_text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/font_preview"
+            android:layout_width="match_parent"
+            android:layout_height="18dip"
+            android:ellipsize="end"
+            android:fontFamily="monospace"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="@color/chrome_description"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

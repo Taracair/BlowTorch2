@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.window;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -57,6 +58,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
+import android.provider.OpenableColumns;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.core.app.ActivityCompat;
 import android.text.InputType;
@@ -162,6 +164,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int RP_IMPORT = 5002;
 	private static final int RP_NOTIFICATIONS = 5003;
 	private static final int REQUEST_PICK_DIRECTORY = 2103;
+	private static final int REQUEST_PICK_FONT = 2104;
 	
 	//public static final String PREFS_NAME = "CONDIALOG_SETTINGS";
 	//public String PREFS_NAME;
@@ -2769,6 +2772,108 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	/** Opens the system file picker so Options can copy a .ttf/.otf into app storage. */
+	public void pickFontForOption() {
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+		intent.addCategory(Intent.CATEGORY_OPENABLE);
+		intent.setType("*/*");
+		intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+				"font/ttf",
+				"font/otf",
+				"font/sfnt",
+				"application/font-sfnt",
+				"application/x-font-ttf",
+				"application/vnd.ms-opentype",
+				"application/octet-stream"
+		});
+		try {
+			startActivityForResult(intent, REQUEST_PICK_FONT);
+		} catch (Exception e) {
+			Toast.makeText(this, "File picker unavailable: " + e.getMessage(),
+					Toast.LENGTH_LONG).show();
+		}
+	}
+
+	/** Copy a SAF font into app-private storage so Typeface.createFromFile can load it. */
+	private String copyPickedFont(Uri uri) {
+		String display = queryOpenableDisplayName(uri);
+		String name = FontCatalog.sanitizeImportFileName(display);
+		File dir = FontCatalog.importedFontsDir(getFilesDir());
+		if (!dir.exists() && !dir.mkdirs()) {
+			Toast.makeText(this, "Could not create the fonts folder.",
+					Toast.LENGTH_LONG).show();
+			return null;
+		}
+		File dest = FontCatalog.uniqueImportTarget(dir, name);
+		InputStream in = null;
+		FileOutputStream out = null;
+		try {
+			in = getContentResolver().openInputStream(uri);
+			if (in == null) {
+				Toast.makeText(this, "Could not read that file.", Toast.LENGTH_LONG).show();
+				return null;
+			}
+			out = new FileOutputStream(dest);
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) != -1) {
+				out.write(buf, 0, n);
+			}
+			out.flush();
+		} catch (Exception e) {
+			Toast.makeText(this, "Could not copy the font: " + e.getMessage(),
+					Toast.LENGTH_LONG).show();
+			if (dest.exists()) {
+				dest.delete();
+			}
+			return null;
+		} finally {
+			if (out != null) {
+				try {
+					out.close();
+				} catch (IOException ignored) {
+				}
+			}
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException ignored) {
+				}
+			}
+		}
+		try {
+			Typeface.createFromFile(dest);
+		} catch (RuntimeException e) {
+			dest.delete();
+			Toast.makeText(this, "That file is not a usable font.",
+					Toast.LENGTH_LONG).show();
+			return null;
+		}
+		Toast.makeText(this, "Font copied: " + FontCatalog.displayName(dest.getPath()),
+				Toast.LENGTH_SHORT).show();
+		return dest.getAbsolutePath();
+	}
+
+	private String queryOpenableDisplayName(Uri uri) {
+		android.database.Cursor cursor = null;
+		try {
+			cursor = getContentResolver().query(uri,
+					new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+			if (cursor != null && cursor.moveToFirst()) {
+				int at = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+				if (at >= 0) {
+					return cursor.getString(at);
+				}
+			}
+		} catch (RuntimeException ignored) {
+		} finally {
+			if (cursor != null) {
+				cursor.close();
+			}
+		}
+		return uri.getLastPathSegment();
+	}
+
 	boolean actionBarTested = false;
 	boolean supportsActionBar = false;
 	private boolean supportsActionBar() {
@@ -4843,6 +4948,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					optdialog.applyPickedDirectory(stored);
 				}
 				Toast.makeText(this, "Folder selected.", Toast.LENGTH_SHORT).show();
+			}
+			return;
+		}
+		if (requestCode == REQUEST_PICK_FONT && resultCode == RESULT_OK && data != null
+				&& data.getData() != null) {
+			String stored = copyPickedFont(data.getData());
+			if (stored != null && optdialog != null) {
+				optdialog.applyPickedFont(stored);
 			}
 			return;
 		}

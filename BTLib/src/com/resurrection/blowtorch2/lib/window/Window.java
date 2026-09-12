@@ -7002,7 +7002,7 @@ end
 		}
 		try {
 			// Bundled assets: "fonts/DejaVuSansMono.ttf"
-			if (name.startsWith("fonts/") && name.endsWith(".ttf")) {
+			if (name.startsWith("fonts/") && FontCatalog.isFontFileName(name)) {
 				// Null means the asset is missing. Keep the mono fallback loaded
 				// above rather than handing null to Paint, which would silently
 				// switch the grid to the default proportional face.
@@ -7010,13 +7010,17 @@ end
 				return asset != null ? asset : font;
 			}
 			if(name.contains("/")) {
-				if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
+				java.io.File fontFile = new java.io.File(name);
+				boolean fromShared = name.contains(Environment.getExternalStorageDirectory().getPath());
+				if (fromShared) {
 					String sdstate = Environment.getExternalStorageState();
-					if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
-						font = Typeface.createFromFile(name);
+					if(!(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate))) {
+						return font;
 					}
-				} else {
-					font = Typeface.createFromFile(name);
+				}
+				Typeface fromFile = typefaceFromFileWithFallbacks(fontFile);
+				if (fromFile != null) {
+					font = fromFile;
 				}
 			} else {
 				if(name.equals("sans serif") || name.equals("sans serrif")) {
@@ -7065,11 +7069,12 @@ end
 	 * DejaVu from assets does not pick up the system emoji chain by itself, so
 	 * missing glyphs become tofu (measured on baudtest U+1F400 and the
 	 * LociTerm line). API 29+ chains Noto Color Emoji as a fallback for holes
-	 * only; Block Elements stay DejaVu.
+	 * only; Block Elements stay DejaVu. Non-DejaVu faces also chain DejaVu
+	 * before emoji so maps keep box drawing on Atkinson / Inconsolata.
 	 */
 	private Typeface typefaceFromAssetWithEmojiFallback(final String assetPath) {
 		if (android.os.Build.VERSION.SDK_INT >= 29) {
-			Typeface chained = typefaceApi29WithEmoji(assetPath);
+			Typeface chained = typefaceApi29FromAsset(assetPath);
 			if (chained != null) {
 				return chained;
 			}
@@ -7081,21 +7086,75 @@ end
 		}
 	}
 
+	private Typeface typefaceFromFileWithFallbacks(final java.io.File file) {
+		if (file == null || !file.isFile()) {
+			return null;
+		}
+		if (android.os.Build.VERSION.SDK_INT >= 29) {
+			Typeface chained = typefaceApi29FromFile(file);
+			if (chained != null) {
+				return chained;
+			}
+		}
+		try {
+			return Typeface.createFromFile(file);
+		} catch (RuntimeException ignored) {
+			return null;
+		}
+	}
+
 	@android.annotation.TargetApi(29)
-	private Typeface typefaceApi29WithEmoji(final String assetPath) {
+	private Typeface typefaceApi29FromAsset(final String assetPath) {
 		try {
 			android.graphics.fonts.Font monoFont = new android.graphics.fonts.Font.Builder(
 					getContext().getAssets(), assetPath).build();
-			android.graphics.fonts.FontFamily monoFamily =
-					new android.graphics.fonts.FontFamily.Builder(monoFont).build();
-			Typeface.CustomFallbackBuilder builder =
-					new Typeface.CustomFallbackBuilder(monoFamily);
-			addSystemEmojiFallback(builder);
-			return builder.build();
+			return chainFallbacks(monoFont, FontCatalog.isDejaVuAsset(assetPath));
 		} catch (java.io.IOException e) {
 			return null;
 		} catch (RuntimeException e) {
 			return null;
+		}
+	}
+
+	@android.annotation.TargetApi(29)
+	private Typeface typefaceApi29FromFile(final java.io.File file) {
+		try {
+			android.graphics.fonts.Font monoFont =
+					new android.graphics.fonts.Font.Builder(file).build();
+			return chainFallbacks(monoFont, false);
+		} catch (java.io.IOException e) {
+			return null;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	@android.annotation.TargetApi(29)
+	private Typeface chainFallbacks(final android.graphics.fonts.Font primary,
+			final boolean skipDejaVu) {
+		android.graphics.fonts.FontFamily monoFamily =
+				new android.graphics.fonts.FontFamily.Builder(primary).build();
+		Typeface.CustomFallbackBuilder builder =
+				new Typeface.CustomFallbackBuilder(monoFamily);
+		if (!skipDejaVu) {
+			addAssetFallback(builder, FontCatalog.DEJAVU_ASSET);
+		}
+		addSystemEmojiFallback(builder);
+		return builder.build();
+	}
+
+	@android.annotation.TargetApi(29)
+	private void addAssetFallback(final Typeface.CustomFallbackBuilder builder,
+			final String assetPath) {
+		try {
+			android.graphics.fonts.Font font = new android.graphics.fonts.Font.Builder(
+					getContext().getAssets(), assetPath).build();
+			android.graphics.fonts.FontFamily family =
+					new android.graphics.fonts.FontFamily.Builder(font).build();
+			builder.addCustomFallback(family);
+		} catch (java.io.IOException ignored) {
+		} catch (IllegalArgumentException ignored) {
+		} catch (RuntimeException ignored) {
 		}
 	}
 

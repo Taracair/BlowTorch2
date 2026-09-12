@@ -54,6 +54,19 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
+	public void windowFontPickerDoesNotDumpSystemFonts() {
+		SettingsGroup window = new WindowToken().getSettings();
+		Option found = window.findOptionByKey("font_path");
+		assertTrue(found instanceof FileOption);
+		FileOption font = (FileOption) found;
+		assertFalse("listing /system/fonts/ is why the picker was a wall of Noto cuts",
+				font.paths.contains("/system/fonts/"));
+		assertTrue(font.getItems().contains("fonts/DejaVuSansMono.ttf"));
+		assertFalse(font.getItems().contains("fonts/VeraMono.ttf"));
+		assertTrue(font.extensions.contains(".otf"));
+	}
+
+	@Test
 	public void windowStillFindsInlinedKeysForUpdate() {
 		SettingsGroup window = new WindowToken().getSettings();
 		Option found = window.findOptionByKey("hyperlinks_enabled");
@@ -119,6 +132,11 @@ public class OptionsDialogFlattenTest {
 		assertEquals("use_mtts", optionNamed(rows, "Use MTTS?").getKey());
 		assertSame(service.findOptionByKey("use_gmcp"),
 				optionNamed(rows, "Use GMCP?"));
+		Option gmcp = optionNamed(rows, "Use GMCP?");
+		int at = OptionsDialog.indexOfOption(rows, gmcp);
+		assertTrue(at >= 0);
+		assertFalse(rows.get(at).isHeader());
+		assertSame(gmcp, rows.get(at).option);
 	}
 
 	@Test

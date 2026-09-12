@@ -3084,6 +3084,28 @@ New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
 is kept when you close the world.
 
+## Font (typeface)
+
+Options → Window → Font. The list is a handful of faces that actually look
+different, not every file under `/system/fonts/`.
+
+- **DejaVu Sans Mono** — default; box drawing and Block Elements.
+- **Fairfax HD** — MUD / roguelike Unicode, looks like a scalable terminal.
+- **JetBrains Mono**, **Ubuntu Sans Mono**, **Atkinson Hyperlegible Mono**,
+  **Inconsolata**, **Liberation Mono**, **Noto Sans Mono**.
+- Phone aliases: System monospace, Sans serif, Android default.
+- A few system files if present (Droid Sans Mono, Roboto Mono, …).
+
+**Load from storage…** copies a `.ttf` or `.otf` into the app so it survives
+when the original Downloads file is gone. You can also drop files into
+`/BlowTorch/` or `/BlowTorch/fonts/`.
+
+Ligatures are off on the grid (maps stay columns). Missing glyphs on a thin
+face fall back to DejaVu, then to emoji.
+
+Old profiles that still name Bitstream Vera keep that file; it is no longer
+in the list because it is the same design as DejaVu.
+
 ## Colours the world sends
 
 A world that sends `[1m` (SGR 1) still uses the **bright palette** by

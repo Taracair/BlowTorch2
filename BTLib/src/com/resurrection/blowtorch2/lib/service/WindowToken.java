@@ -20,6 +20,7 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
+import com.resurrection.blowtorch2.lib.window.FontCatalog;
 import com.resurrection.blowtorch2.lib.window.TimestampFormat;
 
 import android.content.res.Configuration;
@@ -640,19 +641,17 @@ public class WindowToken implements Parcelable {
 		
 		FileOption fontPath = new FileOption();
 		fontPath.setTitle("Font");
-		fontPath.setDescription("The font used by the window to render text.");
+		fontPath.setDescription("The typeface for the game window. Distinct bundled faces, then a few system monospace files if the phone has them, then any .ttf/.otf in /BlowTorch/ or /BlowTorch/fonts/. Load from storage copies a file into the app so it stays.");
 		fontPath.setKey("font_path");
 		fontPath.setValue(DEFAULT_FONT_PATH);
-		fontPath.addItem(DEFAULT_FONT_PATH);
-		fontPath.addItem("fonts/LiberationMono-Regular.ttf");
-		fontPath.addItem("fonts/VeraMono.ttf");
-		fontPath.addItem("fonts/NotoSansMono-Regular.ttf");
-		fontPath.addItem("monospace");
-		fontPath.addItem("sans serif");
-		fontPath.addItem("default");
-		fontPath.addPath("/system/fonts/");
+		java.util.List<FontCatalog.Face> bundled = FontCatalog.bundledPickerFaces();
+		for (int i = 0; i < bundled.size(); i++) {
+			fontPath.addItem(bundled.get(i).path);
+		}
 		fontPath.addPath("BlowTorch/");
+		fontPath.addPath("BlowTorch/fonts/");
 		fontPath.addExtension(".ttf");
+		fontPath.addExtension(".otf");
 		window.addOption(fontPath);
 		
 		setSettings(window);

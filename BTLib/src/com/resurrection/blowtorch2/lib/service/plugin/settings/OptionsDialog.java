@@ -16,9 +16,13 @@ import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.util.SettingsSaver;
+import com.resurrection.blowtorch2.lib.window.FontCatalog;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -29,8 +33,12 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.database.DataSetObserver;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.text.Editable;
 import android.text.InputType;
@@ -55,6 +63,7 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.RadioButton;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
@@ -103,6 +112,27 @@ public class OptionsDialog extends Dialog {
 	private EditText mSearchField;
 	private ListView mSearchResults;
 	private ViewFlipper mFlipper;
+
+	/** ~35% of {@code chrome_accent}; hold+fades land in the 1.6–2s window. */
+	private static final int SEARCH_HIGHLIGHT_ALPHA = 0x59;
+	private static final int SEARCH_HIGHLIGHT_FADE_IN_MS = 180;
+	private static final int SEARCH_HIGHLIGHT_HOLD_MS = 1200;
+	private static final int SEARCH_HIGHLIGHT_FADE_OUT_MS = 520;
+
+	private final Handler mHighlightHandler = new Handler(Looper.getMainLooper());
+	private final Runnable mHighlightFadeOut = new Runnable() {
+		@Override
+		public void run() {
+			animateSearchHighlightAlpha(SEARCH_HIGHLIGHT_ALPHA, 0,
+					SEARCH_HIGHLIGHT_FADE_OUT_MS, true);
+		}
+	};
+	private Option mHighlightOption;
+	private int mHighlightFill = Color.TRANSPARENT;
+	private int mHighlightRed;
+	private int mHighlightGreen;
+	private int mHighlightBlue;
+	private ValueAnimator mHighlightAnimator;
 
 	/** Keys for StringOption values that represent directories (SAF Browse…). */
 	private static boolean isDirectoryOptionKey(String key) {
@@ -182,6 +212,46 @@ public class OptionsDialog extends Dialog {
 			this.path = path;
 			this.option = option;
 		}
+	}
+
+	/** Option key to flash after a search jump. Headers are not hits. */
+	static String highlightKey(SearchHit hit) {
+		if (hit == null || hit.option == null) {
+			return null;
+		}
+		return hit.option.getKey();
+	}
+
+	static boolean optionMatchesHighlight(Option row, Option target) {
+		if (row == null || target == null) {
+			return false;
+		}
+		if (row == target) {
+			return true;
+		}
+		String key = target.getKey();
+		return key != null && key.equals(row.getKey());
+	}
+
+	static int indexOfOption(ArrayList<PageRow> rows, Option option) {
+		if (rows == null || option == null) {
+			return -1;
+		}
+		for (int i = 0; i < rows.size(); i++) {
+			if (rows.get(i).option == option) {
+				return i;
+			}
+		}
+		String key = option.getKey();
+		if (key != null) {
+			for (int i = 0; i < rows.size(); i++) {
+				Option o = rows.get(i).option;
+				if (o != null && key.equals(o.getKey())) {
+					return i;
+				}
+			}
+		}
+		return -1;
 	}
 
 	static ArrayList<SearchHit> searchHits(SettingsGroup root, String query) {
@@ -317,6 +387,9 @@ public class OptionsDialog extends Dialog {
 		//this.mFragementManager = fragmentManager;
 	}
 
+	private FileOption pendingFontOption;
+	private TextView pendingFontIndicator;
+
 	/** Apply a path/URI from MainWindow's SAF folder picker into the open string editor. */
 	public void applyPickedDirectory(String path) {
 		if (path == null) {
@@ -328,6 +401,14 @@ public class OptionsDialog extends Dialog {
 		if (activeDirectoryOption != null) {
 			persistStringOption(activeDirectoryOption, path);
 		}
+	}
+
+	/** Apply a copied font file from MainWindow's SAF picker. */
+	public void applyPickedFont(String path) {
+		if (path == null || pendingFontOption == null) {
+			return;
+		}
+		applyFontPath(pendingFontOption, pendingFontIndicator, path);
 	}
 
 	private void persistStringOption(StringOption option, String text) {
@@ -569,23 +650,7 @@ public class OptionsDialog extends Dialog {
 		}
 
 		int indexOfOption(Option option) {
-			if (option == null) {
-				return -1;
-			}
-			for (int i = 0; i < rows.size(); i++) {
-				if (rows.get(i).option == option) {
-					return i;
-				}
-			}
-			if (option.getKey() != null) {
-				for (int i = 0; i < rows.size(); i++) {
-					Option o = rows.get(i).option;
-					if (o != null && option.getKey().equals(o.getKey())) {
-						return i;
-					}
-				}
-			}
-			return -1;
+			return OptionsDialog.indexOfOption(rows, option);
 		}
 
 		/** Index in the group of the row drawn at this adapter position. */
@@ -791,7 +856,13 @@ public class OptionsDialog extends Dialog {
 				v.setOnClickListener(new CallbackOptionClickedListener());
 				break;
 			}
-			
+
+			if (optionMatchesHighlight(o, mHighlightOption)) {
+				v.setBackgroundColor(mHighlightFill);
+			} else {
+				v.setBackgroundColor(Color.TRANSPARENT);
+			}
+
 			return v;
 			
 		}
@@ -1346,46 +1417,7 @@ public class OptionsDialog extends Dialog {
 
 	/** Human-readable label for a font path / built-in font key. */
 	static String displayNameForFontPath(String path) {
-		if (path == null || path.length() == 0) {
-			return "";
-		}
-		if ("monospace".equals(path)) {
-			return "monospace";
-		}
-		if ("sans serif".equals(path) || "sans serrif".equals(path)) {
-			return "sans serif";
-		}
-		if ("default".equals(path) || "none".equals(path)) {
-			return path;
-		}
-		String name = path;
-		int slash = path.lastIndexOf('/');
-		if (slash >= 0 && slash < path.length() - 1) {
-			name = path.substring(slash + 1);
-		}
-		if (name.endsWith(".ttf") || name.endsWith(".TTF")) {
-			name = name.substring(0, name.length() - 4);
-		}
-		if ("DejaVuSansMono".equals(name)) {
-			return "DejaVu Sans Mono";
-		}
-		if ("LiberationMono-Regular".equals(name)) {
-			return "Liberation Mono";
-		}
-		if ("VeraMono".equals(name)) {
-			return "Bitstream Vera Sans Mono";
-		}
-		if ("NotoSansMono-Regular".equals(name)) {
-			return "Noto Sans Mono";
-		}
-		if ("DroidSansMono".equals(name)) {
-			return "Droid Sans Mono";
-		}
-		if ("RobotoMono-Regular".equals(name)) {
-			return "Roboto Mono";
-		}
-		// Soften CamelCase / hyphenated file names for system fonts
-		return name.replace('-', ' ').replace('_', ' ');
+		return FontCatalog.displayName(path);
 	}
 
 	private class FileOptionClickedListener implements View.OnClickListener {
@@ -1399,87 +1431,289 @@ public class OptionsDialog extends Dialog {
 		@Override
 		public void onClick(View v) {
 			FileOption o = (FileOption)v.getTag();
-			
-			//this is tricky. we have to build the list. in the right order.
-			//first build up the actual file matches, sort them and insert the "items" at the top.
-			//ArrayList<String> paths = new ArrayList<String>();
-			StringBuilder str = new StringBuilder();
-			ArrayList<String> extensions = o.extensions;
-			for(int i=0;i<extensions.size();i++) {
-				str.append("(^.+(\\Q"+extensions.get(i)+"\\E))");
-				if(i != extensions.size()-1) {
-					str.append("|");
-				}
+			if ("font_path".equals(o.getKey())) {
+				showFontPicker(o, indicator);
+				return;
 			}
-			
-			Pattern p = Pattern.compile(str.toString());
-			Matcher m = p.matcher("");
-			
-			PatternFileNameFilter filter = new PatternFileNameFilter(m);
-			
-			ArrayList<String> foundFilePaths = new ArrayList<String>();
-			ArrayList<String> foundFileNames = new ArrayList<String>();
-			
-			ArrayList<String> items = o.items;
-			for(int i=0;i<items.size();i++) {
-				String item = items.get(i);
-				foundFilePaths.add(item);
-				foundFileNames.add(displayNameForFontPath(item));
-			}
-			ArrayList<String> paths = o.paths;
-			for(int i=0;i<paths.size();i++) {
-				String path = paths.get(i);
-				
-				if(path.startsWith("/")) {
-					//use it directly
-					File file = new File(path);
-					File[] listed = file.isDirectory() ? file.listFiles(filter) : null;
-					if (listed != null) {
-						for(File found : listed) {
-							foundFilePaths.add(found.getPath());
-							foundFileNames.add(displayNameForFontPath(found.getPath()));
-						}
-					}
-				} else {
-					//get it from sdcard.
-					String sdstate = Environment.getExternalStorageState();
-					if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
-						File tmp = Environment.getExternalStorageDirectory();
-						File file = new File(tmp,"/"+path);
-						File[] listed = file.isDirectory() ? file.listFiles(filter) : null;
-						if (listed != null) {
-							for(File found : listed) {
-								foundFilePaths.add(found.getPath());
-								foundFileNames.add(displayNameForFontPath(found.getPath()));
-							}
-						}
-					}
-				}
-			}
-			
-			String[] entries = new String[foundFileNames.size()];
-			entries = foundFileNames.toArray(entries);
-			
-			int selectedIndex = -1;
-			for(int i=0;i<foundFilePaths.size();i++) {
-				String path = foundFilePaths.get(i);
-				if(path.equals((String)o.getValue())) {
-					selectedIndex = i;
-					i=foundFilePaths.size();
-				}
-			}
-			
-			AlertDialog.Builder builder = editorBuilder();
-			builder.setTitle(o.getTitle());
-			builder.setSingleChoiceItems(entries, selectedIndex,new FileOptionItemClickListener((FileOption)o,foundFilePaths,foundFileNames,indicator));
-
-			AlertDialog dialog = builder.create();
-			dialog.show();
-			
+			showLegacyFilePicker(o, indicator);
 		}
-		
 	}
-	
+
+	private void showFontPicker(final FileOption option, final TextView indicator) {
+		pendingFontOption = option;
+		pendingFontIndicator = indicator;
+		final ArrayList<FontCatalog.Face> rows = collectFontPickerRows(option);
+		String current = option.getValue() == null ? "" : option.getValue().toString();
+		int selected = -1;
+		for (int i = 0; i < rows.size(); i++) {
+			if (current.equals(rows.get(i).path)) {
+				selected = i;
+				break;
+			}
+		}
+		final FontPickerAdapter adapter = new FontPickerAdapter(rows, selected);
+		ListView list = new ListView(getContext());
+		list.setAdapter(adapter);
+		list.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+		list.setDividerHeight(0);
+		if (selected >= 0) {
+			list.setSelection(selected);
+		}
+		AlertDialog.Builder builder = editorBuilder();
+		builder.setTitle(option.getTitle());
+		builder.setView(list);
+		builder.setNegativeButton("Cancel", null);
+		final AlertDialog dialog = builder.create();
+		list.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+			@Override
+			public void onItemClick(android.widget.AdapterView<?> parent, View view,
+					int position, long id) {
+				FontCatalog.Face face = adapter.getItem(position);
+				if (face == null) {
+					return;
+				}
+				if (FontCatalog.isLoadSentinel(face.path)) {
+					dialog.dismiss();
+					MainWindow host = findMainWindowHost();
+					if (host != null) {
+						host.pickFontForOption();
+					} else {
+						Toast.makeText(getContext(), "Cannot open the file picker from here.",
+								Toast.LENGTH_SHORT).show();
+					}
+					return;
+				}
+				applyFontPath(option, indicator, face.path);
+				dialog.dismiss();
+			}
+		});
+		dialog.show();
+	}
+
+	private ArrayList<FontCatalog.Face> collectFontPickerRows(FileOption option) {
+		ArrayList<String> existingSystem = new ArrayList<String>();
+		java.util.List<FontCatalog.Face> optional = FontCatalog.optionalSystemFaces();
+		for (int i = 0; i < optional.size(); i++) {
+			File f = new File(optional.get(i).path);
+			if (f.isFile()) {
+				existingSystem.add(optional.get(i).path);
+			}
+		}
+		ArrayList<FontCatalog.Face> user = new ArrayList<FontCatalog.Face>();
+		collectUserFontFaces(option, user);
+		File imported = FontCatalog.importedFontsDir(getContext().getFilesDir());
+		if (imported.isDirectory()) {
+			File[] listed = imported.listFiles();
+			if (listed != null) {
+				for (int i = 0; i < listed.length; i++) {
+					File found = listed[i];
+					if (found.isFile() && FontCatalog.isFontFileName(found.getName())) {
+						FontCatalog.addUnique(user, new FontCatalog.Face(found.getPath(),
+								FontCatalog.displayName(found.getPath())));
+					}
+				}
+			}
+		}
+		return new ArrayList<FontCatalog.Face>(
+				FontCatalog.assemblePicker(existingSystem, user, true));
+	}
+
+	private void collectUserFontFaces(FileOption option, ArrayList<FontCatalog.Face> user) {
+		if (option == null || option.paths == null) {
+			return;
+		}
+		PatternFileNameFilter filter = fontNameFilter(option);
+		for (int i = 0; i < option.paths.size(); i++) {
+			String path = option.paths.get(i);
+			File dir;
+			if (path.startsWith("/")) {
+				dir = new File(path);
+			} else {
+				String sdstate = Environment.getExternalStorageState();
+				if (!(Environment.MEDIA_MOUNTED.equals(sdstate)
+						|| Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate))) {
+					continue;
+				}
+				dir = new File(Environment.getExternalStorageDirectory(), "/" + path);
+			}
+			File[] listed = dir.isDirectory() ? dir.listFiles(filter) : null;
+			if (listed == null) {
+				continue;
+			}
+			for (int j = 0; j < listed.length; j++) {
+				File found = listed[j];
+				if (found.isFile()) {
+					FontCatalog.addUnique(user, new FontCatalog.Face(found.getPath(),
+							FontCatalog.displayName(found.getPath())));
+				}
+			}
+		}
+	}
+
+	private PatternFileNameFilter fontNameFilter(FileOption option) {
+		StringBuilder str = new StringBuilder();
+		ArrayList<String> extensions = option.extensions;
+		for (int i = 0; i < extensions.size(); i++) {
+			str.append("(^.+(\\Q").append(extensions.get(i)).append("\\E))");
+			if (i != extensions.size() - 1) {
+				str.append("|");
+			}
+		}
+		Pattern p = Pattern.compile(str.toString());
+		return new PatternFileNameFilter(p.matcher(""));
+	}
+
+	private void applyFontPath(FileOption option, TextView indicator, String path) {
+		option.setValue(path);
+		if (indicator != null) {
+			indicator.setText(FontCatalog.displayName(path));
+		}
+		if (mCurrent != null && mCurrent.findOptionByKey(option.getKey()) != null) {
+			mCurrent.updateString(option.getKey(), path);
+		}
+		try {
+			if (selectedPlugin.equals("main")) {
+				service.updateStringSetting(option.getKey(), path);
+			} else {
+				service.updatePluginStringSetting(selectedPlugin, option.getKey(), path);
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void showLegacyFilePicker(FileOption o, TextView indicator) {
+		PatternFileNameFilter filter = fontNameFilter(o);
+		ArrayList<String> foundFilePaths = new ArrayList<String>();
+		ArrayList<String> foundFileNames = new ArrayList<String>();
+		ArrayList<String> items = o.items;
+		for (int i = 0; i < items.size(); i++) {
+			String item = items.get(i);
+			foundFilePaths.add(item);
+			foundFileNames.add(displayNameForFontPath(item));
+		}
+		ArrayList<String> paths = o.paths;
+		for (int i = 0; i < paths.size(); i++) {
+			String path = paths.get(i);
+			File file;
+			if (path.startsWith("/")) {
+				file = new File(path);
+			} else {
+				String sdstate = Environment.getExternalStorageState();
+				if (!(Environment.MEDIA_MOUNTED.equals(sdstate)
+						|| Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate))) {
+					continue;
+				}
+				file = new File(Environment.getExternalStorageDirectory(), "/" + path);
+			}
+			File[] listed = file.isDirectory() ? file.listFiles(filter) : null;
+			if (listed != null) {
+				for (File found : listed) {
+					foundFilePaths.add(found.getPath());
+					foundFileNames.add(displayNameForFontPath(found.getPath()));
+				}
+			}
+		}
+		String[] entries = foundFileNames.toArray(new String[0]);
+		int selectedIndex = -1;
+		for (int i = 0; i < foundFilePaths.size(); i++) {
+			if (foundFilePaths.get(i).equals((String) o.getValue())) {
+				selectedIndex = i;
+				break;
+			}
+		}
+		AlertDialog.Builder builder = editorBuilder();
+		builder.setTitle(o.getTitle());
+		builder.setSingleChoiceItems(entries, selectedIndex,
+				new FileOptionItemClickListener(o, foundFilePaths, foundFileNames, indicator));
+		builder.create().show();
+	}
+
+	private class FontPickerAdapter extends BaseAdapter {
+		private final ArrayList<FontCatalog.Face> rows;
+		private final int selected;
+		private final HashMap<String, Typeface> previewCache = new HashMap<String, Typeface>();
+
+		FontPickerAdapter(ArrayList<FontCatalog.Face> rows, int selected) {
+			this.rows = rows;
+			this.selected = selected;
+		}
+
+		@Override
+		public int getCount() {
+			return rows.size();
+		}
+
+		@Override
+		public FontCatalog.Face getItem(int position) {
+			return rows.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			return position;
+		}
+
+		@Override
+		public boolean hasStableIds() {
+			return true;
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			View row = convertView;
+			if (row == null) {
+				LayoutInflater li = (LayoutInflater) getContext()
+						.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+				row = li.inflate(R.layout.font_picker_row, parent, false);
+			}
+			FontCatalog.Face face = rows.get(position);
+			TextView label = (TextView) row.findViewById(R.id.font_label);
+			TextView preview = (TextView) row.findViewById(R.id.font_preview);
+			RadioButton radio = (RadioButton) row.findViewById(R.id.font_picked);
+			label.setText(face.label);
+			radio.setChecked(position == selected);
+			boolean load = FontCatalog.isLoadSentinel(face.path);
+			if (preview != null) {
+				if (load) {
+					preview.setVisibility(View.GONE);
+					preview.setTypeface(Typeface.DEFAULT);
+				} else {
+					preview.setVisibility(View.VISIBLE);
+					preview.setText(FontCatalog.PREVIEW_SAMPLE);
+					preview.setTypeface(previewTypeface(face.path));
+				}
+			}
+			return row;
+		}
+
+		private Typeface previewTypeface(String path) {
+			Typeface cached = previewCache.get(path);
+			if (cached != null) {
+				return cached;
+			}
+			Typeface tf = Typeface.MONOSPACE;
+			try {
+				if (FontCatalog.isBundledAssetPath(path)) {
+					tf = Typeface.createFromAsset(getContext().getAssets(), path);
+				} else if ("sans serif".equals(path) || "sans serrif".equals(path)) {
+					tf = Typeface.SANS_SERIF;
+				} else if ("default".equals(path)) {
+					tf = Typeface.DEFAULT;
+				} else if (path != null && path.contains("/")) {
+					File f = new File(path);
+					if (f.isFile()) {
+						tf = Typeface.createFromFile(f);
+					}
+				}
+			} catch (RuntimeException ignored) {
+				tf = Typeface.MONOSPACE;
+			}
+			previewCache.put(path, tf);
+			return tf;
+		}
+	}
+
 	private class FileOptionItemClickListener implements DialogInterface.OnClickListener {
 
 		private ArrayList<String> paths;
@@ -1497,32 +1731,7 @@ public class OptionsDialog extends Dialog {
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
 			String path = paths.get(which);
-			option.setValue(path);
-			if (indicator != null) {
-				String label = (names != null && which < names.size())
-						? names.get(which)
-						: displayNameForFontPath(path);
-				indicator.setText(label);
-			}
-			// Nested groups (e.g. Window → Font) live on mCurrent; update that group so listeners fire.
-			if (mCurrent != null && mCurrent.findOptionByKey(option.getKey()) != null) {
-				mCurrent.updateString(option.getKey(), path);
-			}
-			if(selectedPlugin.equals("main")) {
-				try {
-					service.updateStringSetting(option.getKey(), path);
-				} catch (RemoteException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			} else {
-				try {
-					service.updatePluginStringSetting(selectedPlugin, option.getKey(), path);
-				} catch (RemoteException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
+			applyFontPath(option, indicator, path);
 			dialog.dismiss();
 		}
 		
@@ -1952,6 +2161,102 @@ public class OptionsDialog extends Dialog {
 		showSearchOverlay(false);
 	}
 
+	private void startSearchHighlight(Option option) {
+		cancelSearchHighlight();
+		if (option == null) {
+			return;
+		}
+		mHighlightOption = option;
+		int accent = getContext().getResources().getColor(R.color.chrome_accent, null);
+		mHighlightRed = Color.red(accent);
+		mHighlightGreen = Color.green(accent);
+		mHighlightBlue = Color.blue(accent);
+		mHighlightFill = Color.argb(0, mHighlightRed, mHighlightGreen, mHighlightBlue);
+		animateSearchHighlightAlpha(0, SEARCH_HIGHLIGHT_ALPHA,
+				SEARCH_HIGHLIGHT_FADE_IN_MS, false);
+	}
+
+	private void animateSearchHighlightAlpha(int fromAlpha, int toAlpha,
+			int durationMs, final boolean clearWhenDone) {
+		if (mHighlightAnimator != null) {
+			mHighlightAnimator.removeAllListeners();
+			mHighlightAnimator.cancel();
+			mHighlightAnimator = null;
+		}
+		ValueAnimator anim = ValueAnimator.ofInt(fromAlpha, toAlpha);
+		anim.setDuration(durationMs);
+		anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+			@Override
+			public void onAnimationUpdate(ValueAnimator animation) {
+				int alpha = (Integer) animation.getAnimatedValue();
+				mHighlightFill = Color.argb(alpha, mHighlightRed, mHighlightGreen,
+						mHighlightBlue);
+				applySearchHighlightToVisibleRows();
+			}
+		});
+		anim.addListener(new AnimatorListenerAdapter() {
+			@Override
+			public void onAnimationEnd(Animator animation) {
+				mHighlightAnimator = null;
+				if (clearWhenDone) {
+					mHighlightOption = null;
+					mHighlightFill = Color.TRANSPARENT;
+					applySearchHighlightToVisibleRows();
+				} else if (mHighlightOption != null) {
+					mHighlightHandler.postDelayed(mHighlightFadeOut,
+							SEARCH_HIGHLIGHT_HOLD_MS);
+				}
+			}
+		});
+		mHighlightAnimator = anim;
+		anim.start();
+	}
+
+	private void applySearchHighlightToVisibleRows() {
+		ViewFlipper f = mFlipper != null ? mFlipper
+				: (ViewFlipper) findViewById(R.id.flipper);
+		if (f == null) {
+			return;
+		}
+		View page = f.getCurrentView();
+		if (page == null) {
+			return;
+		}
+		ListView list = (ListView) page.findViewById(R.id.list);
+		if (list == null || !(list.getAdapter() instanceof OptionsAdapter)) {
+			return;
+		}
+		OptionsAdapter adapter = (OptionsAdapter) list.getAdapter();
+		int first = list.getFirstVisiblePosition();
+		for (int i = 0; i < list.getChildCount(); i++) {
+			int pos = first + i;
+			if (pos < 0 || pos >= adapter.getCount()) {
+				continue;
+			}
+			Object item = adapter.getItem(pos);
+			View child = list.getChildAt(i);
+			if (child == null || !(item instanceof Option)) {
+				continue;
+			}
+			if (optionMatchesHighlight((Option) item, mHighlightOption)) {
+				child.setBackgroundColor(mHighlightFill);
+			} else {
+				child.setBackgroundColor(Color.TRANSPARENT);
+			}
+		}
+	}
+
+	private void cancelSearchHighlight() {
+		mHighlightHandler.removeCallbacks(mHighlightFadeOut);
+		if (mHighlightAnimator != null) {
+			mHighlightAnimator.removeAllListeners();
+			mHighlightAnimator.cancel();
+			mHighlightAnimator = null;
+		}
+		mHighlightOption = null;
+		mHighlightFill = Color.TRANSPARENT;
+	}
+
 	private void resetToRoot() {
 		ViewFlipper f = mFlipper != null ? mFlipper
 				: (ViewFlipper) findViewById(R.id.flipper);
@@ -2021,10 +2326,28 @@ public class OptionsDialog extends Dialog {
 		if (list == null || !(list.getAdapter() instanceof OptionsAdapter)) {
 			return;
 		}
-		int at = ((OptionsAdapter) list.getAdapter()).indexOfOption(option);
-		if (at >= 0) {
-			list.setSelection(at);
-		}
+		list.post(new Runnable() {
+			@Override
+			public void run() {
+				if (!isShowing() || !(list.getAdapter() instanceof OptionsAdapter)) {
+					return;
+				}
+				int at = ((OptionsAdapter) list.getAdapter()).indexOfOption(option);
+				if (at < 0) {
+					return;
+				}
+				list.setSelection(at);
+				startSearchHighlight(option);
+				list.post(new Runnable() {
+					@Override
+					public void run() {
+						if (isShowing()) {
+							applySearchHighlightToVisibleRows();
+						}
+					}
+				});
+			}
+		});
 	}
 
 	private void hideOptionsSearchKeyboard() {
@@ -2240,6 +2563,7 @@ public class OptionsDialog extends Dialog {
 	 */
 	@Override
 	public void dismiss() {
+		cancelSearchHighlight();
 		SettingsSaver.saveInBackground(service);
 		super.dismiss();
 	}

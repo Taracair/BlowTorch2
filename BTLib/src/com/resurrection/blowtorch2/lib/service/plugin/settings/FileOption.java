@@ -167,7 +167,14 @@ public class FileOption extends ListOption implements Parcelable {
 		for(String extension : this.extensions) {
 			tmp.extensions.add(extension);
 		}
-		
+
+		tmp.items = new ArrayList<String>();
+		if (this.items != null) {
+			for(String item : this.items) {
+				tmp.items.add(item);
+			}
+		}
+
 		return tmp;
 	}
 	
