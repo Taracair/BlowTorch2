@@ -188,7 +188,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_typos = new BooleanOption();
 		word_complete_typos.setTitle("Correct nearby misspellings");
-		word_complete_typos.setDescription("When the exact prefix finds nothing, offer a word the game just used that is one edit away: exohelnet finds exohelmet (swap, substitute, insert or delete one letter). Only after an exact prefix found nothing, so typing accurately never gets a different answer. Works on the word at the cursor (middle of a line) and at the end. Four-letter minimum. .suggest typos on/off");
+		word_complete_typos.setDescription("When the exact prefix finds nothing, offer a word the game just used that is close to what you typed: a swapped pair, a wrong letter, a missing or extra letter; two such mistakes on a longer word. Only after an exact prefix found nothing. Four-letter minimum; two mistakes from six letters and the first letter must still match. Works on the word at the cursor and at the end. .suggest typos on/off");
 		word_complete_typos.setKey("word_complete_typos");
 		word_complete_typos.setValue(true);
 		suggestions.addOption(word_complete_typos);

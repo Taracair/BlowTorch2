@@ -166,11 +166,11 @@ public class WordSuggestionsTest {
 	@Test
 	public void aNearbyMisspellingFindsTheWordTheGameJustUsed() {
 		WordSuggestions w = new WordSuggestions();
-		w.learn("You see an exohelmet here.\n");
-		assertEquals(java.util.Arrays.asList("exohelmet"),
-				w.suggest("exohelnet", 5));
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grzizled", 5));
 		w.setTypoMatching(false);
-		assertTrue(w.suggest("exohelnet", 5).isEmpty());
+		assertTrue(w.suggest("grzizled", 5).isEmpty());
 	}
 
 	@Test
@@ -183,17 +183,17 @@ public class WordSuggestionsTest {
 	@Test
 	public void aMissingLetterStillFindsTheWord() {
 		WordSuggestions w = new WordSuggestions();
-		w.learn("You see an exohelmet here.\n");
-		assertEquals(java.util.Arrays.asList("exohelmet"),
-				w.suggest("exohlmet", 5));
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grizled", 5));
 	}
 
 	@Test
 	public void anExtraLetterStillFindsTheWord() {
 		WordSuggestions w = new WordSuggestions();
-		w.learn("You see an exohelmet here.\n");
-		assertEquals(java.util.Arrays.asList("exohelmet"),
-				w.suggest("exohellmet", 5));
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grizzleed", 5));
 	}
 
 	@Test
@@ -206,8 +206,8 @@ public class WordSuggestionsTest {
 	@Test
 	public void aCorrectlyTypedFullWordIsNotOfferedBackAsATypo() {
 		WordSuggestions w = new WordSuggestions();
-		w.learn("You see an exohelmet here.\n");
-		assertTrue(w.suggest("exohelmet", 5).isEmpty());
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertTrue(w.suggest("grizzled", 5).isEmpty());
 	}
 
 	@Test
@@ -220,14 +220,87 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aSwappedPairInTheWholeWordStillFindsIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grzizled", 5));
+	}
+
+	@Test
+	public void aSwappedPairAtTheStartStillFindsTheRestOfTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("girz", 5));
+	}
+
+	@Test
+	public void aWrongLetterPartWayThroughStillFindsTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grizx", 5));
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("grizxled", 5));
+	}
+
+	@Test
+	public void twoEditsOnALongWordStillFindIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("gxizzlxd", 5));
+	}
+
+	@Test
+	public void twoEditsAtTheStartStillFindTheRestOfTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"),
+				w.suggest("gxizzx", 5));
+	}
+
+	@Test
+	public void twoEditsOnAShortWordAreNoise() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("help\n");
+		assertTrue(w.suggest("hxlo", 5).isEmpty());
+	}
+
+	@Test
+	public void twoEditsNeedTheFirstLetter() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertTrue(w.suggest("xxizzlxd", 5).isEmpty());
+	}
+
+	@Test
+	public void oneEditIsOfferedBeforeTwo() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("gxizzlad\n");
+		w.learn("grizzled\n");
+		assertEquals(java.util.Arrays.asList("gxizzlad", "grizzled"),
+				w.suggest("gxizzlxd", 5));
+	}
+
+	@Test
+	public void damerauCountsAnAdjacentSwapAsOne() {
+		assertEquals(1, WordSuggestions.damerauAtMost("girz", "griz", 2));
+		assertEquals(1, WordSuggestions.damerauAtMost("grzizled", "grizzled", 2));
+		assertEquals(2, WordSuggestions.damerauAtMost("gxizzlxd", "grizzled", 2));
+		assertEquals(0, WordSuggestions.damerauAtMost("griz", "griz", 2));
+	}
+
+	@Test
 	public void completingAMidLineTypoReplacesThatToken() {
 		WordSuggestions w = new WordSuggestions();
-		w.learn("You see an exohelmet here.\n");
-		List<String> found = w.suggest("exohelnet", 5);
-		assertEquals(java.util.Arrays.asList("exohelmet"), found);
+		w.learn("A grizzled cave troll lumbers in.\n");
+		List<String> found = w.suggest("grzizled", 5);
+		assertEquals(java.util.Arrays.asList("grizzled"), found);
 		WordSuggestions.Completion c =
-				WordSuggestions.complete("look exohelnet now", 10, found.get(0));
-		assertEquals("look exohelmet now", c.text());
+				WordSuggestions.complete("look grzizled now", 10, found.get(0));
+		assertEquals("look grizzled now", c.text());
 	}
 
 	@Test

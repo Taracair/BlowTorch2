@@ -100,9 +100,10 @@ public class CompleteCommand extends SpecialCommand {
 		if (arg.startsWith("typos") || arg.startsWith("typo")) {
 			int skip = arg.startsWith("typos") ? "typos".length() : "typo".length();
 			return setFlag(arg.substring(skip).trim(), c, TYPOS_KEY,
-					"Nearby misspellings: exohelnet now finds exohelmet when the"
-						+ " exact prefix finds nothing (one letter swapped,"
-						+ " substituted, inserted or deleted).",
+					"Nearby misspellings: a swapped pair or a wrong letter still"
+						+ " finds the word the game just used when the exact"
+						+ " prefix finds nothing; two such mistakes on a longer"
+						+ " word.",
 					"Nearby misspellings off.");
 		}
 		if (arg.startsWith("phrases")) {
@@ -289,7 +290,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest phrases on|off  — offer whole names: gri gives\n"
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
-				+ ".suggest typos on|off    — exohelnet finds exohelmet\n"
+				+ ".suggest typos on|off    — swapped letters still find the word\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
 				+ ".suggest caret on|off    — prefix chips follow the cursor into"
 				+ "                           the middle of a line\n"

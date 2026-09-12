@@ -99,6 +99,12 @@ public final class WordSuggestions {
 	public static final int MIN_TYPO_PREFIX_LENGTH = 4;
 
 	/**
+	 * Two edits on four letters match too much of a MUD room. Six is enough
+	 * that {@code gxizzlxd} can still find {@code grizzled}.
+	 */
+	public static final int MIN_TYPO_TWO_EDITS = 6;
+
+	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
 	 * the time the suggestion appears, and short words are the common ones that
 	 * would crowd out the useful proper nouns.
@@ -240,9 +246,11 @@ public final class WordSuggestions {
 	private boolean looseMatching = false;
 
 	/**
-	 * Fall back to a one-edit match when the exact prefix finds nothing.
+	 * Fall back to an edit-distance match when the exact prefix finds nothing.
 	 * On by default: it only runs after prefix matching, so accurate typing
-	 * is unchanged.
+	 * is unchanged. One edit from four letters; two edits from six, first
+	 * letter matching. Also matches a typo of the start of a longer word, so
+	 * {@code girz} finds {@code grizzled} while still typing.
 	 */
 	private boolean typoMatching = true;
 
@@ -323,9 +331,10 @@ public final class WordSuggestions {
 	 * Whether a nearby misspelling still finds the word the game just used.
 	 *
 	 * <p>On by default. It only ever runs when the exact prefix found nothing,
-	 * so {@code hel} still only prefix-matches — but {@code exohelnet} finds
-	 * {@code exohelmet} (one adjacent swap, substitution, insertion or
-	 * deletion). Same-length words are allowed, unlike {@link #setLooseMatching}.
+	 * so {@code hel} still only prefix-matches — but {@code helmte} finds
+	 * {@code helmet}, and {@code girz} finds {@code grizzled} (a typo of
+	 * the start of the word, not only of the whole thing). Same-length words
+	 * are allowed, unlike {@link #setLooseMatching}.
 	 *
 	 * @param on true to allow the fallback.
 	 */
@@ -748,10 +757,9 @@ public final class WordSuggestions {
 		if (needle.length() < MIN_PREFIX_LENGTH) {
 			return out;
 		}
-		// Forward once collecting only matches, rather than copying the whole
-		// store to walk it backwards. This runs on every keystroke, and a line
-		// window holds several times what the old 500-word cap did, so the cost
-		// has to follow the number of matches and not the size of the vocabulary.
+		// Forward once collecting only prefix matches, rather than copying the
+		// store to walk it backwards. The typo fallback below walks the store
+		// only when that pass was empty.
 		List<String> matches = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			String key = e.getKey();
@@ -925,28 +933,72 @@ public final class WordSuggestions {
 	}
 
 	/**
-	 * A word one insertion, deletion, substitution or adjacent transposition
-	 * away. Same-length needles are allowed, unlike {@link #suggestLoosely}.
+	 * A word a few edits away, or whose start is. Same-length needles are
+	 * allowed, unlike {@link #suggestLoosely}. Distance 1 first, then 2.
 	 */
 	private void suggestTypos(final String needle, final int max,
 			final List<String> out) {
-		List<String> matches = new ArrayList<String>();
+		List<String> near = new ArrayList<String>();
+		List<String> far = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			String key = e.getKey();
 			if (key.equals(needle)) {
 				continue;
 			}
-			int gap = key.length() - needle.length();
-			if (gap < -1 || gap > 1) {
-				continue;
-			}
-			if (isNearbyTypo(needle, key)) {
-				matches.add(e.getValue().spelling);
+			int d = typoDistance(needle, key);
+			if (d == 1) {
+				near.add(e.getValue().spelling);
+			} else if (d == 2) {
+				far.add(e.getValue().spelling);
 			}
 		}
+		appendNewestFirst(near, out, max);
+		appendNewestFirst(far, out, max);
+	}
+
+	private static void appendNewestFirst(final List<String> matches,
+			final List<String> out, final int max) {
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
-			out.add(matches.get(i));
+			String spelling = matches.get(i);
+			if (!out.contains(spelling)) {
+				out.add(spelling);
+			}
 		}
+	}
+
+	/**
+	 * 1 or 2, or 3 when it should not be offered. Compares the typed letters
+	 * to the whole word and to a prefix of the same length — otherwise
+	 * {@code girz} never finds {@code grizzled} until the last letter.
+	 */
+	static int typoDistance(final String needle, final String word) {
+		int n = needle.length();
+		int w = word.length();
+		int best = 3;
+		int gap = Math.abs(w - n);
+		if (gap <= 1 && isNearbyTypo(needle, word)) {
+			return 1;
+		}
+		if (w > n && isNearbyTypo(needle, word.substring(0, n))) {
+			return 1;
+		}
+		if (n < MIN_TYPO_TWO_EDITS || w == 0
+				|| needle.charAt(0) != word.charAt(0)) {
+			return best;
+		}
+		if (gap <= 2) {
+			int d = damerauAtMost(needle, word, 2);
+			if (d >= 1 && d < best) {
+				best = d;
+			}
+		}
+		if (w > n) {
+			int d = damerauAtMost(needle, word.substring(0, n), 2);
+			if (d >= 1 && d < best) {
+				best = d;
+			}
+		}
+		return best;
 	}
 
 	/**
@@ -1013,6 +1065,72 @@ public final class WordSuggestions {
 		}
 		return i == shorter.length()
 				&& (skipped || j == longer.length() - 1);
+	}
+
+	/**
+	 * Damerau–Levenshtein, aborted above {@code max}. Transposition is the
+	 * adjacent swap already used by {@link #isNearbyTypo}.
+	 */
+	static int damerauAtMost(final String a, final String b, final int max) {
+		if (a == null || b == null || max < 0) {
+			return max + 1;
+		}
+		int n = a.length();
+		int m = b.length();
+		if (Math.abs(n - m) > max) {
+			return max + 1;
+		}
+		if (n == 0) {
+			return m;
+		}
+		if (m == 0) {
+			return n;
+		}
+		int[] pp = new int[m + 1];
+		int[] p = new int[m + 1];
+		int[] c = new int[m + 1];
+		for (int j = 0; j <= m; j++) {
+			p[j] = j;
+		}
+		for (int i = 1; i <= n; i++) {
+			c[0] = i;
+			char ca = a.charAt(i - 1);
+			int rowMin = c[0];
+			for (int j = 1; j <= m; j++) {
+				char cb = b.charAt(j - 1);
+				int cost = ca == cb ? 0 : 1;
+				int v = p[j] + 1;
+				int ins = c[j - 1] + 1;
+				int sub = p[j - 1] + cost;
+				if (ins < v) {
+					v = ins;
+				}
+				if (sub < v) {
+					v = sub;
+				}
+				if (i > 1 && j > 1
+						&& ca == b.charAt(j - 2)
+						&& cb == a.charAt(i - 2)) {
+					int tr = pp[j - 2] + 1;
+					if (tr < v) {
+						v = tr;
+					}
+				}
+				c[j] = v;
+				if (v < rowMin) {
+					rowMin = v;
+				}
+			}
+			if (rowMin > max) {
+				return max + 1;
+			}
+			int[] tmp = pp;
+			pp = p;
+			p = c;
+			c = tmp;
+		}
+		int d = p[m];
+		return d > max ? max + 1 : d;
 	}
 
 	/**

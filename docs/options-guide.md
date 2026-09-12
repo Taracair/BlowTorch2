@@ -431,10 +431,12 @@ seven switches was making the Input page a wall.
   letter must match, four-letter minimum.
 - **Correct nearby misspellings** — `.suggest typos on|off` (alias `typo`).
   **On by default** once suggestions are on. Only after an exact prefix finds
-  nothing: a word one edit away, `exohelnet` → `exohelmet` (swap, substitute,
-  insert or delete one letter). Same-length words count. Four-letter minimum.
-  Works on the word at the cursor in the middle of a line as well as at the end.
-  Accurate prefix matches are unchanged.
+  nothing: a word close to what you typed, `helmte` → `helmet`, and
+  `girz` → `grizzled` while still typing (the start of the word, not only
+  the finished spelling). Two mistakes on a longer word if the first letter
+  matches (`gxizzlxd` → `grizzled`). Same-length words count. Four-letter
+  minimum. Works on the word at the cursor in the middle of a line as well as
+  at the end. Accurate prefix matches are unchanged.
 - **Show the rest of the word as you type** — `.suggest ghost on|off`. Draws the
   top suggestion after the cursor, dimmed, with a micro `1`. **Tap it to take
   it** — the ghost is a target, not just a hint. Drawn only, never inserted, so

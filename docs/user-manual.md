@@ -297,14 +297,17 @@ letters — below that almost every word in the room matches.
 
 **Nearby misspellings.** `.suggest typos on` — **on by default** once
 suggestions are on — is a different pass: if the exact prefix finds nothing,
-offer a word the game just used that is one edit away. `exohelnet` finds
-`exohelmet` (swap two adjacent letters, or substitute, insert or delete one).
-Same-length mistakes count, which the letters-in-order pass does not. It only
-runs after an exact prefix found nothing, so typing `hel` still only
-prefix-matches. Four-letter minimum. Works on the word at the cursor in the
-middle of a line (`wear exohelnet now`) as well as at the end. `.suggest typos
-off` turns it off. The ghost uses the same correction arrow as a forgiven typo:
-`exohelnet → exohelmet`.
+offer a word the game just used that is close to what you typed. `helmte`
+finds `helmet` (swap two adjacent letters, or substitute, insert or delete
+one). Typing `girz` already finds `grizzled` — the swap is compared to the
+*start* of the word, not only to the finished spelling. Six letters and up,
+two such mistakes still match if the first letter is right (`gxizzlxd` →
+`grizzled`). Same-length mistakes count, which the letters-in-order pass
+does not. It only runs after an exact prefix found nothing, so typing `hel`
+still only prefix-matches. Four-letter minimum. Works on the word at the
+cursor in the middle of a line (`look helmte now`) as well as at the end.
+`.suggest typos off` turns it off. The ghost uses the same correction arrow
+as a forgiven typo: `helmte → helmet`.
 
 **The rest of the word, as you type.** `.suggest ghost on` draws the top
 suggestion's remaining letters after the cursor in dimmed type, with a small `1`
@@ -337,8 +340,8 @@ type, as it always has.
 **In the middle of a line.** Prefix chips (type `gri` and get `grizzled`) only
 follow you at the *end* of what you have typed, unless **Complete at the
 cursor** is on. Nearby misspellings already follow the word the cursor is
-on: stand on `exohelnet` in `wear exohelnet now` and it still offers
-`exohelmet`.
+on: stand on `helmte` in `look helmte now` and it still offers
+`helmet`.
 
 Move the cursor back into `kill troll with the gnarled staff` to change
 `troll` by typing a prefix and the prefix chips go away — there is nowhere
