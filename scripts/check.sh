@@ -238,6 +238,62 @@ else
   echo "ok"
 fi
 
+stage "Commits section matches between CLAUDE.md and orchestration.mdc"
+extract_commits() {
+  awk '
+    /^## Commits$/ { p=1; next }
+    /^## / { if (p) exit }
+    p { lines[++n] = $0 }
+    END {
+      while (n > 0 && lines[n] == "") n--
+      for (i = 1; i <= n; i++) print lines[i]
+    }
+  ' "$1"
+}
+if ! diff -q <(extract_commits CLAUDE.md) <(extract_commits .cursor/rules/orchestration.mdc) >/dev/null; then
+  echo "CLAUDE.md and orchestration.mdc Commits sections differ:"
+  diff -u <(extract_commits CLAUDE.md) <(extract_commits .cursor/rules/orchestration.mdc) || true
+  fail=1
+else
+  echo "ok"
+fi
+
+stage "Push waits for the maintainer in every working-agreement copy"
+push_ok=1
+for f in CLAUDE.md .cursor/rules/orchestration.mdc .cursor/rules/release-workflow.mdc docs/GUARDRAILS.md; do
+  if ! grep -q 'unless the maintainer asked' "$f"; then
+    echo "$f is missing the push-on-request rule"
+    push_ok=0
+  fi
+done
+if grep -q 'pushing `staging` is routine and needs no permission' .cursor/rules/release-workflow.mdc; then
+  echo "release-workflow.mdc still says pushing staging needs no permission"
+  push_ok=0
+fi
+if grep -q 'The agent commits and pushes' scripts/guards/shell-guard.sh; then
+  echo "shell-guard.sh comment still says the agent pushes staging"
+  push_ok=0
+fi
+if [ "$push_ok" -eq 1 ]; then
+  echo "ok"
+else
+  fail=1
+fi
+
+stage "Public contact email is allowed, not treated as secret"
+if ! grep -q 'taracair@gmail.com' .cursor/rules/no-private-worlds.mdc; then
+  echo "no-private-worlds.mdc must name taracair@gmail.com as public contact"
+  fail=1
+elif grep -qiE 'never a personal inbox|Do not put a personal inbox' .cursor/rules/no-private-worlds.mdc; then
+  echo "no-private-worlds.mdc must not forbid the public inbox"
+  fail=1
+elif ! grep -q 'taracair@gmail.com' .cursor/rules/git-noreply-author.mdc; then
+  echo "git-noreply-author.mdc must say taracair@gmail.com may appear in the product"
+  fail=1
+else
+  echo "ok"
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\ncheck FAILED\n'
   exit 1

@@ -29,7 +29,7 @@ new opportunity for the two copies to disagree.
 | `TriggerData`'s parcel written and read out of step | `check.sh` | CI fails |
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
-| The rule list does not drift between files | `check.sh` | CI fails |
+| Working-agreement copies (six rules, Commits, push-on-request) | `check.sh` | CI fails |
 | Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
 | Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script and `.scratch/review-diff` |
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |

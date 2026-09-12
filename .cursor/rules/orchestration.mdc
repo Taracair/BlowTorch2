@@ -45,6 +45,7 @@ unless asked. Method: `docs/ORCHESTRATION.md` ("Comments are facts, not essays")
 ```sh
 scripts/check.sh          # everything checkable without a device; what CI runs
 scripts/deploy.sh         # test, build btTest debug, resolve serial, install -r
+scripts/adb-device.sh     # print a usable serial, nothing else
 ```
 
 Run `scripts/deploy.sh` before reporting a code step done, once per step, after
@@ -62,7 +63,8 @@ confidently teaches you something false. Elsewhere, do not load it.
 
 At the end of each turn that produced a complete change, commit on `staging`.
 Do **not** `git push` unless the maintainer asked for that push. Laptop copies
-are the maintainer's NAS backup, not GitHub.
+are the maintainer's NAS backup, not GitHub. Message is one or two sentences
+on why, not a file list.
 
 Before a requested push: read `git log origin/staging..HEAD` (or `main..HEAD`
 if unpushed), and only push if those commits are ones they would want on
@@ -78,12 +80,17 @@ commits. Probes get their own commit. Do not commit a half-written file or
 an empty tree. This repo's rule wins over any editor default that says wait.
 
 `staging` is allowed to grow. `main` is the release branch and is only
-touched when the maintainer asks for a release — a confirmed test APK means
-the work is good, not that it ships. Do not offer the merge after every
-confirmation. Tags, GitHub releases and production APKs still need asking.
+touched when the maintainer asks for a release. A confirmed test APK means
+the work is good, not that it ships — do not offer the merge after every
+confirmation. When a release is asked for, the `staging` → `main` merge is
+the agent's job.
 
-A commit message is a claim: "nothing reads this", "equivalent to the old path".
-Go and look before writing it down, and say how you know.
+What still needs asking every time: tags, GitHub releases, production APKs. See
+`.cursor/rules/release-workflow.mdc`.
+
+A commit message is a claim. "Nothing reads this", "equivalent to the old path",
+"X already does this" are assertions about code somewhere else. Go and look
+before writing them down, and say how you know.
 
 ## Explain in examples
 

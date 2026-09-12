@@ -275,4 +275,4 @@ first — it will save you a wrong guess or two.
 
 MIT — Offset Null Entertainment, LLC 2010–2018; fork changes under the same
 license. Issues on GitHub: Android version, steps to reproduce, and a log or
-crash report if you can get one.
+crash report if you can get one. Maintainer: taracair@gmail.com.

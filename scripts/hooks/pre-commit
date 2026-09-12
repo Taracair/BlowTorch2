@@ -93,7 +93,7 @@ fi
 # --- commit author is GitHub noreply (GH007) -------------------------------
 ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
 if ! printf '%s' "$ident" | grep -qE '<[^[:space:]]+@users\.noreply\.github\.com>'; then
-  say "BLOCKED: commit author must be GitHub noreply. A personal inbox is rejected on push (GH007)."
+  say "BLOCKED: git author must be GitHub noreply (GH007). taracair@gmail.com is fine in the product, not as commit author."
   echo "git -c user.name=Taracair -c user.email=Taracair@users.noreply.github.com commit ..."
   fail=1
 fi

@@ -42,7 +42,9 @@ scripts/adb-device.sh     # print a usable serial, nothing else
 ```
 
 Run `scripts/deploy.sh` before reporting a code step done, once per step, after
-its last commit. Report "installed", not "works".
+its last commit. Report "installed", not "works". Do not resolve the adb serial
+by hand and never ask the maintainer for the wifi port; `scripts/adb-device.sh`
+finds it.
 
 ## Where things are
 
@@ -85,14 +87,14 @@ Do **not** `git push` unless the maintainer asked for that push. Laptop copies
 are the maintainer's NAS backup, not GitHub. Message is one or two sentences
 on why, not a file list.
 
-Before a requested push: read `git log origin/staging..HEAD`, and only push
-if those commits are ones they would want on GitHub — squash probe/revert
-noise and obvious split-steps first. Do not spam the remote with a commit
-per try.
+Before a requested push: read `git log origin/staging..HEAD` (or `main..HEAD`
+if unpushed), and only push if those commits are ones they would want on
+GitHub — squash probe/revert noise and obvious split-steps first. Do not spam
+the remote with a commit per try.
 
 Say how many **unpushed** commits are on `staging` in the status to the
-maintainer (once per turn that committed, and whenever they ask what is
-waiting). `git rev-list --count origin/staging..HEAD`.
+maintainer (not every sentence; once per turn that committed, and whenever
+they ask what is waiting). `git rev-list --count origin/staging..HEAD`.
 
 One commit is one rollback point. Two unrelated fixes in one turn are two
 commits. Probes get their own commit. Do not commit a half-written file or

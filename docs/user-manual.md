@@ -22,7 +22,8 @@ Because BlowTorch has a lot of features and tries to cover what many different
 players need, this guide (and the Starter Tutorial) may occasionally be
 slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
-[GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
+[GitHub Issues](https://github.com/Taracair/BlowTorch2/issues)
+or email taracair@gmail.com.
 
 ## The server list
 

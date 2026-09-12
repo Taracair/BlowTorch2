@@ -51,13 +51,11 @@ if printf '%s' "$flat" | grep -qE '(^|[;&|`(]|[[:space:]])([^[:space:]]*/)?(adb|
 fi
 
 # --- 2. pushing: deliberately NOT blocked -----------------------------------
-# The package this came from denied `git push` on the theory that the maintainer
-# pushes and the agent does not. That is wrong for this project: the maintainer
-# does not use git directly, so a blocked push means work sits only on this
-# laptop with no copy anywhere. The agent commits and pushes `staging`.
-#
-# What still needs asking is releasing: tags, `main`, GitHub releases and
-# production APKs. That is judgment, not a pattern match, and it lives in
+# The guard does not deny `git push`. The agent still must not push unless the
+# maintainer asked: GitHub is not the laptop backup (that is the NAS). A blocked
+# push used to mean work sat only on this machine; the NAS copy is that backup
+# now. Releasing (tags, `main`, GitHub releases, production APKs) still needs
+# asking. That is judgment, not a pattern match, and it lives in
 # .cursor/rules/release-workflow.mdc.
 
 # --- 3. commits on main: deliberately NOT blocked ---------------------------

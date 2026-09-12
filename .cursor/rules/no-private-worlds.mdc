@@ -1,5 +1,5 @@
 ---
-description: Do not put real MUDs, guilds, players, or private details in the app or public tree
+description: Do not put real MUDs, guilds, or players in the app or public tree. taracair@gmail.com is public contact.
 alwaysApply: true
 ---
 
@@ -8,6 +8,9 @@ alwaysApply: true
 The GitHub tree is public. The APK is public. Do not put the maintainer's worlds,
 guilds, characters, hosts, or other private life into anything that ships or is
 tracked.
+
+Public contact is **`taracair@gmail.com`** (and the GitHub name Taracair). It
+may appear in UI, Help, README, comments, and tests. It is not a secret.
 
 ## Do not
 
@@ -31,4 +34,6 @@ assertEquals("world-a", world);
 - Tests and comments: `world-a`, `example.org`, `a live world`, `an older profile`
 - Protocol **ids** stay as the wire sends them (`dns-org-hellmoo-status`).
   Player-visible **labels** stay generic (`Vitals bar (hp, thirst, hunger, stress)`).
-- Email `TARACAIR@GMAIL.COM` and the GitHub name are OK.
+- Put `taracair@gmail.com` where a contact address belongs. Git *author* is
+  still GitHub noreply (`git-noreply-author.mdc`) because GitHub rejects the
+  inbox on push (GH007) — that is not a privacy ban.
