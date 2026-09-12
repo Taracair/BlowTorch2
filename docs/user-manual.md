@@ -334,16 +334,20 @@ on at the start of the next line, if the bar already has one; when there is no
 next line it is cut short with `…`. The bar still grows with what you actually
 type, as it always has.
 
-**In the middle of a line.** Off by default, the ghost and the chips only
-follow you at the *end* of what you have typed. Move the cursor back into
-`kill troll with the gnarled staff` to change `troll` and they go away —
-there is nowhere to draw the rest of a word without sitting on the text that
-follows.
+**In the middle of a line.** Prefix chips (type `gri` and get `grizzled`) only
+follow you at the *end* of what you have typed, unless **Complete at the
+cursor** is on. Nearby misspellings already follow the word the cursor is
+on: stand on `exohelnet` in `wear exohelnet now` and it still offers
+`exohelmet`.
+
+Move the cursor back into `kill troll with the gnarled staff` to change
+`troll` by typing a prefix and the prefix chips go away — there is nowhere
+to draw the rest of a word without sitting on the text that follows.
 
 `.suggest caret on` — **Options → Input → Suggestions → Complete at the
-cursor** — follows the cursor instead. Type two letters of the name you
-meant, or stand at the front of the word you want to replace, and the chips
-still offer. Taking one replaces that word and keeps what follows:
+cursor** — follows the cursor for prefixes too. Type two letters of the name
+you meant, or stand at the front of the word you want to replace, and the
+chips still offer. Taking one replaces that word and keeps what follows:
 
     The bar holds:  look at the old troll
     Cursor after:   look at the |
@@ -352,11 +356,12 @@ still offer. Taking one replaces that word and keeps what follows:
     Tap it:         look at the grizzled troll
 
 The ghost itself still only draws at the end of the line (it would cover
-what follows). With the ghost on, the numbered list moves *under* the line
-you are editing, each one tappable, so you are not limited to the chips.
+what follows). In the middle — Complete at the cursor, or a nearby
+misspelling — the numbered list sits *under* the line you are editing, each
+one tappable, so you are not limited to the chips.
 `.suggest 1` from a button still picks the first. Off again with
 `.suggest caret off`, or put `.suggest caret on` / `off` on a button if you
-only want it while rewriting a long command.
+only want prefix chips while rewriting a long command.
 
 **Where the chips sit.** One setting, `.suggest where`, with three answers. It
 is one setting and not two switches because "no bar, but floating" is not a

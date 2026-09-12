@@ -402,7 +402,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest show N\n"
 					+ "  .suggest where floating|bar|off|next\n"
 					+ "  .suggest ghost on|off\n"
-					+ "  .suggest caret on|off     (follow the cursor into the middle of a line)\n"
+					+ "  .suggest caret on|off     (prefix chips in the middle of a line)\n"
 					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
 					+ "  .suggest opacity N\n"
 					+ "  .suggest persist on|off\n"

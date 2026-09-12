@@ -150,11 +150,14 @@ public class CompleteCommand extends SpecialCommand {
 			int skip = arg.startsWith("caret") ? "caret".length() : "cursor".length();
 			return setFlag(arg.substring(skip).trim(), c, CARET_KEY,
 					"Suggestions now follow the cursor: edit in the middle of a"
-						+ " line and they still offer, and taking one goes in at"
-						+ " the cursor. Put this on a button if you only want it"
-						+ " while rewriting a command.",
-					"Suggestions only appear while the cursor is at the end of"
-						+ " what you have typed.");
+						+ " line and prefix chips still offer, and taking one goes"
+						+ " in at the cursor. Nearby misspellings already follow"
+						+ " the word at the cursor. Put this on a button if you"
+						+ " only want prefix chips while rewriting a command.",
+					"Prefix chips only appear while the cursor is at the end of"
+						+ " what you have typed. Nearby misspellings still follow"
+						+ " the word at the cursor (.suggest typos off turns that"
+						+ " off too).");
 		}
 		if (arg.startsWith("persist")) {
 			return setFlag(arg.substring("persist".length()).trim(), c, PERSIST_KEY,
@@ -261,8 +264,11 @@ public class CompleteCommand extends SpecialCommand {
 							: ", listing the others on the rest of the line")
 					+ ".\nFollow the cursor "
 					+ (flagOn(c, CARET_KEY)
-						? "on — suggestions still offer in the middle of a line"
-						: "off — suggestions only at the end of the line")
+						? "on — prefixes still offer in the middle of a line"
+						: flagOn(c, TYPOS_KEY)
+							? "off for prefixes — nearby misspellings still follow"
+								+ " the word at the cursor"
+							: "off — suggestions only at the end of the line")
 					+ ".\nShowing at most " + showCount(c) + " suggestions"
 					+ " (bar, ghost, and .suggest N — use .suggest show N)."
 					+ "\nOrder is " + (flagOn(c, RANK_KEY)
@@ -285,7 +291,8 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest typos on|off    — exohelnet finds exohelmet\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
-				+ ".suggest caret on|off    — follow the cursor into the middle of a line\n"
+				+ ".suggest caret on|off    — prefix chips follow the cursor into"
+				+ "                           the middle of a line\n"
 				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"
 				+ ".suggest ghostlines N    — extra rows the field may grow by, 1-6.\n"
 				+ "                           At 1 the others still fill the rest of\n"
