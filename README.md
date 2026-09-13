@@ -4,6 +4,7 @@
   <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/"><img src="https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid" alt="F-Droid"></a>
   <a href="https://github.com/Taracair/BlowTorch2/releases/latest"><img src="https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github" alt="Latest GitHub release"></a>
   <a href="https://discord.gg/AvyUUtRmtQ"><img src="https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white" alt="Discord: B.U.R.N."></a>
+  <a href="https://ko-fi.com/taracair"><img src="https://img.shields.io/badge/Ko--fi-tip-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
   <a href="#credit"><img src="https://img.shields.io/badge/unofficial-fork-orange" alt="Unofficial fork"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
