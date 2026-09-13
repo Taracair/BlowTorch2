@@ -425,6 +425,98 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void touchingAWordAlreadyInTheWindowRestampIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("grizzled\n");
+		w.learn("filler\n");
+		w.touch("grizzled");
+		w.learn("filler\nfiller\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+	}
+
+	@Test
+	public void touchDoesNotInsertAWordTheWorldNeverSaid() {
+		WordSuggestions w = new WordSuggestions();
+		w.touch("grizzled");
+		assertTrue(w.suggest("gri", 5).isEmpty());
+		assertEquals(0, w.size());
+	}
+
+	@Test
+	public void sendingACommandRestampAWordAlreadyInTheWindow() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("troll\n");
+		w.learn("filler\n");
+		w.learnCommand("kill troll");
+		w.learn("filler\nfiller\n");
+		assertEquals(java.util.Arrays.asList("troll"), w.suggest("trol", 5));
+	}
+
+	@Test
+	public void sendingACommandStillDoesNotInsertANewWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learnCommand("kill goblin");
+		assertTrue(w.suggest("gobl", 5).isEmpty());
+		assertEquals(0, w.size());
+	}
+
+	@Test
+	public void aSpeechCommandDoesNotRestampTheChatRemainder() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("troll\n");
+		w.learn("filler\n");
+		w.learnCommand("say kill the troll");
+		w.learn("filler\nfiller\n");
+		assertTrue(w.suggest("trol", 5).isEmpty());
+	}
+
+	@Test
+	public void touchingAPhraseRestampEachToken() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.setPhrases(true);
+		w.learn("grizzled cave troll\n");
+		w.learn("filler\n");
+		w.touch("grizzled cave troll");
+		w.learn("filler\nfiller\n");
+		assertEquals(java.util.Arrays.asList("grizzled cave troll", "grizzled"),
+				w.suggest("gri", 5));
+		assertEquals(java.util.Arrays.asList("cave troll", "cave"),
+				w.suggest("cav", 5));
+		assertEquals(java.util.Arrays.asList("troll"), w.suggest("trol", 5));
+	}
+
+	@Test
+	public void touchPreservesWhatFollowed() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("grizzled cave troll\n");
+		w.touch("grizzled");
+		assertEquals(java.util.Arrays.asList("grizzled cave troll", "grizzled"),
+				w.suggest("gri", 5));
+	}
+
+	@Test
+	public void restampingMovesTheWordSoOlderUnusedWordsStillExpire() {
+		// Insertion order is the prune order. A stamp-only restamp would leave
+		// the touched word at the front and stop prune from dropping what sits
+		// behind it.
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("stale\n");
+		w.learn("keeper\n");
+		w.learn("newer\n");
+		w.touch("stale");
+		w.learn("filla\nfilla\n");
+		assertEquals(java.util.Arrays.asList("stale"), w.suggest("stal", 5));
+		assertTrue("untouched middle word still aged out",
+				w.suggest("keep", 5).isEmpty());
+	}
+
+	@Test
 	public void theWindowCountsLinesNotWords() {
 		WordSuggestions w = new WordSuggestions();
 		w.setMaxLines(2);
@@ -766,14 +858,34 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void rankingLiftsATypoOfAKnownTarget() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("troll\n");
+		w.learnCommand("kill troll");
+		w.learn("trolley\n");
+		assertEquals("trolley", w.suggest("trolx", 5).get(0));
+		w.setRankByPosition(true);
+		assertEquals("troll", w.suggest("trolx", 5, false, "kill").get(0));
+		assertFalse(w.isPairRanking());
+	}
+
+	@Test
+	public void withoutRankingTheNewerTypoLeads() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("troll\n");
+		w.learnCommand("kill troll");
+		w.learn("trolley\n");
+		assertEquals("trolley", w.suggest("trolx", 5, false, "kill").get(0));
+	}
+
+	@Test
 	public void atTheStartOfALineAWordUsedAsACommandComesFirst() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
+		w.learnCommand("kill troll");
 		// The world said both. "kindle" is newer, so it leads without ranking.
 		w.learn("You kill the troll.\nYou kindle a torch.\n");
 		assertEquals("kindle", w.suggest("ki", 5).get(0));
-		// The player has only ever typed "kill" as a command.
-		w.learnCommand("kill troll");
 		assertEquals("kill", w.suggest("ki", 5, true).get(0));
 	}
 
@@ -781,9 +893,10 @@ public class WordSuggestionsTest {
 	public void awayFromTheStartAWordUsedAsATargetComesFirst() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
-		w.learn("A troll waits.\nA trophy hangs here.\n");
-		assertEquals("trophy", w.suggest("tro", 5).get(0));
 		w.learnCommand("kill troll");
+		w.learn("A troll waits.\nA trophy hangs here.\n");
+		// Line-start ranking only lifts verbs, so newest-first still stands.
+		assertEquals("trophy", w.suggest("tro", 5, true).get(0));
 		// Mid-line the player is naming a thing, and "troll" is the word they
 		// name things with.
 		assertEquals("troll", w.suggest("tro", 5, false).get(0));
@@ -793,11 +906,13 @@ public class WordSuggestionsTest {
 	public void rankingMovesSuggestionsAndNeverRemovesThem() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
-		w.learn("kill kindle kitten kite\n");
 		w.learnCommand("kill things");
+		w.learn("kill kindle kitten kite\n");
 		List<String> plain = w.suggest("ki", 10);
 		List<String> ranked = w.suggest("ki", 10, true);
 		assertEquals("kill", ranked.get(0));
+		assertFalse("without ranking the oldest command word is not first",
+				plain.get(0).equals("kill"));
 		// Same set, different order — that is the whole contract.
 		assertEquals(new java.util.HashSet<String>(plain),
 				new java.util.HashSet<String>(ranked));
@@ -862,8 +977,8 @@ public class WordSuggestionsTest {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
 		w.setPairRanking(true);
-		w.learn("a troll waits\na trophy hangs here\n");
 		w.learnCommand("kill troll");
+		w.learn("a troll waits\na trophy hangs here\n");
 		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
 		// Push "troll" out of the object store, leaving the kill→troll pairing.
 		for (int i = 0; i < WordSuggestions.MAX_ROLE_WORDS + 5; i++) {
@@ -977,8 +1092,8 @@ public class WordSuggestionsTest {
 		// narrows the matches and they come back.
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
-		w.learn("kill kindle kitten kite\n");
 		w.learnCommand("kill things");
+		w.learn("kill kindle kitten kite\n");
 		// Two chips, four matches: "kill" is the oldest word, so without ranking
 		// it is not among the two shown at all.
 		assertFalse(w.suggest("ki", 2).contains("kill"));

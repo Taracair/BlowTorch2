@@ -4269,6 +4269,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.setText(c.text());
 		mInputBox.setSelection(Math.min(c.caret(), mInputBox.getText().length()));
 		mInputBox.requestFocus();
+		mWordSuggestions.touch(word);
 		refreshWordSuggestions();
 	}
 

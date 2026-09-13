@@ -147,14 +147,13 @@ public final class WordSuggestions {
 	/** A word as it was spelled, the line it was last seen on, and what followed. */
 	private static final class Seen {
 		private final String spelling;
-		private final int line;
+		/** Last print or touch/send; restamped without replacing this entry. */
+		private int line;
 		/**
 		 * The key of the word that last came immediately after this one, or null.
 		 *
-		 * <p>Mutable, unlike the rest: the successor is only known once the next
-		 * word arrives, which is after this entry exists. Re-seeing a word makes a
-		 * fresh entry, so a name that moves to a new neighbour forgets the old one
-		 * rather than keeping both.
+		 * <p>Set when the next word arrives. {@link #addWord} replaces the
+		 * entry and drops this; {@link #touch} keeps it.
 		 */
 		private String next;
 
@@ -508,12 +507,13 @@ public final class WordSuggestions {
 			if (key == null) {
 				continue;
 			}
+			restamp(key);
 			if (verb == null) {
 				verb = key;
 				remember(verbs, key);
 				if (SPEECH_VERBS.contains(key)) {
 					// The rest of this line is prose.
-					return;
+					break;
 				}
 			} else if (key.length() >= MIN_WORD_LENGTH) {
 				// Object side only: a word shorter than that is never stored in
@@ -525,6 +525,45 @@ public final class WordSuggestions {
 				rememberPair(verb, key);
 			}
 		}
+		prune();
+	}
+
+	/**
+	 * Restamp tokens already in the vocabulary, as if the world had just said
+	 * them. Does not insert. Stamp is {@link #lastWordLine}, so blank lines
+	 * do not pin.
+	 *
+	 * @param raw one word or a phrase chip; each token is restamped if present.
+	 */
+	public void touch(final String raw) {
+		if (raw == null) {
+			return;
+		}
+		String trimmed = raw.trim();
+		if (trimmed.length() == 0) {
+			return;
+		}
+		String[] parts = trimmed.split("\\s+");
+		for (int i = 0; i < parts.length; i++) {
+			restamp(commandWord(parts[i]));
+		}
+		prune();
+	}
+
+	/**
+	 * Move an existing word to the newest end with today's {@link #lastWordLine}.
+	 * Same Seen object, so {@link Seen#next} is kept. Missing keys are ignored.
+	 */
+	private void restamp(final String key) {
+		if (key == null) {
+			return;
+		}
+		Seen s = words.remove(key);
+		if (s == null) {
+			return;
+		}
+		s.line = lastWordLine;
+		words.put(key, s);
 	}
 
 	/** A command token reduced to the word inside it, or null if there is none. */
@@ -848,11 +887,11 @@ public final class WordSuggestions {
 		}
 		if (out.isEmpty()) {
 			if (typoMatching && needle.length() >= MIN_TYPO_PREFIX_LENGTH) {
-				suggestTypos(needle, max, out);
+				suggestTypos(needle, max, out, atLineStart, leadingVerb);
 			}
 			if (looseMatching && needle.length() >= MIN_LOOSE_PREFIX_LENGTH
 					&& out.size() < max) {
-				suggestLoosely(needle, max, out);
+				suggestLoosely(needle, max, out, atLineStart, leadingVerb);
 			}
 		}
 		return out;
@@ -950,19 +989,19 @@ public final class WordSuggestions {
 	 * those letters anywhere, and the one you meant is not near the front.
 	 */
 	private void suggestLoosely(final String needle, final int max,
-			final List<String> out) {
+			final List<String> out, final boolean atLineStart,
+			final String leadingVerb) {
 		List<String> matches = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			if (isSubsequence(needle, e.getKey())) {
 				String spelling = e.getValue().spelling;
 				if (!out.contains(spelling)) {
-					matches.add(spelling);
+					matches.add(e.getKey());
 				}
 			}
 		}
-		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
-			out.add(matches.get(i));
-		}
+		rankByPosition(matches, atLineStart, leadingVerb);
+		appendNewestFirst(matches, out, max);
 	}
 
 	/**
@@ -971,7 +1010,8 @@ public final class WordSuggestions {
 	 * optional skipped head, then distance 2.
 	 */
 	private void suggestTypos(final String needle, final int max,
-			final List<String> out) {
+			final List<String> out, final boolean atLineStart,
+			final String leadingVerb) {
 		List<String> near = new ArrayList<String>();
 		List<String> skipExact = new ArrayList<String>();
 		List<String> skipNear = new ArrayList<String>();
@@ -985,30 +1025,35 @@ public final class WordSuggestions {
 			}
 			int d = typoDistance(needle, key, wrong);
 			if (d == 1) {
-				near.add(e.getValue().spelling);
+				near.add(key);
 			} else if (d == 2) {
-				far.add(e.getValue().spelling);
+				far.add(key);
 			}
 			if (skip) {
 				int s = skipPrefixRank(needle, key);
 				if (s == 1) {
-					skipExact.add(e.getValue().spelling);
+					skipExact.add(key);
 				} else if (s == 2) {
-					skipNear.add(e.getValue().spelling);
+					skipNear.add(key);
 				}
 			}
 		}
+		rankByPosition(near, atLineStart, leadingVerb);
 		appendNewestFirst(near, out, max);
+		rankByPosition(skipExact, atLineStart, leadingVerb);
 		appendNewestFirst(skipExact, out, max);
+		rankByPosition(skipNear, atLineStart, leadingVerb);
 		appendNewestFirst(skipNear, out, max);
+		rankByPosition(far, atLineStart, leadingVerb);
 		appendNewestFirst(far, out, max);
 	}
 
-	private static void appendNewestFirst(final List<String> matches,
+	private void appendNewestFirst(final List<String> keys,
 			final List<String> out, final int max) {
-		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
-			String spelling = matches.get(i);
-			if (!out.contains(spelling)) {
+		for (int i = keys.size() - 1; i >= 0 && out.size() < max; i--) {
+			Seen s = words.get(keys.get(i));
+			String spelling = s == null ? null : s.spelling;
+			if (spelling != null && !out.contains(spelling)) {
 				out.add(spelling);
 			}
 		}
