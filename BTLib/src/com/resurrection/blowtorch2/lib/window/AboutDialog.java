@@ -22,6 +22,7 @@ import android.widget.TextView;
 public class AboutDialog extends Dialog {
 
 	private static final String PROJECT_URL = "https://github.com/Taracair/BlowTorch2";
+	private static final String DONATE_URL = "https://ko-fi.com/taracair";
 
 	public AboutDialog(Context context) {
 		super(context, R.style.BlowTorch_Dialog);
@@ -44,34 +45,8 @@ public class AboutDialog extends Dialog {
 			e.printStackTrace();
 		}
 
-		int btid = this.getContext().getResources().getIdentifier("blowtorch_button", "id", this.getContext().getPackageName());
-		if (btid != 0) {
-			View websiteButton = this.findViewById(btid);
-			if (websiteButton != null) {
-				websiteButton.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL));
-						AboutDialog.this.getContext().startActivity(web);
-					}
-				});
-			}
-		}
-
-		int githubId = this.getContext().getResources().getIdentifier(
-				"blowtorch_github", "id", this.getContext().getPackageName());
-		if (githubId != 0) {
-			View github = this.findViewById(githubId);
-			if (github != null) {
-				github.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL));
-						AboutDialog.this.getContext().startActivity(web);
-					}
-				});
-			}
-		}
+		bindUrlButton("blowtorch_github", PROJECT_URL);
+		bindUrlButton("blowtorch_donate", DONATE_URL);
 
 		Window window = getWindow();
 		if (window != null) {
@@ -79,6 +54,25 @@ public class AboutDialog extends Dialog {
 			window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
 			window.setGravity(Gravity.CENTER);
 		}
+	}
+
+	private void bindUrlButton(String idName, final String url) {
+		int id = getContext().getResources().getIdentifier(
+				idName, "id", getContext().getPackageName());
+		if (id == 0) {
+			return;
+		}
+		View button = findViewById(id);
+		if (button == null) {
+			return;
+		}
+		button.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+				AboutDialog.this.getContext().startActivity(web);
+			}
+		});
 	}
 
 }

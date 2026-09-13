@@ -9,4 +9,7 @@
 	<string name="exportDirectory">BlowTorch</string>
 	<string name="terminalTypeString">BlowTorch</string>
 	<string name="blowtorch_desc">BlowTorch 2 is a MUD client with triggers, aliases, timers, speedwalks, and on-screen buttons.</string>
+	<string name="about_donate_blurb">Optional support. The client stays free either way.</string>
+	<string name="about_github">Project on GitHub</string>
+	<string name="about_donate">Support on Ko-fi</string>
 </resources>
