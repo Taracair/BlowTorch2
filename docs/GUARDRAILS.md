@@ -35,6 +35,7 @@ new opportunity for the two copies to disagree.
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
 | Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
 | Wrap-up omitted "what was not verified" | Claude Code `Stop` (`claude-stop-reminder.sh`) | Continues the turn once; Cursor cannot do this |
+| Gradle uses JDK 17, not the OS default | `check.sh`, `deploy.sh` (`scripts/java-home.sh`) | CachyOS `java` is 26; AGP 8.2 jlink fails. Scripts export `JAVA_HOME` to a 17 JDK (`java` + `javac` + `jlink`). Do not put that path in `gradle.properties` (Arch vs Debian) |
 
 The 16 KB check earns its place by having caught a real one on the day it was
 written. `BTLib/libs` is not in git and is built by a script nobody remembers to
@@ -115,6 +116,7 @@ scripts/guards/          rules, one file each, exit-code based
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
   task_model.py          reviewer Task is Grok, not Composer-pinned bugbot
+scripts/java-home.sh     JDK 17 for Gradle 8.2; sourced by check.sh and deploy.sh
 scripts/review-diff.sh   index on stdout; hunks in .scratch/review-diff/page-NN.txt
 scripts/hooks/
   pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest

@@ -14,6 +14,8 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# Gradle 8.2 / AGP 8.2. CachyOS default java is 26; jlink fails. Pin 17.
+. scripts/java-home.sh || exit 1
 
 ADB="${ADB:-$HOME/Android/Sdk/platform-tools/adb}"
 APK="BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk"

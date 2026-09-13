@@ -15,6 +15,8 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# Gradle 8.2 / AGP 8.2. CachyOS default java is 26; jlink fails. Pin 17.
+. scripts/java-home.sh || exit 1
 
 fail=0
 stage() { printf '\n=== %s ===\n' "$1"; }
