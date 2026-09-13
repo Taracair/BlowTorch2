@@ -1,6 +1,6 @@
 ---
 description: How a release is cut and named. Read when the maintainer asks for one.
-globs: ["*.gradle", "docs/changelog_draft.md"]
+globs: ["*.gradle", "docs/changelog_draft.md", "fastlane/**/changelogs/*.txt"]
 ---
 
 # Releasing
@@ -35,15 +35,38 @@ Match the **v2.1.10** scheme, not the raw Gradle output name. Copy
 `BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk` to
 `BlowTorch2-vX.Y.Z-production-release.apk` before uploading.
 
-Body: `## Highlights`, optional Fixes / Docs, and it must end with
+Body: `## New Features`, `## Fixed`, optional `## Others`. It must end with
 
 ```markdown
 ## Notes
 - versionCode **NNN** / versionName **X.Y.Z**
 ```
 
+Nothing else in Notes. No F-Droid URL, Discord, or Ko-fi — those are already on the README badges.
+
 Player-facing notes accumulate in `docs/changelog_draft.md` (gitignored). Copy
 that into the release body when shipping.
+
+## How to write the notes
+
+Baseline is the **last shipped tag** (`origin/main`). Run
+`git log origin/main..HEAD --oneline`. That is the changelog. Do not diff
+against an older tag once a newer one exists.
+
+Player-facing vs that tag only:
+
+- Do not re-list what the previous GitHub or Fastlane changelog already said.
+- No staging names (`was .lupa`). No “we tried X then fixed it”.
+- Did not exist for the player at the last tag → **New Features**. Broken then,
+  works now → **Fixed**.
+- One bullet per theme. Five suggestion switches are **Better suggestion
+  engine**, not five bullets. Example: you type `helmte` and get `helmet`.
+- Skip internal completer bookkeeping unless asked.
+- Fastlane `changelogs/NNN.txt` is three or four short store lines, same delta,
+  not a copy of the GitHub essay.
+
+Clear `changelog_draft.md` after the tag ships so the next draft cannot
+accumulate the last release.
 
 ## Local APK copies
 
