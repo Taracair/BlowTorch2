@@ -200,12 +200,12 @@ of words leads — the things you use as commands at the start of a line, the
 things you point commands at after one — and length decides the order *inside*
 each group. Neither setting makes the other pointless.
 
-**Ordered by where you are in the line.** `.suggest rank on` — **off by
-default** — uses one thing the app already knows for free: the first word of
-every command you send *is* a verb this world takes, and what follows it is a
-thing you point commands at. With it on, `ki` at the start of a line offers
-`kill` above `kindle` if `kill` is what you type commands with, and the same
-`ki` after `kill ` puts the things you have aimed at first.
+**Ordered by where you are in the line.** `.suggest rank` is **on by
+default**; `.suggest rank off` turns it off. It uses one thing the app already
+knows for free: the first word of every command you send *is* a verb this world
+takes, and what follows it is a thing you point commands at. `ki` at the start
+of a line offers `kill` above `kindle` if `kill` is what you type commands
+with, and the same `ki` after `kill ` puts the things you have aimed at first.
 
 It only ever **reorders** — nothing is thrown out of the candidates. There is
 one place that still costs you something, and it is worth knowing: the bar

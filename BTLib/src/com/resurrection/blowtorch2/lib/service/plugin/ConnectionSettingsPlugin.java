@@ -296,9 +296,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_rank = new BooleanOption();
 		word_complete_rank.setTitle("Order by place in the line");
-		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. Off by default. .suggest rank on/off");
+		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. On by default: ki offers kill above kindle; after kill, the targets you have used. .suggest rank off turns it off. Learn what goes with what still needs its own checkbox. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. .suggest rank on/off");
 		word_complete_rank.setKey("word_complete_rank");
-		word_complete_rank.setValue(false);
+		word_complete_rank.setValue(true);
 
 		BooleanOption word_complete_pairs = new BooleanOption();
 		word_complete_pairs.setTitle("Learn what goes with what");

@@ -5442,9 +5442,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				mInputBox.setGhostAtCaret(suggestionsFollowCaret());
 			}
 			BaseOption rankOpt = (BaseOption) group.findOptionByKey("word_complete_rank");
-			mWordSuggestions.setRankByPosition(rankOpt != null
-					&& rankOpt.getValue() instanceof Boolean
-					&& (Boolean) rankOpt.getValue());
+			mWordSuggestions.setRankByPosition(rankOpt == null
+					|| !(rankOpt.getValue() instanceof Boolean)
+					|| (Boolean) rankOpt.getValue());
 			// Read here as well as in :stellar: TriggerSounds is per process and the
 			// editor's test button plays from this one.
 			BaseOption soundStreamOpt =

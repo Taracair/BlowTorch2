@@ -645,7 +645,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_rank:
-						if((Boolean)opt.getValue() != false) {
+						// Default is true; persist when the player turns it off.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;
