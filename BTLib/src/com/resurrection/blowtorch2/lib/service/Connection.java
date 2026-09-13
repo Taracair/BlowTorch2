@@ -2465,7 +2465,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Largest vocabulary seed we will send after a UI process death.
+	/** Largest vocabulary seed we will send (connect reset or UI-death replay).
 	 *
 	 * <p>Much smaller than {@link #MAX_REPLAY_BYTES} because this is not history the
 	 * player reads, it is words the completer offers, and {@code WordSuggestions}
@@ -2481,16 +2481,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Teach the completer the text that was already on screen.
 	 *
-	 * <p>The vocabulary lives in the UI process, so a UI process death empties it,
-	 * and nothing refills it: the window adopts a parceled {@code TextTree}, while
-	 * {@link WordSuggestions#learn} is fed only by freshly arriving packets in
-	 * {@link #addBytes}. Kill the app, re-enter a world that happens to be quiet,
-	 * and the game text is right there on screen with not one word of it offered
-	 * back — until the world says something new. On a busy MUD the first line
-	 * hides it, which is why this went unnoticed.
-	 *
-	 * <p>Only on the path that already knows the UI died, so a window re-attaching
-	 * with its vocabulary intact does not learn the same session twice.
+	 * <p>After connect, {@link #applyInputAssistSettings} resets bag A then
+	 * calls this so names still visible complete. UI-death refill still goes
+	 * through {@link #replayBufferToWindow}.
 	 *
 	 * @param history The untrimmed buffer dump, oldest byte first.
 	 */
@@ -6635,12 +6628,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				readBooleanOption("trigger_sound_warn_silent", true));
 	}
 
+	/** Apply input-assist options after connect.
+	 *
+	 * <p>Resets bag A then seeds from the main window dump so names still on
+	 * screen complete. Binder is oneway; RESET then TEXT is FIFO on the UI
+	 * handler. UI-death refill still goes through {@link #replayBufferToWindow}.
+	 */
 	private void applyInputAssistSettings() {
 		mWordComplete = readBooleanOption("word_complete", false);
 		applyTriggerSoundSettings();
 		// The vocabulary lives in the UI process for the life of that process, so
 		// without this a second world is offered the first one's mob names.
 		mService.doVocabularyReset(mDisplay);
+		if (mWordComplete) {
+			WindowToken token = getWindowByName(MAIN_WINDOW);
+			if (token != null && token.getBuffer() != null) {
+				byte[] history = token.getBuffer().dumpToBytes(true);
+				seedVocabularyFromHistory(history);
+			}
+		}
 		// Through the setter, not the field: setPromptBar(false) is what tells the
 		// UI to clear the bar. Assigning raw would leave a prompt from the previous
 		// connection pinned there with nothing left to clear it.
