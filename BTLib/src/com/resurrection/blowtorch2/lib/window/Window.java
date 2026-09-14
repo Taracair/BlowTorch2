@@ -1014,6 +1014,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mLineStampsFields = TimestampFormat.clamp(
 					((Integer) lineStampsFields.getValue()).intValue());
 		}
+		IntegerOption pickLoupeSize =
+				(IntegerOption) settings.findOptionByKey("pick_loupe_size");
+		if (pickLoupeSize != null) {
+			int n = PrefixPickLoupe.clampSize(
+					((Integer) pickLoupeSize.getValue()).intValue());
+			pickLoupeSize.setValue(Integer.valueOf(n));
+			mPickLoupeSize = n;
+		}
+		IntegerOption pickLoupeZoom =
+				(IntegerOption) settings.findOptionByKey("pick_loupe_zoom");
+		if (pickLoupeZoom != null) {
+			int n = PrefixPickLoupe.clampZoom(
+					((Integer) pickLoupeZoom.getValue()).intValue());
+			pickLoupeZoom.setValue(Integer.valueOf(n));
+			mPickLoupeZoom = n;
+		}
 		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
 		if (osc8Links != null) {
 			applyOsc8Links((Boolean) osc8Links.getValue());
@@ -2412,6 +2428,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (line == null) {
 			return;
 		}
+		mPrefixPickBroken = broken;
 		int visualCol = (int) Math.floor((x + mScrollX) / (float) mOneCharWidth);
 		String plain = TextTree.deColorLine(line).toString();
 		java.util.List<String> rows = PrefixPickHit.visualRows(line);
@@ -2425,7 +2442,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		mPrefixPickWord = span.text;
 		mPrefixPickSpan = span;
-		mPrefixPickBroken = broken;
 		int rowStart = PrefixPickHit.rowStart(rows, mPrefixPickWrapRow);
 		String row = (mPrefixPickWrapRow >= 0 && mPrefixPickWrapRow < rows.size())
 				? rows.get(mPrefixPickWrapRow) : "";
@@ -2437,7 +2453,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int visStart = Math.max(span.start, rowStart);
 		int visEnd = Math.min(span.end, rowStart + row.length());
 		int cells = Math.max(1, visEnd - visStart);
-		int left = (int) (col0 * mOneCharWidth - mScrollX);
+		int left = (int) PrefixPickLoupe.cellLeft(col0, mOneCharWidth, mScrollX);
 		int right = left + cells * mOneCharWidth;
 		float a = bufferLineToScreenY(broken, 0f);
 		float b = bufferLineToScreenY(broken, mPrefLineSize);
@@ -2530,6 +2546,44 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
+	/**
+	 * One row of the pick loupe on the window cell grid. A single drawText of
+	 * the row drifted vs {@code mOneCharWidth} (same reason as
+	 * {@link #drawTextOnGrid}).
+	 */
+	private void drawPrefixPickGridRow(final Canvas c, final String row,
+			final float baseline) {
+		if (row == null || row.length() == 0 || mOneCharWidth <= 0) {
+			return;
+		}
+		final float cell = mOneCharWidth;
+		for (int i = 0; i < row.length(); i++) {
+			c.drawText(row, i, i + 1,
+					PrefixPickLoupe.cellLeft(i, cell, mScrollX),
+					baseline, mLoupeTextPaint);
+		}
+	}
+
+	private String prefixPickRowAtBroken(final int broken) {
+		if (mBuffer == null || mBuffer.getLines() == null || broken < 0) {
+			return "";
+		}
+		int working = 0;
+		for (TextTree.Line l : mBuffer.getLines()) {
+			int rows = 1 + l.breaks;
+			if (broken >= working && broken < working + rows) {
+				int wrap = broken - working;
+				java.util.List<String> vis = PrefixPickHit.visualRows(l);
+				if (wrap >= 0 && wrap < vis.size()) {
+					return vis.get(wrap);
+				}
+				return "";
+			}
+			working += rows;
+		}
+		return "";
+	}
+
 	private void drawPrefixPick(final Canvas c) {
 		if (!mPrefixPickFinger) {
 			return;
@@ -2537,10 +2591,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (!mPrefixPickBox.isEmpty()) {
 			c.drawRect(mPrefixPickBox, mLoupeHighlightPaint);
 		}
-		float r = mSelectionIndicatorHalfDimension - 10f * mDensity;
-		if (r < 48f * mDensity) {
-			r = 52f * mDensity;
-		}
+		float r = PrefixPickLoupe.radiusPx(mDensity, mPickLoupeSize);
 		float gap = 10f * mDensity;
 		float cx = mPrefixPickFingerX + r + gap;
 		float cy = mPrefixPickFingerY - r - gap;
@@ -2556,30 +2607,40 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (cy + r > mHeight) {
 			cy = mHeight - r - 4f * mDensity;
 		}
-		float scale = 2f;
+		float scale = PrefixPickLoupe.scale(mPickLoupeZoom);
+		int paper = LightPaper.paper(mLightPaper, mLightPaperShade);
 		c.save();
 		mPrefixPickClip.reset();
 		mPrefixPickClip.addCircle(cx, cy, r, Path.Direction.CW);
 		c.clipPath(mPrefixPickClip);
-		c.drawColor(0xFF333333);
+		c.drawColor(paper);
 		c.translate(cx, cy);
 		c.scale(scale, scale);
 		c.translate(-mPrefixPickFingerX, -mPrefixPickFingerY);
 		if (!mPrefixPickBox.isEmpty()) {
 			c.drawRect(mPrefixPickBox, mLoupeHighlightPaint);
 		}
-		String row = mPrefixPickRowText == null ? "" : mPrefixPickRowText;
-		if (row.length() > 0 && mPrefLineSize > 0) {
-			mLoupeTextPaint.setTextSize(mPrefLineSize);
+		if (mPrefFontSize > 0 && mPrefLineSize > 0 && mOneCharWidth > 0) {
+			mLoupeTextPaint.setTextSize(mPrefFontSize);
 			mLoupeTextPaint.setTypeface(mPrefFont);
 			applyTerminalFontFeatures(mLoupeTextPaint);
-			float baseline;
-			if (!mPrefixPickBox.isEmpty()) {
-				baseline = mPrefixPickBox.bottom - mLoupeTextPaint.descent();
-			} else {
-				baseline = mPrefixPickFingerY + mPrefLineSize * 0.35f;
+			mLoupeTextPaint.setUnderlineText(false);
+			mLoupeTextPaint.setStrikeThruText(false);
+			mLoupeTextPaint.setFakeBoldText(false);
+			mLoupeTextPaint.setColor(mLightPaper
+					? LightPaper.inkFor(paper) : 0xFFFFFFFF);
+			int around = 4;
+			for (int d = -around; d <= around; d++) {
+				int broken = mPrefixPickBroken + d;
+				String row = prefixPickRowAtBroken(broken);
+				if (row.length() == 0) {
+					continue;
+				}
+				float a = bufferLineToScreenY(broken, 0f);
+				float b = bufferLineToScreenY(broken, mPrefLineSize);
+				float baseline = Math.max(a, b) - mLoupeTextPaint.descent();
+				drawPrefixPickGridRow(c, row, baseline);
 			}
-			c.drawText(row, -mScrollX, baseline, mLoupeTextPaint);
 		}
 		c.restore();
 		c.drawCircle(cx, cy, r, mPrefixPickLoupeEdge);
@@ -2588,29 +2649,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			label = mPrefixPickWord;
 		}
 		if (label != null && label.length() > 0) {
-			float capSize = Math.max(mPrefLineSize * 1.15f, 14f * mDensity);
+			float capSize = Math.max(mPrefFontSize * 1.15f, 14f * mDensity);
 			mLoupeTextPaint.setTextSize(capSize);
 			mLoupeTextPaint.setTypeface(mPrefFont);
 			applyTerminalFontFeatures(mLoupeTextPaint);
+			mLoupeTextPaint.setColor(0xFFFFFFFF);
 			float pad = 6f * mDensity;
 			float tw = mLoupeTextPaint.measureText(label);
 			float panelW = tw + pad * 2f;
 			float panelH = capSize + pad * 2f;
-			float px = cx - panelW / 2f;
-			float py = cy + r + 6f * mDensity;
-			if (px < 0) {
-				px = 4f * mDensity;
-			}
-			if (px + panelW > mWidth) {
-				px = mWidth - panelW - 4f * mDensity;
-			}
-			if (py + panelH > mHeight) {
-				py = cy - r - panelH - 6f * mDensity;
-			}
-			mLoupePanelRect.set(px, py, px + panelW, py + panelH);
+			PrefixPickLoupe.captionBox(cx, cy, r, panelW, panelH, 6f * mDensity,
+					mWidth, mHeight, mPrefixPickCaption);
+			mLoupePanelRect.set(mPrefixPickCaption[0], mPrefixPickCaption[1],
+					mPrefixPickCaption[2], mPrefixPickCaption[3]);
 			c.drawRoundRect(mLoupePanelRect, 8f * mDensity, 8f * mDensity,
 					mLoupePanelPaint);
-			c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(),
+			c.drawText(label, mPrefixPickCaption[0] + pad,
+					mPrefixPickCaption[1] + pad - mLoupeTextPaint.ascent(),
 					mLoupeTextPaint);
 		}
 	}
@@ -4801,6 +4856,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private float mLoupeFingerY;
 	private int mPrefixPickMode = 0;
 	private boolean mPrefixPickSent = false;
+	private int mPickLoupeSize = PrefixPickLoupe.DEFAULT_SIZE;
+	private int mPickLoupeZoom = PrefixPickLoupe.DEFAULT_ZOOM;
+	private final float[] mPrefixPickCaption = new float[4];
 	private String mPrefixPickPrefix = "";
 	private boolean mPrefixPickFinger = false;
 	private boolean mPrefixPickFroze = false;
@@ -7338,6 +7396,22 @@ end
 			case line_extra:
 				setCharacterSizes(mPrefFontSize,(Integer)o.getValue());
 				break;
+			case pick_loupe_size:
+				{
+					int n = PrefixPickLoupe.clampSize(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mPickLoupeSize = n;
+				}
+				this.invalidate();
+				break;
+			case pick_loupe_zoom:
+				{
+					int n = PrefixPickLoupe.clampZoom(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mPickLoupeZoom = n;
+				}
+				this.invalidate();
+				break;
 			case buffer_size:
 				setMaxLines((Integer)o.getValue());
 				// setMaxLines clamps. Put the number it settled on back into the
@@ -7424,6 +7498,8 @@ end
 		screen_on,
 		font_size,
 		line_extra,
+		pick_loupe_size,
+		pick_loupe_zoom,
 		buffer_size,
 		font_path,
 		tap_dismiss_keyboard

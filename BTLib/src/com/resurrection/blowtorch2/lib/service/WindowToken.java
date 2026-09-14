@@ -39,6 +39,12 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_COLOR_MODE = 0;
 	/** Default font size. */
 	public static final int DEFAULT_FONT_SIZE = 20;
+	/** Default .pick magnifier size (percent of the original circle). */
+	public static final int DEFAULT_PICK_LOUPE_SIZE =
+			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_SIZE;
+	/** Default .pick magnifier zoom (percent; 200 = 2×). */
+	public static final int DEFAULT_PICK_LOUPE_ZOOM =
+			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_ZOOM;
 	/** Default opacity of the scroll-dates overlay (percent). Matches the first paint. */
 	public static final int DEFAULT_SCROLL_DATES_OPACITY = 75;
 	/** Floor so the date stays readable. Same idea as overflow-button opacity. */
@@ -170,7 +176,11 @@ public class WindowToken implements Parcelable {
 		/** Path to the font to use. */
 		font_path,
 		/** Tap empty game area to dismiss soft keyboard. */
-		tap_dismiss_keyboard
+		tap_dismiss_keyboard,
+		/** .pick magnifier diameter, percent of the original circle. Default 118. */
+		pick_loupe_size,
+		/** .pick magnifier zoom, percent (200 = 2×). */
+		pick_loupe_zoom
 	}
 	/** Hyperlink decoration off. */
 	private static final int HYPERLINK_OFF = 0;
@@ -627,6 +637,20 @@ public class WindowToken implements Parcelable {
 		lineExtra.setKey("line_extra");
 		lineExtra.setValue(2);
 		window.addOption(lineExtra);
+
+		IntegerOption pickLoupeSize = new IntegerOption();
+		pickLoupeSize.setTitle("Pick loupe size (%)");
+		pickLoupeSize.setDescription("How big the .pick magnifier is (50–200). 100 is the original circle; 118 is the default (~18% larger). Also .pick loupe size N.");
+		pickLoupeSize.setKey("pick_loupe_size");
+		pickLoupeSize.setValue(DEFAULT_PICK_LOUPE_SIZE);
+		window.addOption(pickLoupeSize);
+
+		IntegerOption pickLoupeZoom = new IntegerOption();
+		pickLoupeZoom.setTitle("Pick loupe zoom (%)");
+		pickLoupeZoom.setDescription("How much the .pick magnifier enlarges the game text (150–350; 200 is 2×). Also .pick loupe zoom N.");
+		pickLoupeZoom.setKey("pick_loupe_zoom");
+		pickLoupeZoom.setValue(DEFAULT_PICK_LOUPE_ZOOM);
+		window.addOption(pickLoupeZoom);
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");

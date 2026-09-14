@@ -2171,7 +2171,7 @@ is enabled; `.alias list` shows every alias at once.
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
     `.grabber [once|hold|tap|off]`         Inspect colour/style under a finger; copy layers or open a trigger. See forms below
-    `.pick [once|hold|tap|button|button-double|off]`  Prefix plus a word from the game text (bar or a pad tile). See forms below
+    `.pick [once|hold|tap|button|button-double|off|loupe …]`  Prefix plus a word from the game text (bar or a pad tile). See forms below
     `.closewindow`                      Leave the game window (dirty exit). Not the same as `.window hide` (one extra-text window)
     `.tutorial …`                       Starter Tutorial lessons (`start` / `next` / `topics` / `<topic>`). Works in any world
     `.tips on|always|off`               Short reminders the first time you type a `.command` that session
@@ -2315,6 +2315,10 @@ A Color action you painted is not the world's style; the grabber skips it.
 .pick tap
 .pick button
 .pick button-double
+.pick loupe
+.pick loupe size 118
+.pick loupe zoom 200
+.pick loupe default
 .pick off
 ```
 
@@ -2327,6 +2331,10 @@ on. Put `.pick hold` on a button and leave `fix ` in the bar.
 No argument is **once**: one word, then off. **hold** / **on** stays until
 `.pick off` (or a second `.pick hold`). **tap** is the same as once.
 
+**Scrolling while pick is on.** One finger is pick. A **second finger**
+cancels that pick so you can drag to scroll. (With pick off, two fingers
+still open the copy widget.)
+
 **button**: on an existing pad tile, swipe (for example up on an 8-way
 North), keep holding, then slide onto a word. The prefix is that swipe's
 command (`look n helmet`). Stay on the tile and a release still fires
@@ -2336,8 +2344,13 @@ one finger (prefix is the tile's tap command) and tap a word with the
 other. The pad stays visible. A second `.pick button` / `.pick
 button-double` turns that mode off.
 
-The loupe is a round magnifier next to the finger, with the selected word
-highlighted. Dragging to the screen edge scrolls a frozen buffer.
+The loupe is a round magnifier of the **game text** around the finger
+(not only the chosen word), with that word highlighted. The phrase
+(`fix helmet`) sits **above** the circle. Dragging to the screen edge
+scrolls a frozen buffer. Size and zoom: Options → Window → **Pick loupe
+size (%)** / **Pick loupe zoom (%)**, or `.pick loupe size 118` /
+`.pick loupe zoom 200` (size 50–200, default 118; zoom 150–350, 200 is
+2×). `.pick loupe` prints the current values.
 
 Tokens are letters and digits: `iron-helmet` is two words. Prefix mode
 wins over existing tappable-word triggers for that pick.
@@ -3140,7 +3153,9 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
 - **First finger** — touch where selection should start (marks the start).
 - **Second finger** — while holding the first, touch with a second finger to
   open the selection / copy widget (if the second touch is elsewhere, the range
-  between the two fingers is selected immediately).
+  between the two fingers is selected immediately). **Exception:** during
+  `.pick hold` (or another sticky pick), that second finger **cancels the
+  pick** so you can drag to scroll. Copy is unchanged when pick is off.
 - One-finger long-press alone does not open copy.
 - Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
 - The same two-finger gesture works in **extra text** windows (float/drawer).
@@ -3150,6 +3165,15 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
 New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
 is kept when you close the world.
+
+## Pick loupe
+
+The round magnifier during `.pick` shows the **game text** around the
+finger, with the chosen word highlighted and the phrase (`fix helmet`)
+above the circle. Options → Window → **Pick loupe size (%)** (50–200,
+default 118) and **Pick loupe zoom (%)** (150–350, default 200 = 2×), or
+`.pick loupe size 118` / `.pick loupe zoom 200`. `.pick loupe` prints the
+current values; `.pick loupe default` restores both.
 
 ## Font (typeface)
 

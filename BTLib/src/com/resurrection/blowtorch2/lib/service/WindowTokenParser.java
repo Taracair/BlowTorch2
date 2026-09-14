@@ -475,6 +475,22 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case pick_loupe_size:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_PICK_LOUPE_SIZE) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
+					case pick_loupe_zoom:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_PICK_LOUPE_ZOOM) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case buffer_size: {
 						int lines = TextTree.clampMaxLines(
 								((Integer) ((IntegerOption) o).getValue()).intValue());

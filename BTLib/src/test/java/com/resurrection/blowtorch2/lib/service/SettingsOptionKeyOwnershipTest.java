@@ -31,7 +31,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"hyperlinks_enabled", "osc8_links",
 				"hyperlink_mode", "hyperlink_color", "hyperlink_bare_domains",
 				"hyperlink_extra_tlds", "color_option", "line_extra", "font_path",
-				"tap_dismiss_keyboard" };
+				"tap_dismiss_keyboard", "pick_loupe_size", "pick_loupe_zoom" };
 		for (String key : windowKeys) {
 			assertTrue(key + " should be owned by WindowTokenParser",
 					WindowTokenParser.isWindowOptionKey(key));

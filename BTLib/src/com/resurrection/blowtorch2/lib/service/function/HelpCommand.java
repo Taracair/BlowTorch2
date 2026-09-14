@@ -99,7 +99,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
 		cmd("pick", "Input and suggestions",
-				"prefix plus a word from the game text (bar, or a pad tile)");
+				"prefix plus a word from the game text; .pick loupe size/zoom");
 
 		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
@@ -667,11 +667,17 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .pick tap            same as once\n"
 					+ "  .pick button         swipe a tile, keep holding, slide onto a word\n"
 					+ "  .pick button-double  hold a tile, tap a word with the other finger\n"
+					+ "  .pick loupe          print size and zoom; also size N / zoom N / default\n"
+					+ "  .pick loupe size N   magnifier size 50–200 (118 default)\n"
+					+ "  .pick loupe zoom N   magnifier zoom 150–350 (200 = 2×)\n"
 					+ "  .pick off\n"
 					+ "Bar: type .pick, then put fix  in the bar, then tap a word.\n"
 					+ "The game receives fix helmet and the bar still holds fix .\n"
 					+ "Empty / a . command in the bar is not a prefix; pick stays on.\n"
-					+ "Pad stays on screen. .pick off, or the same sticky command again.\n";
+					+ "Pad stays on screen. .pick off, or the same sticky command again.\n"
+					+ "During hold, one finger picks; a second finger cancels that pick\n"
+					+ "so you can drag to scroll. Two fingers with pick off still copy.\n"
+					+ "Loupe: Options → Window → Pick loupe size / zoom, or .pick loupe.\n";
 		}
 		if (filter.equals("grabber")) {
 			return "\n"

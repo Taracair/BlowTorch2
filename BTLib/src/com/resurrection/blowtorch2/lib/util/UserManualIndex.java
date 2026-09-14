@@ -86,6 +86,7 @@ public final class UserManualIndex {
 		m.put("Chat drawer", CATEGORY_WINDOW);
 		m.put("Copy text from the game window", CATEGORY_WINDOW);
 		m.put("Font size", CATEGORY_WINDOW);
+		m.put("Pick loupe", CATEGORY_WINDOW);
 		m.put("Font (typeface)", CATEGORY_WINDOW);
 		m.put("Colours the world sends", CATEGORY_WINDOW);
 		m.put("Dim repeated lines", CATEGORY_WINDOW);

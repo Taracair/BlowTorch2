@@ -1,6 +1,8 @@
 package com.resurrection.blowtorch2.lib.service.function;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -37,5 +39,24 @@ public class PickCommandTest {
 				PickCommand.parseMode("button-double"));
 		assertEquals(PickCommand.MODE_BUTTON_DOUBLE,
 				PickCommand.parseMode("button double"));
+	}
+
+	@Test
+	public void loupeIsNotAPickMode() {
+		assertEquals(-1, PickCommand.parseMode("loupe"));
+		assertEquals(-1, PickCommand.parseMode("size"));
+		assertEquals(-1, PickCommand.parseMode("zoom"));
+		assertTrue(PickCommand.isLoupeCommand("loupe"));
+		assertTrue(PickCommand.isLoupeCommand("loupe size 118"));
+		assertTrue(PickCommand.isLoupeCommand("size 130"));
+		assertTrue(PickCommand.isLoupeCommand("zoom 250"));
+		assertFalse(PickCommand.isLoupeCommand("hold"));
+		assertFalse(PickCommand.isLoupeCommand(""));
+	}
+
+	@Test
+	public void loupePercentParses() {
+		assertEquals(Integer.valueOf(118), PickCommand.parsePercent("118"));
+		assertEquals(null, PickCommand.parsePercent("x"));
 	}
 }

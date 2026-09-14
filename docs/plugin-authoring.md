@@ -367,7 +367,8 @@ Layout attrs include `width` / `height` (`N`, `fill_parent`, `wrap_content`),
 `layoutGroup target` is a size bucket: `normal`, `large`, `xlarge`.
 
 Useful window option keys: `font_size`, `line_extra`, `font_path`,
-`buffer_size`, `word_wrap`, `hyperlinks_enabled`, `hyperlink_color`,
+`buffer_size`, `word_wrap`, `pick_loupe_size`, `pick_loupe_zoom`,
+`hyperlinks_enabled`, `hyperlink_color`,
 `hyperlink_mode`, `hyperlink_bare_domains`, `hyperlink_extra_tlds`,
 `color_option`.
 
