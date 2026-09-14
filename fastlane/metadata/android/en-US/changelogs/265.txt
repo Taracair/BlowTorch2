@@ -1,0 +1,7 @@
+BlowTorch 2 v2.4.5
+• Better suggestion engine: nearby typos and skip-head (helmte → helmet; onhel finds ironhelmet)
+• Options search flashes the row you landed on; font picker instead of a Noto dump
+• SMAUG no longer adds a blank line after every row
+• About → Support on Ko-fi (optional)
+• .pick: prefix plus a word from the game text (fix $1 helmet + iron → fix iron helmet); loupe of surrounding text; second finger during hold scrolls
+• Tap-word menu keeps the keyboard up; hold is not a scroll
