@@ -28,4 +28,14 @@ public class PickCommandTest {
 		assertEquals(PickCommand.MODE_OFF, PickCommand.parseMode("off"));
 		assertEquals(-1, PickCommand.parseMode("banana"));
 	}
+
+	@Test
+	public void buttonModes() {
+		assertEquals(PickCommand.MODE_BUTTON, PickCommand.parseMode("button"));
+		assertEquals(PickCommand.MODE_BUTTON, PickCommand.parseMode("slide"));
+		assertEquals(PickCommand.MODE_BUTTON_DOUBLE,
+				PickCommand.parseMode("button-double"));
+		assertEquals(PickCommand.MODE_BUTTON_DOUBLE,
+				PickCommand.parseMode("button double"));
+	}
 }

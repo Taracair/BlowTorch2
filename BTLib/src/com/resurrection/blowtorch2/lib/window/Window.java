@@ -71,6 +71,7 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings.LINK_MODE;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleInspect;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
@@ -844,6 +845,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mLoupeTextPaint.setStyle(Paint.Style.FILL);
 		mLoupeTextPaint.setColor(0xFFFFFFFF);
 		mLoupeTextPaint.setAntiAlias(true);
+		mPrefixPickLoupeEdge.setStyle(Paint.Style.STROKE);
+		mPrefixPickLoupeEdge.setStrokeWidth(4f * mDensity);
+		mPrefixPickLoupeEdge.setAntiAlias(true);
+		mPrefixPickLoupeEdge.setColor(0xFFAA22AA);
 		this.mSettings = settings;
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
@@ -2203,17 +2208,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			stopFling();
 			mLastFrameTime = 0;
 			cancelPrefixPickGesture();
-			mPrefixPickArmed = false;
+			mPrefixPickMode = PickCommand.MODE_OFF;
 		}
 	}
 
-	public void setPrefixPickArmed(final boolean armed) {
-		if (mPrefixPickArmed == armed) {
-			return;
-		}
-		mPrefixPickArmed = armed;
-		if (!armed) {
+	public void setPrefixPickMode(final int mode) {
+		mPrefixPickMode = mode;
+		if (mode == PickCommand.MODE_OFF) {
 			cancelPrefixPickGesture();
+			mPrefixPickPrefix = "";
+			mPrefixPickSent = false;
 		} else {
 			stopFling();
 			if (mStyleGrabber != null && mStyleGrabber.isOn()) {
@@ -2222,6 +2226,104 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 		invalidate();
+	}
+
+	public String getPrefixPickPrefix() {
+		return mPrefixPickPrefix == null ? "" : mPrefixPickPrefix;
+	}
+
+	/** Lua: hold a pad tile; prefix is that tile's tap command. */
+	public void prefixPickHoldButton(final String prefix) {
+		mPrefixPickSent = false;
+		setPrefixPickPrefix(prefix);
+	}
+
+	/** Lua: swipe/slide from a tile onto the game text (screen coordinates). */
+	public void prefixPickSlide(final String prefix, final double rawX,
+			final double rawY) {
+		setPrefixPickPrefix(prefix);
+		int[] loc = new int[2];
+		getLocationOnScreen(loc);
+		float x = (float) rawX - loc[0];
+		float y = (float) rawY - loc[1];
+		if (!mPrefixPickFinger) {
+			beginPrefixPickFinger(x, y);
+		} else {
+			handlePrefixPickMove(x, y);
+		}
+	}
+
+	private void prefixPickSlideFromEvent(final String prefix,
+			final MotionEvent e, final int pointerIndex) {
+		if (e == null || pointerIndex < 0 || pointerIndex >= e.getPointerCount()) {
+			return;
+		}
+		float rawX = e.getRawX() - e.getX() + e.getX(pointerIndex);
+		float rawY = e.getRawY() - e.getY() + e.getY(pointerIndex);
+		prefixPickSlide(prefix, rawX, rawY);
+	}
+
+	/** Lua: second finger on the full-bleed pad. Returns that pointer id. */
+	public int prefixPickSecondDown(final String prefix, final MotionEvent e) {
+		if (e == null) {
+			return -1;
+		}
+		int idx = e.getActionIndex();
+		prefixPickSlideFromEvent(prefix, e, idx);
+		return e.getPointerId(idx);
+	}
+
+	/** Lua: move of the word finger while the pad still holds the tile. */
+	public void prefixPickSecondMove(final String prefix, final MotionEvent e,
+			final double pointerId) {
+		if (e == null) {
+			return;
+		}
+		int idx = e.findPointerIndex((int) pointerId);
+		prefixPickSlideFromEvent(prefix, e, idx);
+	}
+
+	/** Lua: view X of the pointer that caused this action (POINTER_DOWN/UP). */
+	public float prefixPickActionX(final MotionEvent e) {
+		if (e == null) {
+			return 0f;
+		}
+		return e.getX(e.getActionIndex());
+	}
+
+	/** Lua: view Y of the pointer that caused this action. */
+	public float prefixPickActionY(final MotionEvent e) {
+		if (e == null) {
+			return 0f;
+		}
+		return e.getY(e.getActionIndex());
+	}
+
+	/** Lua: pointer id of the pointer that caused this action. */
+	public int prefixPickActionPointerId(final MotionEvent e) {
+		if (e == null) {
+			return -1;
+		}
+		return e.getPointerId(e.getActionIndex());
+	}
+
+	/** Lua: finger up on the tile. True when a word was sent. */
+	public boolean prefixPickButtonFingerUp() {
+		boolean sent = mPrefixPickSent;
+		if (mPrefixPickFinger) {
+			endPrefixPickFinger(true);
+			sent = mPrefixPickSent;
+		}
+		mPrefixPickSent = false;
+		return sent;
+	}
+
+	/** Lua: pad cancelled the gesture (second finger on the pad, ACTION_CANCEL). */
+	public void prefixPickButtonCancel() {
+		if (mPrefixPickFinger) {
+			endPrefixPickFinger(false);
+		}
+		mPrefixPickSent = false;
 	}
 
 	public void setPrefixPickPrefix(final String prefix) {
@@ -2238,7 +2340,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private boolean hasPrefixPickPrefix() {
-		return mPrefixPickPrefix != null && mPrefixPickPrefix.trim().length() > 0;
+		return PrefixWordJoin.usablePrefix(mPrefixPickPrefix);
+	}
+
+	private boolean windowStartsPickOnDown() {
+		if (mPrefixPickMode == PickCommand.MODE_ONCE
+				|| mPrefixPickMode == PickCommand.MODE_HOLD
+				|| mPrefixPickMode == PickCommand.MODE_TAP) {
+			return true;
+		}
+		return mPrefixPickMode == PickCommand.MODE_BUTTON_DOUBLE
+				&& hasPrefixPickPrefix();
 	}
 
 	private void beginPrefixPickFinger(final float x, final float y) {
@@ -2249,6 +2361,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		cancelPrefixPickLongPress();
 		dismissLoupe();
 		mPrefixPickFinger = true;
+		mPrefixPickSent = false;
 		mPrefixPickFingerX = x;
 		mPrefixPickFingerY = y;
 		stopFling();
@@ -2258,10 +2371,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		} else {
 			mPrefixPickFroze = false;
 		}
-		if (!mPrefixPickArmed && mMainWindowHandler != null) {
-			mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
-					MainWindow.MESSAGE_TEXTSELECTION_FOCUS, this.getTag()));
-		}
 		updatePrefixPickAt(x, y);
 		updatePrefixPickEdge(y);
 		invalidate();
@@ -2270,7 +2379,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void endPrefixPickFinger(final boolean send) {
 		cancelPrefixPickEdge();
 		String word = mPrefixPickWord;
-		boolean hidButtons = mPrefixPickFinger && !mPrefixPickArmed;
 		if (mPrefixPickFroze) {
 			flushBuffer();
 			mPrefixPickFroze = false;
@@ -2278,12 +2386,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mPrefixPickFinger = false;
 		mPrefixPickWord = null;
 		mPrefixPickSpan = null;
-		if (send && word != null && mMainWindowHandler != null) {
+		mPrefixPickSent = send && word != null;
+		if (mPrefixPickSent && mMainWindowHandler != null) {
 			mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
 					MainWindow.MESSAGE_PREFIX_PICK_WORD, word));
-		}
-		if (hidButtons && mMainWindowHandler != null) {
-			mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_TEXTSELECTION_RELEASE);
 		}
 		invalidate();
 	}
@@ -2294,6 +2400,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mPrefixPickWord = null;
 		mPrefixPickSpan = null;
 		mPrefixPickBox.setEmpty();
+		mPrefixPickRowText = "";
 		if (mBuffer == null || mOneCharWidth <= 0 || mPrefLineSize <= 0) {
 			return;
 		}
@@ -2308,6 +2415,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int visualCol = (int) Math.floor((x + mScrollX) / (float) mOneCharWidth);
 		String plain = TextTree.deColorLine(line).toString();
 		java.util.List<String> rows = PrefixPickHit.visualRows(line);
+		if (mPrefixPickWrapRow >= 0 && mPrefixPickWrapRow < rows.size()) {
+			mPrefixPickRowText = rows.get(mPrefixPickWrapRow);
+		}
 		AlnumWordAt.Span span = PrefixPickHit.spanOnRows(plain, rows,
 				mPrefixPickWrapRow, visualCol);
 		if (span == null) {
@@ -2319,6 +2429,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int rowStart = PrefixPickHit.rowStart(rows, mPrefixPickWrapRow);
 		String row = (mPrefixPickWrapRow >= 0 && mPrefixPickWrapRow < rows.size())
 				? rows.get(mPrefixPickWrapRow) : "";
+		mPrefixPickRowText = row;
 		int col0 = span.start - rowStart;
 		if (col0 < 0) {
 			col0 = 0;
@@ -2405,22 +2516,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		invalidate();
 	}
 
-	private void schedulePrefixPickLongPress() {
-		cancelPrefixPickLongPress();
-		if (start_x == null || mStartY == null || !hasPrefixPickPrefix()) {
-			return;
-		}
-		final float fx = start_x.floatValue();
-		final float fy = mStartY.floatValue();
-		mPrefixPickLongPress = new Runnable() {
-			public void run() {
-				mPrefixPickLongPress = null;
-				beginPrefixPickFinger(fx, fy);
-			}
-		};
-		postDelayed(mPrefixPickLongPress, android.view.ViewConfiguration.getLongPressTimeout());
-	}
-
 	private void cancelPrefixPickLongPress() {
 		if (mPrefixPickLongPress != null) {
 			removeCallbacks(mPrefixPickLongPress);
@@ -2436,38 +2531,88 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private void drawPrefixPick(final Canvas c) {
-		if (!mPrefixPickFinger || mPrefixPickWord == null) {
+		if (!mPrefixPickFinger) {
 			return;
 		}
 		if (!mPrefixPickBox.isEmpty()) {
 			c.drawRect(mPrefixPickBox, mLoupeHighlightPaint);
 		}
+		float r = mSelectionIndicatorHalfDimension - 10f * mDensity;
+		if (r < 48f * mDensity) {
+			r = 52f * mDensity;
+		}
+		float gap = 10f * mDensity;
+		float cx = mPrefixPickFingerX + r + gap;
+		float cy = mPrefixPickFingerY - r - gap;
+		if (cx + r > mWidth) {
+			cx = mPrefixPickFingerX - r - gap;
+		}
+		if (cx - r < 0) {
+			cx = r + 4f * mDensity;
+		}
+		if (cy - r < 0) {
+			cy = mPrefixPickFingerY + r + gap;
+		}
+		if (cy + r > mHeight) {
+			cy = mHeight - r - 4f * mDensity;
+		}
+		float scale = 2f;
+		c.save();
+		mPrefixPickClip.reset();
+		mPrefixPickClip.addCircle(cx, cy, r, Path.Direction.CW);
+		c.clipPath(mPrefixPickClip);
+		c.drawColor(0xFF333333);
+		c.translate(cx, cy);
+		c.scale(scale, scale);
+		c.translate(-mPrefixPickFingerX, -mPrefixPickFingerY);
+		if (!mPrefixPickBox.isEmpty()) {
+			c.drawRect(mPrefixPickBox, mLoupeHighlightPaint);
+		}
+		String row = mPrefixPickRowText == null ? "" : mPrefixPickRowText;
+		if (row.length() > 0 && mPrefLineSize > 0) {
+			mLoupeTextPaint.setTextSize(mPrefLineSize);
+			mLoupeTextPaint.setTypeface(mPrefFont);
+			applyTerminalFontFeatures(mLoupeTextPaint);
+			float baseline;
+			if (!mPrefixPickBox.isEmpty()) {
+				baseline = mPrefixPickBox.bottom - mLoupeTextPaint.descent();
+			} else {
+				baseline = mPrefixPickFingerY + mPrefLineSize * 0.35f;
+			}
+			c.drawText(row, -mScrollX, baseline, mLoupeTextPaint);
+		}
+		c.restore();
+		c.drawCircle(cx, cy, r, mPrefixPickLoupeEdge);
 		String label = PrefixWordJoin.sendLine(mPrefixPickPrefix, mPrefixPickWord);
 		if (label == null) {
 			label = mPrefixPickWord;
 		}
-		float textSize = Math.max(mPrefLineSize * 1.6f, 18f * mDensity);
-		mLoupeTextPaint.setTextSize(textSize);
-		mLoupeTextPaint.setTypeface(mPrefFont);
-		applyTerminalFontFeatures(mLoupeTextPaint);
-		float pad = 8f * mDensity;
-		float tw = mLoupeTextPaint.measureText(label);
-		float panelW = tw + pad * 2f;
-		float panelH = textSize + pad * 2f;
-		float px = mPrefixPickFingerX + 36f * mDensity;
-		float py = mPrefixPickFingerY - panelH - 16f * mDensity;
-		if (px + panelW > mWidth) {
-			px = mPrefixPickFingerX - panelW - 36f * mDensity;
+		if (label != null && label.length() > 0) {
+			float capSize = Math.max(mPrefLineSize * 1.15f, 14f * mDensity);
+			mLoupeTextPaint.setTextSize(capSize);
+			mLoupeTextPaint.setTypeface(mPrefFont);
+			applyTerminalFontFeatures(mLoupeTextPaint);
+			float pad = 6f * mDensity;
+			float tw = mLoupeTextPaint.measureText(label);
+			float panelW = tw + pad * 2f;
+			float panelH = capSize + pad * 2f;
+			float px = cx - panelW / 2f;
+			float py = cy + r + 6f * mDensity;
+			if (px < 0) {
+				px = 4f * mDensity;
+			}
+			if (px + panelW > mWidth) {
+				px = mWidth - panelW - 4f * mDensity;
+			}
+			if (py + panelH > mHeight) {
+				py = cy - r - panelH - 6f * mDensity;
+			}
+			mLoupePanelRect.set(px, py, px + panelW, py + panelH);
+			c.drawRoundRect(mLoupePanelRect, 8f * mDensity, 8f * mDensity,
+					mLoupePanelPaint);
+			c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(),
+					mLoupeTextPaint);
 		}
-		if (px < 0) {
-			px = pad;
-		}
-		if (py < 0) {
-			py = mPrefixPickFingerY + 16f * mDensity;
-		}
-		mLoupePanelRect.set(px, py, px + panelW, py + panelH);
-		c.drawRoundRect(mLoupePanelRect, 8f * mDensity, 8f * mDensity, mLoupePanelPaint);
-		c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(), mLoupeTextPaint);
 	}
 
 	/** Grabber consumed DOWN (✕ / panel). Keep this finger as a scroll. */
@@ -2531,6 +2676,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int action = t.getActionMasked();
 		if (action == MotionEvent.ACTION_POINTER_DOWN && mPrefixPickFinger) {
 			endPrefixPickFinger(false);
+			return true;
 		}
 		// Two fingers on the game text → open copy widget (one-finger long-press does not).
 		if (mTextSelectionEnabled && theSelection == null
@@ -2667,10 +2813,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				
 				if (mStyleGrabber == null || !mStyleGrabber.isOn()) {
-					if (mPrefixPickArmed) {
+					if (windowStartsPickOnDown()) {
 						beginPrefixPickFinger(x, y);
-					} else if (hasPrefixPickPrefix()) {
-						schedulePrefixPickLongPress();
 					} else {
 						scheduleTapLongPress();
 					}
@@ -4655,17 +4799,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mLoupeActive = false;
 	private float mLoupeFingerX;
 	private float mLoupeFingerY;
-	private boolean mPrefixPickArmed = false;
+	private int mPrefixPickMode = 0;
+	private boolean mPrefixPickSent = false;
 	private String mPrefixPickPrefix = "";
 	private boolean mPrefixPickFinger = false;
 	private boolean mPrefixPickFroze = false;
 	private String mPrefixPickWord = null;
+	private String mPrefixPickRowText = "";
 	private AlnumWordAt.Span mPrefixPickSpan = null;
 	private int mPrefixPickBroken = 0;
 	private int mPrefixPickWrapRow = 0;
 	private float mPrefixPickFingerX;
 	private float mPrefixPickFingerY;
 	private final Rect mPrefixPickBox = new Rect();
+	private final Path mPrefixPickClip = new Path();
+	private final Paint mPrefixPickLoupeEdge = new Paint();
 	private Runnable mPrefixPickLongPress = null;
 	private Runnable mPrefixPickEdge = null;
 	private StyleGrabberOverlay mStyleGrabber;

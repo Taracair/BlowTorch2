@@ -10,11 +10,13 @@ import org.junit.Test;
 public class PrefixPickModeTest {
 
 	@Test
-	public void emptyPrefixRefusesArm() {
+	public void emptyPrefixStillArms() {
 		PrefixPickMode m = new PrefixPickMode();
-		assertFalse(m.armOneshot(""));
-		assertFalse(m.armSticky("   "));
-		assertEquals(PrefixPickMode.Kind.IDLE, m.kind());
+		assertTrue(m.armOneshot(""));
+		assertEquals(PrefixPickMode.Kind.ONESHOT, m.kind());
+		assertNull(m.fire("", "helmet"));
+		assertEquals(PrefixPickMode.Kind.ONESHOT, m.kind());
+		assertEquals("fix helmet", m.fire("fix ", "helmet"));
 	}
 
 	@Test
@@ -82,9 +84,19 @@ public class PrefixPickModeTest {
 	}
 
 	@Test
-	public void toggleStickyEmptyPrefixLeavesIdle() {
+	public void toggleStickyEmptyPrefixTurnsOn() {
 		PrefixPickMode m = new PrefixPickMode();
+		assertTrue(m.toggleSticky(""));
+		assertTrue(m.isArmed());
 		assertFalse(m.toggleSticky(""));
-		assertEquals(PrefixPickMode.Kind.IDLE, m.kind());
+		assertFalse(m.isArmed());
+	}
+
+	@Test
+	public void aDotCommandIsNotAGamePrefix() {
+		PrefixPickMode m = new PrefixPickMode();
+		assertTrue(m.armOneshot(".pick"));
+		assertNull(m.fire(".pick", "helmet"));
+		assertEquals(PrefixPickMode.Kind.ONESHOT, m.kind());
 	}
 }

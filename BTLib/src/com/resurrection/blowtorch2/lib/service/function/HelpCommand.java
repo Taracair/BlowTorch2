@@ -99,7 +99,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
 		cmd("pick", "Input and suggestions",
-				"send the input-bar prefix plus a word tapped in the game text");
+				"prefix plus a word from the game text (bar, or a pad tile)");
 
 		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
@@ -662,13 +662,16 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .pick:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .pick / .pick once   one word from the screen, then off\n"
-					+ "  .pick hold / .pick on  until .pick off\n"
+					+ "  .pick / .pick once   bar prefix, one word, then off\n"
+					+ "  .pick hold / .pick on  until .pick off (second hold turns it off)\n"
 					+ "  .pick tap            same as once\n"
+					+ "  .pick button         swipe a tile, keep holding, slide onto a word\n"
+					+ "  .pick button-double  hold a tile, tap a word with the other finger\n"
 					+ "  .pick off\n"
-					+ "Type a prefix in the bar (fix ), then tap a word. The game\n"
-					+ "receives fix helmet and the bar still holds fix . Empty bar refuses\n"
-					+ "in the UI; the service cannot read the bar.\n";
+					+ "Bar: type .pick, then put fix  in the bar, then tap a word.\n"
+					+ "The game receives fix helmet and the bar still holds fix .\n"
+					+ "Empty / a . command in the bar is not a prefix; pick stays on.\n"
+					+ "Pad stays on screen. .pick off, or the same sticky command again.\n";
 		}
 		if (filter.equals("grabber")) {
 			return "\n"

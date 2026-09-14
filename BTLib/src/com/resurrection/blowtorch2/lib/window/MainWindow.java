@@ -366,7 +366,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private ExtraTextOverlayController extraTextOverlay;
 	private boolean mGrabberHidesButtons;
 	private final PrefixPickMode mPrefixPick = new PrefixPickMode();
-	private boolean mPrefixPickHidesButtons;
+	private int mPrefixPickCommandMode = PickCommand.MODE_OFF;
 	private ChatPanelController chatPanel;
 	/** Notification {@link ChatAnnounce#EXTRA_THREAD}; stripped after consume. */
 	private String mPendingChatThread;
@@ -1098,7 +1098,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					raiseWindowAboveButtons(msg.obj);
 					break;
 				case MESSAGE_TEXTSELECTION_RELEASE:
-					if (!mGrabberHidesButtons && !mPrefixPickHidesButtons) {
+					if (!mGrabberHidesButtons) {
 						restoreButtonsAboveWindows();
 					}
 					break;
@@ -7564,7 +7564,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			extraTextOverlay.refreshScrollSpeeds();
 		}
 		applyGameLightChrome();
-		if (w != null && "mainDisplay".equals(w.getName())) {
+		if (w != null && "mainDisplay".equals(w.getName())
+				&& mPrefixPick.isArmed()
+				&& (mPrefixPickCommandMode == PickCommand.MODE_ONCE
+				|| mPrefixPickCommandMode == PickCommand.MODE_HOLD
+				|| mPrefixPickCommandMode == PickCommand.MODE_TAP)) {
 			syncPrefixPickPrefix();
 		}
 	}
@@ -8142,7 +8146,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (mWordSuggestionsOn) {
 						refreshWordSuggestions();
 					}
-					syncPrefixPickPrefix();
+					if (mPrefixPick.isArmed()
+							&& (mPrefixPickCommandMode == PickCommand.MODE_ONCE
+							|| mPrefixPickCommandMode == PickCommand.MODE_HOLD
+							|| mPrefixPickCommandMode == PickCommand.MODE_TAP)) {
+						syncPrefixPickPrefix();
+					}
 				}
 			});
 		}
@@ -8827,9 +8836,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (mode == GrabberCommand.MODE_OFF) {
 			mGrabberHidesButtons = false;
-			if (!mPrefixPickHidesButtons) {
-				restoreButtonsAboveWindows();
-			}
+			restoreButtonsAboveWindows();
 		} else {
 			if (mPrefixPick.isArmed()) {
 				mPrefixPick.disarm();
@@ -8876,50 +8883,67 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			disarmPrefixPickUi();
 			return;
 		}
-		String prefix = inputBarText();
-		if (mode == PickCommand.MODE_HOLD) {
-			boolean wasSticky = mPrefixPick.kind() == PrefixPickMode.Kind.STICKY;
-			if (!mPrefixPick.toggleSticky(prefix)) {
-				if (!wasSticky) {
-					Toast.makeText(this,
-							"Pick needs a prefix in the input bar (fix ).",
-							Toast.LENGTH_SHORT).show();
-				}
-				disarmPrefixPickUi();
-				return;
-			}
-		} else if (!mPrefixPick.armOneshot(prefix)) {
-			Toast.makeText(this,
-					"Pick needs a prefix in the input bar (fix ).",
-					Toast.LENGTH_SHORT).show();
+		boolean sticky = mode == PickCommand.MODE_HOLD
+				|| mode == PickCommand.MODE_BUTTON
+				|| mode == PickCommand.MODE_BUTTON_DOUBLE;
+		if (sticky && mPrefixPickCommandMode == mode && mPrefixPick.isArmed()) {
+			mPrefixPick.disarm();
+			disarmPrefixPickUi();
 			return;
 		}
-		mPrefixPickHidesButtons = true;
+		if (sticky) {
+			mPrefixPick.armSticky("");
+		} else {
+			mPrefixPick.armOneshot("");
+		}
+		mPrefixPickCommandMode = mode;
 		applyStyleGrabberMode(GrabberCommand.MODE_OFF);
 		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
 		if (main != null) {
-			main.setPrefixPickPrefix(prefix);
-			main.setPrefixPickArmed(true);
+			if (mode == PickCommand.MODE_BUTTON
+					|| mode == PickCommand.MODE_BUTTON_DOUBLE) {
+				main.setPrefixPickPrefix("");
+			} else {
+				main.setPrefixPickPrefix(inputBarText());
+			}
+			main.setPrefixPickMode(mode);
 		}
-		raiseWindowAboveButtons("mainDisplay");
+		windowCall("button_window", "setPrefixPickButtonMode",
+				luaPrefixPickButtonMode(mode));
+	}
+
+	private static String luaPrefixPickButtonMode(final int mode) {
+		if (mode == PickCommand.MODE_BUTTON) {
+			return "button";
+		}
+		if (mode == PickCommand.MODE_BUTTON_DOUBLE) {
+			return "double";
+		}
+		return "off";
 	}
 
 	private void disarmPrefixPickUi() {
-		mPrefixPickHidesButtons = false;
+		mPrefixPickCommandMode = PickCommand.MODE_OFF;
 		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
 		if (main != null) {
-			main.setPrefixPickArmed(false);
+			main.setPrefixPickMode(PickCommand.MODE_OFF);
+			main.setPrefixPickPrefix("");
 		}
-		if (!mGrabberHidesButtons) {
-			restoreButtonsAboveWindows();
-		}
+		windowCall("button_window", "setPrefixPickButtonMode", "off");
 	}
 
 	private void onPickedScreenWord(final String word) {
 		if (word == null || word.length() == 0) {
 			return;
 		}
-		String prefix = inputBarText();
+		String prefix = null;
+		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main != null) {
+			prefix = main.getPrefixPickPrefix();
+		}
+		if (!PrefixWordJoin.usablePrefix(prefix)) {
+			prefix = inputBarText();
+		}
 		String line;
 		if (mPrefixPick.isArmed()) {
 			line = mPrefixPick.fire(prefix, word);

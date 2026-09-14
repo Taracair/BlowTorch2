@@ -579,6 +579,29 @@ swipePreviewDir = nil
 -- Text currently shown in the gesture callout, nil when none is shown. Same
 -- reason: repaint only when the wording changes, not on every move event.
 gestureLabelText = nil
+-- "off" | "button" | "double". Set from Java via windowCall after .pick button /
+-- .pick button-double. The pad stays visible; MOVE after a tile DOWN is
+-- delivered here even over the game text (fullscreen overlay).
+prefixPickButtonMode = "off"
+prefixPickSecondPointerId = nil
+prefixPickSentThisHold = false
+prefixPickLeftTile = false
+
+function setPrefixPickButtonMode(mode)
+	if mode == nil or mode == "" then
+		mode = "off"
+	end
+	prefixPickButtonMode = tostring(mode)
+	if prefixPickButtonMode == "off" then
+		prefixPickSecondPointerId = nil
+		prefixPickSentThisHold = false
+		prefixPickLeftTile = false
+	end
+end
+
+local function pickButtonActive()
+	return prefixPickButtonMode == "button" or prefixPickButtonMode == "double"
+end
 
 local function hasButtonCommand(cmd)
 	return cmd ~= nil and cmd ~= ""
@@ -1352,6 +1375,35 @@ local function resolveSwipeDirection(data, dx, dy, threshold)
 	return nil
 end
 
+local function pickPrefixForTouched(dx, dy)
+	if touchedbutton == nil or touchedbutton.data == nil then
+		return nil
+	end
+	local data = touchedbutton.data
+	local swipeThreshold = SWIPE_THRESHOLD_DP * density
+	local fireDir = resolveSwipeDirection(data, dx, dy, swipeThreshold)
+	if fireDir ~= nil then
+		local c = getSwipeCommand(data, fireDir)
+		if hasButtonCommand(c) then
+			return c
+		end
+	end
+	if hasButtonCommand(data.command) then
+		return data.command
+	end
+	return nil
+end
+
+local function prefixPickCancelFromPad()
+	if mainwindow == nil then
+		return
+	end
+	mainwindow:prefixPickButtonCancel()
+	if prefixPickButtonMode == "double" then
+		mainwindow:prefixPickHoldButton("")
+	end
+end
+
 local function hasButtonSwitch(data)
 	return data ~= nil and data.switchTo ~= nil and data.switchTo ~= ""
 end
@@ -1495,6 +1547,10 @@ local function cancelActiveTouchGesture()
 	fingerdown = false
 	selectedtouchstart = false
 	multiTouchCancelled = false
+	prefixPickSecondPointerId = nil
+	prefixPickSentThisHold = false
+	prefixPickLeftTile = false
+	prefixPickCancelFromPad()
 end
 
 -- Exported for MainWindow (edge-back / onPause) via windowCall.
@@ -1511,6 +1567,20 @@ function normalTouch.onTouch(v,e)
 	local masked = e:getActionMasked()
 	if masked == ACTION_POINTER_DOWN then
 		if fingerdown then
+			-- Full-bleed pad: a second finger on the game text still lands here.
+			-- .pick button-double uses that finger as the word picker.
+			if prefixPickButtonMode == "double" and mainwindow ~= nil
+					and touchedbutton ~= nil and touchedbutton.data ~= nil
+					and hasButtonCommand(touchedbutton.data.command) then
+				local px = mainwindow:prefixPickActionX(e)
+				local py = mainwindow:prefixPickActionY(e)
+				local onTile = buttonTouched(px, py)
+				if not onTile then
+					prefixPickSecondPointerId = mainwindow:prefixPickSecondDown(
+							touchedbutton.data.command, e)
+					return true
+				end
+			end
 			multiTouchCancelled = true
 			cancelActiveTouchGesture()
 			return true
@@ -1536,15 +1606,23 @@ function normalTouch.onTouch(v,e)
 			local accTrigger = hasAccordionConfig(b.data)
 				and getAccordionTrigger(b.data) or nil
 			-- Hold command and hold-trigger accordion are mutually exclusive.
-			if hasButtonCommand(b.data.holdCommand)
-					and not (accTrigger and accordionOwnsHold(accTrigger)) then
-				ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
-			end
-			if not b.isAccordionChild and accTrigger
-					and accordionOwnsHold(accTrigger) then
-				ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
+			-- .pick button / button-double own the hold; do not fire holdCommand.
+			if not pickButtonActive() then
+				if hasButtonCommand(b.data.holdCommand)
+						and not (accTrigger and accordionOwnsHold(accTrigger)) then
+					ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
+				end
+				if not b.isAccordionChild and accTrigger
+						and accordionOwnsHold(accTrigger) then
+					ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
+				end
+			elseif prefixPickButtonMode == "double" and mainwindow ~= nil
+					and hasButtonCommand(b.data.command) then
+				mainwindow:prefixPickHoldButton(b.data.command)
 			end
 			fingerdown = true
+			prefixPickSentThisHold = false
+			prefixPickLeftTile = false
 			touchStartX = x
 			touchStartY = y
 			touchedbutton = b
@@ -1650,6 +1728,22 @@ function normalTouch.onTouch(v,e)
 				end
 				view:invalidate()
 			end
+
+			if prefixPickButtonMode == "button" and mainwindow ~= nil then
+				if not insideButton then
+					prefixPickLeftTile = true
+					local pfx = pickPrefixForTouched(dx, dy)
+					if pfx ~= nil then
+						mainwindow:prefixPickSlide(pfx, e:getRawX(), e:getRawY())
+					end
+				end
+			elseif prefixPickButtonMode == "double" and mainwindow ~= nil
+					and prefixPickSecondPointerId ~= nil
+					and touchedbutton ~= nil and touchedbutton.data ~= nil
+					and hasButtonCommand(touchedbutton.data.command) then
+				mainwindow:prefixPickSecondMove(touchedbutton.data.command, e,
+						prefixPickSecondPointerId)
+			end
 			
 			--debugPrint("action move, moving button, returning true")
 			
@@ -1659,6 +1753,17 @@ function normalTouch.onTouch(v,e)
 			return false
 		end
 	elseif(masked == ACTION_UP or masked == ACTION_POINTER_UP) then
+		if prefixPickButtonMode == "double" and prefixPickSecondPointerId ~= nil
+				and mainwindow ~= nil and masked == ACTION_POINTER_UP then
+			local upId = mainwindow:prefixPickActionPointerId(e)
+			if upId == prefixPickSecondPointerId then
+				if mainwindow:prefixPickButtonFingerUp() then
+					prefixPickSentThisHold = true
+				end
+				prefixPickSecondPointerId = nil
+				return true
+			end
+		end
 		if multiTouchCancelled then
 			if e:getPointerCount() <= 1 then
 				multiTouchCancelled = false
@@ -1671,6 +1776,25 @@ function normalTouch.onTouch(v,e)
 			CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
 			fingerdown = false
 			selectedtouchstart = false
+			if pickButtonActive() and mainwindow ~= nil then
+				local sent = mainwindow:prefixPickButtonFingerUp()
+				if prefixPickSentThisHold then
+					sent = true
+				end
+				prefixPickSentThisHold = false
+				if prefixPickButtonMode == "double" then
+					mainwindow:prefixPickHoldButton("")
+				end
+				prefixPickSecondPointerId = nil
+				-- Left the tile: pick owns the gesture, even if no word.
+				if sent or (prefixPickButtonMode == "button" and prefixPickLeftTile) then
+					prefixPickLeftTile = false
+					collapseAccordionChildParentIfNeeded(touchedbutton)
+					resetTouchedButtonVisual()
+					return true
+				end
+				prefixPickLeftTile = false
+			end
 			if accordionHoldFired then
 				accordionHoldFired = false
 				resetTouchedButtonVisual()
