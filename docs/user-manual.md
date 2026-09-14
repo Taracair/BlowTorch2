@@ -1963,6 +1963,12 @@ Things worth knowing when the pattern gets ambitious:
   `mailto` link on that spot still wins over both — opening a browser is the
   surprise to get wrong.
 
+A word nobody marked is still usable: type a prefix in the input bar
+(`fix `) and `.pick`, then tap the word. The client sends `fix helmet` and
+leaves `fix ` in the bar. See **`.pick` forms** under Built-in commands.
+While pick is armed, it wins over an existing tappable-word trigger for
+that tap.
+
 ### 9c. Tap a name to retarget every button
 
 A command sent by a tappable word takes **the same road as a line you type**:
@@ -2165,6 +2171,7 @@ is enabled; `.alias list` shows every alias at once.
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
     `.grabber [once|hold|tap|off]`         Inspect colour/style under a finger; copy layers or open a trigger. See forms below
+    `.pick [once|hold|tap|off]`            Prefix in the input bar plus a word from the game text. See forms below
     `.closewindow`                      Leave the game window (dirty exit). Not the same as `.window hide` (one extra-text window)
     `.tutorial …`                       Starter Tutorial lessons (`start` / `next` / `topics` / `<topic>`). Works in any world
     `.tips on|always|off`               Short reminders the first time you type a `.command` that session
@@ -2297,6 +2304,36 @@ ANSI 32. Looks the same fires on both, because Colorizer's RGB before Light
 paper is the same.
 
 A Color action you painted is not the world's style; the grabber skips it.
+
+### `.pick` forms
+
+```
+.pick
+.pick once
+.pick hold
+.pick on
+.pick tap
+.pick off
+```
+
+Type a prefix in the input bar (`fix `), then pick a word from the game
+text. The client sends `fix helmet` and leaves `fix ` in the bar. Empty
+bar refuses.
+
+No argument is **once**: one word, then off. **hold** / **on** stays until
+`.pick off`. **tap** is the same as once. Put `.pick hold` on a button to
+arm with a tap.
+
+A long-press on the game text while the bar already holds a prefix also
+starts a one-shot pick. The loupe follows the finger; dragging to the
+screen edge scrolls a frozen buffer.
+
+Tokens are letters and digits: `iron-helmet` is two words. Prefix mode
+wins over existing tappable-word triggers for that pick.
+
+Holding a pad tile while tapping the text with a second finger is not
+supported (the pick overlay covers the screen). Sliding from a button
+onto a word is not supported.
 
 ### `.probe`
 
