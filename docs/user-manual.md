@@ -1964,8 +1964,9 @@ Things worth knowing when the pattern gets ambitious:
   surprise to get wrong.
 
 A word nobody marked is still usable: type `.pick`, put a prefix in the input bar
-(`fix `), then tap the word. The client sends `fix helmet` and
-leaves `fix ` in the bar. See **`.pick` forms** under Built-in commands.
+(`fix `, or a template `fix $1 helmet`), then tap the word. The client sends
+`fix helmet` or `fix iron helmet` and leaves the prefix in the bar. See
+**`.pick` forms** under Built-in commands.
 While pick is armed, it wins over an existing tappable-word trigger for
 that tap.
 
@@ -2324,9 +2325,13 @@ A Color action you painted is not the world's style; the grabber skips it.
 
 Type `.pick`, then put a prefix in the input bar (`fix `), then pick a
 word from the game text. The client sends `fix helmet` and leaves `fix `
-in the bar. Empty bar, or a client `.` command left in the bar (Keep Last
+in the bar. A template puts the word where `$1` is: `fix $1 helmet` and
+pick `iron` sends `fix iron helmet`. `$word` and `$0` are the same token
+(as on tappable words). With no `$1` / `$0` / `$word`, the word is
+appended as before. Empty bar, or a client `.` command left in the bar (Keep Last
 after `.pick`), is not a game prefix: that send is refused and pick stays
-on. Put `.pick hold` on a button and leave `fix ` in the bar.
+on. Put `.pick hold` on a button and leave `fix ` (or `fix $1 helmet`) in
+the bar.
 
 No argument is **once**: one word, then off. **hold** / **on** stays until
 `.pick off` (or a second `.pick hold`). **tap** is the same as once.
@@ -2337,7 +2342,8 @@ still open the copy widget.)
 
 **button**: on an existing pad tile, swipe (for example up on an 8-way
 North), keep holding, then slide onto a word. The prefix is that swipe's
-command (`look n helmet`). Stay on the tile and a release still fires
+command (`look n helmet`, or `put $1 in bag` + pick `iron` →
+`put iron in bag`). Stay on the tile and a release still fires
 the swipe or tap as usual. Leave the tile and the gesture belongs to
 pick even if there is no word under the finger. **button-double**: hold the tile with
 one finger (prefix is the tile's tap command) and tap a word with the
@@ -2346,7 +2352,8 @@ button-double` turns that mode off.
 
 The loupe is a round magnifier of the **game text** around the finger
 (not only the chosen word), with that word highlighted. The phrase
-(`fix helmet`) sits **above** the circle. Dragging to the screen edge
+(`fix helmet`, or `fix iron helmet` from `fix $1 helmet`) sits **above**
+the circle. Dragging to the screen edge
 scrolls a frozen buffer. Size and zoom: Options → Window → **Pick loupe
 size (%)** / **Pick loupe zoom (%)**, or `.pick loupe size 118` /
 `.pick loupe zoom 200` (size 50–200, default 118; zoom 150–350, 200 is

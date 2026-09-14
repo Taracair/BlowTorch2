@@ -50,4 +50,65 @@ public class PrefixWordJoinTest {
 		assertFalse(PrefixWordJoin.usablePrefix(".pick"));
 		assertTrue(PrefixWordJoin.usablePrefix("fix "));
 	}
+
+	@Test
+	public void dollarOneIsThePickedWordInTheMiddle() {
+		assertEquals("fix iron helmet",
+				PrefixWordJoin.sendLine("fix $1 helmet", "iron"));
+	}
+
+	@Test
+	public void dollarOneAtTheFrontPutsTheWordFirst() {
+		assertEquals("iron helmet",
+				PrefixWordJoin.sendLine("$1 helmet", "iron"));
+	}
+
+	@Test
+	public void dollarOneAtTheEndDoesNotAlsoAppend() {
+		assertEquals("kill goblin",
+				PrefixWordJoin.sendLine("kill $1", "goblin"));
+	}
+
+	@Test
+	public void dollarWordMatchesTappableWordSyntax() {
+		assertEquals("get rusty",
+				PrefixWordJoin.sendLine("get $word", "rusty"));
+	}
+
+	@Test
+	public void dollarZeroIsTheSameToken() {
+		assertEquals("look at bob",
+				PrefixWordJoin.sendLine("look at $0", "bob"));
+	}
+
+	@Test
+	public void dollarOneGluesToTheRestOfTheToken() {
+		assertEquals("fix iron-helmet",
+				PrefixWordJoin.sendLine("fix $1-helmet", "iron"));
+	}
+
+	@Test
+	public void severalSlotsFillTheSameWord() {
+		assertEquals("get ring;wear ring",
+				PrefixWordJoin.sendLine("get $1;wear $1", "ring"));
+	}
+
+	@Test
+	public void aPriceIsNotASlotSoTheWordIsStillAppended() {
+		assertEquals("cost $5 potion",
+				PrefixWordJoin.sendLine("cost $5", "potion"));
+		assertEquals("pay $10 gold",
+				PrefixWordJoin.sendLine("pay $10", "gold"));
+	}
+
+	@Test
+	public void dollarTenIsNotDollarOne() {
+		assertFalse(PrefixWordJoin.hasSlot("pay $10"));
+		assertEquals("pay $10 gold",
+				PrefixWordJoin.sendLine("pay $10", "gold"));
+		assertTrue(PrefixWordJoin.hasSlot("fix $1 helmet"));
+		assertTrue(PrefixWordJoin.hasSlot("get $word"));
+		assertTrue(PrefixWordJoin.hasSlot("$1 helmet"));
+		assertFalse(PrefixWordJoin.hasSlot("fix"));
+	}
 }

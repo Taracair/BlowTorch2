@@ -45,6 +45,14 @@ public class PrefixPickModeTest {
 	}
 
 	@Test
+	public void stickyFillsADollarOneTemplate() {
+		PrefixPickMode m = new PrefixPickMode();
+		assertTrue(m.armSticky("fix "));
+		assertEquals("fix iron helmet", m.fire("fix $1 helmet", "iron"));
+		assertEquals(PrefixPickMode.Kind.STICKY, m.kind());
+	}
+
+	@Test
 	public void emptyPrefixWhileStickyRefusesButStaysArmed() {
 		PrefixPickMode m = new PrefixPickMode();
 		assertTrue(m.armSticky("fix "));

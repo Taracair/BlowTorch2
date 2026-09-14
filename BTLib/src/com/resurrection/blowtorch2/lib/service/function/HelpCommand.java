@@ -673,6 +673,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .pick off\n"
 					+ "Bar: type .pick, then put fix  in the bar, then tap a word.\n"
 					+ "The game receives fix helmet and the bar still holds fix .\n"
+					+ "Or put fix $1 helmet in the bar and pick iron → fix iron helmet.\n"
+					+ "$1, $0 and $word are the picked word. No slot: the word is appended.\n"
 					+ "Empty / a . command in the bar is not a prefix; pick stays on.\n"
 					+ "Pad stays on screen. .pick off, or the same sticky command again.\n"
 					+ "During hold, one finger picks; a second finger cancels that pick\n"

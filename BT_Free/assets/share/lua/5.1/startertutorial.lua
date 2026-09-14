@@ -759,7 +759,9 @@ commands still opens the command menu, as before.
 
 A word nobody marked still works as a tap target with .pick. Type
 .pick, put a prefix in the input bar (fix ), then pick the word. The
-client sends fix helmet and the bar still holds fix . Empty / a .
+client sends fix helmet and the bar still holds fix . Or put
+fix $1 helmet in the bar and pick iron: the game receives
+fix iron helmet. $1, $0 and $word are the picked word. Empty / a .
 command in the bar is not a prefix; pick stays on.
 
 	.pick / .pick once   one word, then off
@@ -770,7 +772,7 @@ command in the bar is not a prefix; pick stays on.
 	.pick loupe          print size and zoom; also size N / zoom N / default
 	.pick off
 
-Put .pick hold on a button and leave fix  in the bar. The pad stays
+Put .pick hold on a button and leave fix  (or fix $1 helmet) in the bar. The pad stays
 visible. During hold, a second finger cancels that pick so you can
 scroll (two fingers with pick off still copy).
 The loupe is a round magnifier of the game text around the finger,
@@ -1612,7 +1614,7 @@ local TIPS = {
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	kb = [[Same as .keyboard.]],
-	pick = [[.pick once: type .pick, put a prefix in the bar (fix ), tap a word; the client sends fix helmet and the bar still holds fix . .pick hold stays until .pick off. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button-double: hold a tile, tap a word with the other finger. .pick loupe size N / zoom N, or Options → Window.]],
+	pick = [[.pick once: type .pick, put a prefix in the bar (fix  or fix $1 helmet), tap a word; the client sends fix helmet or fix iron helmet and the bar still holds the prefix. $1, $0 and $word are the picked word. .pick hold stays until .pick off. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button-double: hold a tile, tap a word with the other finger. .pick loupe size N / zoom N, or Options → Window.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
 	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. MCP: .widget source hp mcp hp maxhp. Regex on visible text: .widget source hp regex "HP: (\d+)/(\d+)". Long-press (~½s) edits (move/resize); tap leaves edit. .gauge is the same command.]],

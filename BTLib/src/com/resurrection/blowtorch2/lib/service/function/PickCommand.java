@@ -92,6 +92,8 @@ public class PickCommand extends SpecialCommand {
 							+ ".pick loupe default\n"
 							+ ".pick off\n"
 							+ "Bar: type .pick, then put fix  in the bar, then tap a word.\n"
+							+ "Or put fix $1 helmet in the bar and pick iron → fix iron helmet.\n"
+							+ "$1, $0 and $word are the picked word. No slot: the word is appended.\n"
 							+ "Or put .pick hold on a button and leave fix  in the bar.\n"
 							+ "During hold, a second finger cancels that pick so you can scroll."));
 			return null;
@@ -103,7 +105,8 @@ public class PickCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_HOLD) {
 			msg = Colorizer.getBrightCyanColor()
-					+ "Pick on (hold). Prefix is the input bar. .pick off to stop. "
+					+ "Pick on (hold). Prefix is the input bar "
+					+ "(fix  or fix $1 helmet). .pick off to stop. "
 					+ "A second finger cancels that pick so you can scroll."
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_BUTTON) {
@@ -116,7 +119,8 @@ public class PickCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n";
 		} else {
 			msg = Colorizer.getBrightCyanColor()
-					+ "Pick once: prefix in the bar, tap a word, then it turns off."
+					+ "Pick once: prefix in the bar (fix  or fix $1 helmet), "
+					+ "tap a word, then it turns off."
 					+ Colorizer.getWhiteColor() + "\n";
 		}
 		c.sendDataToWindow("\n" + msg);
