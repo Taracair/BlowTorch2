@@ -336,7 +336,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (theSelection != null || selectedSelector != null) {
 			return false;
 		}
-		if (mLoupeActive) {
+		if (tapHoldPaint()) {
 			return false;
 		}
 		return mBuffer != null && mBuffer.getBrokenLineCount() != 0;
@@ -2816,19 +2816,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			
 			synchronized (mToken) {
-			if (action == MotionEvent.ACTION_CANCEL
-					|| action == MotionEvent.ACTION_POINTER_DOWN) {
-				// Nothing here handles either of these, so ACTION_UP may never
-				// arrive: a parent taking the gesture over, or a second finger
-				// starting a pinch. A hold left pending would then open a menu
-				// over a gesture the player had already turned into something
-				// else.
+			if (action == MotionEvent.ACTION_CANCEL) {
+				// ListPopupWindow for the tap menu delivers CANCEL while the
+				// finger is still down. Clearing mTapLongPressFired made the
+				// later UP look like a loose tap and hid the keyboard.
 				cancelTapLongPress();
 				cancelPrefixPickLongPress();
 				if (mPrefixPickFinger) {
 					endPrefixPickFinger(false);
 				}
-				mTapLongPressFired = false;
+				dismissLoupe();
+				mFingerDown = false;
+				recycleVelocityTracker();
+				stopFling();
+				this.invalidate();
+				return true;
+			}
+			if (action == MotionEvent.ACTION_POINTER_DOWN) {
+				cancelTapLongPress();
+				cancelPrefixPickLongPress();
+				if (mPrefixPickFinger) {
+					endPrefixPickFinger(false);
+				}
 				dismissLoupe();
 				recycleVelocityTracker();
 				stopFling();
@@ -3760,7 +3769,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 5
 			//draw the text, from top to bottom.	
 			
-			boolean scrollingGesture = mFingerDown
+			boolean scrollingGesture = (mFingerDown && !tapHoldPaint())
 					|| Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY;
 
 			int drawnlines = 0;
@@ -5285,6 +5294,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
 				MainWindow.MESSAGE_TAPWORDMENU, box.centerX(), box.top, cmds));
+	}
+
+	/** Menu, loupe or .pick hold — not a scroll, so tappable paint stays. */
+	private boolean tapHoldPaint() {
+		return mTapLongPress != null || mTapLongPressFired || mLoupeActive
+				|| mPrefixPickFinger;
 	}
 
 	/**

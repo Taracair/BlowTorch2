@@ -2315,6 +2315,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					new androidx.appcompat.widget.ListPopupWindow(themed);
 			popup.setAnchorView(anchor);
 			popup.setModal(true);
+			// ⋮ hides the IME on purpose (ListPopupWindow + chrome lift jump).
+			// This menu sits on the game text; keep the keyboard as it was.
+			popup.setInputMethodMode(android.widget.PopupWindow.INPUT_METHOD_NOT_NEEDED);
+			popup.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED);
 			// What each row shows. A command can be as long as the player likes
 			// ("put all artifacts in 2.trail;…"), and a menu that grows to fit
 			// one of those covers the text it is about — so a long one is cut
