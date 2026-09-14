@@ -36,10 +36,7 @@ getting updates, Android moved on, and it quietly became uninstallable. Same
 client underneath, running again, with a lot built for a phone on top. The
 [user guide](docs/user-manual.md) is the full picture (also in-app under
 **Help**). Settings: [`docs/options-guide.md`](docs/options-guide.md). Lua
-plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md). Players hang
-out in [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) (Blowtorch Users Rogues'
-Network). That is Discord, not a second bug tracker. Reports with steps to
-reproduce still belong on [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
+plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md). 
 
 Install from [F-Droid](https://f-droid.org/packages/com.resurrection.blowtorch2/)
 or from [GitHub Releases](https://github.com/Taracair/BlowTorch2/releases/latest)
@@ -50,6 +47,9 @@ Android will not let you swap the pie without uninstalling.
 stage: stable enough for everyday use. That is not a promise that a 1990s TCP
 socket on a 2026 phone will never surprise you. If you hit a bug, a report
 with steps is still the most useful thing you can send.
+
+Join [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) (Blowtorch Users Rogues'
+Network) if you feel like chatting about the client.
 
 ---
 
