@@ -185,4 +185,6 @@ oneway interface IConnectionBinderCallback {
 	void inputBarHistory(int delta);
 	/** Style grabber overlay. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
 	void executeGrabber(int mode);
+	/** Prefix+screen-word pick. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
+	void executePrefixPick(int mode);
 }

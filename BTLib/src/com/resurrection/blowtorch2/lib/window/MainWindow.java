@@ -141,6 +141,7 @@ import com.resurrection.blowtorch2.lib.launcher.WorldLaunch;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
@@ -190,6 +191,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_COLORDEBUG = 675;
 	protected static final int MESSAGE_GRABBER = 676;
 	public static final int MESSAGE_OPEN_STYLE_TRIGGER = 677;
+	protected static final int MESSAGE_PREFIX_PICK_WORD = 678;
+	protected static final int MESSAGE_PREFIX_PICK = 679;
 	protected static final int MESSAGE_DIRTYEXITNOW = 943;
 	protected static final int MESSAGE_DOHAPTICFEEDBACK = 856;
 	public static final int MESSAGE_DELETEBUTTONSET = 867;
@@ -362,6 +365,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
 	private boolean mGrabberHidesButtons;
+	private final PrefixPickMode mPrefixPick = new PrefixPickMode();
+	private boolean mPrefixPickHidesButtons;
 	private ChatPanelController chatPanel;
 	/** Notification {@link ChatAnnounce#EXTRA_THREAD}; stripped after consume. */
 	private String mPendingChatThread;
@@ -1093,7 +1098,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					raiseWindowAboveButtons(msg.obj);
 					break;
 				case MESSAGE_TEXTSELECTION_RELEASE:
-					if (!mGrabberHidesButtons) {
+					if (!mGrabberHidesButtons && !mPrefixPickHidesButtons) {
 						restoreButtonsAboveWindows();
 					}
 					break;
@@ -1339,6 +1344,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_GRABBER:
 					applyStyleGrabberMode(msg.arg1);
+					break;
+				case MESSAGE_PREFIX_PICK:
+					applyPrefixPickMode(msg.arg1);
+					break;
+				case MESSAGE_PREFIX_PICK_WORD:
+					onPickedScreenWord((String) msg.obj);
 					break;
 				case MESSAGE_OPEN_STYLE_TRIGGER:
 					openStyleTriggerFromGrabber(
@@ -2931,6 +2942,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	private void cancelTouchOnPause() {
 		windowCall("button_window", "cancelTouchGesture", "");
+		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main != null) {
+			main.cancelPrefixPickGesture();
+		}
 	}
 
 	@Override
@@ -5855,6 +5870,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(grabber);
 		}
 
+		@Override
+		public void executePrefixPick(int mode) throws RemoteException {
+			Message pick = myhandler.obtainMessage(MESSAGE_PREFIX_PICK);
+			pick.arg1 = mode;
+			myhandler.sendMessage(pick);
+		}
+
 		public void invokeDirtyExit() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_DIRTYEXITNOW);
 			
@@ -7542,6 +7564,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			extraTextOverlay.refreshScrollSpeeds();
 		}
 		applyGameLightChrome();
+		if (w != null && "mainDisplay".equals(w.getName())) {
+			syncPrefixPickPrefix();
+		}
 	}
 	
 	
@@ -8117,6 +8142,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (mWordSuggestionsOn) {
 						refreshWordSuggestions();
 					}
+					syncPrefixPickPrefix();
 				}
 			});
 		}
@@ -8801,10 +8827,140 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (mode == GrabberCommand.MODE_OFF) {
 			mGrabberHidesButtons = false;
-			restoreButtonsAboveWindows();
+			if (!mPrefixPickHidesButtons) {
+				restoreButtonsAboveWindows();
+			}
 		} else {
+			if (mPrefixPick.isArmed()) {
+				mPrefixPick.disarm();
+				disarmPrefixPickUi();
+			}
 			mGrabberHidesButtons = true;
 			raiseWindowAboveButtons("mainDisplay");
+		}
+	}
+
+	private com.resurrection.blowtorch2.lib.window.Window mainDisplayWindow() {
+		if (windowMap != null) {
+			com.resurrection.blowtorch2.lib.window.Window mapped = windowMap.get("mainDisplay");
+			if (mapped != null) {
+				return mapped;
+			}
+		}
+		if (MAIN_WINDOW_ID != -1) {
+			View v = findViewById(MAIN_WINDOW_ID);
+			if (v instanceof com.resurrection.blowtorch2.lib.window.Window) {
+				return (com.resurrection.blowtorch2.lib.window.Window) v;
+			}
+		}
+		return null;
+	}
+
+	private String inputBarText() {
+		if (mInputBox == null || mInputBox.getText() == null) {
+			return "";
+		}
+		return mInputBox.getText().toString();
+	}
+
+	private void syncPrefixPickPrefix() {
+		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main != null) {
+			main.setPrefixPickPrefix(inputBarText());
+		}
+	}
+
+	private void applyPrefixPickMode(final int mode) {
+		if (mode == PickCommand.MODE_OFF) {
+			mPrefixPick.disarm();
+			disarmPrefixPickUi();
+			return;
+		}
+		String prefix = inputBarText();
+		if (mode == PickCommand.MODE_HOLD) {
+			boolean wasSticky = mPrefixPick.kind() == PrefixPickMode.Kind.STICKY;
+			if (!mPrefixPick.toggleSticky(prefix)) {
+				if (!wasSticky) {
+					Toast.makeText(this,
+							"Pick needs a prefix in the input bar (fix ).",
+							Toast.LENGTH_SHORT).show();
+				}
+				disarmPrefixPickUi();
+				return;
+			}
+		} else if (!mPrefixPick.armOneshot(prefix)) {
+			Toast.makeText(this,
+					"Pick needs a prefix in the input bar (fix ).",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		mPrefixPickHidesButtons = true;
+		applyStyleGrabberMode(GrabberCommand.MODE_OFF);
+		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main != null) {
+			main.setPrefixPickPrefix(prefix);
+			main.setPrefixPickArmed(true);
+		}
+		raiseWindowAboveButtons("mainDisplay");
+	}
+
+	private void disarmPrefixPickUi() {
+		mPrefixPickHidesButtons = false;
+		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main != null) {
+			main.setPrefixPickArmed(false);
+		}
+		if (!mGrabberHidesButtons) {
+			restoreButtonsAboveWindows();
+		}
+	}
+
+	private void onPickedScreenWord(final String word) {
+		if (word == null || word.length() == 0) {
+			return;
+		}
+		String prefix = inputBarText();
+		String line;
+		if (mPrefixPick.isArmed()) {
+			line = mPrefixPick.fire(prefix, word);
+			if (!mPrefixPick.isArmed()) {
+				disarmPrefixPickUi();
+			}
+		} else {
+			line = PrefixWordJoin.sendLine(prefix, word);
+		}
+		if (line != null) {
+			sendPickedCommand(line);
+		}
+	}
+
+	private void sendPickedCommand(final String line) {
+		if (line == null || line.length() == 0 || service == null) {
+			return;
+		}
+		try {
+			if (!mLocalEchoOff) {
+				history.addCommand(line);
+				history.save(MainWindow.this, getConnectionDisplay());
+				if (!line.trim().startsWith(".")) {
+					loadCommandKnowledge();
+					mWordSuggestions.learnCommand(line);
+					mCommandKnowledgeDirty = true;
+					maybeSaveCommandKnowledge();
+				}
+			}
+			String enc = service.getEncoding();
+			if (enc == null || enc.length() == 0) {
+				enc = "UTF-8";
+			}
+			service.sendData((line + "\r\n").getBytes(enc));
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.prefixPick", e);
+		}
+		com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
+		if (w != null) {
+			w.jumpToStart();
 		}
 	}
 

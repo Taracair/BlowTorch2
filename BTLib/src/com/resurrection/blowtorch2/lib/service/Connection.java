@@ -66,6 +66,7 @@ import com.resurrection.blowtorch2.lib.service.function.MapCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
@@ -690,6 +691,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		GrabberCommand grabcmd = new GrabberCommand();
 		mSpecialCommands.put(grabcmd.commandName, grabcmd);
+		PickCommand pickcmd = new PickCommand();
+		mSpecialCommands.put(pickcmd.commandName, pickcmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
 		FrameCommand framecmd = new FrameCommand();

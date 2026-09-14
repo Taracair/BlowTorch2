@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.window;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -58,6 +59,35 @@ public class PrefixPickHitTest {
 	@Test
 	public void digitsStay() {
 		assertEquals("2h", PrefixPickHit.wordOnLine("wait 2h then", 0, 5, 0));
+	}
+
+	@Test
+	public void wordWrapUsesBreakRowsNotColumnStride() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setWordWrap(true);
+		tree.setLineBreakAt(17);
+		tree.addBytesImpl(("The quick brown fox jumps over the lazy dog today "
+				+ "and then some more words here for wrapping\n").getBytes("UTF-8"));
+		TextTree.Line line = tree.getLines().getFirst();
+		java.util.List<String> rows = PrefixPickHit.visualRows(line);
+		assertTrue("expected several wraps", rows.size() >= 3);
+		assertTrue("word wrap leaves a short first row",
+				rows.get(0).length() < 17);
+		assertTrue("next row does not start at wrapColumns",
+				PrefixPickHit.rowStart(rows, 1) != 17);
+		String plain = TextTree.deColorLine(line).toString();
+		for (int r = 0; r < rows.size(); r++) {
+			String row = rows.get(r);
+			int col = 0;
+			while (col < row.length() && !AlnumWordAt.isWordChar(row.charAt(col))) {
+				col++;
+			}
+			if (col >= row.length()) {
+				continue;
+			}
+			assertEquals(AlnumWordAt.at(row, col),
+					PrefixPickHit.wordOnRows(plain, rows, r, col));
+		}
 	}
 
 	@Test

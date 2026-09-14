@@ -2202,7 +2202,272 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		} else {
 			stopFling();
 			mLastFrameTime = 0;
+			cancelPrefixPickGesture();
+			mPrefixPickArmed = false;
 		}
+	}
+
+	public void setPrefixPickArmed(final boolean armed) {
+		if (mPrefixPickArmed == armed) {
+			return;
+		}
+		mPrefixPickArmed = armed;
+		if (!armed) {
+			cancelPrefixPickGesture();
+		} else {
+			stopFling();
+			if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+				mStyleGrabber.setMode(GrabberCommand.MODE_OFF);
+				mStyleGrabberModels = null;
+			}
+		}
+		invalidate();
+	}
+
+	public void setPrefixPickPrefix(final String prefix) {
+		mPrefixPickPrefix = prefix == null ? "" : prefix;
+		if (mPrefixPickFinger) {
+			invalidate();
+		}
+	}
+
+	public void cancelPrefixPickGesture() {
+		cancelPrefixPickLongPress();
+		cancelPrefixPickEdge();
+		endPrefixPickFinger(false);
+	}
+
+	private boolean hasPrefixPickPrefix() {
+		return mPrefixPickPrefix != null && mPrefixPickPrefix.trim().length() > 0;
+	}
+
+	private void beginPrefixPickFinger(final float x, final float y) {
+		if (theSelection != null) {
+			return;
+		}
+		cancelTapLongPress();
+		cancelPrefixPickLongPress();
+		dismissLoupe();
+		mPrefixPickFinger = true;
+		mPrefixPickFingerX = x;
+		mPrefixPickFingerY = y;
+		stopFling();
+		if (!mBufferText) {
+			setBufferText(true);
+			mPrefixPickFroze = true;
+		} else {
+			mPrefixPickFroze = false;
+		}
+		if (!mPrefixPickArmed && mMainWindowHandler != null) {
+			mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+					MainWindow.MESSAGE_TEXTSELECTION_FOCUS, this.getTag()));
+		}
+		updatePrefixPickAt(x, y);
+		updatePrefixPickEdge(y);
+		invalidate();
+	}
+
+	private void endPrefixPickFinger(final boolean send) {
+		cancelPrefixPickEdge();
+		String word = mPrefixPickWord;
+		boolean hidButtons = mPrefixPickFinger && !mPrefixPickArmed;
+		if (mPrefixPickFroze) {
+			flushBuffer();
+			mPrefixPickFroze = false;
+		}
+		mPrefixPickFinger = false;
+		mPrefixPickWord = null;
+		mPrefixPickSpan = null;
+		if (send && word != null && mMainWindowHandler != null) {
+			mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+					MainWindow.MESSAGE_PREFIX_PICK_WORD, word));
+		}
+		if (hidButtons && mMainWindowHandler != null) {
+			mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_TEXTSELECTION_RELEASE);
+		}
+		invalidate();
+	}
+
+	private void updatePrefixPickAt(final float x, final float y) {
+		mPrefixPickFingerX = x;
+		mPrefixPickFingerY = y;
+		mPrefixPickWord = null;
+		mPrefixPickSpan = null;
+		mPrefixPickBox.setEmpty();
+		if (mBuffer == null || mOneCharWidth <= 0 || mPrefLineSize <= 0) {
+			return;
+		}
+		int broken = touchYToBufferLine(y);
+		if (broken < 0) {
+			broken = 0;
+		}
+		TextTree.Line line = lineAtBroken(broken);
+		if (line == null) {
+			return;
+		}
+		int visualCol = (int) Math.floor((x + mScrollX) / (float) mOneCharWidth);
+		String plain = TextTree.deColorLine(line).toString();
+		java.util.List<String> rows = PrefixPickHit.visualRows(line);
+		AlnumWordAt.Span span = PrefixPickHit.spanOnRows(plain, rows,
+				mPrefixPickWrapRow, visualCol);
+		if (span == null) {
+			return;
+		}
+		mPrefixPickWord = span.text;
+		mPrefixPickSpan = span;
+		mPrefixPickBroken = broken;
+		int rowStart = PrefixPickHit.rowStart(rows, mPrefixPickWrapRow);
+		String row = (mPrefixPickWrapRow >= 0 && mPrefixPickWrapRow < rows.size())
+				? rows.get(mPrefixPickWrapRow) : "";
+		int col0 = span.start - rowStart;
+		if (col0 < 0) {
+			col0 = 0;
+		}
+		int visStart = Math.max(span.start, rowStart);
+		int visEnd = Math.min(span.end, rowStart + row.length());
+		int cells = Math.max(1, visEnd - visStart);
+		int left = (int) (col0 * mOneCharWidth - mScrollX);
+		int right = left + cells * mOneCharWidth;
+		float a = bufferLineToScreenY(broken, 0f);
+		float b = bufferLineToScreenY(broken, mPrefLineSize);
+		int top = (int) Math.min(a, b);
+		int bottom = (int) Math.max(a, b);
+		mPrefixPickBox.set(left, top, right, bottom);
+	}
+
+	private TextTree.Line lineAtBroken(final int broken) {
+		if (mBuffer == null || mBuffer.getLines() == null) {
+			return null;
+		}
+		int working = 0;
+		for (TextTree.Line l : mBuffer.getLines()) {
+			int rows = 1 + l.breaks;
+			if (broken >= working && broken < working + rows) {
+				mPrefixPickWrapRow = broken - working;
+				return l;
+			}
+			working += rows;
+		}
+		return null;
+	}
+
+	private void handlePrefixPickMove(final float x, final float y) {
+		updatePrefixPickAt(x, y);
+		updatePrefixPickEdge(y);
+		invalidate();
+	}
+
+	private void updatePrefixPickEdge(final float y) {
+		float edge = 48f * mDensity;
+		int topBand = textPadTop() + (int) edge;
+		int bottomBand = mHeight - textPadBottom() - (int) edge;
+		boolean inEdge = y < topBand || y > bottomBand;
+		if (inEdge) {
+			applyPrefixPickEdgeScroll(y);
+			if (mPrefixPickEdge == null) {
+				mPrefixPickEdge = new Runnable() {
+					public void run() {
+						if (!mPrefixPickFinger) {
+							return;
+						}
+						applyPrefixPickEdgeScroll(mPrefixPickFingerY);
+						postDelayed(this, 32);
+					}
+				};
+				postDelayed(mPrefixPickEdge, 32);
+			}
+		} else {
+			cancelPrefixPickEdge();
+		}
+	}
+
+	private void applyPrefixPickEdgeScroll(final float y) {
+		if (!mPrefixPickFinger || mPrefLineSize <= 0 || mBuffer == null) {
+			return;
+		}
+		float edge = 48f * mDensity;
+		int topBand = textPadTop() + (int) edge;
+		int bottomBand = mHeight - textPadBottom() - (int) edge;
+		float step = mPrefLineSize * 0.4f;
+		if (y < topBand) {
+			mScrollback += mNewestAtTop ? -step : step;
+		} else if (y > bottomBand) {
+			mScrollback += mNewestAtTop ? step : -step;
+		} else {
+			return;
+		}
+		if (mScrollback < SCROLL_MIN) {
+			mScrollback = SCROLL_MIN;
+		} else if (mScrollback >= (mBuffer.getBrokenLineCount() * mPrefLineSize)) {
+			mScrollback = (double) (mBuffer.getBrokenLineCount() * mPrefLineSize);
+		}
+		updatePrefixPickAt(mPrefixPickFingerX, mPrefixPickFingerY);
+		invalidate();
+	}
+
+	private void schedulePrefixPickLongPress() {
+		cancelPrefixPickLongPress();
+		if (start_x == null || mStartY == null || !hasPrefixPickPrefix()) {
+			return;
+		}
+		final float fx = start_x.floatValue();
+		final float fy = mStartY.floatValue();
+		mPrefixPickLongPress = new Runnable() {
+			public void run() {
+				mPrefixPickLongPress = null;
+				beginPrefixPickFinger(fx, fy);
+			}
+		};
+		postDelayed(mPrefixPickLongPress, android.view.ViewConfiguration.getLongPressTimeout());
+	}
+
+	private void cancelPrefixPickLongPress() {
+		if (mPrefixPickLongPress != null) {
+			removeCallbacks(mPrefixPickLongPress);
+			mPrefixPickLongPress = null;
+		}
+	}
+
+	private void cancelPrefixPickEdge() {
+		if (mPrefixPickEdge != null) {
+			removeCallbacks(mPrefixPickEdge);
+			mPrefixPickEdge = null;
+		}
+	}
+
+	private void drawPrefixPick(final Canvas c) {
+		if (!mPrefixPickFinger || mPrefixPickWord == null) {
+			return;
+		}
+		if (!mPrefixPickBox.isEmpty()) {
+			c.drawRect(mPrefixPickBox, mLoupeHighlightPaint);
+		}
+		String label = PrefixWordJoin.sendLine(mPrefixPickPrefix, mPrefixPickWord);
+		if (label == null) {
+			label = mPrefixPickWord;
+		}
+		float textSize = Math.max(mPrefLineSize * 1.6f, 18f * mDensity);
+		mLoupeTextPaint.setTextSize(textSize);
+		mLoupeTextPaint.setTypeface(mPrefFont);
+		applyTerminalFontFeatures(mLoupeTextPaint);
+		float pad = 8f * mDensity;
+		float tw = mLoupeTextPaint.measureText(label);
+		float panelW = tw + pad * 2f;
+		float panelH = textSize + pad * 2f;
+		float px = mPrefixPickFingerX + 36f * mDensity;
+		float py = mPrefixPickFingerY - panelH - 16f * mDensity;
+		if (px + panelW > mWidth) {
+			px = mPrefixPickFingerX - panelW - 36f * mDensity;
+		}
+		if (px < 0) {
+			px = pad;
+		}
+		if (py < 0) {
+			py = mPrefixPickFingerY + 16f * mDensity;
+		}
+		mLoupePanelRect.set(px, py, px + panelW, py + panelH);
+		c.drawRoundRect(mLoupePanelRect, 8f * mDensity, 8f * mDensity, mLoupePanelPaint);
+		c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(), mLoupeTextPaint);
 	}
 
 	/** Grabber consumed DOWN (✕ / panel). Keep this finger as a scroll. */
@@ -2264,6 +2529,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	@Override
 	public final boolean onTouchEvent(final MotionEvent t) {
 		final int action = t.getActionMasked();
+		if (action == MotionEvent.ACTION_POINTER_DOWN && mPrefixPickFinger) {
+			endPrefixPickFinger(false);
+		}
 		// Two fingers on the game text → open copy widget (one-finger long-press does not).
 		if (mTextSelectionEnabled && theSelection == null
 				&& action == MotionEvent.ACTION_POINTER_DOWN
@@ -2355,6 +2623,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				// over a gesture the player had already turned into something
 				// else.
 				cancelTapLongPress();
+				cancelPrefixPickLongPress();
+				if (mPrefixPickFinger) {
+					endPrefixPickFinger(false);
+				}
 				mTapLongPressFired = false;
 				dismissLoupe();
 				recycleVelocityTracker();
@@ -2395,7 +2667,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				
 				if (mStyleGrabber == null || !mStyleGrabber.isOn()) {
-					scheduleTapLongPress();
+					if (mPrefixPickArmed) {
+						beginPrefixPickFinger(x, y);
+					} else if (hasPrefixPickPrefix()) {
+						schedulePrefixPickLongPress();
+					} else {
+						scheduleTapLongPress();
+					}
 				}
 
 				mDragAxis = DRAG_UNDECIDED;
@@ -2426,7 +2704,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				float holdSlop = 8f * mDensity;
 				if (Math.abs(heldDx) > holdSlop || Math.abs(heldDy) > holdSlop) {
 					cancelTapLongPress();
+					cancelPrefixPickLongPress();
 				}
+			}
+
+			if (action == MotionEvent.ACTION_MOVE && mPrefixPickFinger) {
+				handlePrefixPickMove(t.getX(index), t.getY(index));
+				return true;
 			}
 
 			if (action == MotionEvent.ACTION_MOVE && (mTapLongPressFired || mLoupeActive)) {
@@ -2567,6 +2851,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 		         
 				cancelTapLongPress();
+				cancelPrefixPickLongPress();
+				if (mPrefixPickFinger) {
+					endPrefixPickFinger(true);
+					mTapLongPressFired = false;
+					mTouchInTapWord = -1;
+					mTouchInLink = -1;
+					return true;
+				}
 				if (mLoupeActive) {
 					fireLoupeSelection();
 					dismissLoupe();
@@ -3749,6 +4041,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		c.restore();
 		drawLoupe(c);
+		drawPrefixPick(c);
 		if (mStyleGrabber != null) {
 			mStyleGrabber.draw(c);
 		}
@@ -4362,6 +4655,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mLoupeActive = false;
 	private float mLoupeFingerX;
 	private float mLoupeFingerY;
+	private boolean mPrefixPickArmed = false;
+	private String mPrefixPickPrefix = "";
+	private boolean mPrefixPickFinger = false;
+	private boolean mPrefixPickFroze = false;
+	private String mPrefixPickWord = null;
+	private AlnumWordAt.Span mPrefixPickSpan = null;
+	private int mPrefixPickBroken = 0;
+	private int mPrefixPickWrapRow = 0;
+	private float mPrefixPickFingerX;
+	private float mPrefixPickFingerY;
+	private final Rect mPrefixPickBox = new Rect();
+	private Runnable mPrefixPickLongPress = null;
+	private Runnable mPrefixPickEdge = null;
 	private StyleGrabberOverlay mStyleGrabber;
 	private StyleLineModel[] mStyleGrabberModels;
 	private int mStyleGrabberBytes = -1;

@@ -98,6 +98,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("editpanel", "Input and suggestions", "show or hide the editing strip");
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
+		cmd("pick", "Input and suggestions",
+				"send the input-bar prefix plus a word tapped in the game text");
 
 		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
@@ -655,6 +657,18 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .tips always       — every time\n"
 					+ "  .tips off          — stop\n"
 					+ "  Then type .help or .osc8 — not .alias\n";
+		}
+		if (filter.equals("pick")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .pick:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .pick / .pick once   one word from the screen, then off\n"
+					+ "  .pick hold / .pick on  until .pick off\n"
+					+ "  .pick tap            same as once\n"
+					+ "  .pick off\n"
+					+ "Type a prefix in the bar (fix ), then tap a word. The game\n"
+					+ "receives fix helmet and the bar still holds fix . Empty bar refuses\n"
+					+ "in the UI; the service cannot read the bar.\n";
 		}
 		if (filter.equals("grabber")) {
 			return "\n"
