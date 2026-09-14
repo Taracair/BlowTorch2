@@ -5674,6 +5674,9 @@ end
 function clearButtons()
 	if(buttonsCleared) then return end
 	buttonsCleared = true
+	-- Singleton BACK keeps `selected` across the previous BACK tap. Draw it
+	-- idle, not in the pressed colour, every time .clearbuttons shows it.
+	revertButton.selected = false
 	revertset = buttons
 	positionRevertButton()
 	buttons = revertButtonSet
@@ -5743,6 +5746,10 @@ function revertButtons()
 	end
 	buttonsCleared = false
 	buttons = revertset
+	-- BACK is a singleton reused by every .clearbuttons. Unpress it before
+	-- dropping the pointer; resetTouchedButtonVisual cannot see it once
+	-- touchedbutton is {}.
+	revertButton.selected = false
 	-- The finger that pressed BACK is still in ACTION_UP. loadButtons drops
 	-- touchedbutton for the same reason: resetTouchedButtonVisual's fast path
 	-- would otherwise paint the old tile on top of the set that replaced it.
