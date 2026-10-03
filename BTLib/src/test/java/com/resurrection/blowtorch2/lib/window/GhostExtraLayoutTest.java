@@ -163,7 +163,8 @@ public class GhostExtraLayoutTest {
 		GhostExtraLayout.Pack pack = GhostExtraLayout.pack(widths, 100f, caretX, gap,
 				5);
 		assertEquals(0, pack.rows[0]);
-		assertEquals(caretX + gap, pack.xs[0], 0f);
+		assertEquals(caretX, pack.xs[0], 0f);
+		assertEquals(caretX + 15f + gap, pack.xs[1], 0f);
 		assertEquals(0, pack.rows[1]);
 		assertEquals(1, pack.rows[2]);
 		assertEquals(0f, pack.xs[2], 0f);
@@ -177,6 +178,8 @@ public class GhostExtraLayoutTest {
 		GhostExtraLayout.Pack pack = GhostExtraLayout.pack(widths, 100f, textEnd, 8f,
 				1);
 		assertEquals(0, pack.rows[0]);
+		assertEquals(textEnd, pack.xs[0], 0f);
+		assertEquals(textEnd + 20f + 8f, pack.xs[1], 0f);
 		assertEquals(0, pack.rows[1]);
 		assertEquals(0, pack.rowsBelowGhost());
 	}

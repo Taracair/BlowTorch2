@@ -107,4 +107,19 @@ public class GlobalGesturesTest {
 		assertFalse(GlobalGestures.optionUnused(GlobalGestures.KEY_SCROLL,
 				GlobalGestures.MODE_BOTH, GlobalGestures.SCROLL_TWO));
 	}
+
+	@Test
+	public void chromeLabelAddsScrollOnlyWhenThatChoiceApplies() {
+		GlobalGestures both = new GlobalGestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, 280, true, true, true, true, true, false, "");
+		assertEquals("1+2 · Hold, then gesture", both.chromeLabel());
+		assertEquals("Classic", both.withMode(GlobalGestures.MODE_CLASSIC).chromeLabel());
+		assertEquals("2 fingers", both.withMode(GlobalGestures.MODE_TWO).chromeLabel());
+		GlobalGestures one = new GlobalGestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_TWO, 280, true, true, true, true, true, false, "");
+		assertEquals("1 finger · With two fingers", one.chromeLabel());
+		GlobalGestures off = new GlobalGestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_OFF, 280, true, true, true, true, true, false, "");
+		assertEquals("1+2 · Off", off.chromeLabel());
+	}
 }

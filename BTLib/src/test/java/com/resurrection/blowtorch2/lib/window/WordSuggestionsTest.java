@@ -582,6 +582,11 @@ public class WordSuggestionsTest {
 		// Caret in the middle of a word completes only what is behind it.
 		assertEquals("gr", WordSuggestions.wordBefore("k grizzled", 4));
 		assertEquals("", WordSuggestions.wordBefore(null, 3));
+		String marked = "super" + InputHyphenBreaks.MARK + "cal";
+		assertEquals("supercal", WordSuggestions.wordBefore(marked, marked.length()));
+		assertEquals(0, WordSuggestions.tokenStart(marked, marked.length()));
+		assertEquals("supercalifragilistic ",
+				WordSuggestions.complete(marked, marked.length(), "supercalifragilistic").text());
 	}
 
 	@Test

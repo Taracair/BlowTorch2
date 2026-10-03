@@ -44,7 +44,9 @@ import android.widget.TextView;
 /**
  * Overflow → Help: the packaged user manual, split on {@code ##} headings into
  * expandable categories with a search bar. Content from {@code R.raw.user_manual};
- * keep in sync with docs/user-manual.md.
+ * keep in sync with docs/user-manual.md. The Contents list and
+ * {@code details}/{@code summary} lines in that file are for GitHub; they are
+ * not shown here.
  *
  * <p>Search lists matching categories (with hit counts) first; the player
  * expands a category, then a section. Bodies are filled only when opened, so

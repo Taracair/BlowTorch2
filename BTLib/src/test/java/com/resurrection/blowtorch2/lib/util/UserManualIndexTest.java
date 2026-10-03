@@ -63,6 +63,30 @@ public class UserManualIndexTest {
 	}
 
 	@Test
+	public void contentsAndDetailsWrappersAreNotHelpText() {
+		String src = "# T\n\n## Contents\n\n- [Before you start](#before-you-start)\n\n"
+				+ "<details>\n<summary>Before you start</summary>\n\n"
+				+ "## Before you start\n\nStar a world.\n\n</details>\n\n"
+				+ "<details>\n<summary>Playing</summary>\n\n"
+				+ "## Encrypted connections (TLS)\n\nTurn TLS on.\n\n</details>\n";
+		List<UserManualIndex.Section> sections = UserManualIndex.parse(src);
+		assertEquals(2, sections.size());
+		assertEquals("Before you start", sections.get(0).title);
+		assertEquals("Star a world.", sections.get(0).body);
+		assertEquals("Encrypted connections (TLS)", sections.get(1).title);
+		assertEquals("Turn TLS on.", sections.get(1).body);
+	}
+
+	@Test
+	public void detailsInsideAFenceStayInTheBody() {
+		List<UserManualIndex.Section> sections = UserManualIndex.parse(
+				"## Before you start\n\n```\n<details>\n```\n\nStar.\n");
+		assertEquals(1, sections.size());
+		assertTrue(sections.get(0).body.contains("<details>"));
+		assertTrue(sections.get(0).body.contains("Star."));
+	}
+
+	@Test
 	public void unknownHeadingGoesToOther() {
 		List<UserManualIndex.Section> sections = UserManualIndex.parse(FIXTURE);
 		assertEquals("A heading nobody mapped", sections.get(3).title);
@@ -127,8 +151,13 @@ public class UserManualIndexTest {
 		boolean sawSemicolon = false;
 		boolean sawChatDrawer = false;
 		boolean sawChatLogsHeading = false;
+		boolean sawInputBar = false;
 		for (int i = 0; i < sections.size(); i++) {
 			UserManualIndex.Section s = sections.get(i);
+			assertTrue("contents is not a Help section",
+					!"Contents".equals(s.title));
+			assertTrue("details tag in " + s.title, !s.body.contains("<details"));
+			assertTrue("summary tag in " + s.title, !s.body.contains("<summary"));
 			if ("The server list".equals(s.title)) {
 				sawServerList = true;
 				assertEquals(UserManualIndex.CATEGORY_START, s.category);
@@ -153,6 +182,24 @@ public class UserManualIndexTest {
 			}
 			if ("Extra text windows".equals(s.title)) {
 				assertTrue(s.body.contains("not the chat drawer"));
+				assertTrue("alias forms belong with aliases",
+						!s.body.contains("### `.alias` forms"));
+			}
+			if ("Aliases and triggers (patterns / `$1`)".equals(s.title)) {
+				assertTrue(s.body.contains("### `.alias` forms"));
+				assertTrue(s.body.contains("### Session variables in alias text"));
+			}
+			if ("Mapper".equals(s.title)) {
+				assertTrue("keyboard commands belong on the input bar",
+						!s.body.contains("### `.keyboard` / `.kb`"));
+				assertTrue(s.body.contains(".map open"));
+			}
+			if ("The input bar (`.keyboard` / `.kb`)".equals(s.title)) {
+				sawInputBar = true;
+				assertEquals(UserManualIndex.CATEGORY_INPUT, s.category);
+				assertTrue(s.body.contains("### `.keyboard` / `.kb`"));
+				assertTrue(s.body.contains("### `.editbutton`"));
+				assertTrue(s.body.contains("### `.sendbutton`"));
 			}
 			if ("Newest text at top".equals(s.title)) {
 				assertTrue(!s.body.contains("Top padding (px)"));
@@ -172,6 +219,36 @@ public class UserManualIndexTest {
 		assertTrue("semicolon heading", sawSemicolon);
 		assertTrue("Chat drawer heading", sawChatDrawer);
 		assertTrue("Chat, logs heading must be gone", !sawChatLogsHeading);
+		assertTrue("input bar heading", sawInputBar);
+		// Parenthetical that is only punctuation keeps GitHub's trailing hyphen.
+		assertTrue(sb.toString().contains(
+				"(#several-commands-on-one-line-)"));
+	}
+
+	@Test
+	public void packagedManualMatchesTheGuide() throws Exception {
+		File raw = new File("res/raw/user_manual.txt");
+		File guide = new File("../docs/user-manual.md");
+		if (!raw.isFile()) {
+			raw = new File("BTLib/res/raw/user_manual.txt");
+			guide = new File("docs/user-manual.md");
+		}
+		assertEquals(readUtf8(guide), readUtf8(raw));
+	}
+
+	private static String readUtf8(File f) throws Exception {
+		BufferedReader reader = new BufferedReader(
+				new InputStreamReader(new FileInputStream(f), "UTF-8"));
+		StringBuilder sb = new StringBuilder();
+		try {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				sb.append(line).append('\n');
+			}
+		} finally {
+			reader.close();
+		}
+		return sb.toString();
 	}
 
 	@Test

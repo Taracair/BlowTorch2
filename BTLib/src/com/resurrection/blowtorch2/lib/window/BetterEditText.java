@@ -3,12 +3,19 @@ package com.resurrection.blowtorch2.lib.window;
 import javax.security.auth.PrivateCredentialPermission;
 
 import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.InputType;
+import android.text.NoCopySpan;
+import android.text.SpanWatcher;
+import android.text.Spannable;
 import android.text.Spanned;
+import android.text.TextWatcher;
 import android.text.method.KeyListener;
 import android.text.style.SuggestionSpan;
 import android.util.AttributeSet;
@@ -34,6 +41,24 @@ public class BetterEditText extends EditText {
 	private boolean allowSuggestions = false;
 	/** True only while telnet ECHO masks the bar — SwiftKey Incognito / Gboard private. */
 	private boolean noPersonalizedLearning = false;
+	/** Drawn hyphen inside a long word. The mark is stripped before send. */
+	private boolean hyphenBreaksOn = false;
+	private int hyphenMinLead = 5;
+	private int hyphenMinTail = 3;
+	private boolean hyphenPolish = false;
+	private boolean hyphenWatcherInstalled = false;
+	private boolean hyphenSyncing = false;
+	private int hyphenSyncedWidth = -1;
+	/** Letter to delete with a backspace or delete that only hit the mark. */
+	private int hyphenSwallowAt = -1;
+	private boolean hyphenSyncPosted = false;
+	private final SpanWatcher hyphenSpanWatcher = new HyphenSpanWatcher();
+	private final InputHyphenBreaks.Measurer hyphenMeasurer = new InputHyphenBreaks.Measurer() {
+		@Override
+		public float width(final String text, final int start, final int end) {
+			return getPaint().measureText(text, start, end);
+		}
+	};
 	
 	public BetterEditText(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
@@ -56,6 +81,12 @@ public class BetterEditText extends EditText {
 	@Override
 	public int getAutofillType() {
 		return AUTOFILL_TYPE_NONE;
+	}
+
+	@Override
+	protected void onAttachedToWindow() {
+		super.onAttachedToWindow();
+		ensureHyphenWatcher();
 	}
 
 	@Override
@@ -439,6 +470,8 @@ public class BetterEditText extends EditText {
 	 * as corruption.
 	 */
 	private boolean ghostAtCaret = false;
+	/** A short mark between suggestions on the same line. Off sits them with a space. */
+	private boolean ghostSplit = false;
 
 	/**
 	 * Where the ghost was last drawn, in this view's coordinates, so a tap can be
@@ -569,6 +602,15 @@ public class BetterEditText extends EditText {
 		invalidate();
 	}
 
+	public void setGhostSplit(final boolean on) {
+		if (ghostSplit == on) {
+			return;
+		}
+		ghostSplit = on;
+		scheduleGhostRoom();
+		invalidate();
+	}
+
 	/**
 	 * Ghost after the caret, drawn not inserted — a span would be seen by Keep
 	 * Last and {@code wordBefore}, and a missed strip would send untyped text.
@@ -604,6 +646,9 @@ public class BetterEditText extends EditText {
 	protected void onLayout(final boolean changed, final int left, final int top,
 			final int right, final int bottom) {
 		super.onLayout(changed, left, top, right, bottom);
+		if (hyphenLineWidth() != hyphenSyncedWidth) {
+			syncHyphenBreaks();
+		}
 		// setText/setPadding drop Layout; recomputing in that window cleared
 		// the row and onDraw painted it on the keyboard edge (phone, 30 Sep 2026).
 		if (ghostRoomDirty && !ghostPaddingHeld) {
@@ -625,6 +670,8 @@ public class BetterEditText extends EditText {
 		if (caretListener != null) {
 			caretListener.onCaretMoved();
 		}
+		// The underline can drop on a caret move without a text change.
+		postHyphenSync();
 	}
 
 	/**
@@ -695,9 +742,13 @@ public class BetterEditText extends EditText {
 		return w > 0f ? w : 0f;
 	}
 
-	/** The gap between two suggestions sitting side by side. */
+	/** Space between two suggestions. The first one sits against the text. */
 	private float ghostGap() {
-		return getPaint().measureText("  ");
+		android.text.TextPaint p = ghostPaint != null ? ghostPaint : getPaint();
+		if (ghostSplit) {
+			return p.getTextSize() * 0.45f;
+		}
+		return p.measureText(" ");
 	}
 
 	/**
@@ -756,7 +807,8 @@ public class BetterEditText extends EditText {
 					ghostBaseline = contentBottom + lineHeight - descent;
 				} else if (layout != null && ghostText != null && caretAtEnd()
 						&& layoutHasOffset(layout, getSelectionStart())) {
-					float ghostWidth = getPaint().measureText(ghostText);
+					float ghostWidth = getPaint().measureText(ghostText)
+							+ inlineGhostNumberWidth();
 					float x = layout.getPrimaryHorizontal(getSelectionStart());
 					float room = avail - x;
 					if (ghostWidth > room) {
@@ -771,8 +823,12 @@ public class BetterEditText extends EditText {
 				float startX = listAtTextEnd()
 						? lastLineEndAt(textInnerWidthForMargin(marginEnd))
 						: ghostEndAfter(inlineFit);
+				if (inlineFit != null) {
+					startX += ghostGap();
+				}
 				topRows = packGhostExtras(null, avail, startX,
-						ghostBaseline, contentTop, contentBottom, lineHeight, 0f, 0f);
+						ghostBaseline, contentTop, contentBottom, lineHeight, 0f, 0f,
+						false);
 				if (listAtTextEnd()) {
 					belowField = GhostExtraLayout.caretListRowsBelow(ghostPackedMaxRow);
 					topRows = 0;
@@ -784,6 +840,15 @@ public class BetterEditText extends EditText {
 		// Margin changed: the next layout reflows the line. Keep the dirty
 		// flag so that pass measures the ghost on the new line.
 		return actionStripMargin() == marginBefore;
+	}
+
+	/**
+	 * The field's own layout just changed hyphenation. Suggestions measure
+	 * that same layout, including the Edit/Send margin already on it.
+	 */
+	public void refreshGhostAfterHyphenation() {
+		scheduleGhostRoom();
+		invalidate();
 	}
 
 	/**
@@ -860,7 +925,7 @@ public class BetterEditText extends EditText {
 			return null;
 		}
 		float caretX = layout.getPrimaryHorizontal(at);
-		float ghostWidth = getPaint().measureText(ghostText);
+		float ghostWidth = getPaint().measureText(ghostText) + inlineGhostNumberWidth();
 		return GhostExtraLayout.fitBesideOrWrapDown(caretX, ghostWidth, avail);
 	}
 
@@ -929,6 +994,7 @@ public class BetterEditText extends EditText {
 			return estimateGhostEndX();
 		}
 		float drawn = ghostText == null ? 0f : getPaint().measureText(ghostText);
+		drawn += inlineGhostNumberWidth();
 		if (fit.wrapDown) {
 			return drawn;
 		}
@@ -955,7 +1021,8 @@ public class BetterEditText extends EditText {
 			line = line.substring(nl + 1);
 		}
 		return getPaint().measureText(line)
-				+ (ghostText == null ? 0 : getPaint().measureText(ghostText));
+				+ (ghostText == null ? 0 : getPaint().measureText(ghostText))
+				+ inlineGhostNumberWidth();
 	}
 
 	/**
@@ -1151,6 +1218,521 @@ public class BetterEditText extends EditText {
 		scheduleGhostRoom();
 	}
 
+	/**
+	 * Break a word that fits on the next line but not in the space left
+	 * here. The mark is a break only; send strips it.
+	 */
+	public void setHyphenBreaks(final boolean on, final int minLead, final int minTail,
+			final boolean polish) {
+		hyphenBreaksOn = on;
+		hyphenMinLead = minLead;
+		hyphenMinTail = minTail;
+		hyphenPolish = polish;
+		ensureHyphenWatcher();
+		syncHyphenBreaks();
+	}
+
+	private void ensureHyphenWatcher() {
+		if (hyphenWatcherInstalled) {
+			return;
+		}
+		hyphenWatcherInstalled = true;
+		watchHyphenSpans(getText());
+		addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(final CharSequence s, final int start,
+					final int count, final int after) {
+				if (hyphenSyncing) {
+					return;
+				}
+				hyphenSwallowAt = letterBesideDeletedMark(s, start, count, after);
+			}
+
+			@Override
+			public void onTextChanged(final CharSequence s, final int start,
+					final int before, final int count) {
+			}
+
+			@Override
+			public void afterTextChanged(final Editable s) {
+				if (hyphenSyncing) {
+					return;
+				}
+				int swallow = hyphenSwallowAt;
+				hyphenSwallowAt = -1;
+				if (s != null && swallow >= 0 && swallow < s.length()) {
+					int[] cluster = InputHyphenBreaks.clusterRange(s.toString(), swallow);
+					if (cluster[0] < cluster[1]
+							&& s.charAt(cluster[0]) != InputHyphenBreaks.MARK
+							&& !Character.isWhitespace(s.charAt(cluster[0]))) {
+						String deleted = s.subSequence(cluster[0], cluster[1]).toString();
+						InputFilter[] filters = s.getFilters();
+						s.setFilters(withoutUndoFilter(filters));
+						hyphenSyncing = true;
+						try {
+							s.delete(cluster[0], cluster[1]);
+						} finally {
+							hyphenSyncing = false;
+							s.setFilters(filters);
+						}
+						retargetMarkDelete(deleted, cluster[0]);
+					}
+				}
+				watchHyphenSpans(s);
+				syncHyphenBreaks();
+			}
+		});
+	}
+
+	private void watchHyphenSpans(final Spannable text) {
+		if (text == null || text.getSpanStart(hyphenSpanWatcher) >= 0) {
+			return;
+		}
+		text.setSpan(hyphenSpanWatcher, 0, 0, Spanned.SPAN_POINT_POINT);
+	}
+
+	private void postHyphenSync() {
+		if (hyphenSyncPosted) {
+			return;
+		}
+		hyphenSyncPosted = true;
+		post(new Runnable() {
+			@Override
+			public void run() {
+				hyphenSyncPosted = false;
+				syncHyphenBreaks();
+			}
+		});
+	}
+
+	private final class HyphenSpanWatcher implements SpanWatcher, NoCopySpan {
+		@Override
+		public void onSpanAdded(final Spannable text, final Object what, final int start,
+				final int end) {
+		}
+
+		@Override
+		public void onSpanRemoved(final Spannable text, final Object what, final int start,
+				final int end) {
+			if (BaseInputConnection.getComposingSpanStart(text) < 0) {
+				postHyphenSync();
+			}
+		}
+
+		@Override
+		public void onSpanChanged(final Spannable text, final Object what, final int ostart,
+				final int oend, final int nstart, final int nend) {
+		}
+	}
+
+	private void syncHyphenBreaks() {
+		if (hyphenSyncing) {
+			return;
+		}
+		Editable text = getText();
+		if (text == null) {
+			return;
+		}
+		int width = hyphenLineWidth();
+		if (hyphenBreaksOn && width <= 0) {
+			return;
+		}
+		String raw = text.toString();
+		String logical = InputHyphenBreaks.strip(raw);
+		int[] cuts = hyphenBreaksOn
+				? InputHyphenBreaks.cuts(logical, width,
+						getPaint().measureText("-"), hyphenMinLead, hyphenMinTail,
+						hyphenPolish, hyphenMeasurer)
+				: InputHyphenBreaks.NO_CUTS;
+		int cs = BaseInputConnection.getComposingSpanStart(text);
+		int ce = BaseInputConnection.getComposingSpanEnd(text);
+		InputHyphenBreaks.Op[] ops = InputHyphenBreaks.reconcile(raw, cuts, cs, ce);
+		if (ops.length == 0) {
+			hyphenSyncedWidth = width;
+			return;
+		}
+		hyphenSyncing = true;
+		try {
+			applyHyphenOps(text, ops);
+		} finally {
+			hyphenSyncing = false;
+			hyphenSyncedWidth = width;
+		}
+	}
+
+	/**
+	 * Where {@code logical} sits once marks are in the buffer.
+	 */
+	public void setLogicalSelection(final int logical) {
+		Editable text = getText();
+		String raw = text == null ? "" : text.toString();
+		int at = InputHyphenBreaks.bufferIndex(raw, logical);
+		int len = text == null ? 0 : text.length();
+		setSelection(Math.max(0, Math.min(len, at)));
+	}
+
+	private void applyHyphenOps(final Editable text, final InputHyphenBreaks.Op[] ops) {
+		// Recording the mark turns that undo step into a replace of the whole
+		// line, and the next character joins it. The mark stays out of undo.
+		InputFilter[] filters = text.getFilters();
+		text.setFilters(withoutUndoFilter(filters));
+		try {
+			for (int i = 0; i < ops.length; i++) {
+				InputHyphenBreaks.Op op = ops[i];
+				if (op.insert) {
+					text.insert(op.index, String.valueOf(InputHyphenBreaks.MARK));
+				} else if (op.index < text.length()
+						&& text.charAt(op.index) == InputHyphenBreaks.MARK) {
+					text.delete(op.index, op.index + 1);
+				}
+			}
+		} finally {
+			text.setFilters(filters);
+		}
+		noteMarksInLastUndo(ops);
+	}
+
+	/**
+	 * The step was stored before the mark existed. Shift it so undo still
+	 * points at the letter, not at the mark that landed in front of it.
+	 */
+	private void noteMarksInLastUndo(final InputHyphenBreaks.Op[] ops) {
+		if (ops == null || ops.length == 0) {
+			return;
+		}
+		try {
+			java.lang.reflect.Field editorField = TextView.class.getDeclaredField("mEditor");
+			editorField.setAccessible(true);
+			Object editor = editorField.get(this);
+			if (editor == null) {
+				return;
+			}
+			java.lang.reflect.Field managerField = editor.getClass().getDeclaredField("mUndoManager");
+			managerField.setAccessible(true);
+			Object manager = managerField.get(editor);
+			if (manager == null) {
+				return;
+			}
+			java.lang.reflect.Method begin = manager.getClass().getMethod("beginUpdate",
+					CharSequence.class);
+			java.lang.reflect.Method end = manager.getClass().getMethod("endUpdate");
+			begin.invoke(manager, "Edit text");
+			try {
+				Object edit = manager.getClass().getMethod("getLastOperation", int.class)
+						.invoke(manager, 1);
+				if (edit == null || !edit.getClass().getName().endsWith("EditOperation")) {
+					return;
+				}
+				shiftUndoForMarks(edit, ops);
+			} finally {
+				end.invoke(manager);
+			}
+		} catch (ReflectiveOperationException ignored) {
+			// Hidden editor fields are blocked on some releases. Undo of the
+			// keystroke that first inserted the mark can then miss by one.
+		}
+	}
+
+	private static void shiftUndoForMarks(final Object edit, final InputHyphenBreaks.Op[] ops)
+			throws ReflectiveOperationException {
+		java.lang.reflect.Field startField = edit.getClass().getDeclaredField("mStart");
+		java.lang.reflect.Field textField = edit.getClass().getDeclaredField("mNewText");
+		java.lang.reflect.Field cursorField = edit.getClass().getDeclaredField("mNewCursorPos");
+		java.lang.reflect.Field oldCursorField = edit.getClass().getDeclaredField("mOldCursorPos");
+		startField.setAccessible(true);
+		textField.setAccessible(true);
+		cursorField.setAccessible(true);
+		oldCursorField.setAccessible(true);
+		int start = startField.getInt(edit);
+		String recorded = (String) textField.get(edit);
+		int cursor = cursorField.getInt(edit);
+		int oldCursor = oldCursorField.getInt(edit);
+		if (recorded == null) {
+			return;
+		}
+		for (int i = 0; i < ops.length; i++) {
+			InputHyphenBreaks.Op op = ops[i];
+			if (op.insert) {
+				if (op.index <= start) {
+					start++;
+				} else if (op.index < start + recorded.length()) {
+					int rel = op.index - start;
+					recorded = recorded.substring(0, rel) + InputHyphenBreaks.MARK
+							+ recorded.substring(rel);
+				}
+				if (cursor >= 0 && op.index < cursor) {
+					cursor++;
+				}
+				if (oldCursor >= 0 && op.index <= oldCursor) {
+					oldCursor++;
+				}
+			} else if (op.index < start) {
+				start--;
+				if (cursor > op.index) {
+					cursor--;
+				}
+				if (oldCursor > op.index) {
+					oldCursor--;
+				}
+			} else if (op.index < start + recorded.length()
+					&& recorded.charAt(op.index - start) == InputHyphenBreaks.MARK) {
+				int rel = op.index - start;
+				recorded = recorded.substring(0, rel) + recorded.substring(rel + 1);
+				if (cursor > op.index) {
+					cursor--;
+				}
+				if (oldCursor > op.index) {
+					oldCursor--;
+				}
+			}
+		}
+		startField.setInt(edit, start);
+		textField.set(edit, recorded);
+		cursorField.setInt(edit, cursor);
+		oldCursorField.setInt(edit, oldCursor);
+	}
+
+	/**
+	 * The keystroke deleted the mark. The letter beside it is what should
+	 * come back, and that delete must not become a replace of the whole line.
+	 */
+	private void retargetMarkDelete(final String deleted, final int at) {
+		if (deleted == null || deleted.length() == 0) {
+			return;
+		}
+		try {
+			java.lang.reflect.Field editorField = TextView.class.getDeclaredField("mEditor");
+			editorField.setAccessible(true);
+			Object editor = editorField.get(this);
+			if (editor == null) {
+				return;
+			}
+			java.lang.reflect.Field managerField = editor.getClass().getDeclaredField("mUndoManager");
+			managerField.setAccessible(true);
+			Object manager = managerField.get(editor);
+			if (manager == null) {
+				return;
+			}
+			java.lang.reflect.Method begin = manager.getClass().getMethod("beginUpdate",
+					CharSequence.class);
+			java.lang.reflect.Method end = manager.getClass().getMethod("endUpdate");
+			begin.invoke(manager, "Edit text");
+			try {
+				Object edit = manager.getClass().getMethod("getLastOperation", int.class)
+						.invoke(manager, 1);
+				if (edit == null || !edit.getClass().getName().endsWith("EditOperation")) {
+					return;
+				}
+				java.lang.reflect.Field oldField = edit.getClass().getDeclaredField("mOldText");
+				java.lang.reflect.Field startField = edit.getClass().getDeclaredField("mStart");
+				java.lang.reflect.Field oldCursorField = edit.getClass().getDeclaredField(
+						"mOldCursorPos");
+				oldField.setAccessible(true);
+				startField.setAccessible(true);
+				oldCursorField.setAccessible(true);
+				String old = (String) oldField.get(edit);
+				if (old == null || old.indexOf(InputHyphenBreaks.MARK) < 0) {
+					return;
+				}
+				oldField.set(edit, deleted);
+				startField.setInt(edit, at);
+				oldCursorField.setInt(edit, at + deleted.length());
+			} finally {
+				end.invoke(manager);
+			}
+		} catch (ReflectiveOperationException ignored) {
+			// Same hidden fields as the mark shift. Undo restores the mark.
+		}
+	}
+
+	private void stopSelectionHandles() {
+		try {
+			java.lang.reflect.Method stop = TextView.class.getDeclaredMethod("stopTextActionMode");
+			stop.setAccessible(true);
+			stop.invoke(this);
+		} catch (ReflectiveOperationException ignored) {
+			int at = Math.max(getSelectionStart(), getSelectionEnd());
+			if (at >= 0) {
+				setSelection(at);
+			}
+		}
+	}
+
+	private static InputFilter[] withoutUndoFilter(final InputFilter[] filters) {
+		if (filters == null || filters.length == 0) {
+			return filters == null ? new InputFilter[0] : filters;
+		}
+		int keep = 0;
+		for (int i = 0; i < filters.length; i++) {
+			if (!isUndoFilter(filters[i])) {
+				keep++;
+			}
+		}
+		if (keep == filters.length) {
+			return filters;
+		}
+		InputFilter[] out = new InputFilter[keep];
+		int j = 0;
+		for (int i = 0; i < filters.length; i++) {
+			if (!isUndoFilter(filters[i])) {
+				out[j++] = filters[i];
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Backspace just after the mark, or delete on it, removes only the mark.
+	 * The letter beside it is what the player meant to erase.
+	 */
+	private int letterBesideDeletedMark(final CharSequence s, final int start,
+			final int count, final int after) {
+		if (!hyphenBreaksOn || after != 0 || count != 1 || s == null) {
+			return -1;
+		}
+		if (start < 0 || start >= s.length() || s.charAt(start) != InputHyphenBreaks.MARK) {
+			return -1;
+		}
+		int sel = getSelectionStart();
+		if (sel < 0 || sel != getSelectionEnd()) {
+			return -1;
+		}
+		if (sel == start + 1 && start > 0) {
+			return start - 1;
+		}
+		if (sel == start && start + 1 < s.length()) {
+			return start;
+		}
+		return -1;
+	}
+
+	private static boolean isUndoFilter(final InputFilter filter) {
+		return filter != null
+				&& "android.widget.Editor$UndoInputFilter".equals(filter.getClass().getName());
+	}
+
+	private int hyphenLineWidth() {
+		android.text.Layout layout = getLayout();
+		if (layout != null && layout.getWidth() > 0) {
+			return layout.getWidth();
+		}
+		int w = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
+		return w > 0 ? w : 0;
+	}
+
+	private void drawHyphenMarks(final android.graphics.Canvas canvas) {
+		if (!hyphenBreaksOn) {
+			return;
+		}
+		android.text.Layout layout = getLayout();
+		if (layout == null) {
+			return;
+		}
+		CharSequence laid = layout.getText();
+		if (laid == null || !InputHyphenBreaks.contains(laid)) {
+			return;
+		}
+		android.text.TextPaint paint = getPaint();
+		int old = paint.getColor();
+		paint.setColor(getCurrentTextColor());
+		canvas.save();
+		canvas.translate(getTotalPaddingLeft() - getScrollX(),
+				getTotalPaddingTop() - getScrollY());
+		try {
+			int lines = layout.getLineCount();
+			float hyphenWidth = paint.measureText("-");
+			for (int line = 0; line < lines; line++) {
+				if (layout.getParagraphDirection(line) < 0) {
+					continue;
+				}
+				int start = layout.getLineStart(line);
+				int end = layout.getLineEnd(line);
+				int markAt = -1;
+				for (int i = end; i > start; i--) {
+					char c = laid.charAt(i - 1);
+					if (c == InputHyphenBreaks.MARK) {
+						markAt = i - 1;
+						break;
+					}
+					if (c != ' ' && c != '\n' && c != '\t') {
+						break;
+					}
+				}
+				if (markAt < 0) {
+					continue;
+				}
+				boolean tail = false;
+				for (int k = markAt + 1; k < end; k++) {
+					char c = laid.charAt(k);
+					if (c != ' ' && c != '\n' && c != '\t'
+							&& c != InputHyphenBreaks.MARK) {
+						tail = true;
+						break;
+					}
+				}
+				if (tail) {
+					continue;
+				}
+				if (markAt > 0 && isTypedHyphen(laid.charAt(markAt - 1))) {
+					continue;
+				}
+				if (!layoutHasOffset(layout, markAt)) {
+					continue;
+				}
+				float x = layout.getPrimaryHorizontal(markAt);
+				if (x + hyphenWidth > layout.getWidth() + 1f) {
+					continue;
+				}
+				canvas.drawText("-", x, layout.getLineBaseline(line), paint);
+			}
+		} finally {
+			canvas.restore();
+			paint.setColor(old);
+		}
+	}
+
+	private static boolean isTypedHyphen(final char c) {
+		return c == '-' || c == '\u2010';
+	}
+
+	@Override
+	public boolean onTextContextMenuItem(final int id) {
+		if ((id == android.R.id.copy || id == android.R.id.cut || id == android.R.id.shareText)
+				&& getText() != null && InputHyphenBreaks.contains(getText())) {
+			int start = Math.max(0, Math.min(getSelectionStart(), getSelectionEnd()));
+			int end = Math.max(getSelectionStart(), getSelectionEnd());
+			if (start < 0) {
+				start = 0;
+			}
+			end = Math.min(end, getText().length());
+			if (start < end) {
+				String slice = InputHyphenBreaks.strip(
+						getText().subSequence(start, end).toString());
+				if (id == android.R.id.shareText) {
+					android.content.Intent sharing = new android.content.Intent(
+							android.content.Intent.ACTION_SEND);
+					sharing.setType("text/plain");
+					sharing.putExtra(android.content.Intent.EXTRA_TEXT, slice);
+					getContext().startActivity(android.content.Intent.createChooser(sharing, null));
+					stopSelectionHandles();
+					return true;
+				}
+				ClipboardManager clips = (ClipboardManager) getContext()
+						.getSystemService(Context.CLIPBOARD_SERVICE);
+				if (clips == null) {
+					return super.onTextContextMenuItem(id);
+				}
+				clips.setPrimaryClip(ClipData.newPlainText("text", slice));
+				if (id == android.R.id.cut) {
+					getText().delete(start, end);
+				}
+				stopSelectionHandles();
+				return true;
+			}
+		}
+		return super.onTextContextMenuItem(id);
+	}
+
 	@Override
 	protected void onDraw(android.graphics.Canvas canvas) {
 		// TextView may leave a clip on the scrolled text. Ghost extras sit in
@@ -1158,6 +1740,7 @@ public class BetterEditText extends EditText {
 		int clip = canvas.save();
 		super.onDraw(canvas);
 		canvas.restoreToCount(clip);
+		drawHyphenMarks(canvas);
 		ghostRectCount = 0;
 		if (!ghostWouldDraw()) {
 			return;
@@ -1263,6 +1846,17 @@ public class BetterEditText extends EditText {
 			}
 		}
 
+		float inlineNumberX = -1f;
+		if (drawInline && ghostNumber > 0) {
+			inlineNumberX = endX;
+			endX += ghostIndexWidth(ghostPaint, ghostNumber);
+			if (ghostRectCount > 0) {
+				float right = originX + endX;
+				if (right > ghostRects[ghostRectCount - 1].right) {
+					ghostRects[ghostRectCount - 1].right = right;
+				}
+			}
+		}
 		float extrasEndX = endX;
 		float extrasBaseline = endBaseline;
 		if (ghostExtras != null && ghostExtras.length > 0) {
@@ -1272,12 +1866,15 @@ public class BetterEditText extends EditText {
 			// After the typed text, on the last line. x=0 on that line, or the
 			// caret's x, paints the list in the background of the sentence.
 			float extrasStartX = drawInline ? endX : textEndX();
+			if (drawInline) {
+				extrasStartX += ghostGap();
+			}
 			float rowAvail = lineWidth;
 			float contentTop = layout.getLineTop(0);
 			float contentBottom = layout.getLineBottom(layout.getLineCount() - 1);
 			packGhostExtras(canvas, rowAvail, extrasStartX, endBaseline,
 					contentTop, contentBottom, ghostPaint.getFontSpacing(),
-					originX, originY);
+					originX, originY, ghostSplit && drawInline);
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;
@@ -1299,11 +1896,22 @@ public class BetterEditText extends EditText {
 			canvas.drawText(mark, extrasEndX, extrasBaseline, dim);
 		}
 
-		if (drawInline && ghostNumber > 0) {
+		if (inlineNumberX >= 0f) {
 			drawGhostIndex(canvas, ghostPaint, String.valueOf(ghostNumber),
-					endX + 2, endBaseline);
+					inlineNumberX, endBaseline);
 		}
 		canvas.restore();
+	}
+
+	/** A short stroke between two suggestions on the same line. */
+	private void drawGhostDivider(final android.graphics.Canvas canvas,
+			final android.text.TextPaint base, final float x, final float baseline) {
+		float h = base.getTextSize() * 0.55f;
+		android.graphics.Paint line = new android.graphics.Paint(base);
+		line.setStyle(android.graphics.Paint.Style.STROKE);
+		line.setStrokeWidth(Math.max(1f, base.getTextSize() * 0.06f));
+		float mid = baseline - base.getTextSize() * 0.28f;
+		canvas.drawLine(x, mid - h * 0.5f, x, mid + h * 0.5f, line);
 	}
 
 	/** A micro digit above the baseline, matching the inline ghost marker. */
@@ -1313,6 +1921,14 @@ public class BetterEditText extends EditText {
 		android.text.TextPaint mark = new android.text.TextPaint(base);
 		mark.setTextSize(base.getTextSize() * 0.55f);
 		canvas.drawText(digit, x, baseline - base.getTextSize() * 0.45f, mark);
+	}
+
+	/** Width reserved after the inline ghost for its number, or 0. */
+	private float inlineGhostNumberWidth() {
+		if (ghostNumber <= 0 || ghostText == null) {
+			return 0f;
+		}
+		return ghostIndexWidth(getPaint(), ghostNumber);
 	}
 
 	/** Width of one index digit at the size {@link #drawGhostIndex} uses. */
@@ -1419,19 +2035,21 @@ public class BetterEditText extends EditText {
 	 * @param lineHeight one line of ghost type.
 	 * @param originX left of the content, for hit rectangles.
 	 * @param originY top of the content, for hit rectangles.
+	 * @param splitAfterGhost a mark belongs in the gap reserved before the first
+	 *        extra, and only if that extra stayed on the ghost's line.
 	 * @return top-padding rows the bar must reserve above the typed block.
 	 */
 	private int packGhostExtras(final android.graphics.Canvas canvas, final float avail,
 			final float startX, final float ghostBaseline, final float contentTop,
 			final float contentBottom, final float lineHeight, final float originX,
-			final float originY) {
+			final float originY, final boolean splitAfterGhost) {
 		ghostHiddenCount = 0;
 		if (canvas != null) {
 			ghostLastDrawnX = -1;
 		}
 		android.text.TextPaint p = canvas != null && ghostPaint != null
 				? ghostPaint : getPaint();
-		float gap = p.measureText("  ");
+		float gap = ghostGap();
 		float[] widths = new float[ghostExtras.length];
 		for (int i = 0; i < ghostExtras.length; i++) {
 			String item = ghostExtras[i];
@@ -1454,6 +2072,7 @@ public class BetterEditText extends EditText {
 			// Text bottom, not the view bottom: a taller Hide/Send band stays
 			// under the list instead of opening a gap above it.
 			float firstBelow = contentBottom;
+			int prev = -1;
 			for (int i = 0; i < ghostExtras.length; i++) {
 				int row = pack.rows[i];
 				if (row < 0) {
@@ -1482,6 +2101,12 @@ public class BetterEditText extends EditText {
 					baseline = GhostExtraLayout.rowBaseline(row, ghostBaseline,
 							contentTop, lineHeight, descent);
 				}
+				if (ghostSplit && prev >= 0 && pack.rows[prev] == row) {
+					drawGhostDivider(canvas, p, pack.xs[i] - gap * 0.5f, baseline);
+				} else if (splitAfterGhost && prev < 0 && row == 0) {
+					drawGhostDivider(canvas, p, pack.xs[i] - gap * 0.5f, baseline);
+				}
+				prev = i;
 				if (number > 0) {
 					drawGhostIndex(canvas, p, String.valueOf(number), itemX, baseline);
 					itemX += indexW;

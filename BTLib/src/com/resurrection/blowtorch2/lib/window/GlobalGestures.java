@@ -302,6 +302,15 @@ public final class GlobalGestures {
 		return SCROLL_CHOICES[clampScroll(scroll)];
 	}
 
+	/** Pill text: the mode, plus the scrolling choice when that row applies. */
+	public String chromeLabel() {
+		String modeText = modeLabel(mode);
+		if (optionUnused(KEY_SCROLL, mode, scroll)) {
+			return modeText;
+		}
+		return modeText + " · " + scrollLabel(scroll);
+	}
+
 	/** {@code .gesture scroll two|hold|off}, or null. */
 	public static Integer scrollIndex(final String token) {
 		if (token == null) {

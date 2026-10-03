@@ -726,6 +726,18 @@ public final class WordSuggestions {
 		return Character.isLetterOrDigit(c) || c == '\'' || c == '-';
 	}
 
+	/** A drawn hyphen mark stays inside the token. It is not part of the word. */
+	static boolean continuesToken(final char c) {
+		return isWordChar(c) || c == InputHyphenBreaks.MARK;
+	}
+
+	private static String withoutBreakMarks(final String raw) {
+		if (raw == null || raw.indexOf(InputHyphenBreaks.MARK) < 0) {
+			return raw;
+		}
+		return InputHyphenBreaks.strip(raw);
+	}
+
 	/**
 	 * Drop wrapping {@code '} and {@code -} so a quoted name is stored as the
 	 * name. {@code 'word'} becomes {@code word}; {@code O'Brien} is unchanged,
@@ -1657,18 +1669,18 @@ public final class WordSuggestions {
 	 */
 	public static String completedWordBefore(final String text, final int caret) {
 		int end = clampCaret(text, caret);
-		if (text == null || end == 0 || isWordChar(text.charAt(end - 1))) {
+		if (text == null || end == 0 || continuesToken(text.charAt(end - 1))) {
 			return "";
 		}
 		int i = end;
-		while (i > 0 && !isWordChar(text.charAt(i - 1))) {
+		while (i > 0 && !continuesToken(text.charAt(i - 1))) {
 			i--;
 		}
 		int start = i;
-		while (start > 0 && isWordChar(text.charAt(start - 1))) {
+		while (start > 0 && continuesToken(text.charAt(start - 1))) {
 			start--;
 		}
-		return text.substring(start, i);
+		return withoutBreakMarks(text.substring(start, i));
 	}
 
 	public static String wordBefore(final String text, final int caret) {
@@ -1677,10 +1689,10 @@ public final class WordSuggestions {
 			return "";
 		}
 		int start = end;
-		while (start > 0 && isWordChar(text.charAt(start - 1))) {
+		while (start > 0 && continuesToken(text.charAt(start - 1))) {
 			start--;
 		}
-		return text.substring(start, end);
+		return withoutBreakMarks(text.substring(start, end));
 	}
 
 	/**
@@ -1694,10 +1706,10 @@ public final class WordSuggestions {
 			return "";
 		}
 		int end = start;
-		while (end < text.length() && isWordChar(text.charAt(end))) {
+		while (end < text.length() && continuesToken(text.charAt(end))) {
 			end++;
 		}
-		return text.substring(start, end);
+		return withoutBreakMarks(text.substring(start, end));
 	}
 
 	/**
@@ -1711,7 +1723,7 @@ public final class WordSuggestions {
 			return 0;
 		}
 		int start = at;
-		while (start > 0 && isWordChar(text.charAt(start - 1))) {
+		while (start > 0 && continuesToken(text.charAt(start - 1))) {
 			start--;
 		}
 		return start;
@@ -1788,10 +1800,10 @@ public final class WordSuggestions {
 		}
 		int end = clampCaret(existing, caret);
 		int start = end;
-		while (start > 0 && isWordChar(existing.charAt(start - 1))) {
+		while (start > 0 && continuesToken(existing.charAt(start - 1))) {
 			start--;
 		}
-		while (end < existing.length() && isWordChar(existing.charAt(end))) {
+		while (end < existing.length() && continuesToken(existing.charAt(end))) {
 			end++;
 		}
 		StringBuilder out = new StringBuilder();

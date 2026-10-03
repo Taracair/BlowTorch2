@@ -154,6 +154,33 @@ public class ConnectionSettingsPlugin extends Plugin {
 		unaccent_send.setValue(false);
 		input.addOption(unaccent_send);
 
+		BooleanOption input_hyphenate = new BooleanOption();
+		input_hyphenate.setTitle("Hyphenate long words?");
+		input_hyphenate.setDescription(
+				"When on, a word that does not fit the space left on the line breaks with a drawn hyphen and the rest continues underneath. A second copy of a long word does this even when that copy would fit on the next line by itself. The hyphen is not typed: send, copy, history and suggestions still see the whole word. Needs Grow Input Bar. A password line does not break. Hyphenation language chooses the syllable. The break uses the width already left of Edit and Send. Off by default. .hyphen on|off");
+		input_hyphenate.setKey("input_hyphenate");
+		input_hyphenate.setValue(false);
+		input.addOption(input_hyphenate);
+
+		ListOption input_hyphen_lang = new ListOption();
+		input_hyphen_lang.setTitle("Hyphenation language");
+		input_hyphen_lang.setDescription(
+				"Which break rules the drawn hyphen follows. The word you send, copy and history stays whole. English is the default. Phone language uses the phone's language when rules for it are built in, and English when they are not. One choice, and only while Hyphenate long words? is on.");
+		input_hyphen_lang.setKey("input_hyphen_lang");
+		input_hyphen_lang.addItem("English");
+		input_hyphen_lang.addItem("Polish");
+		input_hyphen_lang.addItem("Phone language");
+		input_hyphen_lang.setValue(Integer.valueOf(0));
+		input.addOption(input_hyphen_lang);
+
+		BooleanOption input_hyphen_full = new BooleanOption();
+		input_hyphen_full.setTitle("Hyphenate more often?");
+		input_hyphen_full.setDescription(
+				"When on, 2 letters before the hyphen are enough. When off, the piece has to be at least 5 letters, and a smaller gap moves the whole word to the next line. Used only while Hyphenate long words? is on. Off by default. .hyphen full on|off");
+		input_hyphen_full.setKey("input_hyphen_full");
+		input_hyphen_full.setValue(false);
+		input.addOption(input_hyphen_full);
+
 		BooleanOption compatilibility_mode = new BooleanOption();
 		compatilibility_mode.setTitle("Standard keyboard input (IME fix)");
 		compatilibility_mode.setDescription("Use Android's normal input connection. On by default, so backspace and replacing a selected letter follow the keyboard. Turn off only if a world needs the old field. Keep last command also turns this on.");
@@ -273,6 +300,12 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 
+		BooleanOption word_complete_split = new BooleanOption();
+		word_complete_split.setTitle("Also split suggestions");
+		word_complete_split.setDescription("A short mark between the dimmed suggestions in the input bar, so two words on the same line stay apart. Off, they sit next to each other with a space and no mark. The little numbers stay either way. Needs the ghost to be on. .suggest split on|off");
+		word_complete_split.setKey("word_complete_split");
+		word_complete_split.setValue(false);
+
 		BooleanOption word_complete_caret = new BooleanOption();
 		word_complete_caret.setTitle("Complete at the cursor");
 		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). The numbered list sits after the text already on the line, not over the words that follow the cursor, and wraps under the line only when that line is full. Nearby misspellings already do this even when this is off. Off by default. .suggest caret on/off");
@@ -308,6 +341,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		whereShown.setTitle("Where they appear");
 		whereShown.addOption(word_complete_where);
 		whereShown.addOption(word_complete_ghost);
+		whereShown.addOption(word_complete_split);
 		whereShown.addOption(word_complete_caret);
 		whereShown.addOption(word_complete_ghost_lines);
 		whereShown.addOption(word_complete_show);
@@ -391,7 +425,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption gestureShow = new BooleanOption();
 		gestureShow.setTitle("Show the current mode");
-		gestureShow.setDescription("A label near the top-right of the game text, inset from the corner. Off by default. .gesture show on|off");
+		gestureShow.setDescription("A label near the top-right of the game text: the gesture mode, and the scrolling choice in One finger and Both. Inset from the corner. Off by default. .gesture show on|off");
 		gestureShow.setKey("global_gesture_show_mode");
 		gestureShow.setValue(false);
 

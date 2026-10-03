@@ -116,6 +116,9 @@ public final class GlobalGestureSession {
 			note(pointerCount, x0, y0, x1, y1);
 			return Decision.ignore();
 		}
+		if (pointerCount >= 2 && oneFingerAiming(phase)) {
+			return cancelGesture();
+		}
 		if (pointerCount >= 2 && interceptTwo() && oneFingerPhase(phase)) {
 			boolean had = lockedDir != null;
 			beginTwo(x0, y0, x1, y1);
@@ -165,8 +168,7 @@ public final class GlobalGestureSession {
 		if (pointerCount >= 3) {
 			return cancelGesture();
 		}
-		if ((phase == Phase.PREVIEW1 || phase == Phase.ARMED1 || phase == Phase.DEAD1)
-				&& !config.twoFingerMode()) {
+		if (oneFingerAiming(phase)) {
 			return cancelGesture();
 		}
 		if (!interceptTwo()) {
@@ -199,8 +201,17 @@ public final class GlobalGestureSession {
 	}
 
 	public Decision onPointerUp(final long time, final int pointersRemaining) {
+		return onPointerUp(time, pointersRemaining, activeFinger);
+	}
+
+	/** {@code liftedIndex} is the pointer that left. The other finger cancels. */
+	public Decision onPointerUp(final long time, final int pointersRemaining,
+			final int liftedIndex) {
 		if (bypass) {
 			return Decision.ignore();
+		}
+		if (phase == Phase.PREVIEW2 && liftedIndex != activeFinger) {
+			return cancelGesture();
 		}
 		if (phase == Phase.PREVIEW1 || phase == Phase.PREVIEW2) {
 			return fireLocked();
@@ -468,6 +479,11 @@ public final class GlobalGestureSession {
 	private static boolean oneFingerPhase(final Phase phase) {
 		return phase == Phase.TRACK1 || phase == Phase.ARMED1 || phase == Phase.PREVIEW1
 				|| phase == Phase.DEAD1 || phase == Phase.SCROLL1 || phase == Phase.LIFTED;
+	}
+
+	/** A one-finger swipe is already on screen. A second finger ends it. */
+	private static boolean oneFingerAiming(final Phase phase) {
+		return phase == Phase.PREVIEW1 || phase == Phase.ARMED1 || phase == Phase.DEAD1;
 	}
 
 	private boolean interceptTwo() {

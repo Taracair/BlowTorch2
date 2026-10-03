@@ -1,7 +1,93 @@
 # BlowTorch User Manual
 
-Source of truth for in-app **Help**. Keep this file in sync with
-`BTLib/res/raw/user_manual.txt` (packaged into the Help dialog).
+In the app this guide is **Help**: ⋮ → **Help**, or **Help** on the launcher.
+`.help` in the input bar only lists commands.
+
+<!-- Packaged as BTLib/res/raw/user_manual.txt. Help ignores this
+     preface, the Contents section, and the details/summary lines. -->
+
+## Contents
+
+**Before you start**
+
+- [Before you start](#before-you-start)
+- [The server list](#the-server-list)
+
+**Playing**
+
+- [Encrypted connections (TLS)](#encrypted-connections-tls)
+- [Dot commands](#dot-commands)
+- [Several commands on one line (`;`)](#several-commands-on-one-line-)
+- [Repeating a command (`#5 north`)](#repeating-a-command-5-north)
+- [Waiting between commands (`.wait` / `#wait`)](#waiting-between-commands-wait--wait)
+- [Passwords are hidden while the MUD asks for them](#passwords-are-hidden-while-the-mud-asks-for-them)
+- [Plugin commands (when loaded)](#plugin-commands-when-loaded)
+- [Session overflow menu](#session-overflow-menu)
+
+**Input and suggestions**
+
+- [Suggestions (`.suggest on`)](#suggestions-suggest-on)
+- [Prompt on its own bar (`.prompt on`)](#prompt-on-its-own-bar-prompt-on)
+- [Lowercase start of sent commands](#lowercase-start-of-sent-commands)
+- [Strip accents when sending](#strip-accents-when-sending)
+- [Hyphenate long words in the input bar](#hyphenate-long-words-in-the-input-bar)
+- [The input bar (`.keyboard` / `.kb`)](#the-input-bar-keyboard--kb)
+
+**Triggers and scripts**
+
+- [Aliases and triggers (patterns / `$1`)](#aliases-and-triggers-patterns--1)
+
+**Recipes**
+
+- [Recipes](#recipes)
+
+**Built-in commands**
+
+- [Built-in commands](#built-in-commands)
+
+**The window**
+
+- [Copy text from the game window](#copy-text-from-the-game-window)
+- [Global gestures](#global-gestures)
+- [Font size](#font-size)
+- [Pick loupe](#pick-loupe)
+- [Font (typeface)](#font-typeface)
+- [Text avoids on-screen buttons](#text-avoids-on-screen-buttons)
+- [Colours the world sends](#colours-the-world-sends)
+- [Dim repeated lines](#dim-repeated-lines)
+- [Light theme](#light-theme)
+- [Scroll dates](#scroll-dates)
+- [Line timestamps](#line-timestamps)
+- [Split screen](#split-screen)
+- [Newest text at top](#newest-text-at-top)
+- [Padding, notch, and the keyboard](#padding-notch-and-the-keyboard)
+- [Extra text windows](#extra-text-windows)
+- [Chat drawer](#chat-drawer)
+- [Overlay gauges (`.widget` / `.gauge`)](#overlay-gauges-widget--gauge)
+
+**Buttons**
+
+- [On-screen buttons: swipe + accordion](#on-screen-buttons-swipe--accordion)
+- [Super-buttons (buttons on top of the keyboard)](#super-buttons-buttons-on-top-of-the-keyboard)
+
+**The map**
+
+- [Mapper](#mapper)
+
+**The world and its protocols**
+
+- [OSC 8 hyperlinks](#osc-8-hyperlinks)
+- [MXP (clickable SEND)](#mxp-clickable-send)
+- [GMCP (short)](#gmcp-short)
+- [Frames a server opens (`mudstd.frame`)](#frames-a-server-opens-mudstdframe)
+- [MCP (short)](#mcp-short)
+
+**Other**
+
+- [Related docs](#related-docs)
+
+<details>
+<summary>Before you start</summary>
 
 ## Before you start
 
@@ -43,6 +129,11 @@ The ⋮ menu on the server list shows whether **Manage Storage Access**,
 **Notifications**, and **Unrestricted battery** are granted. **App Settings**
 opens the system page for this app; it is not itself a permission.
 
+</details>
+
+<details>
+<summary>Playing</summary>
+
 ## Encrypted connections (TLS)
 
 **Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
@@ -72,6 +163,210 @@ The certificate's host name is checked too, so a valid certificate for some
 other site will not be accepted for this one.
 
 Compression (MCCP) works normally with TLS on: encryption sits underneath it.
+
+## Dot commands
+
+Lines that start with a single `.` are handled by BlowTorch when
+**Options → Service → Process System Commands?** is on (the default).
+Type `..` alone to toggle that processing on or off.
+Prefix a server command with `..` to send a leading `.` to the game without
+running a client command (e.g. `..look` sends `.look`).
+
+Aliases that share a simple name with a command win when you type `.name newtext`
+(that changes the alias’s replacement text). Plugins may register additional
+commands via `RegisterSpecialCommand` when they initialise; disabling a plugin
+leaves the command recognised but it does nothing until the plugin is enabled
+again.
+
+Registrations live in `Connection` (built-ins) and Lua
+`RegisterSpecialCommand(...)` (plugins).
+
+## Several commands on one line (`;`)
+
+When **Options → Service → Process Semicolons?** is on (the default), a
+`;` splits what you send into several commands. You type `look;score` and
+the game receives `look`, then `score`, the same as two Enter presses.
+
+That split is this client, not a MUD protocol rule. Worlds do not all
+treat `;` as a command. A semicolon the *game* should see **inside** a
+command is written as `;;`:
+
+    say hello;;world        sends say hello;world
+    ;;                      sends one semicolon (a whole line)
+
+Turn **Process Semicolons?** off if this world uses `;` in its own
+commands and you never want the split.
+
+## Repeating a command (`#5 north`)
+
+A line that starts with `#` and a number sends the rest of the line that many
+times:
+
+    #5 north            walks five rooms north
+    #3 kick troll       kicks three times
+    #4 get all from bag
+
+It works wherever a line is sent — typed, on a button, and in each segment of a
+`;` list, so `stand;#3 kick troll;sit` is stand, three kicks, sit.
+
+The multiplier counts **what you typed**, not what it expanded into. With an
+alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+
+**It does not work inside an alias's replacement text.** An alias whose text is
+`#3 kick troll` sends that line to the game as it stands. The multiplier is read
+once, on the line you send, before aliases are expanded — so put the `#` in
+front of the alias (`#3 kk troll`), not inside it.
+
+**No pause between them.** All the copies go out at once, exactly as if you had
+typed `north;north;north;north;north`. This is not a way to pace commands — for
+that, use `.wait` (below) or a named timer.
+
+**Limit: 1 to 100.** Anything outside that is refused and the line is left
+exactly as you typed it, with a red note saying so. `#500 north` is nearly
+always a slip, and a world may read the flood as an attack.
+
+**Worlds that use `#` themselves.** Two hashes send one literal hash and skip
+the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
+as `#5 north`. A `#` that is not a number followed by a space is never touched,
+so `#help` and `say cost is #3 gold` go out unchanged.
+
+## Waiting between commands (`.wait` / `#wait`)
+
+A wait pauses **the rest of that same line**, then sends what follows. Incoming
+game text still prints, and a different trigger can still send immediately.
+
+    north;.wait 2s;south
+    #wait 5m10s;look
+    get all;.wait 500ms;i
+
+`.wait` and `#wait` are the same command. Units are `h`, `m`, `s`, `ms`, in any
+order: `5s5m` is the same as `5m5s`. A bare number is seconds (`.wait 5` is five
+seconds). Longest wait is **one hour**; longer is refused with a note.
+
+Examples:
+
+    .wait 50s
+    #wait 5m10s
+    .wait 1h
+    .wait 1.5s
+
+`.wait stop` or `#wait 0` cancels a wait that has not finished yet, so the
+commands after it are not sent. `.wait show` and `.wait info` list the queue
+and how long until each remainder runs (example: `1) in 12s — south`).
+`.wait change 1 60s` (or `#wait change 1 60s`) retargets that numbered row
+from now — the same idea as `.timer duration heal 30`. A new
+line you type while a wait is running goes out straight away — it does not sit
+behind the wait.
+
+This is not a Lua sleep and not a named `.timer`. A lone `.wait 5s` with nothing
+after it on that line delays nothing later: put the wait **between** the
+commands, on one line, including in a trigger action or on a button.
+
+Worlds that have their own `#wait` should use `.wait` on the client side.
+`##wait` is unescaped to `#wait` by the repeat command, so it is still a wait.
+
+## Passwords are hidden while the MUD asks for them
+
+A MUD asks for a password by taking echoing over (telnet ECHO). While a server
+holds it, the input bar masks what you type and the text is kept out of the
+session log; it unmasks when the server hands echoing back, or on a disconnect.
+Not every world uses this — some do, some do not.
+
+If a server takes echoing and never gives it back, `.echo on` unmasks the bar by
+hand (`.echo off` masks it again, `.echo` alone reports the state). The next
+change from the server wins over the command.
+
+This is separate from **Options → Service → Local Echo?**, which decides whether
+your own commands are printed into the game window at all.
+
+## Plugin commands (when loaded)
+
+### `button_window` (default Free build)
+
+    `.loadset <name>`   Load named button set
+    `.clearbuttons`     Hide every button for a clear view of the game
+    `.layoutwizard`     Open the button layout wizard (packs, set names, size)
+
+**Getting the buttons back after `.clearbuttons`.** One button labelled **BACK**
+is left behind — tap it and the whole set returns. While the set is hidden, a
+tap on **BACK** (or any visible button) restores the set instead of sending
+that button's command, so a stray tap cannot fire something you did not mean.
+The set also comes back by itself when you switch to another world or reopen the
+app; nothing is lost either way, and the layout editor is off while the buttons
+are hidden.
+
+### `starter_tutorial` (loaded by default)
+
+    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
+    `.tips on|always|off`   Short reminders when you type other `.commands` (same as `.tutorial tips …`)
+
+On the **Starter Tutorial** pad, tap **HELP** to run `.tutorial start`. A
+normal world's Compass pack HELP (under MORE) sends `help` to the MUD. The
+launcher lists a built-in **Starter Tutorial** row first (offline — no MUD).
+`.tutorial` opens any lesson in a real world too — it only Notes, it never
+talks to the MUD.
+
+`.tips on` prints a short reminder the first time you use a client command
+that session (try `.help` or `.osc8` — `.alias` has a tip too).
+`always` repeats every time; `off` stops. Also **Options → Starter Tutorial →
+Tips while playing?** (off until you ask).
+
+Disable the welcome note on normal MUDs via **Options → Starter Tutorial → Show
+welcome on connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
+under **Plugins** — it stays loaded, but `.tutorial` commands stop until you
+re-enable it (and welcome-on-connect stops too). It ships with the app and
+**cannot be deleted** — like `button_window` and `connection_settings`, the
+Plugins screen refuses to remove it.
+
+## Session overflow menu
+
+Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
+Timers). Options has a search field at the bottom; tap a hit to jump there
+and flash the matching row.
+
+- **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons,
+  Edit global gestures, Gesture mode.
+  The pack/size wizard is **Options → Button → Load button set from wizard**.
+- **SESSION** — Options, Speedwalk Directions, Map (same as `.map open`),
+  Plugins
+- **CONNECTION** — Reconnect / Disconnect (same as `.reconnect` /
+  `.disconnect`), Quit (leave the session window)
+- **TOOLS** — Chat (same as `.chat`; a disc on ⋮ means unread while the
+  drawer is closed — **Options → Chat**), Search scrollback (`.search`),
+  Session logs (this world's `.txt` files; same as `.search logs`), Reload
+  Settings
+- **ABOUT** — Crash report (Show log / Share log), About, Help (this
+  manual)
+
+**Export Settings**, **Import Settings** and **Reset Settings** are **not** in
+this menu — they live under **Options → Miscellaneous**, beside the storage
+settings they depend on. Storage access is there too.
+
+Connection duration appears on the ongoing notification and launcher row.
+With more than one world connected, that notification expands: every live
+session is listed, and each name is a button that opens that world.
+
+**Options → Service → Notification stack** is **One stack** or **Separate
+bars**. One stack puts the connection, alerts and chat in one shade group.
+Separate bars gives each its own. With several worlds open, the world you
+are in decides. A trigger set to **Spawn new?** stays on its own bar either
+way.
+
+**Persistent Connection?** (Options → Miscellaneous): only while **Auto
+Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for
+connectivity before retrying, and treat a peer close as a flap. It does not
+retry when Auto Reconnect is off, and it does not raise the try count — the
+number in **Auto Reconnect Tries** is what is used. Cannot keep a dead TCP
+socket — the MUD session is re-established when the network returns.
+
+If you want the same MUD session through hours of Wi-Fi / mobile / travel, use
+a VPN so the world keeps seeing one IP. The client already keeps the process
+alive; without a stable address many worlds still drop the character.
+
+</details>
+
+<details>
+<summary>Input and suggestions</summary>
 
 ## Suggestions (`.suggest on`)
 
@@ -318,8 +613,8 @@ two such mistakes still match if the first letter is right (`gxizzlxd` →
 does not. It only runs after an exact prefix found nothing, so typing `hel`
 still only prefix-matches. Four-letter minimum. Works on the word at the
 cursor in the middle of a line (`look helmte now`) as well as at the end.
-`.suggest typos off` turns it off. The ghost uses the same correction arrow
-as a forgiven typo: `helmte → helmet`.
+`.suggest typos off` turns it off. A forgiven typo is drawn the same way,
+dimmed, as the whole word: `helmte` then `helmet`.
 
 **Skipped start of a long name.** `.suggest skiphead on` — **on by default**
 once suggestions and nearby misspellings are on. A long name can match from
@@ -349,12 +644,12 @@ That "not there" is literal: the ghost is **drawn, never put in the input bar**.
 What you send is always exactly what you typed, so there is nothing to strip off
 and nothing that can go out by accident.
 
-A forgiven typo gets a ghost too, in the other shape. Its letters have to
-change rather than grow, so the whole word is shown behind an arrow, and tapping
-it replaces what you typed:
+A forgiven typo gets a ghost too. Its letters have to change rather than
+grow, so the whole word is shown, dimmed, and tapping it replaces what you
+typed. There is no arrow and no gap before it:
 
     You type:   k grzld
-    You see:    k grzld[ → grizzled]¹
+    You see:    k grzld[grizzled]¹
 
 Because the ghost is drawn, it is never part of the text you send. When it fits
 the rest of the line it sits there. When it does not, the bar grows by one row
@@ -385,8 +680,12 @@ chips still offer. Taking one replaces that word and keeps what follows:
 The ghost itself still only draws at the end of the line (it would cover
 what follows). In the middle — Complete at the cursor, or a nearby
 misspelling — the numbered list starts on the rest of the current line,
-after the text already there, and takes a new line under it only when that
-line is full. The input bar grows so that extra line stays above the keyboard.
+flush with the text already there, and takes a new line under it only when
+that line is full. The same at the end of the line: the first suggestion
+sits against the text, not after a gap. The input bar grows so that extra
+line stays above the keyboard. `.suggest split on` draws a short mark
+between those dimmed words. Off, they sit next to each other with a space.
+The little numbers stay either way.
 `.suggest 1` from a button still picks the first. Off again with
 `.suggest caret off`, or put `.suggest caret on` / `off` on a button if you
 only want prefix chips while rewriting a long command.
@@ -519,106 +818,131 @@ rewritten (on-screen button commands are).
 `.unaccent` with no argument prints on or off. `.unaccent on|off` (also
 `true`/`false`/`1`/`0`/`yes`/`no`).
 
-## Dot commands
+## Hyphenate long words in the input bar
 
-Lines that start with a single `.` are handled by BlowTorch when
-**Options → Service → Process System Commands?** is on (the default).
-Type `..` alone to toggle that processing on or off.
-Prefix a server command with `..` to send a leading `.` to the game without
-running a client command (e.g. `..look` sends `.look`).
+Off by default. With **Grow Input Bar** on (`.wrap on`), a word that does
+not fit the space left on the line breaks with a hyphen. The rest of that
+word continues underneath:
 
-Aliases that share a simple name with a command win when you type `.name newtext`
-(that changes the alias’s replacement text). Plugins may register additional
-commands via `RegisterSpecialCommand` when they initialise; disabling a plugin
-leaves the command recognised but it does nothing until the plugin is enabled
-again.
+```
+supercalifragilisticexpialidocious super-
+califragilisticexpialidocious
+```
 
-Registrations live in `Connection` (built-ins) and Lua
-`RegisterSpecialCommand(...)` (plugins).
+The first copy fits. The second does not fit beside it, so you see a
+hyphen at the end of the first line. Send still transmits both words
+whole, with the space you typed and no hyphen. Copy and command history
+do too.
 
-## Several commands on one line (`;`)
+Suggestions stay one chip for the whole word. At the end of the cursor the
+ghost sits after the last piece. With the cursor in the middle of the line
+the list still sits after the last word, not on the hyphen. A keyboard
+that underlines the word you are still typing waits until that underline
+goes (usually the next space).
 
-When **Options → Service → Process Semicolons?** is on (the default), a
-`;` splits what you send into several commands. You type `look;score` and
-the game receives `look`, then `score`, the same as two Enter presses.
+The break uses the width already left of **Edit** and **Send**. Hiding
+those buttons widens the line, so a word that was broken may fit again and
+the hyphen goes away. Showing them narrows the line and a hyphen may
+appear. The corner above the buttons stays empty.
 
-That split is this client, not a MUD protocol rule. Worlds do not all
-treat `;` as a command. A semicolon the *game* should see **inside** a
-command is written as `;;`:
+The language chooses those break rules. It does not change the word you
+send. **English** is the default. **Phone language** uses the phone's
+language when rules for it are built in, and English when they are not.
+One language for the whole line.
 
-    say hello;;world        sends say hello;world
-    ;;                      sends one semicolon (a whole line)
+`.hyphen full on` allows 2 letters before the hyphen. Off, the piece has
+to be at least 5 letters. A smaller gap moves the whole word to the next
+line.
 
-Turn **Process Semicolons?** off if this world uses `;` in its own
-commands and you never want the split.
+A password line does not break. A run of digits is not hyphenated. A
+hyphen you type yourself (`iron-helmet`) is a real character: the line
+may break after it, and that hyphen is sent.
 
-## Repeating a command (`#5 north`)
+```
+.hyphen                    status
+.hyphen on|off
+.hyphen lang en|phone
+.hyphen en|phone        same as lang
+.hyphen full on|off
+```
 
-A line that starts with `#` and a number sends the rest of the line that many
-times:
+Also **Options → Input → Hyphenate long words?**, **Hyphenation language**,
+and **Hyphenate more often?**.
 
-    #5 north            walks five rooms north
-    #3 kick troll       kicks three times
-    #4 get all from bag
+## The input bar (`.keyboard` / `.kb`)
 
-It works wherever a line is sent — typed, on a button, and in each segment of a
-`;` list, so `stand;#3 kick troll;sit` is stand, three kicks, sit.
+Commands for the text you are typing, and for the Edit and Send
+buttons beside the input bar.
 
-The multiplier counts **what you typed**, not what it expanded into. With an
-alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+### `.keyboard` / `.kb`
 
-**It does not work inside an alias's replacement text.** An alias whose text is
-`#3 kick troll` sends that line to the game as it stands. The multiplier is read
-once, on the line you send, before aliases are expanded — so put the `#` in
-front of the alias (`#3 kk troll`), not inside it.
+    *(no args)*                Print help
+    `insert <text>`            Drop text at the cursor (spaces around words, not punctuation)
+    `insertword <text>`        The same thing under its older name
+    `insertliteral <text>`     Drop text at the cursor exactly as given, no spacing at all
+    `add` / `popup` + text     Set or append input; `popup` focuses the bar and shows the IME
+    `flush`                    Send current input
+    `close` / `clear`          Hide IME / clear text
+    `sel` / `selectall`        Select all
+    `cut` / `copy` / `paste`   Clipboard
+    `start` / `cursorstart`    Caret to start
+    `end` / `cursorend`        Caret to end
+    `stepf` / `stepr`          Caret one character right
+    `stepb` / `stepl`          Caret one character left
+    `stepu`                    Previous command (always — even when the bar is wrapped or multi-line)
+    `stepd`                    Next command (always)
+    `lineu` / `lined`          Caret one visual line up / down; does not recall history
 
-**No pause between them.** All the copies go out at once, exactly as if you had
-typed `north;north;north;north;north`. This is not a way to pace commands — for
-that, use `.wait` (below) or a named timer.
+Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`, `.kb stepu`, `.kb lineu`.
 
-**Limit: 1 to 100.** Anything outside that is refused and the line is left
-exactly as you typed it, with a red note saying so. `#500 north` is nearly
-always a slip, and a world may read the flood as an attack.
+**`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
+puts it where the cursor is and works out the spaces (words get spaces;
+punctuation attaches), so the bar never ends up reading `ktroll` or `slowo ,`.
+`insert` also does not expand aliases — the text goes in as typed, which is
+what you want when the text is a name you pointed at. Its main use is a
+tappable word bound to `.kb insert $word`; see below.
 
-**Worlds that use `#` themselves.** Two hashes send one literal hash and skip
-the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
-as `#5 north`. A `#` that is not a number followed by a space is never touched,
-so `#help` and `say cost is #3 gold` go out unchanged.
+**`insertliteral`** is `insert` with the spacing rules switched off: what you
+give it lands at the cursor character for character, which is the one to use
+when you need a leading space or want two things run together on purpose.
 
-## Waiting between commands (`.wait` / `#wait`)
+**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as hardware up/down and `.kb stepu` / `.kb stepd`); they do not walk visual lines of a wrapped bar. `.kb lineu` / `.kb lined` move the caret one line. ←/→ move the caret one character.
 
-A wait pauses **the rest of that same line**, then sends what follows. Incoming
-game text still prints, and a different trigger can still send immediately.
+**Options → Window → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
 
-    north;.wait 2s;south
-    #wait 5m10s;look
-    get all;.wait 500ms;i
+### `.editbutton`
 
-`.wait` and `#wait` are the same command. Units are `h`, `m`, `s`, `ms`, in any
-order: `5s5m` is the same as `5m5s`. A bare number is seconds (`.wait 5` is five
-seconds). Longest wait is **one hour**; longer is refused with a note.
+```
+.editbutton
+.editbutton on | off
+```
 
-Examples:
+Shows or hides the **Edit** button (same as Options → Window → Show Edit button?). No argument prints status.
 
-    .wait 50s
-    #wait 5m10s
-    .wait 1h
-    .wait 1.5s
+### `.editpanel`
 
-`.wait stop` or `#wait 0` cancels a wait that has not finished yet, so the
-commands after it are not sent. `.wait show` and `.wait info` list the queue
-and how long until each remainder runs (example: `1) in 12s — south`).
-`.wait change 1 60s` (or `#wait change 1 60s`) retargets that numbered row
-from now — the same idea as `.timer duration heal 30`. A new
-line you type while a wait is running goes out straight away — it does not sit
-behind the wait.
+```
+.editpanel
+.editpanel on | off
+```
 
-This is not a Lua sleep and not a named `.timer`. A lone `.wait 5s` with nothing
-after it on that line delays nothing later: put the wait **between** the
-commands, on one line, including in a trigger action or on a button.
+Toggles (or forces) the Edit tools strip above the input row. Same strip as the **Edit** button. No argument toggles.
 
-Worlds that have their own `#wait` should use `.wait` on the client side.
-`##wait` is unescaped to `#wait` by the repeat command, so it is still a wait.
+`.editrows on` puts that strip on two rows while the phone is landscape (Select, Cut, Copy, Paste, then the cursor pad). `.editrows off` (the default) keeps one full-width row in both orientations.
+
+### `.sendbutton`
+
+```
+.sendbutton
+.sendbutton on | off
+```
+
+Shows or hides the **Send** button (same as Options → Window → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
+
+</details>
+
+<details>
+<summary>Triggers and scripts</summary>
 
 ## Aliases and triggers (patterns / `$1`)
 
@@ -1126,6 +1450,73 @@ that submenu for My lines and Reply examples. Worlds print chat
 differently — there is no one prefix. `[ooc] Ada says, "hi"` is yours if
 My lines is `Ada`. `[ooc] Bob says, "hi Ada"` is Bob's. Colour chips in
 the submenu are that chat only.
+
+### `.alias` forms
+
+```
+.alias list                    every alias and whether it is on
+.alias status [name]           counts, or one alias and what it expands to
+.alias on|off|toggle <name>    turn one on or off
+.alias all on|off              every alias in main settings
+```
+
+Use `plugin:name` when the same name exists in more than one plugin. A disabled
+alias stops matching immediately.
+
+### Session variables in alias text
+
+Write `${name}` in an alias replacement to drop in a session variable:
+
+    `att`
+        Replacement: `kill ${target}`
+        Variable: `target` = `goblin`
+        Sent: `kill goblin`
+
+Set the variable from a trigger's **Set Variable** action, from an alias that
+matches what you type (same action in the alias editor), or from Lua with
+`SetVariable("target", "$1")`. That is how text the *game* printed reaches a
+command you type: the trigger captures it, the alias spends it. An alias can
+also set the name itself — you type `kk goblin` and **Set Variable** `target` =
+`$1` while **With** sends `kill $1`.
+
+Braces are required, so `${name}` never collides with the numeric `$1`
+captures, and a bare `$` in text is left alone. An **unset** variable is left
+written as-is rather than becoming empty — sending `kill` with no target is
+worse than sending something visibly wrong.
+
+The name inside `${…}` may contain only letters, digits, and `_`. Spaces,
+hyphens, and dots are not substituted in alias text (use conditions or Lua for
+names like `device.battery`).
+
+Variables are per session unless **Keep after restart** is ticked on the Set
+Variable action. Lua `SetVariable` stays session-only.
+
+### Switching alias sets by mode
+
+`EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
+turns it on or off. A disabled alias stops matching immediately.
+
+In Lua, `EnableAlias` only toggles aliases in **the plugin that runs the
+script**. For aliases in the main profile, use `.alias on|off <name>` — from the
+input bar or an **Ack With** action (e.g. `.alias on kk`). Example for a
+**plugin** alias set:
+
+```lua
+EnableAlias("kk", true)
+EnableAlias("travel_home", false)
+```
+
+Triggers and timers go further: both carry **conditions** (trigger/alias on or
+off, alias replacement equals, variable equals/exists, combined with and/or)
+that decide whether they fire at all, edited in their own editors. Aliases
+themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
+on or off; a trigger condition can *read* that on/off state or the alias
+**With** text.
+
+</details>
+
+<details>
+<summary>Recipes</summary>
 
 ## Recipes
 
@@ -2204,6 +2595,11 @@ the timer downstream. Delete it when the thing works.
 `.trigger status <name>` and `.alias status <name>` tell you whether something
 is enabled; `.alias list` shows every alias at once.
 
+</details>
+
+<details>
+<summary>Built-in commands</summary>
+
 ## Built-in commands
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
@@ -2239,6 +2635,7 @@ is enabled; `.alias list` shows every alias at once.
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.unaccent [on|off]`                Strip accents when sending (`usiądź przy stole` → `usiadz przy stole`); local echo shows the folded form. Also Options → Input. Off by default. Passwords and Lua SendToServer are not rewritten.
+    `.hyphen [on|off|lang en|phone|full on|off]`  Draw a hyphen when a long input word does not fit the space left on the line. Not sent. Needs `.wrap`. Off by default. Also Options → Input → Hyphenate long words?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
     `.editbuttons`                      Open Edit buttons (same as ⋮ → Edit buttons)
     `.gesture`                          Screen swipes on the game text. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off`, `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`
@@ -2939,6 +3336,748 @@ Example: you are looking for a fight from earlier this week. `.search logs 7 gob
 will find “goblin” in the current scrollback, then in this world's log files
 touched in the last 7 days.
 
+</details>
+
+<details>
+<summary>The window</summary>
+
+## Copy text from the game window
+
+- **First finger** — touch where selection should start (marks the start).
+- **Second finger** — while holding the first, touch with a second finger to
+  open the selection / copy widget (if the second touch is elsewhere, the range
+  between the two fingers is selected immediately). **Exception:** during
+  `.pick hold` (or another sticky pick), that second finger **cancels the
+  pick** so you can drag to scroll. Copy is unchanged when pick is off.
+- One-finger long-press alone does not open copy.
+- Drag the cursors, then use **copy** / **swap ends** / **close** around
+  the magnifier (outside the circle, not on the text). A slow drag follows
+  the finger. A flick moves further across the text. On-screen buttons
+  may hide while selecting so the widget stays usable.
+  Size and zoom: Options → Window → **Copy loupe size (%)** /
+  **Copy loupe zoom (%)**, or `.copy loupe size 118` / `.copy loupe zoom
+  200`. `.copy` prints the current values; `.copy loupe default` restores
+  both.
+- If **Text width** is over 100 (`.width 150`), drag the magnifier to the
+  right edge and the canvas pans so you can copy the overflow; left edge
+  pans back.
+- The same two-finger gesture works in **extra text** windows (float/drawer).
+  Extra text stays on this copy gesture. Global gestures are the main window only.
+
+## Global gestures
+
+Optional swipes on the main game text. **Classic** is the default: one finger
+scrolls, two fingers copy. One mode at a time, saved with that world.
+
+- **⋮ → Gesture mode** sets the mode and the scrolling choice. The same scrolling
+  choice is under Options → Input → Global gestures. `.gesture mode classic|1|2|both`.
+  `.gesture scroll two|hold|off` sets that choice. Classic and Two fingers
+  refuse it, the same as the grey row.
+- **One finger** — Scrolling is **With two fingers**, **Hold, then gesture**
+  (80–800 ms, 280 is the default), or **Off**. A stationary long-press on a
+  word still opens that word's menu. With two fingers, a one-finger swipe sends
+  a command and two fingers scroll the text.
+- **Two fingers** — one finger scrolls. The scrolling choice is grey. A
+  two-finger swipe can send a command, and a short tap can copy.
+- **Both** — Scrolling is the same choice as One finger. **With two fingers**
+  scrolls with two fingers. The both-fingers switch is only for Hold or Off,
+  and it is grey in the other modes.
+- A blank direction sends nothing. Before the hold, a move still scrolls. After
+  the hold, a blank direction does not scroll the text. Lift without a direction
+  and nothing is sent. A second finger cancels a one-finger gesture, including
+  one you have already drawn and not released, and that tap does not open the
+  copy widget. On a two-finger swipe, lifting the finger that is not drawing
+  the line cancels it. Lifting the finger that is drawing the line sends the
+  command. A third finger cancels a two-finger gesture.
+- `.gesture` prints the current setup. `.gesture edit` opens the direction
+  commands (also ⋮ → **Edit global gestures** and Options → Input → Global
+  gestures → **Edit global gestures**).
+- `.gesture show on|off` is the label near the top-right, inset from the
+  corner. It shows the gesture mode, and in One finger and Both the scrolling
+  choice as well. Off by default.
+- `.gesture preview on|off` shows the arrow and the command together. The two
+  can be split in Options.
+- `.editbuttons` opens Edit buttons. Long-press ⋮ still does that until you
+  replace the hold under Edit buttons → gear → Extra gestures. An empty hold
+  does nothing. You can put `.options` in that hold to open Options.
+
+## Font size
+
+New profiles start at font size **20** (readable on phones). Change under
+Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
+is kept when you close the world.
+
+## Pick loupe
+
+The round magnifier during `.pick` shows the **game text** around the
+finger, with the chosen word highlighted and the phrase (`fix helmet`)
+above the circle. Options → Window → **Pick loupe size (%)** (50–200,
+default 118) and **Pick loupe zoom (%)** (150–350, default 200 = 2×), or
+`.pick loupe size 118` / `.pick loupe zoom 200`. `.pick loupe` prints the
+current values; `.pick loupe default` restores both.
+
+The two-finger copy widget has its own size and zoom (Options → Window →
+**Copy loupe size (%)** / **Copy loupe zoom (%)**, or `.copy loupe`); copy
+/ swap / close sit outside the circle.
+
+## Font (typeface)
+
+Options → Window → Font. The list is a handful of faces that actually look
+different, not every file under `/system/fonts/`.
+
+- **DejaVu Sans Mono** — default; box drawing and Block Elements.
+- **Fairfax HD** — MUD / roguelike Unicode, looks like a scalable terminal.
+- **JetBrains Mono**, **Ubuntu Sans Mono**, **Atkinson Hyperlegible Mono**,
+  **Inconsolata**, **Liberation Mono**, **Noto Sans Mono**.
+- Phone aliases: System monospace, Sans serif, Android default.
+- A few system files if present (Droid Sans Mono, Roboto Mono, …).
+
+**Load from storage…** copies a `.ttf` or `.otf` into the app so it survives
+when the original Downloads file is gone. You can also drop files into
+`/BlowTorch/` or `/BlowTorch/fonts/`.
+
+Ligatures are off on the grid (maps stay columns). Missing glyphs on a thin
+face fall back to DejaVu, then to emoji.
+
+Old profiles that still name Bitstream Vera keep that file; it is no longer
+in the list because it is the same design as DejaVu.
+
+## Text avoids on-screen buttons
+
+**Options → Window → Text avoids on-screen buttons?** (off by default), or
+`.avoidbuttons on|off`. With it on, an on-screen button is a hole: game text
+wraps in the columns left of it (and continues on the right if there is
+room) instead of drawing underneath. Leftover on that row is clipped; it
+does not insert extra rows that shove the rest of the screen. Two buttons
+that share a row are one blob from the leftmost edge to the rightmost —
+text does not squeeze between them. That includes the ordinary grid pad
+and floating copies.
+
+**Avoid-buttons break** (`.avoidbuttons letters|words`, default **letters**):
+how text packs around that hole while avoid is on. `letters` moves one
+character at a time past the button (today's behaviour). `words` keeps
+whole words on one side of the hole — it does not split a word across the
+button. Global **Word Wrap?** is a different option and is unchanged. When
+avoid is off, text paints normally and the break choice is ignored.
+
+This follows **Text width** (`.width`): at 100% you only wrap; over 100%
+you can still drag the canvas sideways, and the holes stay on the screen
+while the text pans. HP widgets and extra-text windows are not holes. The
+wrap updates while you drag a floating button.
+
+**Caveat:** ASCII maps and other cell graphics will look wrong. Leave this
+off for those games. NAWS (the width reported to the world) does not
+change.
+
+## Colours the world sends
+
+A world that sends `[1m` (SGR 1) still uses the **bright palette** by
+default, not a heavier typeface: grey `#BBBBBB` becomes white `#FFFFFF` on
+the 16-color set. xterm 256 and truecolor ignore that bright step. You see
+`[1mHP: 12[22m` and the digits go white; they do not get heavier. A letter
+that grew wider would bend the column grid (maps, prompts). The window Font
+option can still pick a bold face for the whole window.
+
+**Options → Service → Heavier MUD bold (SGR 1)?** is off by default. Turn
+it on and `[1m` also redraws heavier — the same second-draw overlay as
+trigger Color Bold and Tappable Word Bold, so cells do not move — *in
+addition* to the bright palette, not instead of it. Glyphs can spill into
+the next cell; bold can look messy.
+
+Trigger Color **Bold** is a different tick: it always paints heavier glyphs
+and never sends `[1m`. A Color on `fox` with Bold ticked makes `fox`
+heavier; the world's `[1m` on the rest of the line is still bright unless
+that Service box is on.
+
+Italic (3),
+underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
+sends `[3mlook[23m` shows `look` slanted; `[4m` puts a line under the word;
+`[9m` a line through it; `[7m` swaps ink and paper; `[2m` is dimmer.
+
+Double underline (21) is two lines, not "bold off" — that is 22. Blink (5)
+and fast blink (6) hide the glyph on a slow tick while the cell stays;
+`[38;5;3m` is still colour index 3, not blink (the same 5 that starts an
+xterm palette). 25 turns blink off.
+
+MXP `<I>` / `<U>` / `<S>` inject those same codes, so they follow.
+
+Emoji and other wide glyphs occupy **two cells** when drawn (so an animal is
+not a vertical sliver). Wrapping still counts one column per character, so a
+full row of emoji can overflow the canvas. ASCII maps (`█` `░` `▒` `▓`, and
+`[ ]-[ ]` room maps) stay one cell; Word Wrap will not break those lines at
+the spaces inside the tiles.
+
+## Dim repeated lines
+
+**Options → Window → Dim repeated lines?** (off by default). When a long line
+comes back identical — you typed `look` and the room description is the same —
+it is painted dimmer so the new bits (a mob that walked in, a door that opened)
+stand out. Very short lines (`Ok.`, `>`) stay bright so they do not fill
+the memory. A wrapped leftover such as `water.` is long enough to dim.
+Turn it on per window; it does not change what is stored, only how it is drawn.
+
+Memory is the last **N long lines** in that window (not the whole app, not
+forever). Default **12** — about a screen of combat — then an old room is
+bright again. **Dim strength (%)** is how hard to dim: **50** keeps half the
+colour; higher is darker (10–90).
+
+Dot command (same three knobs):
+
+```
+.dimrepeat
+.dimrepeat on|off|toggle
+.dimrepeat lines 12
+.dimrepeat strength 50
+```
+
+`.dimrepeat` with no argument prints the current on/off, N, and strength.
+
+## Light theme
+
+**Options → Window → Light theme?** (off by default). The game canvas uses a
+warm grey paper and dark ink. Colours the world sends (red *You bleed*, cyan
+names, yellow highlights) stay; whites, default grey, and other light greys
+are darkened so they stay readable. Extra-text windows follow the main
+window. Colour triggers are unchanged — they still inject the same SGR; only
+the paint changes. The launcher, Options, mapper, chat drawer and ⋮ stay
+dark. Factory pad colours are unchanged (pale on light paper).
+
+Five paper shades, 1 grey through 5 near-white. 2 is the original warm grey.
+Ink is recomputed against the current paper (darker on whiter sheets). Extra-text
+follows the main window's shade.
+
+```
+.light
+.light on|off|toggle
+.light 1|2|3|4|5
+.light shade N
+```
+
+`.light` with no argument prints on or off and the shade. `.light 3` turns
+the theme on at ivory. `.light shade N` stores the shade even while the
+theme is off.
+
+## Scroll dates
+
+**Options → Window → Scroll dates?** (off by default). While you are scrolled
+into history, a small day and time sits to the left of ⋮ (same
+calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark to the
+right of the date shows where you are in the buffer (thumb at the bottom =
+live text). The jump-to-live arrow stays bottom-right above the input bar
+(the same corner as ⋮ by default). Dates are not printed into
+the game text, so triggers, wrapping and copy are unchanged.
+**Scroll date opacity (%)** (default 75) only affects that date and mark.
+
+`.search 14:32` or `.search 18 Aug` jumps to text that arrived then. The window
+only keeps a few thousand lines, so a week of busy play will have aged out;
+the session log is the archive for that.
+
+```
+.when
+.when on | off | toggle
+.when opacity N
+```
+
+## Line timestamps
+
+**Options → Window → Line timestamps?** (off by default). Each line shows
+when it arrived, on the **right** of its first row. The game text itself is
+unchanged: wrapping, triggers, maps and copy stay as they were. Extra-text
+windows stay off unless that window's option is on (those tokens are not
+saved for extra-text slots).
+
+**Timestamps in session log?** prefixes the same stamp on the **left** of
+each incoming line written to the session log. Copy from the screen does
+not add it.
+
+`.timestamp hour | minute | second | month | year` chooses parts (default
+hour and minute, e.g. `14:32`). Month adds the day (`18 Aug 14:32`). This
+is not `.when`, which is history chrome to the left of ⋮ while you have
+scrolled back.
+
+```
+.timestamp
+.timestamp on | off | toggle
+.timestamp log on | off | toggle
+.timestamp hour | minute | second | month | year [on|off]
+```
+
+## Split screen
+
+`.split 40` shows the same game text twice: the left (or top) pane is about
+40 percent wide, each pane scrolls on its own, and buttons still hit the
+primary pane. Default percent is 50. `.split horizontal` / `.split h` (or
+`.split left`) is left/right; `.split vertical` / `.split v` (or `.split top`)
+is top/bottom. `.split off` returns to one pane. This is not a second buffer
+and not an extra-text window.
+
+```
+.split
+.split on | off
+.split horizontal | h | left | right
+.split vertical | v | top | bottom
+.split 40
+```
+
+## Newest text at top
+
+By default, fresh game output sits at the **bottom** of the window (classic
+terminal). Enable **Options → Window → Newest text at top?** to put live lines
+at the **top** and older scrollback below — handy when on-screen buttons cover
+the bottom edge. Drag **up** to dig into history; the home chevron stays in the
+**bottom-right** and points **up** toward live output.
+
+**Caveat:** this reverses the on-screen order of consecutive lines. MUD maps,
+room diagrams, and other ASCII graphics drawn line-by-line will appear
+**upside down**. Leave the option off for those games. To keep buttons usable
+without flipping text, see **Padding, notch, and the keyboard**.
+
+## Padding, notch, and the keyboard
+
+**Options → Window → Avoid camera cutout (portrait)?** and **Avoid camera
+cutout (landscape)?** keep chrome out of the camera hole in that orientation.
+Both default on. Landscape uses the left or right edge (where the hole sits
+when the phone is on its side). Portrait only adds space if the hole sticks
+past the status bar — for a punch-hole that already sits in that bar, use
+**Top padding (px)** as well. Turn an option off to use the pixels under the
+hole (text may sit under the camera).
+
+The on-screen **keyboard is a separate system window**. Gboard (and the
+AOSP keyboard from Android 15) leave a gap the width of the camera hole
+so keys are not under the lens. BlowTorch cannot stretch those keys.
+
+**Options → Window → Top padding (px)** is extra empty space above game text
+on top of **Avoid camera cutout** (on-screen buttons are unaffected). Try
+values like `40`–`80` if the automatic inset is not enough.
+
+**Options → Window → Bottom padding (px)** does the same at the bottom edge, all
+the time — use it to keep the newest line clear of the input bar or a gesture bar.
+
+**Options → Window → Bottom padding with keyboard (px)** adds further space below
+game text only while the soft keyboard is open. The two are independent: set
+either on its own, or both, in which case they add up while the keyboard is out.
+The gap is measured from the bottom of the text area, which rises with the
+keyboard unless **Keep text still with keyboard?** is on.
+
+**Options → Window → Keep text still with keyboard?** — when on, opening the soft
+keyboard lifts only the input bar; game text stays put (may sit under the IME).
+Works with either text direction. Off = classic lift (text rises with the keyboard).
+
+**Options → Window → Android fling?** (off by default). After you lift your
+finger, the text coasts with the speed of the swipe, like a web page or
+gallery. Dragging still follows your finger 1:1. While this is on,
+**Scroll sensitivity** (50–500%) is greyed out. Extra-text windows set to
+*Same as main window* follow this; a slot with its own % keeps the old gain.
+
+## Extra text windows
+
+This is not the chat drawer (⋮ → **Chat** / `.chat`) — that is a left-hand
+conversation list, described after this section. Extra text windows are named
+slots you create (chat, tells, combat, …) beside the main game output.
+
+Optional top-drawer or floating panes beside the main game
+output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
+slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
+
+Configure under **Options → Window → Extra text windows** (**Enable**, **Manage windows…**,
+or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hide via
+`.window show|hide` or Manage → Show window) or **`float`** (titled, draggable panes).
+Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
+the UI; buffers are named `WindowToken`s.
+
+A floating pane's chrome is per slot, in **Manage windows… → Edit**:
+
+- **Show title bar** — the strip across the top, with the ☰ grip and the window's
+  title. On by default. Turning it off **hides** it rather than removing it: the
+  strip is still there and still drags the window, it is simply not drawn.
+- **Show resize grip ◢** — the corner marker at the bottom right. Same idea: off
+  hides the marker, the corner still resizes the window.
+- **Close button ✕** — hides the window; bring it back with `.window show <slot>`
+  or Manage → Show window. On by default. Off means gone, not invisible — an
+  unseen ✕ inside the drag strip would close the window every time you missed.
+
+All three off gives a bare pane with no visible chrome at all: still draggable
+by its top strip and resizable from its bottom-right corner if you know they are
+there, and closed only by `.window hide` or Options.
+
+**Scroll speed** is per slot, in Manage windows. The default, *Same as main
+window*, follows **Options → Window → Scroll sensitivity** (and **Android
+fling?** when that is on), so that one control still steers every extra window
+at once and a slot only breaks away when you set it to a specific speed.
+Changes apply straight away, with the window open.
+
+A slot keeps collecting text while it is hidden (`.window hide` / ✕ on a float).
+The UI buffer holds up to about **512 KB** per slot; when you show it again you
+normally see what accumulated. A separate **128 KB** replay cap applies only
+when the window process re-registers after a UI restart — then only the newest
+128 KB of held history is replayed.
+
+In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
+like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** on.
+
+### `.window` forms
+
+```
+.window
+.window list
+.window show <slot>
+.window hide <slot>
+.window clear <slot>
+.window create <slot> [title…]
+.window destroy <slot>
+.window opacity <slot> [40-100]
+.window font <slot> [6-96 | +1 | -1 | default]
+.window <slot> font [6-96 | +1 | -1 | default]
+```
+
+### Gag / replace retarget
+
+In the trigger gag or replace editor, pick a known slot from the spinner
+(**None** = no retarget) or type a custom name. An empty retarget string means
+no retarget. Gag removes the line from the main window and can forward it to the
+slot; replace can rewrite text and optionally send the line to the slot.
+
+Lua `NewTrigger` tables:
+
+```lua
+{ type = "gag", output = true, log = true, retarget = "chat" }
+{ type = "replace", text = "[redacted]", retarget = "tells" }
+```
+
+### Lua (extra text)
+
+```lua
+CreateTextWindow("chat", "Chat")   -- create/update slot
+DestroyTextWindow("chat")
+ListTextWindows()                  -- array of names
+ShowTextWindow("chat", true)
+ClearTextWindow("chat")
+NoteToWindow("chat", "hello")      -- client-only note into the slot
+WindowExists("chat")
+AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
+```
+
+### GMCP → window
+
+**Options → Window → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
+advanced CSV). Matching inbound GMCP packets are written into that slot as
+`[GMCP] ModuleName {json…}` (passwords redacted). Patterns: exact (`Char.Vitals`),
+family (`Char.` / `Char.*`), or `Comm.*`.
+
+GMCP is out-of-band — it does **not** appear in the main mud buffer unless **Show
+GMCP in game window?** is on. When a module is routed to an extra window, that
+module is **not** also fed into main (intercept for the live feed only). Lua GMCP
+watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
+use gag/replace if you also want to hide related room text.
+
+## Chat drawer
+
+⋮ → **Chat**, or `.chat`. A panel slides in from the left — not a
+permanent bar, and not an extra-text window (recipe 8). A trigger
+**Send to thread** action copies a matching line into a named conversation;
+the line also stays in the game window.
+
+### `.chat` forms
+
+```
+.chat
+.chat open
+.chat close | hide
+.chat <name>
+.chat help
+```
+
+Empty argument and `open` slide the chat drawer in from the left (toggles if
+it is already open — there is no separate close binder). `close` and `hide`
+are the same toggle. ✕, the dim area, or Back also close it. Overflow
+**Chat** always opens it.
+
+`.chat <name>` opens that conversation. The name matches the thread id or
+the title shown in the list, case-insensitive — `.chat ooc` if the list
+says ooc.
+
+A thread is one conversation. Tap it to read history and reply. Send fills
+`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set
+the template on the trigger's Send to thread action, or **Reply** under ⚙
+while that conversation is open.
+
+⚙ in an open conversation:
+
+- **My lines** — tap the row for the submenu. The name the world prints
+  when you speak, not the channel tag and not a pasted whole line. Worlds
+  print chat differently (start of line, after a `]` or `)`, `You say`).
+  `[ooc] Ada says, "hi"` is yours if My lines is `Ada`; `[ooc] Bob says,
+  "hi Ada"` is not. A one-word name already matches says and asks. Verb
+  phrases: one form per line, or `Ada says; Ada asks`. Kept in the chat
+  file, so those bubbles stay yours after you leave the app. Colour chips
+  in the submenu are this chat only.
+- **Reply** — tap the same submenu. The command sent to the world;
+  `$text` is the reply box. Example: `tell Bob $text`, `ooc $text`, or
+  `$text` alone. A lone `$1` is treated as `$text` (`C $1` → `C hello`).
+  `tell $1 $text` is the trigger's capture form, not a Send template —
+  Send refuses leftover `$1`. Tap **?** in the submenu for both fields.
+- **Notify** — which Android channel this conversation uses: **Tells**,
+  **Channels**, **Auction**, or **Other** (default). Four channels, not
+  one per name. Mute auction without muting tells in Android Settings →
+  Notifications. Chat used to share the alerts channel with the bell;
+  after this update, pick sound per bucket there (the old alerts
+  setting does not follow chat). The master switch is still
+  **Options → Chat → Android notification** (off by default).
+- Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
+  face. **Find in this thread** stays visible; ‹ › step through matches
+  like `.search` and do not hide other messages.
+- **Save** writes My lines and Reply, and updates a matching Send to thread
+  trigger whose Thread field is this conversation's id.
+- **Delete conversation** (confirm) removes stored messages. It does not
+  delete the trigger. Use this when a thread exists with no trigger
+  attached (orphan). Long-press a thread in the list also deletes.
+
+**Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
+message / Digest + interval; Android notification (off by default);
+keep at most N messages (default 4000; 0 still caps at 50000 so the phone
+does not run out of RAM). Tap the
+shade to open that conversation. ⚙ **Notify** picks the system channel
+for that conversation (Tells / Channels / Auction / Other). Digest waits
+the interval, then the cyan line is how many arrived (five tells → 5,
+not 1); the notification count updates on each message. That cyan line
+is its own line in the window.
+The unread disc on ⋮ is brighter while there is unread and the drawer is
+closed. In-game line example (cyan client text, not sent to the MUD):
+`Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
+the messages and keeps the trigger.
+
+Send from the drawer paints an own-bubble immediately. Dual display (main
+window and the drawer) is the trigger's job; the drawer only shows what
+was stored.
+
+## Overlay gauges (`.widget` / `.gauge`)
+
+A small HP bar, ring, or countdown on the game window. You make them; the MUD
+does not. An MXP `<GAUGE>` tag never creates one — it still only writes session
+variables (see [MXP](#mxp-clickable-send)).
+
+`.gauge` is the same command as `.widget`. Ids are lowercase `a-z`, `0-9`, `_`,
+length 1–24, not `main` / `mainDisplay` / `button_window`. At most **12**.
+
+Configure under **Options → Window → Widgets** (**Manage widgets…**), or type
+the commands. GMCP sources need **Options → Service → Protocols → Use GMCP?**
+on, and the world actually sending those keys.
+
+Typical first pair:
+
+    .widget add hp ring
+    .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp
+
+No GMCP? A trigger can **Set Variable** `hp` / `maxhp` from `$1` / `$2`, then
+`.widget source hp var hp maxhp`. Or skip the variables and **Ack With**
+`.widget set hp $1 $2` (or `.widget set hp 80/100`). MCP status keys:
+`.widget source hp mcp hp maxhp`. Regex on visible text:
+`.widget source hp regex "HP: (\\d+)/(\\d+)"`.
+
+Shapes: `hbar` (default), `vbar`, `ring`, `timer`. On `add`, `bar` / `vertical`
+/ `circle` / `countdown` fold to those. A cooldown follows a client `.timer` by
+name:
+
+    .widget add stun timer
+    .widget source stun timer stunwait
+
+**Gestures.** Tap and eight-way swipe run the commands you set with `.widget tap`
+/ `.widget swipe` (Manage widgets… has the same fields). Long-press (~½ s)
+enters edit: yellow border, drag to move, bottom-right corner to resize. Tap
+again to leave edit. Long-press does not fire a hold command (`.widget hold` is
+stored but unused).
+
+Numbers on the face are optional (`.widget value hp off`). So is the name tag
+(`.widget caption hp off`). `.widget warn hp 25` switches to the warn colour at
+that percent (default 25). Fill colour is `.widget color`; the empty track is
+`.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
+`white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
+
+**Keyboard.** `.widget ime <id> stay|hide|overlay|pin`:
+
+- **stay** (default) — stays on the game window, following IME lift
+- **hide** — gone while the keyboard is up
+- **overlay** — may sit over the keyboard (`TYPE_APPLICATION_OVERLAY`, same
+  **"Display over other apps"** permission as [super-buttons](#super-buttons-buttons-on-top-of-the-keyboard))
+- **pin** — stays visible and does not follow the lift
+
+`.bind` is the same verb as `.source`. Bare `.widget` prints usage.
+
+### `.widget` / `.gauge` forms
+
+```
+.widget
+.gauge
+.widget list
+.widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
+.widget remove|delete|rm <id>
+.widget show|hide <id>
+.widget shape <id> hbar|vbar|ring|timer
+.widget color <id> <name|#RRGGBB>
+.widget track <id> <name|#RRGGBB>
+.widget opacity <id> <percent>
+.widget size <id> <w> <h>
+.widget move <id> <x> <y>
+.widget label <id> [text]
+.widget value <id> on|off
+.widget caption|nametag <id> on|off
+.widget source|bind <id> manual
+.widget source|bind <id> gmcp|mcp|var <path> [maxPath]
+.widget source|bind <id> timer <timerName>
+.widget source|bind <id> regex <valueRegex> [maxRegex]
+.widget set <id> <value> [<max>]
+.widget set <id> <value>/<max>
+.widget tap <id> [command]
+.widget swipe <id> up|down|left|right|upleft|upright|downleft|downright [command]
+.widget hold <id> [command]
+.widget warn <id> <percent> [color]
+.widget warn <id> off
+.widget ime <id> stay|hide|overlay|pin
+```
+
+</details>
+
+<details>
+<summary>Buttons</summary>
+
+## On-screen buttons: swipe + accordion
+
+**Load a button set from the wizard:** **Options → Button → Load button set from wizard**
+(or type `.layoutwizard`). That is also how you come back to the wizard later.
+Check one or more packs (Compass, Newbie, Combat, Explorer, Social), give each
+a set name, and pick size / alignment / colors. On a new profile the wizard
+offers **Start clean — no buttons** (the first-connect prompt also has
+**No buttons**): the screen stays empty until you add tiles yourself or run
+the wizard again. Packs install complete — there is no Simple/Advanced choice
+any more; it was worth three tiles on Compass and nothing at all on Newbie, and
+an unwanted tile is easier to delete than a missing one is to discover. Apply
+only writes the named sets you checked — other sets stay put; same name
+overwrites after a warning. In the wizard packs, **N / E / W / S** are amber so
+the four cardinals stand out from the rest of the pad.
+
+Set names are folded to lowercase and to `a–z 0–9 _ -` when you Apply (spaces
+become `_`), because the name also goes into the `.loadset <name>` cross-links
+the packs write between each other; the wizard tells you the name it will
+actually use.
+
+New MUD profiles start with **no buttons** on screen and may offer a prompt once
+after connect. Choose a pack, tap **Start clean — no buttons**, or skip; turn
+**Options → Button → Offer button layout wizard** back on to see that prompt
+again. Offline Starter Tutorial keeps its own teaching pad.
+
+The pad lands just under the action bar, high enough that the soft keyboard
+cannot cover it — a pad anchored near the bottom of the screen disappears behind
+the keyboard the moment you type. On a new layout the Compass rose (LOOK in the
+middle) sits **bottom-right** for thumb reach. Left / center / right in the
+wizard still wins. Existing worlds keep saved positions until you run the wizard
+or reset.
+Accordion parents in the wizard packs use labels like **MORE**, **NAV**, **TIP**,
+**CAST**, **DOORS**, and **CHAT** — each pack puts its own on its bottom row,
+opening **downward** into the empty game area beneath it, so they never cover
+the compass rose above them.
+
+Named sizes are capped so the whole pad stays above the keyboard: Compass has
+five rows, so **Extra large** comes back a little under 72dp on a tall phone —
+still clearly bigger than Large, and wholly visible, which is the point.
+**Fit to screen** is the exception. It sizes a pack so its columns span the
+width, which for a tall pack means part of it sits below the keyboard line.
+
+**Change the size later:** **Options → Button → Button size** is a dropdown
+(Compact, Comfortable, Large, Extra large, Fit to screen). Picking one resizes
+the set on screen straight away, keeping its arrangement — the grid spacing
+moves with the tiles rather than leaving them to overlap, and nothing is
+re-flowed into rows. **Layout template** next to it only chooses which pack the
+wizard offers first; it installs nothing on its own.
+
+**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
+
+A short tap on empty grid makes a new button. Long-press an empty cell pastes
+copied buttons, and only when something has been copied.
+
+**Wrap label** (edit button → Others → Size & Position, last row) splits a long
+name onto two lines on the tile. Off by default. **Enter in the Label field**
+(Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
+then `NORTH` shows as two lines. Typed `\\n` is not a break.
+**Draw / border** (Others → Colors) paints a coloured outline. **Active** (same
+row as Name, on by default) hides the tile in play without deleting it — Edit
+buttons still shows it, so you can tick Active again.
+
+The default `button_window` plugin supports more than tap:
+
+- **Swipe** — eight directions (up, down, left, right, and the four corners);
+  each can run a different command (edit button → Swipe). Overrides classic Flip.
+  Drag about **24dp** off the tile (~a finger-width on most phones).
+- **Hold** — optional command after press-and-hold.
+- **Accordion** — pin existing grid tiles, or type up to twenty label+command rows. In **Edit buttons**: tap the parent, then tap another tile and choose **Pin to "MORE"** (or tap several after the parent to pin them all). Long-press still pins. Toast: Pinned to MORE. Tap a pinned tile and choose **Unpin from "MORE"**. A tile belongs to one parent only. You cannot pin an accordion inside another (toast: Can't nest accordions). Pinned tiles hide in play until the parent opens, then they appear where you placed them. **Accord.** still has direction, Open with (tap/hold/swipe), typed rows for wizard packs, and **Columns / Rows** (type `2` for two columns beside the parent, not on it). The gesture that opens the accordion cannot also send its own command. Super / floating buttons cannot have an accordion. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
+
+### Copying buttons between sets
+
+Select the buttons you want (tap one, or tap several), tap one of them to open
+the menu, and choose **Copy**. They go to the system clipboard.
+
+To paste, either:
+
+- **long press an empty grid cell** in any set — the buttons land with the block's
+  top-left at that cell, keeping the shape they were copied in; or
+- open the editor settings sheet and press **Paste copied buttons**, which drops
+  them in the middle of the grid.
+
+A short tap on empty grid still makes a new button — only a long press pastes,
+and only when something has been copied.
+
+The copy carries each button's *own* settings and leaves inherited ones
+inherited, so buttons pasted into a set with different defaults take on that
+set's look rather than dragging the old set's factory values with them.
+
+### Copying a button set
+
+The button sets list gives each set four icons: load, edit, **copy**, delete.
+Copy duplicates the set — every button and the set's own defaults — as
+`<name> copy`, saved straight away, and the new set appears in the list without
+closing it. Copy it again and you get `<name> copy 2`.
+
+Useful for trying a rearrangement without losing the pad you already trust:
+copy, edit the copy, and switch between them with `.loadset`.
+
+## Super-buttons (buttons on top of the keyboard)
+
+Any button can also be put **on the screen itself**, over the game and over the
+soft keyboard. Edit the button → **Others** → **Float over the game**.
+
+Two modes, in the **When** picker:
+
+- **Always visible** — the button stays on screen wherever you dragged it.
+- **Show with keyboard** — the button exists only while the keyboard is open,
+  and is hidden the rest of the time, including from the button grid. This is
+  the keyboard-assistant mode: pair it with `.kb` commands
+  (`.kb stepb`, `.kb stepf`, `.kb stepu`, `.kb paste`, `.kb close` — see
+  [`.keyboard` / `.kb`](#keyboard--kb)) to get caret keys, command recall and
+  paste next to your thumb while typing.
+
+The button keeps everything it already had — tap, hold, flip, all eight swipe
+directions, colours, size, `switchTo`. It can also be drawn as a circle, with
+an optional outline. **Very long press (~2 s)** picks it up and moves it; a
+normal hold (~0.45 s) still runs the Hold command. Where you drop it is
+remembered per world. Accordion children cannot be saved on a super-button —
+use a normal tile if you need an accordion.
+
+**Permission.** Android does not let an app draw on top of the keyboard without
+**"Display over other apps"**. BlowTorch asks when you first save a super-button
+and the floating layer rebuilds without that permission — not at startup, and
+not merely from ticking the box if you have not saved yet. The button is saved
+either way. If you refuse, the button still exists, drawn **clear of the
+keys** instead of on top of them — so it is worth granting if you want it
+over the keyboard.
+
+**Android 9 and 10:** the client often cannot tell whether the keyboard is
+open, so **Show with keyboard** may never appear there. Android 11 and newer
+are fine. **Always visible** works everywhere.
+
+</details>
+
+<details>
+<summary>The map</summary>
+
 ## Mapper
 
 Built-in room map (not the legacy ForgeMap plugin). Open from overflow **Map**,
@@ -3180,344 +4319,10 @@ letter. Comma commands stay as written: `.rev 2n,open door,n` sends
 Mapper recording still treats `se`/`sw`/… as compass diagonals even when those
 letters are Speedwalk *keys*.
 
-### `.keyboard` / `.kb`
+</details>
 
-    *(no args)*                Print help
-    `insert <text>`            Drop text at the cursor (spaces around words, not punctuation)
-    `insertword <text>`        The same thing under its older name
-    `insertliteral <text>`     Drop text at the cursor exactly as given, no spacing at all
-    `add` / `popup` + text     Set or append input; `popup` focuses the bar and shows the IME
-    `flush`                    Send current input
-    `close` / `clear`          Hide IME / clear text
-    `sel` / `selectall`        Select all
-    `cut` / `copy` / `paste`   Clipboard
-    `start` / `cursorstart`    Caret to start
-    `end` / `cursorend`        Caret to end
-    `stepf` / `stepr`          Caret one character right
-    `stepb` / `stepl`          Caret one character left
-    `stepu`                    Previous command (always — even when the bar is wrapped or multi-line)
-    `stepd`                    Next command (always)
-    `lineu` / `lined`          Caret one visual line up / down; does not recall history
-
-Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`, `.kb stepu`, `.kb lineu`.
-
-**`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
-puts it where the cursor is and works out the spaces (words get spaces;
-punctuation attaches), so the bar never ends up reading `ktroll` or `slowo ,`.
-`insert` also does not expand aliases — the text goes in as typed, which is
-what you want when the text is a name you pointed at. Its main use is a
-tappable word bound to `.kb insert $word`; see below.
-
-**`insertliteral`** is `insert` with the spacing rules switched off: what you
-give it lands at the cursor character for character, which is the one to use
-when you need a leading space or want two things run together on purpose.
-
-**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as hardware up/down and `.kb stepu` / `.kb stepd`); they do not walk visual lines of a wrapped bar. `.kb lineu` / `.kb lined` move the caret one line. ←/→ move the caret one character.
-
-**Options → Window → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
-
-### `.editbutton`
-
-```
-.editbutton
-.editbutton on | off
-```
-
-Shows or hides the **Edit** button (same as Options → Window → Show Edit button?). No argument prints status.
-
-### `.editpanel`
-
-```
-.editpanel
-.editpanel on | off
-```
-
-Toggles (or forces) the Edit tools strip above the input row. Same strip as the **Edit** button. No argument toggles.
-
-`.editrows on` puts that strip on two rows while the phone is landscape (Select, Cut, Copy, Paste, then the cursor pad). `.editrows off` (the default) keeps one full-width row in both orientations.
-
-### `.sendbutton`
-
-```
-.sendbutton
-.sendbutton on | off
-```
-
-Shows or hides the **Send** button (same as Options → Window → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
-
-## Copy text from the game window
-
-- **First finger** — touch where selection should start (marks the start).
-- **Second finger** — while holding the first, touch with a second finger to
-  open the selection / copy widget (if the second touch is elsewhere, the range
-  between the two fingers is selected immediately). **Exception:** during
-  `.pick hold` (or another sticky pick), that second finger **cancels the
-  pick** so you can drag to scroll. Copy is unchanged when pick is off.
-- One-finger long-press alone does not open copy.
-- Drag the cursors, then use **copy** / **swap ends** / **close** around
-  the magnifier (outside the circle, not on the text). A slow drag follows
-  the finger. A flick moves further across the text. On-screen buttons
-  may hide while selecting so the widget stays usable.
-  Size and zoom: Options → Window → **Copy loupe size (%)** /
-  **Copy loupe zoom (%)**, or `.copy loupe size 118` / `.copy loupe zoom
-  200`. `.copy` prints the current values; `.copy loupe default` restores
-  both.
-- If **Text width** is over 100 (`.width 150`), drag the magnifier to the
-  right edge and the canvas pans so you can copy the overflow; left edge
-  pans back.
-- The same two-finger gesture works in **extra text** windows (float/drawer).
-  Extra text stays on this copy gesture. Global gestures are the main window only.
-
-## Global gestures
-
-Optional swipes on the main game text. **Classic** is the default: one finger
-scrolls, two fingers copy. One mode at a time, saved with that world.
-
-- **⋮ → Gesture mode** sets the mode and the scrolling choice. The same scrolling
-  choice is under Options → Input → Global gestures. `.gesture mode classic|1|2|both`.
-  `.gesture scroll two|hold|off` sets that choice. Classic and Two fingers
-  refuse it, the same as the grey row.
-- **One finger** — Scrolling is **With two fingers**, **Hold, then gesture**
-  (80–800 ms, 280 is the default), or **Off**. A stationary long-press on a
-  word still opens that word's menu. With two fingers, a one-finger swipe sends
-  a command and two fingers scroll the text.
-- **Two fingers** — one finger scrolls. The scrolling choice is grey. A
-  two-finger swipe can send a command, and a short tap can copy.
-- **Both** — Scrolling is the same choice as One finger. **With two fingers**
-  scrolls with two fingers. The both-fingers switch is only for Hold or Off,
-  and it is grey in the other modes.
-- A blank direction sends nothing. Before the hold, a move still scrolls. After
-  the hold, a blank direction does not scroll the text. Lift without a direction
-  and nothing is sent. A second finger cancels a one-finger gesture. A third
-  finger cancels a two-finger gesture.
-- `.gesture` prints the current setup. `.gesture edit` opens the direction
-  commands (also ⋮ → **Edit global gestures** and Options → Input → Global
-  gestures → **Edit global gestures**).
-- `.gesture show on|off` is the mode label near the top-right, inset from the
-  corner. Off by default.
-- `.gesture preview on|off` shows the arrow and the command together. The two
-  can be split in Options.
-- `.editbuttons` opens Edit buttons. Long-press ⋮ still does that until you
-  replace the hold under Edit buttons → gear → Extra gestures. An empty hold
-  does nothing. You can put `.options` in that hold to open Options.
-
-## Font size
-
-New profiles start at font size **20** (readable on phones). Change under
-Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
-is kept when you close the world.
-
-## Pick loupe
-
-The round magnifier during `.pick` shows the **game text** around the
-finger, with the chosen word highlighted and the phrase (`fix helmet`)
-above the circle. Options → Window → **Pick loupe size (%)** (50–200,
-default 118) and **Pick loupe zoom (%)** (150–350, default 200 = 2×), or
-`.pick loupe size 118` / `.pick loupe zoom 200`. `.pick loupe` prints the
-current values; `.pick loupe default` restores both.
-
-The two-finger copy widget has its own size and zoom (Options → Window →
-**Copy loupe size (%)** / **Copy loupe zoom (%)**, or `.copy loupe`); copy
-/ swap / close sit outside the circle.
-
-## Font (typeface)
-
-Options → Window → Font. The list is a handful of faces that actually look
-different, not every file under `/system/fonts/`.
-
-- **DejaVu Sans Mono** — default; box drawing and Block Elements.
-- **Fairfax HD** — MUD / roguelike Unicode, looks like a scalable terminal.
-- **JetBrains Mono**, **Ubuntu Sans Mono**, **Atkinson Hyperlegible Mono**,
-  **Inconsolata**, **Liberation Mono**, **Noto Sans Mono**.
-- Phone aliases: System monospace, Sans serif, Android default.
-- A few system files if present (Droid Sans Mono, Roboto Mono, …).
-
-**Load from storage…** copies a `.ttf` or `.otf` into the app so it survives
-when the original Downloads file is gone. You can also drop files into
-`/BlowTorch/` or `/BlowTorch/fonts/`.
-
-Ligatures are off on the grid (maps stay columns). Missing glyphs on a thin
-face fall back to DejaVu, then to emoji.
-
-Old profiles that still name Bitstream Vera keep that file; it is no longer
-in the list because it is the same design as DejaVu.
-
-## Text avoids on-screen buttons
-
-**Options → Window → Text avoids on-screen buttons?** (off by default), or
-`.avoidbuttons on|off`. With it on, an on-screen button is a hole: game text
-wraps in the columns left of it (and continues on the right if there is
-room) instead of drawing underneath. Leftover on that row is clipped; it
-does not insert extra rows that shove the rest of the screen. Two buttons
-that share a row are one blob from the leftmost edge to the rightmost —
-text does not squeeze between them. That includes the ordinary grid pad
-and floating copies.
-
-**Avoid-buttons break** (`.avoidbuttons letters|words`, default **letters**):
-how text packs around that hole while avoid is on. `letters` moves one
-character at a time past the button (today's behaviour). `words` keeps
-whole words on one side of the hole — it does not split a word across the
-button. Global **Word Wrap?** is a different option and is unchanged. When
-avoid is off, text paints normally and the break choice is ignored.
-
-This follows **Text width** (`.width`): at 100% you only wrap; over 100%
-you can still drag the canvas sideways, and the holes stay on the screen
-while the text pans. HP widgets and extra-text windows are not holes. The
-wrap updates while you drag a floating button.
-
-**Caveat:** ASCII maps and other cell graphics will look wrong. Leave this
-off for those games. NAWS (the width reported to the world) does not
-change.
-
-## Colours the world sends
-
-A world that sends `[1m` (SGR 1) still uses the **bright palette** by
-default, not a heavier typeface: grey `#BBBBBB` becomes white `#FFFFFF` on
-the 16-color set. xterm 256 and truecolor ignore that bright step. You see
-`[1mHP: 12[22m` and the digits go white; they do not get heavier. A letter
-that grew wider would bend the column grid (maps, prompts). The window Font
-option can still pick a bold face for the whole window.
-
-**Options → Service → Heavier MUD bold (SGR 1)?** is off by default. Turn
-it on and `[1m` also redraws heavier — the same second-draw overlay as
-trigger Color Bold and Tappable Word Bold, so cells do not move — *in
-addition* to the bright palette, not instead of it. Glyphs can spill into
-the next cell; bold can look messy.
-
-Trigger Color **Bold** is a different tick: it always paints heavier glyphs
-and never sends `[1m`. A Color on `fox` with Bold ticked makes `fox`
-heavier; the world's `[1m` on the rest of the line is still bright unless
-that Service box is on.
-
-Italic (3),
-underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
-sends `[3mlook[23m` shows `look` slanted; `[4m` puts a line under the word;
-`[9m` a line through it; `[7m` swaps ink and paper; `[2m` is dimmer.
-
-Double underline (21) is two lines, not "bold off" — that is 22. Blink (5)
-and fast blink (6) hide the glyph on a slow tick while the cell stays;
-`[38;5;3m` is still colour index 3, not blink (the same 5 that starts an
-xterm palette). 25 turns blink off.
-
-MXP `<I>` / `<U>` / `<S>` inject those same codes, so they follow.
-
-Emoji and other wide glyphs occupy **two cells** when drawn (so an animal is
-not a vertical sliver). Wrapping still counts one column per character, so a
-full row of emoji can overflow the canvas. ASCII maps (`█` `░` `▒` `▓`, and
-`[ ]-[ ]` room maps) stay one cell; Word Wrap will not break those lines at
-the spaces inside the tiles.
-
-## Dim repeated lines
-
-**Options → Window → Dim repeated lines?** (off by default). When a long line
-comes back identical — you typed `look` and the room description is the same —
-it is painted dimmer so the new bits (a mob that walked in, a door that opened)
-stand out. Very short lines (`Ok.`, `>`) stay bright so they do not fill
-the memory. A wrapped leftover such as `water.` is long enough to dim.
-Turn it on per window; it does not change what is stored, only how it is drawn.
-
-Memory is the last **N long lines** in that window (not the whole app, not
-forever). Default **12** — about a screen of combat — then an old room is
-bright again. **Dim strength (%)** is how hard to dim: **50** keeps half the
-colour; higher is darker (10–90).
-
-Dot command (same three knobs):
-
-```
-.dimrepeat
-.dimrepeat on|off|toggle
-.dimrepeat lines 12
-.dimrepeat strength 50
-```
-
-`.dimrepeat` with no argument prints the current on/off, N, and strength.
-
-## Light theme
-
-**Options → Window → Light theme?** (off by default). The game canvas uses a
-warm grey paper and dark ink. Colours the world sends (red *You bleed*, cyan
-names, yellow highlights) stay; whites, default grey, and other light greys
-are darkened so they stay readable. Extra-text windows follow the main
-window. Colour triggers are unchanged — they still inject the same SGR; only
-the paint changes. The launcher, Options, mapper, chat drawer and ⋮ stay
-dark. Factory pad colours are unchanged (pale on light paper).
-
-Five paper shades, 1 grey through 5 near-white. 2 is the original warm grey.
-Ink is recomputed against the current paper (darker on whiter sheets). Extra-text
-follows the main window's shade.
-
-```
-.light
-.light on|off|toggle
-.light 1|2|3|4|5
-.light shade N
-```
-
-`.light` with no argument prints on or off and the shade. `.light 3` turns
-the theme on at ivory. `.light shade N` stores the shade even while the
-theme is off.
-
-## Scroll dates
-
-**Options → Window → Scroll dates?** (off by default). While you are scrolled
-into history, a small day and time sits to the left of ⋮ (same
-calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark to the
-right of the date shows where you are in the buffer (thumb at the bottom =
-live text). The jump-to-live arrow stays bottom-right above the input bar
-(the same corner as ⋮ by default). Dates are not printed into
-the game text, so triggers, wrapping and copy are unchanged.
-**Scroll date opacity (%)** (default 75) only affects that date and mark.
-
-`.search 14:32` or `.search 18 Aug` jumps to text that arrived then. The window
-only keeps a few thousand lines, so a week of busy play will have aged out;
-the session log is the archive for that.
-
-```
-.when
-.when on | off | toggle
-.when opacity N
-```
-
-## Line timestamps
-
-**Options → Window → Line timestamps?** (off by default). Each line shows
-when it arrived, on the **right** of its first row. The game text itself is
-unchanged: wrapping, triggers, maps and copy stay as they were. Extra-text
-windows stay off unless that window's option is on (those tokens are not
-saved for extra-text slots).
-
-**Timestamps in session log?** prefixes the same stamp on the **left** of
-each incoming line written to the session log. Copy from the screen does
-not add it.
-
-`.timestamp hour | minute | second | month | year` chooses parts (default
-hour and minute, e.g. `14:32`). Month adds the day (`18 Aug 14:32`). This
-is not `.when`, which is history chrome to the left of ⋮ while you have
-scrolled back.
-
-```
-.timestamp
-.timestamp on | off | toggle
-.timestamp log on | off | toggle
-.timestamp hour | minute | second | month | year [on|off]
-```
-
-## Split screen
-
-`.split 40` shows the same game text twice: the left (or top) pane is about
-40 percent wide, each pane scrolls on its own, and buttons still hit the
-primary pane. Default percent is 50. `.split horizontal` / `.split h` (or
-`.split left`) is left/right; `.split vertical` / `.split v` (or `.split top`)
-is top/bottom. `.split off` returns to one pane. This is not a second buffer
-and not an extra-text window.
-
-```
-.split
-.split on | off
-.split horizontal | h | left | right
-.split vertical | v | top | bottom
-.split 40
-```
+<details>
+<summary>The world and its protocols</summary>
 
 ## OSC 8 hyperlinks
 
@@ -3603,517 +4408,6 @@ A Tappable Word trigger on the same glyph wins over MXP SEND; a web link
 still wins over both.
 
 Without a live SEND: `.probe mxp`.
-
-## Newest text at top
-
-By default, fresh game output sits at the **bottom** of the window (classic
-terminal). Enable **Options → Window → Newest text at top?** to put live lines
-at the **top** and older scrollback below — handy when on-screen buttons cover
-the bottom edge. Drag **up** to dig into history; the home chevron stays in the
-**bottom-right** and points **up** toward live output.
-
-**Caveat:** this reverses the on-screen order of consecutive lines. MUD maps,
-room diagrams, and other ASCII graphics drawn line-by-line will appear
-**upside down**. Leave the option off for those games. To keep buttons usable
-without flipping text, see **Padding, notch, and the keyboard**.
-
-## Padding, notch, and the keyboard
-
-**Options → Window → Avoid camera cutout (portrait)?** and **Avoid camera
-cutout (landscape)?** keep chrome out of the camera hole in that orientation.
-Both default on. Landscape uses the left or right edge (where the hole sits
-when the phone is on its side). Portrait only adds space if the hole sticks
-past the status bar — for a punch-hole that already sits in that bar, use
-**Top padding (px)** as well. Turn an option off to use the pixels under the
-hole (text may sit under the camera).
-
-The on-screen **keyboard is a separate system window**. Gboard (and the
-AOSP keyboard from Android 15) leave a gap the width of the camera hole
-so keys are not under the lens. BlowTorch cannot stretch those keys.
-
-**Options → Window → Top padding (px)** is extra empty space above game text
-on top of **Avoid camera cutout** (on-screen buttons are unaffected). Try
-values like `40`–`80` if the automatic inset is not enough.
-
-**Options → Window → Bottom padding (px)** does the same at the bottom edge, all
-the time — use it to keep the newest line clear of the input bar or a gesture bar.
-
-**Options → Window → Bottom padding with keyboard (px)** adds further space below
-game text only while the soft keyboard is open. The two are independent: set
-either on its own, or both, in which case they add up while the keyboard is out.
-The gap is measured from the bottom of the text area, which rises with the
-keyboard unless **Keep text still with keyboard?** is on.
-
-**Options → Window → Keep text still with keyboard?** — when on, opening the soft
-keyboard lifts only the input bar; game text stays put (may sit under the IME).
-Works with either text direction. Off = classic lift (text rises with the keyboard).
-
-**Options → Window → Android fling?** (off by default). After you lift your
-finger, the text coasts with the speed of the swipe, like a web page or
-gallery. Dragging still follows your finger 1:1. While this is on,
-**Scroll sensitivity** (50–500%) is greyed out. Extra-text windows set to
-*Same as main window* follow this; a slot with its own % keeps the old gain.
-
-## On-screen buttons: swipe + accordion
-
-**Load a button set from the wizard:** **Options → Button → Load button set from wizard**
-(or type `.layoutwizard`). That is also how you come back to the wizard later.
-Check one or more packs (Compass, Newbie, Combat, Explorer, Social), give each
-a set name, and pick size / alignment / colors. On a new profile the wizard
-offers **Start clean — no buttons** (the first-connect prompt also has
-**No buttons**): the screen stays empty until you add tiles yourself or run
-the wizard again. Packs install complete — there is no Simple/Advanced choice
-any more; it was worth three tiles on Compass and nothing at all on Newbie, and
-an unwanted tile is easier to delete than a missing one is to discover. Apply
-only writes the named sets you checked — other sets stay put; same name
-overwrites after a warning. In the wizard packs, **N / E / W / S** are amber so
-the four cardinals stand out from the rest of the pad.
-
-Set names are folded to lowercase and to `a–z 0–9 _ -` when you Apply (spaces
-become `_`), because the name also goes into the `.loadset <name>` cross-links
-the packs write between each other; the wizard tells you the name it will
-actually use.
-
-New MUD profiles start with **no buttons** on screen and may offer a prompt once
-after connect. Choose a pack, tap **Start clean — no buttons**, or skip; turn
-**Options → Button → Offer button layout wizard** back on to see that prompt
-again. Offline Starter Tutorial keeps its own teaching pad.
-
-The pad lands just under the action bar, high enough that the soft keyboard
-cannot cover it — a pad anchored near the bottom of the screen disappears behind
-the keyboard the moment you type. On a new layout the Compass rose (LOOK in the
-middle) sits **bottom-right** for thumb reach. Left / center / right in the
-wizard still wins. Existing worlds keep saved positions until you run the wizard
-or reset.
-Accordion parents in the wizard packs use labels like **MORE**, **NAV**, **TIP**,
-**CAST**, **DOORS**, and **CHAT** — each pack puts its own on its bottom row,
-opening **downward** into the empty game area beneath it, so they never cover
-the compass rose above them.
-
-Named sizes are capped so the whole pad stays above the keyboard: Compass has
-five rows, so **Extra large** comes back a little under 72dp on a tall phone —
-still clearly bigger than Large, and wholly visible, which is the point.
-**Fit to screen** is the exception. It sizes a pack so its columns span the
-width, which for a tall pack means part of it sits below the keyboard line.
-
-**Change the size later:** **Options → Button → Button size** is a dropdown
-(Compact, Comfortable, Large, Extra large, Fit to screen). Picking one resizes
-the set on screen straight away, keeping its arrangement — the grid spacing
-moves with the tiles rather than leaving them to overlap, and nothing is
-re-flowed into rows. **Layout template** next to it only chooses which pack the
-wizard offers first; it installs nothing on its own.
-
-**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
-
-A short tap on empty grid makes a new button. Long-press an empty cell pastes
-copied buttons, and only when something has been copied.
-
-**Wrap label** (edit button → Others → Size & Position, last row) splits a long
-name onto two lines on the tile. Off by default. **Enter in the Label field**
-(Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
-then `NORTH` shows as two lines. Typed `\\n` is not a break.
-**Draw / border** (Others → Colors) paints a coloured outline. **Active** (same
-row as Name, on by default) hides the tile in play without deleting it — Edit
-buttons still shows it, so you can tick Active again.
-
-The default `button_window` plugin supports more than tap:
-
-- **Swipe** — eight directions (up, down, left, right, and the four corners);
-  each can run a different command (edit button → Swipe). Overrides classic Flip.
-  Drag about **24dp** off the tile (~a finger-width on most phones).
-- **Hold** — optional command after press-and-hold.
-- **Accordion** — pin existing grid tiles, or type up to twenty label+command rows. In **Edit buttons**: tap the parent, then tap another tile and choose **Pin to "MORE"** (or tap several after the parent to pin them all). Long-press still pins. Toast: Pinned to MORE. Tap a pinned tile and choose **Unpin from "MORE"**. A tile belongs to one parent only. You cannot pin an accordion inside another (toast: Can't nest accordions). Pinned tiles hide in play until the parent opens, then they appear where you placed them. **Accord.** still has direction, Open with (tap/hold/swipe), typed rows for wizard packs, and **Columns / Rows** (type `2` for two columns beside the parent, not on it). The gesture that opens the accordion cannot also send its own command. Super / floating buttons cannot have an accordion. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
-
-### Copying buttons between sets
-
-Select the buttons you want (tap one, or tap several), tap one of them to open
-the menu, and choose **Copy**. They go to the system clipboard.
-
-To paste, either:
-
-- **long press an empty grid cell** in any set — the buttons land with the block's
-  top-left at that cell, keeping the shape they were copied in; or
-- open the editor settings sheet and press **Paste copied buttons**, which drops
-  them in the middle of the grid.
-
-A short tap on empty grid still makes a new button — only a long press pastes,
-and only when something has been copied.
-
-The copy carries each button's *own* settings and leaves inherited ones
-inherited, so buttons pasted into a set with different defaults take on that
-set's look rather than dragging the old set's factory values with them.
-
-### Copying a button set
-
-The button sets list gives each set four icons: load, edit, **copy**, delete.
-Copy duplicates the set — every button and the set's own defaults — as
-`<name> copy`, saved straight away, and the new set appears in the list without
-closing it. Copy it again and you get `<name> copy 2`.
-
-Useful for trying a rearrangement without losing the pad you already trust:
-copy, edit the copy, and switch between them with `.loadset`.
-
-## Super-buttons (buttons on top of the keyboard)
-
-Any button can also be put **on the screen itself**, over the game and over the
-soft keyboard. Edit the button → **Others** → **Float over the game**.
-
-Two modes, in the **When** picker:
-
-- **Always visible** — the button stays on screen wherever you dragged it.
-- **Show with keyboard** — the button exists only while the keyboard is open,
-  and is hidden the rest of the time, including from the button grid. This is
-  the keyboard-assistant mode: pair it with `.kb` commands
-  (`.kb stepb`, `.kb stepf`, `.kb stepu`, `.kb paste`, `.kb close` — see
-  [`.keyboard` / `.kb`](#keyboard--kb)) to get caret keys, command recall and
-  paste next to your thumb while typing.
-
-The button keeps everything it already had — tap, hold, flip, all eight swipe
-directions, colours, size, `switchTo`. It can also be drawn as a circle, with
-an optional outline. **Very long press (~2 s)** picks it up and moves it; a
-normal hold (~0.45 s) still runs the Hold command. Where you drop it is
-remembered per world. Accordion children cannot be saved on a super-button —
-use a normal tile if you need an accordion.
-
-**Permission.** Android does not let an app draw on top of the keyboard without
-**"Display over other apps"**. BlowTorch asks when you first save a super-button
-and the floating layer rebuilds without that permission — not at startup, and
-not merely from ticking the box if you have not saved yet. The button is saved
-either way. If you refuse, the button still exists, drawn **clear of the
-keys** instead of on top of them — so it is worth granting if you want it
-over the keyboard.
-
-**Android 9 and 10:** the client often cannot tell whether the keyboard is
-open, so **Show with keyboard** may never appear there. Android 11 and newer
-are fine. **Always visible** works everywhere.
-
-## Extra text windows
-
-This is not the chat drawer (⋮ → **Chat** / `.chat`) — that is a left-hand
-conversation list, described after this section. Extra text windows are named
-slots you create (chat, tells, combat, …) beside the main game output.
-
-Optional top-drawer or floating panes beside the main game
-output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
-slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
-
-Configure under **Options → Window → Extra text windows** (**Enable**, **Manage windows…**,
-or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hide via
-`.window show|hide` or Manage → Show window) or **`float`** (titled, draggable panes).
-Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
-the UI; buffers are named `WindowToken`s.
-
-A floating pane's chrome is per slot, in **Manage windows… → Edit**:
-
-- **Show title bar** — the strip across the top, with the ☰ grip and the window's
-  title. On by default. Turning it off **hides** it rather than removing it: the
-  strip is still there and still drags the window, it is simply not drawn.
-- **Show resize grip ◢** — the corner marker at the bottom right. Same idea: off
-  hides the marker, the corner still resizes the window.
-- **Close button ✕** — hides the window; bring it back with `.window show <slot>`
-  or Manage → Show window. On by default. Off means gone, not invisible — an
-  unseen ✕ inside the drag strip would close the window every time you missed.
-
-All three off gives a bare pane with no visible chrome at all: still draggable
-by its top strip and resizable from its bottom-right corner if you know they are
-there, and closed only by `.window hide` or Options.
-
-**Scroll speed** is per slot, in Manage windows. The default, *Same as main
-window*, follows **Options → Window → Scroll sensitivity** (and **Android
-fling?** when that is on), so that one control still steers every extra window
-at once and a slot only breaks away when you set it to a specific speed.
-Changes apply straight away, with the window open.
-
-A slot keeps collecting text while it is hidden (`.window hide` / ✕ on a float).
-The UI buffer holds up to about **512 KB** per slot; when you show it again you
-normally see what accumulated. A separate **128 KB** replay cap applies only
-when the window process re-registers after a UI restart — then only the newest
-128 KB of held history is replayed.
-
-In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
-like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** on.
-
-### `.window` forms
-
-```
-.window
-.window list
-.window show <slot>
-.window hide <slot>
-.window clear <slot>
-.window create <slot> [title…]
-.window destroy <slot>
-.window opacity <slot> [40-100]
-.window font <slot> [6-96 | +1 | -1 | default]
-.window <slot> font [6-96 | +1 | -1 | default]
-```
-
-### Gag / replace retarget
-
-In the trigger gag or replace editor, pick a known slot from the spinner
-(**None** = no retarget) or type a custom name. An empty retarget string means
-no retarget. Gag removes the line from the main window and can forward it to the
-slot; replace can rewrite text and optionally send the line to the slot.
-
-Lua `NewTrigger` tables:
-
-```lua
-{ type = "gag", output = true, log = true, retarget = "chat" }
-{ type = "replace", text = "[redacted]", retarget = "tells" }
-```
-
-### Lua (extra text)
-
-```lua
-CreateTextWindow("chat", "Chat")   -- create/update slot
-DestroyTextWindow("chat")
-ListTextWindows()                  -- array of names
-ShowTextWindow("chat", true)
-ClearTextWindow("chat")
-NoteToWindow("chat", "hello")      -- client-only note into the slot
-WindowExists("chat")
-AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
-```
-
-### GMCP → window
-
-**Options → Window → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
-advanced CSV). Matching inbound GMCP packets are written into that slot as
-`[GMCP] ModuleName {json…}` (passwords redacted). Patterns: exact (`Char.Vitals`),
-family (`Char.` / `Char.*`), or `Comm.*`.
-
-GMCP is out-of-band — it does **not** appear in the main mud buffer unless **Show
-GMCP in game window?** is on. When a module is routed to an extra window, that
-module is **not** also fed into main (intercept for the live feed only). Lua GMCP
-watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
-use gag/replace if you also want to hide related room text.
-
-### `.alias` forms
-
-```
-.alias list                    every alias and whether it is on
-.alias status [name]           counts, or one alias and what it expands to
-.alias on|off|toggle <name>    turn one on or off
-.alias all on|off              every alias in main settings
-```
-
-Use `plugin:name` when the same name exists in more than one plugin. A disabled
-alias stops matching immediately.
-
-### Session variables in alias text
-
-Write `${name}` in an alias replacement to drop in a session variable:
-
-    `att`
-        Replacement: `kill ${target}`
-        Variable: `target` = `goblin`
-        Sent: `kill goblin`
-
-Set the variable from a trigger's **Set Variable** action, from an alias that
-matches what you type (same action in the alias editor), or from Lua with
-`SetVariable("target", "$1")`. That is how text the *game* printed reaches a
-command you type: the trigger captures it, the alias spends it. An alias can
-also set the name itself — you type `kk goblin` and **Set Variable** `target` =
-`$1` while **With** sends `kill $1`.
-
-Braces are required, so `${name}` never collides with the numeric `$1`
-captures, and a bare `$` in text is left alone. An **unset** variable is left
-written as-is rather than becoming empty — sending `kill` with no target is
-worse than sending something visibly wrong.
-
-The name inside `${…}` may contain only letters, digits, and `_`. Spaces,
-hyphens, and dots are not substituted in alias text (use conditions or Lua for
-names like `device.battery`).
-
-Variables are per session unless **Keep after restart** is ticked on the Set
-Variable action. Lua `SetVariable` stays session-only.
-
-### Switching alias sets by mode
-
-`EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
-turns it on or off. A disabled alias stops matching immediately.
-
-In Lua, `EnableAlias` only toggles aliases in **the plugin that runs the
-script**. For aliases in the main profile, use `.alias on|off <name>` — from the
-input bar or an **Ack With** action (e.g. `.alias on kk`). Example for a
-**plugin** alias set:
-
-```lua
-EnableAlias("kk", true)
-EnableAlias("travel_home", false)
-```
-
-Triggers and timers go further: both carry **conditions** (trigger/alias on or
-off, alias replacement equals, variable equals/exists, combined with and/or)
-that decide whether they fire at all, edited in their own editors. Aliases
-themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
-on or off; a trigger condition can *read* that on/off state or the alias
-**With** text.
-
-## Chat drawer
-
-⋮ → **Chat**, or `.chat`. A panel slides in from the left — not a
-permanent bar, and not an extra-text window (recipe 8). A trigger
-**Send to thread** action copies a matching line into a named conversation;
-the line also stays in the game window.
-
-### `.chat` forms
-
-```
-.chat
-.chat open
-.chat close | hide
-.chat <name>
-.chat help
-```
-
-Empty argument and `open` slide the chat drawer in from the left (toggles if
-it is already open — there is no separate close binder). `close` and `hide`
-are the same toggle. ✕, the dim area, or Back also close it. Overflow
-**Chat** always opens it.
-
-`.chat <name>` opens that conversation. The name matches the thread id or
-the title shown in the list, case-insensitive — `.chat ooc` if the list
-says ooc.
-
-A thread is one conversation. Tap it to read history and reply. Send fills
-`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set
-the template on the trigger's Send to thread action, or **Reply** under ⚙
-while that conversation is open.
-
-⚙ in an open conversation:
-
-- **My lines** — tap the row for the submenu. The name the world prints
-  when you speak, not the channel tag and not a pasted whole line. Worlds
-  print chat differently (start of line, after a `]` or `)`, `You say`).
-  `[ooc] Ada says, "hi"` is yours if My lines is `Ada`; `[ooc] Bob says,
-  "hi Ada"` is not. A one-word name already matches says and asks. Verb
-  phrases: one form per line, or `Ada says; Ada asks`. Kept in the chat
-  file, so those bubbles stay yours after you leave the app. Colour chips
-  in the submenu are this chat only.
-- **Reply** — tap the same submenu. The command sent to the world;
-  `$text` is the reply box. Example: `tell Bob $text`, `ooc $text`, or
-  `$text` alone. A lone `$1` is treated as `$text` (`C $1` → `C hello`).
-  `tell $1 $text` is the trigger's capture form, not a Send template —
-  Send refuses leftover `$1`. Tap **?** in the submenu for both fields.
-- **Notify** — which Android channel this conversation uses: **Tells**,
-  **Channels**, **Auction**, or **Other** (default). Four channels, not
-  one per name. Mute auction without muting tells in Android Settings →
-  Notifications. Chat used to share the alerts channel with the bell;
-  after this update, pick sound per bucket there (the old alerts
-  setting does not follow chat). The master switch is still
-  **Options → Chat → Android notification** (off by default).
-- Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
-  face. **Find in this thread** stays visible; ‹ › step through matches
-  like `.search` and do not hide other messages.
-- **Save** writes My lines and Reply, and updates a matching Send to thread
-  trigger whose Thread field is this conversation's id.
-- **Delete conversation** (confirm) removes stored messages. It does not
-  delete the trigger. Use this when a thread exists with no trigger
-  attached (orphan). Long-press a thread in the list also deletes.
-
-**Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default);
-keep at most N messages (default 4000; 0 still caps at 50000 so the phone
-does not run out of RAM). Tap the
-shade to open that conversation. ⚙ **Notify** picks the system channel
-for that conversation (Tells / Channels / Auction / Other). Digest waits
-the interval, then the cyan line is how many arrived (five tells → 5,
-not 1); the notification count updates on each message. That cyan line
-is its own line in the window.
-The unread disc on ⋮ is brighter while there is unread and the drawer is
-closed. In-game line example (cyan client text, not sent to the MUD):
-`Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
-the messages and keeps the trigger.
-
-Send from the drawer paints an own-bubble immediately. Dual display (main
-window and the drawer) is the trigger's job; the drawer only shows what
-was stored.
-
-## Overlay gauges (`.widget` / `.gauge`)
-
-A small HP bar, ring, or countdown on the game window. You make them; the MUD
-does not. An MXP `<GAUGE>` tag never creates one — it still only writes session
-variables (see [MXP](#mxp-clickable-send)).
-
-`.gauge` is the same command as `.widget`. Ids are lowercase `a-z`, `0-9`, `_`,
-length 1–24, not `main` / `mainDisplay` / `button_window`. At most **12**.
-
-Configure under **Options → Window → Widgets** (**Manage widgets…**), or type
-the commands. GMCP sources need **Options → Service → Protocols → Use GMCP?**
-on, and the world actually sending those keys.
-
-Typical first pair:
-
-    .widget add hp ring
-    .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp
-
-No GMCP? A trigger can **Set Variable** `hp` / `maxhp` from `$1` / `$2`, then
-`.widget source hp var hp maxhp`. Or skip the variables and **Ack With**
-`.widget set hp $1 $2` (or `.widget set hp 80/100`). MCP status keys:
-`.widget source hp mcp hp maxhp`. Regex on visible text:
-`.widget source hp regex "HP: (\\d+)/(\\d+)"`.
-
-Shapes: `hbar` (default), `vbar`, `ring`, `timer`. On `add`, `bar` / `vertical`
-/ `circle` / `countdown` fold to those. A cooldown follows a client `.timer` by
-name:
-
-    .widget add stun timer
-    .widget source stun timer stunwait
-
-**Gestures.** Tap and eight-way swipe run the commands you set with `.widget tap`
-/ `.widget swipe` (Manage widgets… has the same fields). Long-press (~½ s)
-enters edit: yellow border, drag to move, bottom-right corner to resize. Tap
-again to leave edit. Long-press does not fire a hold command (`.widget hold` is
-stored but unused).
-
-Numbers on the face are optional (`.widget value hp off`). So is the name tag
-(`.widget caption hp off`). `.widget warn hp 25` switches to the warn colour at
-that percent (default 25). Fill colour is `.widget color`; the empty track is
-`.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
-`white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
-
-**Keyboard.** `.widget ime <id> stay|hide|overlay|pin`:
-
-- **stay** (default) — stays on the game window, following IME lift
-- **hide** — gone while the keyboard is up
-- **overlay** — may sit over the keyboard (`TYPE_APPLICATION_OVERLAY`, same
-  **"Display over other apps"** permission as [super-buttons](#super-buttons-buttons-on-top-of-the-keyboard))
-- **pin** — stays visible and does not follow the lift
-
-`.bind` is the same verb as `.source`. Bare `.widget` prints usage.
-
-### `.widget` / `.gauge` forms
-
-```
-.widget
-.gauge
-.widget list
-.widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
-.widget remove|delete|rm <id>
-.widget show|hide <id>
-.widget shape <id> hbar|vbar|ring|timer
-.widget color <id> <name|#RRGGBB>
-.widget track <id> <name|#RRGGBB>
-.widget opacity <id> <percent>
-.widget size <id> <w> <h>
-.widget move <id> <x> <y>
-.widget label <id> [text]
-.widget value <id> on|off
-.widget caption|nametag <id> on|off
-.widget source|bind <id> manual
-.widget source|bind <id> gmcp|mcp|var <path> [maxPath]
-.widget source|bind <id> timer <timerName>
-.widget source|bind <id> regex <valueRegex> [maxRegex]
-.widget set <id> <value> [<max>]
-.widget set <id> <value>/<max>
-.widget tap <id> [command]
-.widget swipe <id> up|down|left|right|upleft|upright|downleft|downright [command]
-.widget hold <id> [command]
-.widget warn <id> <percent> [color]
-.widget warn <id> off
-.widget ime <id> stay|hide|overlay|pin
-```
 
 ## GMCP (short)
 
@@ -4243,106 +4537,15 @@ Client.Media). Images, `SCRIPT` and `RELOCATE` are not done. MXP `GAUGE` /
 `STAT` still only write session variables — they do not mint a `.widget`.
 `.mxp on|off`. `.probe mxp` dumps a tappable sample. Reconnect after changing.
 
-## Passwords are hidden while the MUD asks for them
+</details>
 
-A MUD asks for a password by taking echoing over (telnet ECHO). While a server
-holds it, the input bar masks what you type and the text is kept out of the
-session log; it unmasks when the server hands echoing back, or on a disconnect.
-Not every world uses this — some do, some do not.
-
-If a server takes echoing and never gives it back, `.echo on` unmasks the bar by
-hand (`.echo off` masks it again, `.echo` alone reports the state). The next
-change from the server wins over the command.
-
-This is separate from **Options → Service → Local Echo?**, which decides whether
-your own commands are printed into the game window at all.
-
-## Plugin commands (when loaded)
-
-### `button_window` (default Free build)
-
-    `.loadset <name>`   Load named button set
-    `.clearbuttons`     Hide every button for a clear view of the game
-    `.layoutwizard`     Open the button layout wizard (packs, set names, size)
-
-**Getting the buttons back after `.clearbuttons`.** One button labelled **BACK**
-is left behind — tap it and the whole set returns. While the set is hidden, a
-tap on **BACK** (or any visible button) restores the set instead of sending
-that button's command, so a stray tap cannot fire something you did not mean.
-The set also comes back by itself when you switch to another world or reopen the
-app; nothing is lost either way, and the layout editor is off while the buttons
-are hidden.
-
-### `starter_tutorial` (loaded by default)
-
-    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
-    `.tips on|always|off`   Short reminders when you type other `.commands` (same as `.tutorial tips …`)
-
-On the **Starter Tutorial** pad, tap **HELP** to run `.tutorial start`. A
-normal world's Compass pack HELP (under MORE) sends `help` to the MUD. The
-launcher lists a built-in **Starter Tutorial** row first (offline — no MUD).
-`.tutorial` opens any lesson in a real world too — it only Notes, it never
-talks to the MUD.
-
-`.tips on` prints a short reminder the first time you use a client command
-that session (try `.help` or `.osc8` — `.alias` has a tip too).
-`always` repeats every time; `off` stops. Also **Options → Starter Tutorial →
-Tips while playing?** (off until you ask).
-
-Disable the welcome note on normal MUDs via **Options → Starter Tutorial → Show
-welcome on connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
-under **Plugins** — it stays loaded, but `.tutorial` commands stop until you
-re-enable it (and welcome-on-connect stops too). It ships with the app and
-**cannot be deleted** — like `button_window` and `connection_settings`, the
-Plugins screen refuses to remove it.
-
-## Session overflow menu
-
-Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
-Timers). Options has a search field at the bottom; tap a hit to jump there
-and flash the matching row.
-
-- **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons,
-  Edit global gestures, Gesture mode.
-  The pack/size wizard is **Options → Button → Load button set from wizard**.
-- **SESSION** — Options, Speedwalk Directions, Map (same as `.map open`),
-  Plugins
-- **CONNECTION** — Reconnect / Disconnect (same as `.reconnect` /
-  `.disconnect`), Quit (leave the session window)
-- **TOOLS** — Chat (same as `.chat`; a disc on ⋮ means unread while the
-  drawer is closed — **Options → Chat**), Search scrollback (`.search`),
-  Session logs (this world's `.txt` files; same as `.search logs`), Reload
-  Settings
-- **ABOUT** — Crash report (Show log / Share log), About, Help (this
-  manual)
-
-**Export Settings**, **Import Settings** and **Reset Settings** are **not** in
-this menu — they live under **Options → Miscellaneous**, beside the storage
-settings they depend on. Storage access is there too.
-
-Connection duration appears on the ongoing notification and launcher row.
-With more than one world connected, that notification expands: every live
-session is listed, and each name is a button that opens that world.
-
-**Options → Service → Notification stack** is **One stack** or **Separate
-bars**. One stack puts the connection, alerts and chat in one shade group.
-Separate bars gives each its own. With several worlds open, the world you
-are in decides. A trigger set to **Spawn new?** stays on its own bar either
-way.
-
-**Persistent Connection?** (Options → Miscellaneous): only while **Auto
-Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for
-connectivity before retrying, and treat a peer close as a flap. It does not
-retry when Auto Reconnect is off, and it does not raise the try count — the
-number in **Auto Reconnect Tries** is what is used. Cannot keep a dead TCP
-socket — the MUD session is re-established when the network returns.
-
-If you want the same MUD session through hours of Wi-Fi / mobile / travel, use
-a VPN so the world keeps seeing one IP. The client already keeps the process
-alive; without a stable address many worlds still drop the character.
+<details>
+<summary>Other</summary>
 
 ## Related docs
 
 - [`plugin-authoring.md`](plugin-authoring.md) — write Lua plugins (API, limits, packaging)
 - [`options-guide.md`](options-guide.md) — Options / storage layout  
-- [`FDROID_README.md`](FDROID_README.md) — permissions for F-Droid  
+- [`FDROID_README.md`](FDROID_README.md) — permissions for F-Droid
+
+</details>

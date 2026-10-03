@@ -55,16 +55,32 @@ public class GlobalGestureSessionTest {
 	}
 
 	@Test
-	public void secondFingerDropsAOneFingerPreviewAndCanStillCopy() {
+	public void secondFingerDuringAOneFingerPreviewCancelsWithoutCopy() {
 		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
 				GlobalGestures.SCROLL_OFF, true, true, false, "1.n=north"));
 		s.onDown(0, 0f, 0f);
 		s.onMove(30, 1, 0f, -80f, 0f, 0f);
 		assertEquals(Decision.Kind.CLEAR,
 				s.onPointerDown(40, 2, 0f, -80f, 30f, -80f).kind);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(45, 1, 1).kind);
 		Decision up = s.onUp(50, 0f, -80f);
 		assertNull(up.command);
-		assertEquals(Decision.Kind.COPY, up.kind);
+		assertEquals(Decision.Kind.EAT, up.kind);
+	}
+
+	@Test
+	public void secondFingerDuringHoldGestureCancelsWithoutCopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "1.n=north"));
+		s.onDown(0, 0f, 0f);
+		Decision preview = s.onMove(250, 1, 0f, -80f, 0f, 0f);
+		assertEquals(Decision.Kind.PREVIEW, preview.kind);
+		assertEquals(Decision.Kind.CLEAR,
+				s.onPointerDown(260, 2, 0f, -80f, 40f, -80f).kind);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(270, 1, 1).kind);
+		Decision up = s.onUp(280, 0f, -80f);
+		assertNull(up.command);
+		assertEquals(Decision.Kind.EAT, up.kind);
 	}
 
 	@Test
@@ -160,6 +176,36 @@ public class GlobalGestureSessionTest {
 		assertEquals("look", swipe.command);
 		Decision later = s.onMove(910, 1, 0f, -40f, 40f, -80f);
 		assertEquals(Decision.Kind.PREVIEW, later.kind);
+	}
+
+	@Test
+	public void liftingTheAnchorFingerCancelsATwoFingerGesture() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 20f, 0f);
+		Decision preview = s.onMove(40, 2, 0f, 0f, 20f, -80f);
+		assertEquals(Decision.Kind.PREVIEW, preview.kind);
+		assertEquals(1, preview.finger);
+		Decision lifted = s.onPointerUp(50, 1, 0);
+		assertEquals(Decision.Kind.CLEAR, lifted.kind);
+		assertNull(lifted.command);
+		Decision up = s.onUp(60, 20f, -80f);
+		assertNull(up.command);
+		assertEquals(Decision.Kind.EAT, up.kind);
+	}
+
+	@Test
+	public void liftingTheGesturingFingerFires() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 20f, 0f);
+		assertEquals("look", s.onMove(40, 2, 0f, 0f, 20f, -80f).command);
+		Decision lifted = s.onPointerUp(50, 1, 1);
+		assertEquals(Decision.Kind.FIRE, lifted.kind);
+		assertEquals("look", lifted.command);
+		assertEquals(Decision.Kind.EAT, s.onUp(60, 0f, 0f).kind);
 	}
 
 	@Test

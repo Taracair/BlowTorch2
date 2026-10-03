@@ -171,6 +171,17 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void inputHyphenationIsConnectionOwnedNotWindow() {
+		String[] keys = { "input_hyphenate", "input_hyphen_lang", "input_hyphen_full" };
+		for (String key : keys) {
+			assertTrue(key + " must be persisted by the connection writer",
+					ConnectionSetttingsParser.isConnectionOptionKey(key));
+			assertFalse(key + " must not be claimed by the window writer",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
+	}
+
+	@Test
 	public void unaccentSendIsConnectionOwnedNotWindow() {
 		assertTrue("unaccent_send must be persisted by the connection writer",
 				ConnectionSetttingsParser.isConnectionOptionKey("unaccent_send"));

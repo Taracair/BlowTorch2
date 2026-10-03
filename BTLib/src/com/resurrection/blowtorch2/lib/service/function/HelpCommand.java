@@ -112,6 +112,8 @@ public class HelpCommand extends SpecialCommand {
 				"copy-widget magnifier; .copy loupe size/zoom");
 		cmd("unaccent", "Input and suggestions",
 				"strip accents when sending (usiądź → usiadz); .unaccent on|off");
+		cmd("hyphen", "Input and suggestions",
+				"break a long input word with a drawn hyphen; not sent");
 
 		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
@@ -417,7 +419,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .gesture mode classic|1|2|both\n"
 					+ "  .gesture scroll two|hold|off   Scrolling. Refused in Classic and Two fingers\n"
 					+ "  .gesture edit            — direction commands\n"
-					+ "  .gesture show on|off     — mode label\n"
+					+ "  .gesture show on|off     — mode, and scrolling in 1 finger / both\n"
 					+ "  .gesture preview on|off  — arrow and command\n"
 					+ "Classic: one finger scrolls, two fingers copy.\n"
 					+ "One finger: a one-finger swipe sends a command.\n"
@@ -439,6 +441,20 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .unaccent              — say whether accents are stripped on send\n"
 					+ "  .unaccent on|off\n"
 					+ "Local echo shows the folded form (usiądź → usiadz); the input bar does not.\n";
+		}
+		if (filter.equals("hyphen")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .hyphen:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .hyphen                    — status\n"
+					+ "  .hyphen on|off\n"
+					+ "  .hyphen lang en|phone   — where the hyphen goes\n"
+					+ "  .hyphen en|phone        — same as lang\n"
+					+ "  .hyphen full on|off        — a shorter piece may stay on the line\n"
+					+ "The hyphen is drawn. Send, copy and suggestions keep the whole word.\n"
+					+ "A word that fits on the next line still breaks if a piece fits here.\n"
+					+ "Needs .wrap on. A password line does not break. Off by default.\n"
+					+ "Options → Input → Hyphenate long words?\n";
 		}
 		if (filter.equals("togglefullscreen")) {
 			return "\n"
@@ -540,6 +556,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest show N\n"
 					+ "  .suggest where floating|bar|off|next\n"
 					+ "  .suggest ghost on|off\n"
+					+ "  .suggest split on|off    (a mark between dimmed suggestions)\n"
 					+ "  .suggest caret on|off     (prefix chips in the middle of a line)\n"
 					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
 					+ "  .suggest opacity N\n"

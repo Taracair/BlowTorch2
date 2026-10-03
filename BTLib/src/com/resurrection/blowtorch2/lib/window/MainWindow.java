@@ -62,6 +62,7 @@ import android.provider.OpenableColumns;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.core.app.ActivityCompat;
 import android.text.InputType;
+import android.text.Layout;
 import android.util.Log;
 //import android.util.Log;
 //import android.util.Log;
@@ -438,6 +439,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** Was the kept line still selected when this edit started? Read in
 	 * beforeTextChanged, where the selection is the one from before the edit. */
 	private boolean keepLastWasSelected = false;
+	private boolean keepLastMarkDelete = false;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
 	/** Whether the service binding is currently up.
 	 *
@@ -812,7 +814,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_UP) {
 					String cmd = history.getNext();
 					mInputBox.setText(cmd);
-					mInputBox.setSelection(cmd.length());
+					mInputBox.setLogicalSelection(cmd.length());
 					if(actionId == EditorInfo.IME_ACTION_DONE) {
 
 						//	return false;
@@ -1460,7 +1462,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 					//input_box.debug(5);
 					
-					String pdata = mInputBox.getText().toString();
+					String pdata = InputHyphenBreaks.strip(mInputBox.getText().toString());
 					// Soft Enter under MULTI_LINE can leave only \n in the bar.
 					// Pagers (Darkwind `[ Paging … <enter> … ]`) need a bare CRLF;
 					// a lone space must still go out — that is also a page key.
@@ -3030,6 +3032,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mWordSuggestionsOverlayTracked = false;
 	/** Draw the top suggestion after the caret in dimmed type. */
 	private boolean mWordSuggestionsGhost = false;
+	private boolean mGhostSplit = false;
 	/**
 	 * Suggestions follow the caret into the middle of a line, not only the end.
 	 * Off, moving the cursor back through a typed command hides them.
@@ -3691,22 +3694,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int mGhostLines = 1;
 
 	/**
-	 * Marks a ghost that is a correction rather than a continuation, so a
-	 * forgiven typo does not read as letters you are about to have appended.
-	 */
-	private static final String GHOST_CORRECTION_MARK = " → ";
-
-	/**
 	 * Put the top suggestion after the caret, in dimmed type.
 	 *
-	 * <p>Two shapes, because there are two kinds of suggestion. When the word
-	 * continues what was typed, the ghost is just the rest of it: {@code gri}
-	 * with {@code grizzled} behind it. When the typo forgiver found it, the
-	 * letters have to change rather than grow, so the ghost shows the whole
-	 * word behind an arrow — {@code grzld → grizzled}. Both are tapped the same
-	 * way and both replace the half-typed word, because
-	 * {@link #acceptWordSuggestion} goes through
-	 * {@link WordSuggestions#complete}, which replaces rather than appends.
+	 * <p>A continuation is the rest of the word ({@code gri} then {@code zzled}).
+	 * A correction is the whole word, dimmed, with no mark in front of it.
+	 * Both replace the half-typed word: {@link #acceptWordSuggestion} goes
+	 * through {@link WordSuggestions#complete}.
 	 *
 	 * @param prefix what the player has typed of this word.
 	 * @param words the suggestions, best first.
@@ -3761,7 +3754,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			showGhostExtras(words, at);
 			return;
 		}
-		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top, top, at + 1);
+		mInputBox.setGhostCompletion(top, top, at + 1);
 		showGhostExtras(words, at);
 	}
 
@@ -4342,11 +4335,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
-		int caret = Math.max(mInputBox.getSelectionStart(), 0);
-		WordSuggestions.Completion c = WordSuggestions.complete(text, caret, word);
+		String raw = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = InputHyphenBreaks.logicalIndex(raw, Math.max(mInputBox.getSelectionStart(), 0));
+		WordSuggestions.Completion c = WordSuggestions.complete(
+				InputHyphenBreaks.strip(raw), caret, word);
 		mInputBox.setText(c.text());
-		mInputBox.setSelection(Math.min(c.caret(), mInputBox.getText().length()));
+		mInputBox.setLogicalSelection(c.caret());
 		mInputBox.requestFocus();
 		mWordSuggestions.touch(word);
 		refreshWordSuggestions();
@@ -4384,12 +4378,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		String current = mInputBox.getText() == null
-				? "" : mInputBox.getText().toString();
-		InputWordInsert.Result r = InputWordInsert.apply(current,
-				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), word);
+		String raw = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		InputWordInsert.Result r = InputWordInsert.apply(InputHyphenBreaks.strip(raw),
+				InputHyphenBreaks.logicalIndex(raw, mInputBox.getSelectionStart()),
+				InputHyphenBreaks.logicalIndex(raw, mInputBox.getSelectionEnd()), word);
 		mInputBox.setText(r.text());
-		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
+		mInputBox.setLogicalSelection(r.caret());
 		mInputBox.requestFocus();
 	}
 
@@ -4397,12 +4391,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		String current = mInputBox.getText() == null
-				? "" : mInputBox.getText().toString();
-		InputWordInsert.Result r = InputWordInsert.applyLiteral(current,
-				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), text);
+		String raw = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		InputWordInsert.Result r = InputWordInsert.applyLiteral(InputHyphenBreaks.strip(raw),
+				InputHyphenBreaks.logicalIndex(raw, mInputBox.getSelectionStart()),
+				InputHyphenBreaks.logicalIndex(raw, mInputBox.getSelectionEnd()), text);
 		mInputBox.setText(r.text());
-		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
+		mInputBox.setLogicalSelection(r.caret());
 		mInputBox.requestFocus();
 	}
 
@@ -4464,7 +4458,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setText("");
 		}
 		if (cm != null) {
-			cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+			cm.setPrimaryClip(android.content.ClipData.newPlainText("input",
+					InputHyphenBreaks.strip(selected.toString())));
 		}
 	}
 
@@ -4501,6 +4496,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
 	}
 
+	private static boolean isOnlyHyphenMark(final CharSequence text, final int start,
+			final int end) {
+		if (text == null || start < 0 || start >= end || end > text.length()) {
+			return false;
+		}
+		for (int i = start; i < end; i++) {
+			if (text.charAt(i) != InputHyphenBreaks.MARK) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/**
 	 * Keep Last leaves the sent command selected; first ↑ must skip it.
 	 * Compare the bar text, not a flag that only clears on insert. The flag
@@ -4512,8 +4520,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		CharSequence shown = mInputBox.getText();
 		String newest = history.peekNewest();
+		String shownText = InputHyphenBreaks.strip(shown == null ? "" : shown.toString());
 		return newest != null && newest.length() > 0
-				&& newest.contentEquals(shown == null ? "" : shown);
+				&& newest.contentEquals(shownText);
 	}
 
 	/**
@@ -4543,7 +4552,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			cmd = "";
 		}
 		mInputBox.setText(cmd);
-		mInputBox.setSelection(cmd.length());
+		mInputBox.setLogicalSelection(cmd.length());
 	}
 	
 	private void requestNotificationPermissionIfNeeded() {
@@ -5414,6 +5423,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (growOpt != null && growOpt.getValue() instanceof Boolean) {
 				mGrowInputBar = (Boolean) growOpt.getValue();
 			}
+			BaseOption hyphenOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.HyphenCommand.KEY_ENABLED);
+			mInputHyphenate = hyphenOpt != null
+					&& hyphenOpt.getValue() instanceof Boolean
+					&& (Boolean) hyphenOpt.getValue();
+			BaseOption hyphenFullOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.HyphenCommand.KEY_FULL);
+			mInputHyphenFull = hyphenFullOpt != null
+					&& hyphenFullOpt.getValue() instanceof Boolean
+					&& (Boolean) hyphenFullOpt.getValue();
+			BaseOption hyphenLangOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.HyphenCommand.KEY_LANG);
+			int hyphenLang = hyphenLangOpt != null
+					&& hyphenLangOpt.getValue() instanceof Integer
+					? (Integer) hyphenLangOpt.getValue() : InputHyphenation.LANG_EN;
+			mInputHyphenLang = InputHyphenation.clampLang(hyphenLang);
 			publishGlobalGestures(group);
 			BaseOption lowerOpt = (BaseOption) group.findOptionByKey("lowercase_command_start");
 			if (lowerOpt != null && lowerOpt.getValue() instanceof Boolean) {
@@ -5496,11 +5521,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				show = MAX_WORD_SUGGESTIONS;
 			}
 			mWordSuggestionShow = show;
+			BaseOption splitOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.CompleteCommand.SPLIT_KEY);
+			mGhostSplit = splitOpt != null
+					&& splitOpt.getValue() instanceof Boolean
+					&& (Boolean) splitOpt.getValue();
 			if (mInputBox != null) {
 				// A ceiling, not a reservation: the bar takes the rows the
 				// suggestions actually need and gives them back when they go.
 				mInputBox.setGhostMaxRows(
 						mWordSuggestionsGhost ? mGhostLines - 1 : 0);
+				mInputBox.setGhostSplit(mGhostSplit);
 			}
 			BaseOption looseOpt = (BaseOption) group.findOptionByKey("word_complete_loose");
 			mWordSuggestions.setLooseMatching(looseOpt != null
@@ -5776,6 +5807,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				havePassword, mLocalEchoOff,
 				haveSingle, !mLocalEchoOff && !grow,
 				imeChanged, !mLocalEchoOff && grow)) {
+			applyInputHyphenation();
 			return;
 		}
 		if (mLocalEchoOff) {
@@ -5799,6 +5831,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			restartInputConnection();
 			scheduleInputActionLayoutRefresh();
 			refreshGameChrome();
+			applyInputHyphenation();
 			return;
 		}
 		mInputBox.setTransformationMethod(null);
@@ -5822,6 +5855,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		restartInputConnection();
 		scheduleInputActionLayoutRefresh();
 		refreshGameChrome();
+		applyInputHyphenation();
+	}
+
+	/**
+	 * The platform breaker moves a word that fits on the next line. A mark
+	 * breaks it in the space left on this line. Send strips the mark.
+	 */
+	private void applyInputHyphenation() {
+		if (mInputBox == null) {
+			return;
+		}
+		InputHyphenation.Frequency want = InputHyphenation.frequency(
+				mInputHyphenate, mGrowInputBar, mLocalEchoOff, mInputHyphenFull);
+		if (mInputBox.getHyphenationFrequency() != Layout.HYPHENATION_FREQUENCY_NONE) {
+			mInputBox.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
+		}
+		boolean polish = mInputHyphenLang == InputHyphenation.LANG_PL
+				|| (mInputHyphenLang == InputHyphenation.LANG_PHONE
+						&& "pl".equals(java.util.Locale.getDefault().getLanguage()));
+		mInputBox.setHyphenBreaks(want != InputHyphenation.Frequency.NONE,
+				InputHyphenation.minLead(want), InputHyphenation.minTail(want), polish);
 	}
 
 	/** The IME copies inputType into EditorInfo when the connection is made, so a
@@ -8009,6 +8063,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// field finally exists.
 		mInputBox.setGhostMaxRows(mWordSuggestionsGhost ? mGhostLines - 1 : 0);
 		mInputBox.setGhostAtCaret(suggestionsFollowCaret());
+		mInputBox.setGhostSplit(mGhostSplit);
 		// loadSettings can arrive before this runs, and refreshWordSuggestions
 		// gives up with the panel hidden while mInputBox is null. Nothing else
 		// asks again until the first keystroke — so a bar told to stay put would
@@ -8141,6 +8196,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int INPUT_GROW_MAX_LINES = 7;
 	/** When true, input bar grows with multiline text (default / .wrap on). */
 	private boolean mGrowInputBar = true;
+	/** Options → Input → Hyphenate long words? Drawn hyphen, not sent. */
+	private boolean mInputHyphenate = false;
+	/** Denser breaks. Used only while {@link #mInputHyphenate} is on. */
+	private boolean mInputHyphenFull = false;
+	/** {@link InputHyphenation#LANG_EN}, Polish, or the phone language. */
+	private int mInputHyphenLang = InputHyphenation.LANG_EN;
 	/** Options → Input → Lowercase start of sent commands. Softens IME + wire. */
 	private boolean mLowercaseCommandStart = false;
 	/** Collapse Enter from both the IME connection and OnKeyListener. */
@@ -8368,8 +8429,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
 					if (keepLastSuppress || mInputBox == null) {
+						keepLastMarkDelete = false;
 						return;
 					}
+					keepLastMarkDelete = after == 0 && count > 0
+							&& isOnlyHyphenMark(s, start, start + count);
 					// The selection here is still the pre-edit one, which is the only
 					// place it can be read: by onTextChanged the IME has already moved
 					// the cursor. The branch below means "the IME appended instead of
@@ -8385,7 +8449,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (keepLastSuppress) {
 						return;
 					}
-					if (!isKeepLast || keepLastReplaceLength <= 0 || count <= 0) {
+					if (!isKeepLast || keepLastReplaceLength <= 0) {
+						return;
+					}
+					if ((count == 0 && keepLastMarkDelete)
+							|| (before == 0 && count > 0
+									&& isOnlyHyphenMark(s, start, start + count))) {
+						keepLastReplaceLength = s.length();
+						return;
+					}
+					if (count <= 0) {
 						return;
 					}
 					int oldLen = s.length() - count + before;
@@ -8421,7 +8494,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					keepLastSuppress = true;
 					try {
 						s.replace(0, s.length(), typed);
-						mInputBox.setSelection(typed.length());
+						mInputBox.setLogicalSelection(typed.length());
 					} finally {
 						keepLastSuppress = false;
 					}
@@ -8491,7 +8564,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				CharSequence selected = endSel > start
 						? mInputBox.getText().subSequence(start, endSel)
 						: mInputBox.getText();
-				cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+				cm.setPrimaryClip(android.content.ClipData.newPlainText("input",
+						InputHyphenBreaks.strip(selected.toString())));
 				Toast.makeText(MainWindow.this, "Copied", Toast.LENGTH_SHORT).show();
 			}
 		});
@@ -9454,7 +9528,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null || mInputBox.getText() == null) {
 			return "";
 		}
-		return mInputBox.getText().toString();
+		return InputHyphenBreaks.strip(mInputBox.getText().toString());
 	}
 
 	private void syncPrefixPickPrefix() {

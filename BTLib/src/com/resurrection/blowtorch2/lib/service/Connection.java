@@ -80,6 +80,7 @@ import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.WidgetCommand;
+import com.resurrection.blowtorch2.lib.service.function.HyphenCommand;
 import com.resurrection.blowtorch2.lib.service.function.UnaccentCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
@@ -611,6 +612,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		NoteCommand notecmd = new NoteCommand();
 		WrapCommand wrapcmd = new WrapCommand();
 		UnaccentCommand unaccentcmd = new UnaccentCommand();
+		HyphenCommand hyphencmd = new HyphenCommand();
 		EditPanelCommand editpanelcmd = new EditPanelCommand();
 		EditButtonCommand editbtncmd = new EditButtonCommand();
 		SendButtonCommand sendbtncmd = new SendButtonCommand();
@@ -669,6 +671,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(unaccentcmd.commandName, unaccentcmd);
+		mSpecialCommands.put(hyphencmd.commandName, hyphencmd);
 		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =
 				new com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand();
 		mSpecialCommands.put(dimrepeatcmd.commandName, dimrepeatcmd);
@@ -5798,6 +5801,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// SettingsGroup only notifies Lua OnOptionChanged; also run Connection KEYS handlers
 		// (keep_last, grow_input_bar, log_gmcp, …) so the UI/service actually apply the change.
 		updateSetting(key, Boolean.toString(value));
+		if ("global_gesture_show_mode".equals(key) && !mReplayingSettings.get().booleanValue()) {
+			requestSettingsSave();
+		}
 	}
 	
 	/** Updates a boolean setting in the target plugin.
@@ -6028,6 +6034,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_short_first:
 			case word_complete_shorter_first:
 			case word_complete_ghost:
+			case word_complete_split:
 			case word_complete_caret:
 			case word_complete_ghost_lines:
 			case word_complete_show:
@@ -6053,6 +6060,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case unaccent_send:
 				// Wire transform reads the option tree; no extra binder.
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case input_hyphenate:
+			case input_hyphen_lang:
+			case input_hyphen_full:
 				mService.doExecuteRequestLoadSettings();
 				break;
 			case compatibility_mode:
@@ -7451,6 +7463,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		sensor_my_shakes,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
+		/** A short mark between dimmed suggestions on the same line. */
+		word_complete_split,
 		/** Suggestions follow the caret into the middle of the line. */
 		word_complete_caret,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */
@@ -7485,6 +7499,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		lowercase_command_start,
 		/** Fold Latin diacritics on the outbound wire. */
 		unaccent_send,
+		/** Draw a hyphen in a long input word. Not sent. */
+		input_hyphenate,
+		/** Dictionary for that hyphen: English, Polish, or the phone language. */
+		input_hyphen_lang,
+		/** Denser hyphenation while input_hyphenate is on. */
+		input_hyphen_full,
 		/** Input compatibility mode. */
 		compatibility_mode,
 		/** Local echo. */

@@ -397,6 +397,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
+- **Hyphenate long words?** (default off) — with Grow on, a word that does not fit the space left on the line breaks with a drawn hyphen, including a second long word that would otherwise move down whole. Send, copy and suggestions still see the whole word. **Hyphenation language** chooses the break rules for that hyphen. English is the default. Phone language follows the phone when rules for it are built in, otherwise English. **Hyphenate more often?** allows 2 letters before the hyphen; off needs 5. `.hyphen on|off`, `.hyphen lang en|phone`, `.hyphen full on|off`. The break uses the width already left of Edit and Send. A password line does not break.
 - **Global gestures:** Options → Input → Global gestures. `.gesture` prints the mode. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off` (refused in Classic and Two fingers, the same as the grey row), `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`. `.editbuttons` opens Edit buttons. Classic (the default) is unchanged: one finger scrolls, two fingers copy.
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
 - **Light theme:** `.light on|off|toggle|1-5|shade N`. Five papers (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Game colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window.
@@ -477,9 +478,11 @@ seven switches was making the Input page a wall.
   it** — the ghost is a target, not just a hint. Drawn only, never inserted, so
   what you send is exactly what you typed.
   - A continuation shows only the missing letters: `gri` with `zzled` behind it.
-  - A forgiven typo shows the whole word behind an arrow, because the letters
-    have to change rather than grow: `grzld → grizzled`. Tapping replaces what
-    you typed.
+  - A forgiven typo shows the whole word, dimmed, with no arrow and no gap:
+    `grzld` then `grizzled`. Tapping replaces what you typed.
+  - The first suggestion sits against the text, in the middle of a line and
+    at the end. `.suggest split on` draws a short mark between the dimmed
+    words. Off, a space is enough. The little numbers stay either way.
   - If it does not fit the rest of the line, the bar grows by one row and the
     rest continues there, cut with `…` when even that row is short.
 - **Complete at the cursor** — `.suggest caret on|off` (also `.suggest cursor`).

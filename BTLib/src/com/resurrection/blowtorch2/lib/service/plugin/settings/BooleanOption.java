@@ -28,11 +28,11 @@ public class BooleanOption extends BaseOption implements Parcelable {
 		if(o instanceof Boolean) {
 			this.value = (Boolean)o;
 		} else if(o instanceof String) {
-			String str = (String)o;
+			String str = ((String)o).trim();
 			if(str.equals("true")) {
-				value = (Boolean)true;
+				value = Boolean.TRUE;
 			} else if(str.equals("false")) {
-				value = (Boolean)false;
+				value = Boolean.FALSE;
 			}
 		}
 	}

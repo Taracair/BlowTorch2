@@ -2610,6 +2610,9 @@ public class OptionsDialog extends Dialog {
 				boolean isChecked) {
 			BooleanOption o = (BooleanOption) v.getTag();
 			o.setValue(isChecked);
+			if (GlobalGestures.KEY_SHOW_MODE.equals(o.getKey())) {
+				GlobalGestures.publish(GlobalGestures.current().withShow(isChecked));
+			}
 			if(selectedPlugin.equals("main")) {
 				try {
 					service.updateBooleanSetting(o.getKey(),isChecked);

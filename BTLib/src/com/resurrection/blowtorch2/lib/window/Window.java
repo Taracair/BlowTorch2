@@ -3240,7 +3240,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		case MotionEvent.ACTION_MOVE:
 			return mGlobalGesture.onMove(time, count, x0, y0, x1, y1);
 		case MotionEvent.ACTION_POINTER_UP:
-			return mGlobalGesture.onPointerUp(time, count - 1);
+			return mGlobalGesture.onPointerUp(time, count - 1, t.getActionIndex());
 		case MotionEvent.ACTION_UP:
 			return mGlobalGesture.onUp(time, x0, y0);
 		case MotionEvent.ACTION_CANCEL:
@@ -3498,7 +3498,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mGestureChromePaint.setStyle(Paint.Style.FILL);
 		mGestureChromePaint.setTextAlign(Paint.Align.CENTER);
 		if (g.showMode()) {
-			String label = GlobalGestures.modeLabel(g.mode());
+			String label = g.chromeLabel();
 			float d = mDensity;
 			mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.LEFT);
 			mGestureChromePaint.setTextSize(16f * d);
@@ -3508,17 +3508,24 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			float padY = 4f * d;
 			float boxW = textW + padX * 2f;
 			float boxH = (fm.descent - fm.ascent) + padY * 2f;
-			float right = mWidth - (24f * d);
-			float left = right - boxW;
+			float rightLimit = mWidth - (24f * d);
+			float left = rightLimit - boxW;
 			if (left < 8f * d) {
 				left = 8f * d;
 			}
+			float right = left + boxW;
+			if (right > rightLimit) {
+				right = rightLimit;
+			}
 			float top = 12f * d;
 			mGestureChromePaint.setColor(0xE8141418);
-			c.drawRoundRect(left, top, left + boxW, top + boxH, 6f * d, 6f * d,
+			c.drawRoundRect(left, top, right, top + boxH, 6f * d, 6f * d,
 					mGestureChromePaint);
 			mGestureChromePaint.setColor(0xFFF2F4F6);
+			int clip = c.save();
+			c.clipRect(left, top, right, top + boxH);
 			c.drawText(label, left + padX, top + padY - fm.ascent, mGestureChromePaint);
+			c.restoreToCount(clip);
 			mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.CENTER);
 		}
 		if (mGestureDir == null && (mGestureCmd == null || mGestureCmd.length() == 0)) {

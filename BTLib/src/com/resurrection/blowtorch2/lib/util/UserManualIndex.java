@@ -11,6 +11,10 @@ import java.util.Set;
 /**
  * Splits the packaged user manual on {@code ##} headings and maps them onto
  * Help-dialog categories. Android-free so the split can be JVM-tested.
+ *
+ * <p>The same file is the GitHub guide. A leading Contents section and the
+ * {@code details}/{@code summary} lines are chapter chrome for that page.
+ * Help does not show them.
  */
 public final class UserManualIndex {
 
@@ -81,6 +85,8 @@ public final class UserManualIndex {
 		m.put("Prompt on its own bar (`.prompt on`)", CATEGORY_INPUT);
 		m.put("Lowercase start of sent commands", CATEGORY_INPUT);
 		m.put("Strip accents when sending", CATEGORY_INPUT);
+		m.put("Hyphenate long words in the input bar", CATEGORY_INPUT);
+		m.put("The input bar (`.keyboard` / `.kb`)", CATEGORY_INPUT);
 		m.put("Aliases and triggers (patterns / `$1`)", CATEGORY_TRIGGERS);
 		m.put("Recipes", CATEGORY_RECIPES);
 		m.put("Built-in commands", CATEGORY_COMMANDS);
@@ -121,14 +127,15 @@ public final class UserManualIndex {
 		if (raw == null || raw.length() == 0) {
 			return out;
 		}
-		String[] lines = raw.split("\n", -1);
+		String[] lines = stripGitHubChrome(raw).split("\n", -1);
 		String title = null;
 		StringBuilder body = new StringBuilder();
 		for (int i = 0; i < lines.length; i++) {
 			String line = lines[i];
 			if (line.startsWith("## ") && !line.startsWith("### ")) {
 				flush(out, title, body);
-				title = line.substring(3).trim();
+				String next = line.substring(3).trim();
+				title = "Contents".equals(next) ? null : next;
 				body.setLength(0);
 			} else if (title != null) {
 				if (body.length() > 0) {
@@ -139,6 +146,41 @@ public final class UserManualIndex {
 		}
 		flush(out, title, body);
 		return out;
+	}
+
+	/**
+	 * Drop chapter wrappers. A line inside a fence is kept, so an example
+	 * can show the tags.
+	 */
+	private static String stripGitHubChrome(final String raw) {
+		String[] lines = raw.split("\n", -1);
+		StringBuilder out = new StringBuilder(raw.length());
+		boolean inFence = false;
+		boolean any = false;
+		for (int i = 0; i < lines.length; i++) {
+			String line = lines[i];
+			String trimmed = line.trim();
+			if (trimmed.startsWith("```")) {
+				inFence = !inFence;
+			} else if (!inFence && isGitHubChromeLine(trimmed)) {
+				continue;
+			}
+			if (any) {
+				out.append('\n');
+			}
+			any = true;
+			out.append(line);
+		}
+		return out.toString();
+	}
+
+	private static boolean isGitHubChromeLine(final String trimmed) {
+		if ("<details>".equals(trimmed) || "<details open>".equals(trimmed)
+				|| "</details>".equals(trimmed) || "<summary>".equals(trimmed)
+				|| "</summary>".equals(trimmed)) {
+			return true;
+		}
+		return trimmed.startsWith("<summary>") && trimmed.endsWith("</summary>");
 	}
 
 	/**

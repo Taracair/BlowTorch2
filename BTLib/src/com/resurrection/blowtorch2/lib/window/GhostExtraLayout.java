@@ -291,12 +291,13 @@ public final class GhostExtraLayout {
 		float x = startX;
 		int hidden = 0;
 		int maxRow = -1;
+		boolean onRow = false;
 		for (int i = 0; i < widths.length; i++) {
 			float w = widths[i];
 			if (w < 0f) {
 				continue;
 			}
-			float lead = x > 0f ? gap : 0f;
+			float lead = onRow ? gap : 0f;
 			if (x + lead + w > avail) {
 				if (row + 1 > rowCap) {
 					hidden = countFrom(widths, i);
@@ -304,6 +305,7 @@ public final class GhostExtraLayout {
 				}
 				row++;
 				x = 0f;
+				onRow = false;
 				lead = 0f;
 				if (w > avail) {
 					w = avail;
@@ -312,6 +314,7 @@ public final class GhostExtraLayout {
 			rows[i] = row;
 			xs[i] = x + lead;
 			x += lead + w;
+			onRow = true;
 			if (row > maxRow) {
 				maxRow = row;
 			}

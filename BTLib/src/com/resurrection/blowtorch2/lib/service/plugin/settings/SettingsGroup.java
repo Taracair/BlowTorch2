@@ -220,16 +220,37 @@ public class SettingsGroup extends Option implements Parcelable {
 	}
 	
 	public void updateBoolean(String key,boolean value) {
-		BaseOption o = (BaseOption) optionsMap.get(key);
-		if(o != null) {
-			o.setValue(value);
-			SettingsChangedListener tmp = listenerMap.get(key);
-			if(tmp != null) {
-				tmp.updateSetting(key, Boolean.toString(value));
-			}
-		} else {
-			//type mismatch, don't do anything.
+		boolean found = false;
+		BaseOption mapped = (BaseOption) optionsMap.get(key);
+		if (mapped != null) {
+			mapped.setValue(value);
+			found = true;
 		}
+		if (writeBoolean(this, key, value)) {
+			found = true;
+		}
+		if (!found) {
+			return;
+		}
+		SettingsChangedListener tmp = listenerMap.get(key);
+		if (tmp != null) {
+			tmp.updateSetting(key, Boolean.toString(value));
+		}
+	}
+
+	private static boolean writeBoolean(SettingsGroup group, String key, boolean value) {
+		boolean found = false;
+		for (Option o : group.getOptions()) {
+			if (o instanceof SettingsGroup) {
+				if (writeBoolean((SettingsGroup) o, key, value)) {
+					found = true;
+				}
+			} else if (o instanceof BaseOption && key != null && key.equals(o.getKey())) {
+				((BaseOption) o).setValue(value);
+				found = true;
+			}
+		}
+		return found;
 	}
 	
 	public void updateInteger(String key,int value) {

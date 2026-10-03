@@ -69,6 +69,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		sensors_enabled,
 		sensor_my_shakes,
 		word_complete_ghost,
+		word_complete_split,
 		word_complete_caret,
 		word_complete_ghost_lines,
 		word_complete_show,
@@ -82,6 +83,9 @@ public class ConnectionSetttingsParser extends PluginParser {
 		grow_input_bar,
 		lowercase_command_start,
 		unaccent_send,
+		input_hyphenate,
+		input_hyphen_lang,
+		input_hyphen_full,
 		compatibility_mode,
 		local_echo,
 		process_system_commands,
@@ -656,6 +660,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
+					case word_complete_split:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
 					case word_complete_caret:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
@@ -725,6 +734,21 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case unaccent_send:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case input_hyphenate:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case input_hyphen_lang:
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case input_hyphen_full:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
@@ -1164,9 +1188,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case global_gesture_show_mode:
-						if((Boolean)opt.getValue() != false) {
-							dooutput = true;
-						}
+						// Stored either way. Leaving the key out reloads the plugin default.
+						dooutput = opt.getValue() instanceof Boolean;
 						break;
 					case global_gesture_show_arrow:
 					case global_gesture_show_command:

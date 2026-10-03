@@ -143,8 +143,8 @@ reading the screen.
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, sensors, colors, keyboard, completion, search, chat, mapper, wrap,
-logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
+aliases, timers, sensors, colors, keyboard, completion, search, chat, mapper, wrap
+and .hyphen, logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 On the server list, long-press a world. The star keeps it under Starter
 Tutorial on the list. Pin to home puts a shortcut on the Android home
@@ -864,10 +864,13 @@ actually said. All of it is off until you ask, under Options → Input or on
                           two mistakes may change the first letter
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
-                          drawn only, never sent. After a space, that ghost
-                          can be the word that last followed the one you
-                          just finished. A name you are still typing still
-                          offers the whole phrase
+                          drawn only, never sent. No arrow, and no gap before
+                          the first one. After a space, that ghost can be the
+                          word that last followed the one you just finished.
+                          A name you are still typing still offers the whole
+                          phrase
+  .suggest split on|off   a short mark between those dimmed words. Off, a
+                          space. The little numbers stay either way
   .suggest caret on|off   follow the cursor into the middle of a line, not
                           only the end; taking one replaces the word there
   .suggest show N         at most N suggestions total (bar + ghost), 1-8
@@ -1111,13 +1114,42 @@ end
 TOPICS.wrap = function()
 	noteBlock("Input wrap — .wrap",
 [[.wrap controls whether the input bar grows with multiline text
-(Grow Input Bar?). It is not the same as Word Wrap for game text.
+(Grow Input Bar?). It is not Word Wrap for game text.
 
   .wrap          show status
   .wrap on|off
 
 Also: Options → Input → Grow Input Bar?
-Word Wrap for output: Options → Window.]])
+Word Wrap for output: Options → Window.
+
+Hyphenation is separate, and off until you ask. With .wrap on, a word
+that does not fit the space left on the line breaks with a hyphen.
+Type the same long word twice: the first fits, the second breaks.
+
+  supercalifragilisticexpialidocious super-
+  califragilisticexpialidocious
+
+Send, copy and history still have both words, with no hyphen.
+Suggestions stay one chip. At the end of the cursor the ghost sits
+after the last piece. In the middle of the line it still sits after
+the last word, not on the hyphen. If the keyboard underlines the word
+you are typing, the hyphen waits until that underline goes.
+
+  .hyphen                 status
+  .hyphen on|off
+  .hyphen lang en|phone
+  .hyphen en|phone     same as lang
+  .hyphen full on|off     2 letters before the hyphen are enough
+
+English is the default. phone follows the phone when rules for that
+language are built in, and English otherwise. Off,
+the piece has to be at least 5 letters. A password line does not
+break. The break uses the width already left of Edit and Send, so
+hiding those buttons widens the line and a broken word may fit again.
+The corner above the buttons stays empty.
+
+Options → Input → Hyphenate long words?, Hyphenation language,
+Hyphenate more often?]])
 end
 
 TOPICS.logging_export = function()
@@ -1390,12 +1422,14 @@ The both-fingers switch is only while Scrolling is Hold or Off.
 A blank direction does nothing. Before the hold, a move still scrolls.
 After the hold, a blank direction does not scroll the text. Lifting
 without a direction sends nothing. A second finger cancels a one-finger
-gesture. A third cancels a two-finger gesture.
+gesture, and that tap does not open copy. On a two-finger swipe, lifting
+the finger that is not drawing the line cancels it. A third finger
+cancels a two-finger gesture.
 
 .gesture              what is on now
 .gesture edit         the sixteen direction commands
 .gesture scroll two|hold|off   Scrolling. Refused in Classic and Two fingers
-.gesture show on|off  the mode label near the top-right
+.gesture show on|off  the top-right label: mode, and scrolling in One finger and Both
 .gesture preview on|off   arrow and command while you swipe
 .editbuttons          opens Edit buttons
 
@@ -1412,6 +1446,7 @@ TOPICS.options_cleanup = function()
   Window    font, buffer, word wrap, hyperlinks, ANSI,
             Extra text windows, Widgets (Manage widgets…)
   Input     history, keep last, Grow Input Bar (.wrap),
+            Hyphenate long words (.hyphen; drawn, not sent),
             Global gestures (.gesture),
             lowercase start of sent commands (\\Look keeps capital),
             strip accents when sending (.unaccent; usiądź → usiadz)
@@ -1713,7 +1748,8 @@ local TIPS = {
 	jumpsend = [[.jumpsend on (the default) scrolls to the newest text after you send a line. Incoming text near the live edge still snaps there. .jumpsend off leaves you where you scrolled. Options → Window → Jump to the live edge when you send?.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],
-	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
+	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text). .hyphen on can then break a long word with a drawn hyphen when it does not fit the space left on the line. The game still receives the whole word.]],
+	hyphen = [[.hyphen on breaks a long input word with a drawn hyphen when it does not fit beside what is already on the line. A second copy of a long word breaks too. Send, copy and suggestions keep the whole word. .hyphen lang en|phone. .hyphen full on allows 2 letters before the hyphen; off needs 5. Needs .wrap on. Off by default. Options → Input → Hyphenate long words?.]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
 	light = [[.light on paints the game on light paper with dark ink. .light 1-5 picks the paper (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],

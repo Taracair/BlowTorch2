@@ -38,6 +38,7 @@ public class CompleteCommand extends SpecialCommand {
 	/** Shorter completions before longer ones — reached by .suggest short. */
 	public static final String SHORTER_KEY = "word_complete_shorter_first";
 	public static final String GHOST_KEY = "word_complete_ghost";
+	public static final String SPLIT_KEY = "word_complete_split";
 	public static final String CARET_KEY = "word_complete_caret";
 	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
 	/** How many suggestions the bar and ghost may show at once. */
@@ -173,6 +174,13 @@ public class CompleteCommand extends SpecialCommand {
 						+ " anything.",
 					"Whole names come first again.");
 		}
+		if (arg.startsWith("split")) {
+			return setFlag(arg.substring("split".length()).trim(), c, SPLIT_KEY,
+					"A short mark now sits between the dimmed suggestions, so two"
+						+ " words on the same line stay apart. The little numbers stay.",
+					"The dimmed suggestions sit next to each other again, with a"
+						+ " space and no mark.");
+		}
 		if (arg.startsWith("ghostlines")) {
 			return setGhostLines(arg.substring("ghostlines".length()).trim(), c);
 		}
@@ -298,11 +306,12 @@ public class CompleteCommand extends SpecialCommand {
 					+ ", wrong first letter " + (flagOn(c, WRONG_FIRST_KEY) ? "on" : "off")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ (!flagOn(c, GHOST_KEY) ? ""
-						: ghostLines(c) > 1
+						: (flagOn(c, SPLIT_KEY) ? ", split" : "")
+						+ (ghostLines(c) > 1
 							? ", listing the others on the rest of the line and up to "
 								+ (ghostLines(c) - 1) + " row"
 								+ (ghostLines(c) == 2 ? "" : "s") + " under it"
-							: ", listing the others on the rest of the line")
+							: ", listing the others on the rest of the line"))
 					+ ".\nFollow the cursor "
 					+ (flagOn(c, CARET_KEY)
 						? "on — prefixes still offer in the middle of a line"
@@ -317,7 +326,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/next/loose/typos/skiphead/firstletter/ghost/caret/persist/rank/pairs/short/plain on|off,"
+					+ " phrases/next/loose/typos/skiphead/firstletter/ghost/split/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
 			return null;
@@ -336,6 +345,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest firstletter on|off — two mistakes may change the"
 				+ "                           first letter\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
+				+ ".suggest split on|off    — a short mark between those dimmed words\n"
 				+ ".suggest caret on|off    — prefix chips follow the cursor into"
 				+ "                           the middle of a line\n"
 				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"

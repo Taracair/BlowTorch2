@@ -45,6 +45,10 @@ public class SettingsOptionXmlTest {
 		assertEquals(Boolean.TRUE, opt.getValue());
 		opt.setValue("false");
 		assertEquals(Boolean.FALSE, opt.getValue());
+		opt.setValue("\nfalse\n");
+		assertEquals(Boolean.FALSE, opt.getValue());
+		opt.setValue(" true ");
+		assertEquals(Boolean.TRUE, opt.getValue());
 
 		RecordingXmlSerializer out = new RecordingXmlSerializer();
 		opt.setValue(Boolean.TRUE);
