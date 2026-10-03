@@ -78,8 +78,11 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest on | off | lines N | 1..8 | show N
     .suggest where floating | bar | off | next
     .suggest opacity N | persist on | off
+    .suggest next on | off
     .suggest phrases on | off | plain on | off | short on | off
-    .suggest loose on | off | typos on | off | ghost on | off | ghostlines N
+    .suggest loose on | off | typos on | off
+    .suggest skiphead on | off | firstletter on | off
+    .suggest ghost on | off | ghostlines N
     .suggest caret on | off | rank on | off | pairs on | off
     .suggest learned | clear
     .suggest forget <word>
@@ -119,6 +122,14 @@ thing that just walked in is nearly always the thing you are about to hit.
 
 Words shorter than four letters are ignored, and so are pure numbers; you need
 to have typed at least two letters before anything is offered.
+
+**The word that follows.** After you finish a word and type a space, the client
+offers the one word that came next in the game. The game shows `cave troll
+emerges`; you type `cave` and a space, and it offers `troll`, then `emerges`.
+That is on by default. `.suggest next off` — **Options → Input → Suggestions →
+Suggest the next word** — leaves a finished word alone until you start the next
+one. Whole names, below, are a different offer: the phrase while you are still
+typing the first word.
 
 **How far back counts as recent** is measured in lines, not words — the last 300
 by default, so "recent" means here what it means on screen. `.suggest lines 80`
@@ -198,12 +209,12 @@ of words leads — the things you use as commands at the start of a line, the
 things you point commands at after one — and length decides the order *inside*
 each group. Neither setting makes the other pointless.
 
-**Ordered by where you are in the line.** `.suggest rank on` — **off by
-default** — uses one thing the app already knows for free: the first word of
-every command you send *is* a verb this world takes, and what follows it is a
-thing you point commands at. With it on, `ki` at the start of a line offers
-`kill` above `kindle` if `kill` is what you type commands with, and the same
-`ki` after `kill ` puts the things you have aimed at first.
+**Ordered by where you are in the line.** `.suggest rank` is **on by
+default**; `.suggest rank off` turns it off. It uses one thing the app already
+knows for free: the first word of every command you send *is* a verb this world
+takes, and what follows it is a thing you point commands at. `ki` at the start
+of a line offers `kill` above `kindle` if `kill` is what you type commands
+with, and the same `ki` after `kill ` puts the things you have aimed at first.
 
 It only ever **reorders** — nothing is thrown out of the candidates. There is
 one place that still costs you something, and it is worth knowing: the bar
@@ -249,7 +260,8 @@ bar grow downwards as well, and the list carries on under what you are typing.
 They sit **side by side**, not one per line, so a row of short words holds
 several and a line each is not spent on nothing. The number you set is the most
 **extra rows** the bar may take, not how many suggestions it shows: at 1 it
-takes none and fills the current line only, above that it uses only the rows it
+takes none and fills the current line only (a list that follows the cursor
+may still take one row under a full line), above that it uses only the rows it
 needs and gives them straight back — send the line and the bar is its normal
 size again before you have finished pressing.
 
@@ -309,6 +321,19 @@ cursor in the middle of a line (`look helmte now`) as well as at the end.
 `.suggest typos off` turns it off. The ghost uses the same correction arrow
 as a forgiven typo: `helmte → helmet`.
 
+**Skipped start of a long name.** `.suggest skiphead on` — **on by default**
+once suggestions and nearby misspellings are on. A long name can match from
+its distinctive tail: `onhelmet` finds `ironhelmet`, including while you are
+still typing `onhel`. One extra or missing letter in that tail is allowed
+from six letters. Prefix chips still win: if an exact prefix found something,
+this does not run. `.suggest skiphead off` turns it off. `.suggest engine`
+is the same switch under the old name.
+
+**Two mistakes may change the first letter.** `.suggest firstletter on` —
+**off by default.** Two edits on a longer word may disagree on the first
+letter (`hxizzled` → `grizzled`). Three edits still miss. One nearby mistake
+already may change the first letter without this.
+
 **The rest of the word, as you type.** `.suggest ghost on` draws the top
 suggestion's remaining letters after the cursor in dimmed type, with a small `1`
 marking it as the first suggestion — the same 1 that `.suggest 1` takes.
@@ -331,11 +356,10 @@ it replaces what you typed:
     You type:   k grzld
     You see:    k grzld[ → grizzled]¹
 
-Because the ghost is drawn, it takes part in no measurement — it never makes the
-input bar taller or wider. When it does not fit the rest of the line it carries
-on at the start of the next line, if the bar already has one; when there is no
-next line it is cut short with `…`. The bar still grows with what you actually
-type, as it always has.
+Because the ghost is drawn, it is never part of the text you send. When it fits
+the rest of the line it sits there. When it does not, the bar grows by one row
+and the rest continues at the start of that row, cut short with `…` if even
+that row is short.
 
 **In the middle of a line.** Prefix chips (type `gri` and get `grizzled`) only
 follow you at the *end* of what you have typed, unless **Complete at the
@@ -360,8 +384,9 @@ chips still offer. Taking one replaces that word and keeps what follows:
 
 The ghost itself still only draws at the end of the line (it would cover
 what follows). In the middle — Complete at the cursor, or a nearby
-misspelling — the numbered list sits *under* the line you are editing, each
-one tappable, so you are not limited to the chips.
+misspelling — the numbered list starts on the rest of the current line,
+after the text already there, and takes a new line under it only when that
+line is full. The input bar grows so that extra line stays above the keyboard.
 `.suggest 1` from a button still picks the first. Off again with
 `.suggest caret off`, or put `.suggest caret on` / `off` on a button if you
 only want prefix chips while rewriting a long command.
@@ -480,6 +505,19 @@ are never rewritten.
 **One-shot capital.** Prefix with a backslash to keep the capital once: `\Look`
 sends `Look`. The `\` is stripped and never reaches the MUD. With the option
 off, `\Look` is sent as typed (backslash included).
+
+## Strip accents when sending
+
+Worlds that only accept ASCII still need `usiadz` when you type `usiądź`.
+Turn on **Options → Input → Strip accents when sending** (or `.unaccent on`).
+BlowTorch then folds Latin letters with marks on the way to the game
+(`usiądź przy stole` → `usiadz przy stole`). Local echo shows the folded
+form (`usiadz`); the input bar still shows what you typed. Off by default;
+passwords are never rewritten. Lua `SendToServer` from a plugin is not
+rewritten (on-screen button commands are).
+
+`.unaccent` with no argument prints on or off. `.unaccent on|off` (also
+`true`/`false`/`1`/`0`/`yes`/`no`).
 
 ## Dot commands
 
@@ -703,15 +741,20 @@ In the trigger editor:
   list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
   under search (All / Main / plugins, and All groups / (default) / named).
   **More** is Enable/Disable all for the current filter, and on Triggers
-  a sort-by-sequence toggle. Group filter is the spinner under search, not
-  that menu.
+  a sort-by-sequence toggle and **Clear group label (keeps triggers)**.
+  That takes the group name off every trigger in the current filter. The
+  triggers stay. **All** and **(default)** are not labels: nothing is
+  cleared and nothing is deleted. Group filter is the spinner under search,
+  not that menu.
 - **Conditions** → extra gate after the pattern matches — not a substitute
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
   `plugin:name` ok), **Only if trigger matches this line** (that trigger's
   Pattern + Match style; not its actions or
   conditions; off/missing/self/timer = closed), Alias enabled/disabled, Alias replacement equals,
-  Variable equals/exists/below/above. Set vars with the **Set Variable** responder or
+  Variable equals/exists/below/above, Timer exists/running/remaining below or
+  above a number of seconds, and whether this window is in front (the
+  recent-apps list counts as not in front). Set vars with the **Set Variable** responder or
   Lua `SetVariable` / `GetVariable` / `UnsetVariable` (Lua stays session-only).
 - **Match style** → Ignore / Require / Forbid each incoming colour and SGR
   flag (bright vs bold, italic, underline, strike, reverse, faint, blink,
@@ -904,11 +947,16 @@ the Order number).
 
 Timers support an optional **Group** in the timer editor (same idea as
 triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
+**More → Clear group label (keeps timers)** takes that name off the timers
+in the current filter. The timers stay. **All** and **(default)** do not
+clear a label.
 
 Timers also support **Conditions** in the timer editor — an extra gate when
 the timer fires (same AND/OR types as triggers). Empty = always fire
 responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Alias
-replacement equals, Variable equals/exists/below/above. *Only if trigger
+replacement equals, Variable equals/exists/below/above, Timer exists/running/remaining
+below or above a number of seconds, and whether this window is in front
+(the recent-apps list counts as not in front). *Only if trigger
 matches this line* stays closed on a timer (no game line). Set vars with the **Set
 Variable** responder (Set, Add number, Subtract number, Append, Unset; optional
 **Keep after restart**) or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
@@ -1949,8 +1997,9 @@ Things worth knowing when the pattern gets ambitious:
   surprise to get wrong.
 
 A word nobody marked is still usable: type `.pick`, put a prefix in the input bar
-(`fix `), then tap the word. The client sends `fix helmet` and
-leaves `fix ` in the bar. See **`.pick` forms** under Built-in commands.
+(`fix `, or a template `fix $1 helmet`), then tap the word. The client sends
+`fix helmet` or `fix iron helmet` and leaves the prefix in the bar. See
+**`.pick` forms** under Built-in commands.
 While pick is armed, it wins over an existing tappable-word trigger for
 that tap.
 
@@ -2075,17 +2124,20 @@ Control it from the input bar, by name:
 .timer pause heal     hold it where it is
 .timer reset heal     back to full duration
 .timer stop heal      stop and reset
-.timer info heal      status: running/paused/stopped, set for, elapsed, remaining, repeat (toast)
-.timer info heal window  same text in the game window
-.timer dump heal      same as info … window
+.timer info heal      status in the game window
+.timer dump heal      same as info
 .timer dump           every timer, in the window
 .timer duration heal  same as info
-.timer duration heal 30   change how long it runs (whole seconds)
+.timer duration heal 30   set the length and restart from full
+.timer duration heal 50s  add 50 seconds to the time left (2m, 1h too)
+.timer duration heal -50s subtract from the time left (floor 0; -2m too)
 ```
 
-Changing the duration — from the input bar or in the editor — does **not** stop
-the timer. One that was running keeps running on the new length, starting from
-now; one that was stopped stays stopped. Use `.timer stop` to stop it.
+A bare number sets the stored length and restarts from full: one that was
+running starts again on that length; one that was stopped stays stopped.
+`50s`, `2m` and `1h` (and a leading `-`) only change the time left and leave
+the stored length alone. A running timer keeps running when time is still
+left. Use `.timer stop` to stop it.
 
 Add `silent` as a last word to suppress the toast: `.timer play heal silent`.
 Useful when a trigger drives the timer and you do not want a popup each time.
@@ -2157,6 +2209,7 @@ is enabled; `.alias list` shows every alias at once.
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
     `.grabber [once|hold|tap|off]`         Inspect colour/style under a finger; copy layers or open a trigger. See forms below
     `.pick [once|hold|tap|button|button-double|off|loupe …]`  Prefix plus a word from the game text (bar or a pad tile). See forms below
+    `.copy [loupe …]`                   Copy-widget magnifier size/zoom. See forms below
     `.closewindow`                      Leave the game window (dirty exit). Not the same as `.window hide` (one extra-text window)
     `.tutorial …`                       Starter Tutorial lessons (`start` / `next` / `topics` / `<topic>`). Works in any world
     `.tips on|always|off`               Short reminders the first time you type a `.command` that session
@@ -2171,10 +2224,10 @@ is enabled; `.alias list` shows every alias at once.
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
-    `.timer <action> <name> [silent|window]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`, `dump`. `silent` suppresses toasts on play/pause/reset/stop. `window` on `info` writes the status into the game window instead of a toast
+    `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`, `dump`. `info` and `dump` write status into the game window. `silent` suppresses toasts on play/pause/reset/stop
     `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
-    `.timer duration <name>`   Same as `.timer info <name>`
-    `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
+    `.timer duration <name>`   Same as `.timer info <name>` (time left, including time added with `50s`)
+    `.timer duration <name> <seconds> [silent]`   Bare number sets the length and restarts from full. `50s` / `2m` / `1h` add to the time left and keep the stored length. `-50s` / `-2m` subtract (floor 0)
     `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue. `.wait change 1 60s` retargets that row from now
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
@@ -2185,15 +2238,22 @@ is enabled; `.alias list` shows every alias at once.
     `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. `.dobell vibrate [short|long|strong|burst]` buzzes now even if Vibrate is off (default `short`; `burst` is three quick taps); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
+    `.unaccent [on|off]`                Strip accents when sending (`usiądź przy stole` → `usiadz przy stole`); local echo shows the folded form. Also Options → Input. Off by default. Passwords and Lua SendToServer are not rewritten.
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
+    `.editbuttons`                      Open Edit buttons (same as ⋮ → Edit buttons)
+    `.gesture`                          Screen swipes on the game text. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off`, `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`
     `.editpanel [on|off]`               Toggle/show/hide the Edit tools strip (Sel/Cut/…)
+    `.editrows [on|off|toggle]`         Landscape Edit strip on two rows (Select/Cut/… on one, cursor pad on the next). Off by default: one full-width row, including in landscape. Also Options → Window → Edit strip: two rows in landscape?
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Show Send button?
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Font size
-    `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
+    `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
+    `.avoidbuttons [on|off|toggle|letters|words]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text avoids on-screen buttons? / Avoid-buttons break
+    `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Jump to the live edge when you send?
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Line timestamps?
+    `.split [on|off|horizontal|h|vertical|v|left|right|top|bottom|15-85]`  Two views of the same game text; each pane scrolls on its own. `horizontal`/`h` (or `left`/`right`) is left/right; `vertical`/`v` (or `top`/`bottom`) is top/bottom. Primary (left or top) gets the percent (default 50). Buttons, mapper, chat and NAWS stay on the primary. `.split off` is one pane again.
     `.ping`                             One ICMP echo to this world's host. Not sent to the world. A world that drops ICMP can still answer on the game port.
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
@@ -2201,7 +2261,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
     `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
-    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`typos`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`next`/`loose`/`typos`/`skiphead`/`firstletter`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
@@ -2209,6 +2269,7 @@ is enabled; `.alias list` shows every alias at once.
     `.rev <directions>`                 Same letters as `.run`, walked backwards. Reverse per letter in Speedwalk Directions; compass n↔s / in↔out if Reverse is blank; door/cave need Reverse filled. Comma text stays (not close door)
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
+    `.heatmap`                          Count taps, holds, swipes and accordion opens on the buttons, kept for this world. While it is on, every tile is the same white and brighter means used more. `.heatmap off` hides that and the numbers; counting continues. `.heatmap reset` forgets this world's counts.
     `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback and old session logs; see forms below
@@ -2309,9 +2370,13 @@ A Color action you painted is not the world's style; the grabber skips it.
 
 Type `.pick`, then put a prefix in the input bar (`fix `), then pick a
 word from the game text. The client sends `fix helmet` and leaves `fix `
-in the bar. Empty bar, or a client `.` command left in the bar (Keep Last
+in the bar. A template puts the word where `$1` is: `fix $1 helmet` and
+pick `iron` sends `fix iron helmet`. `$word` and `$0` are the same token
+(as on tappable words). With no `$1` / `$0` / `$word`, the word is
+appended as before. Empty bar, or a client `.` command left in the bar (Keep Last
 after `.pick`), is not a game prefix: that send is refused and pick stays
-on. Put `.pick hold` on a button and leave `fix ` in the bar.
+on. Put `.pick hold` on a button and leave `fix ` (or `fix $1 helmet`) in
+the bar.
 
 No argument is **once**: one word, then off. **hold** / **on** stays until
 `.pick off` (or a second `.pick hold`). **tap** is the same as once.
@@ -2322,7 +2387,8 @@ still open the copy widget.)
 
 **button**: on an existing pad tile, swipe (for example up on an 8-way
 North), keep holding, then slide onto a word. The prefix is that swipe's
-command (`look n helmet`). Stay on the tile and a release still fires
+command (`look n helmet`, or `put $1 in bag` + pick `iron` →
+`put iron in bag`). Stay on the tile and a release still fires
 the swipe or tap as usual. Leave the tile and the gesture belongs to
 pick even if there is no word under the finger. **button-double**: hold the tile with
 one finger (prefix is the tile's tap command) and tap a word with the
@@ -2331,7 +2397,8 @@ button-double` turns that mode off.
 
 The loupe is a round magnifier of the **game text** around the finger
 (not only the chosen word), with that word highlighted. The phrase
-(`fix helmet`) sits **above** the circle. Dragging to the screen edge
+(`fix helmet`, or `fix iron helmet` from `fix $1 helmet`) sits **above**
+the circle. Dragging to the screen edge
 scrolls a frozen buffer. Size and zoom: Options → Window → **Pick loupe
 size (%)** / **Pick loupe zoom (%)**, or `.pick loupe size 118` /
 `.pick loupe zoom 200` (size 50–200, default 118; zoom 150–350, 200 is
@@ -2339,6 +2406,22 @@ size (%)** / **Pick loupe zoom (%)**, or `.pick loupe size 118` /
 
 Tokens are letters and digits: `iron-helmet` is two words. Prefix mode
 wins over existing tappable-word triggers for that pick.
+
+### `.copy` forms
+
+```
+.copy
+.copy loupe
+.copy loupe size 118
+.copy loupe zoom 200
+.copy loupe default
+```
+
+Size and zoom for the two-finger copy widget (not `.pick`). Same ranges
+as pick (size 50–200, default 118; zoom 150–350, 200 is 2×). `.copy` and
+`.copy loupe` print the current values; `.copy loupe default` restores
+both. Also Options → Window → **Copy loupe size (%)** / **Copy loupe
+zoom (%)**.
 
 ### `.probe`
 
@@ -2558,6 +2641,7 @@ run ends.
 .sensor wave look        make a reading send a command
 .sensor wave             what that reading does now
 .sensor wave on|off      without deleting it
+.sensor all on|off       every reading in this world; the power buttons stay
 .sensor fire wave        try it now, without moving the phone
 .sensor threshold battery 15 40   low % and recover % on this phone
 ```
@@ -2585,6 +2669,8 @@ The readings (each has a short name for `.sensor` and triggers):
 | `facedown` | Phone laid screen-down | Gravity, or accelerometer |
 | `faceup` | Phone turned back over | Gravity, or accelerometer |
 | `shake` | Phone shaken hard | Linear acceleration, or accelerometer |
+| `shakeleft` / `shakeright` / `shakeup` / `shakedown` | The louder axis of that same shake | Linear acceleration only |
+| `pat:lr` (and other `l` `r` `u` `d` sequences, two to eight letters) | Those shakes in order, each within 2.5 seconds of the last. `.sensor pat:lr look` | Linear acceleration only |
 | `headphonesout` / `headphonesin` | Headphones unplugged or plugged | System broadcast |
 | `powerout` / `powerin` | Charger unplugged or plugged | System broadcast |
 | `batterylow` / `batteryok` | Charge crossed down through low, or back up through recover | System broadcast |
@@ -2595,10 +2681,31 @@ The readings (each has a short name for `.sensor` and triggers):
 | `screenoff` / `screenon` | Screen locks or comes back | System broadcast |
 | `landscape` / `portrait` | Screen goes sideways or upright | System configuration |
 
+A shake pattern is several of the direction shakes in order. `.sensor pat:lr look` sends `look` after you shake left and then right. The letters are `l` left, `r` right, `u` up and `d` down, two to eight of them (`pat:ud`, `pat:lrl`). Each shake is as hard as Shake, and the next one has to come within 2.5 seconds of the last. `.sensor` is written `pat:lr`. The trigger editor stores that as the literal pattern `!pat:lr`. The game receives `look`. A phone without linear acceleration only fires plain `shake`. **Use my shakes** keeps these patterns quiet.
+
 The last block needs **no extra sensor chip** — Android tells every app. A
 profile built on `headphonesout`, `powerin`, `batterylow` and `screenon` works
 on any phone. `headphonesout` in particular is worth setting up before you play
 in public.
+
+**My shakes**, on that same list, records a movement you repeat. Each try is
+drawn on top of the last: one plot is across the screen, the other is toward
+you and away. Three lines before it will save. The slider on that shake is how
+close a later one has to be; when two saved shakes both fit, the closer one
+wins. **Use my shakes** is off until you turn it on. While it is on, left,
+right, up and down are grey on the list and stay quiet in this world, and
+letter patterns stay quiet too. **Shake the phone** keeps its own power
+button. The shape stays on this phone and is not in an
+exported profile. The command is an ordinary trigger (`.sensor slash look`
+once you have named it `slash`). A name already used by a saved shake or a
+built-in reading is refused (`That name is already used`). Another phone has
+to record the shake again.
+
+The power button at the top of the Sensors list, and `.sensor all off`, silence
+every reading in **this** world. The power buttons on the rows are remembered.
+Another open world is not affected. A row's own button appears once something
+is set up, the same one as on a trigger. A recorded shake's pattern is filled
+in and grey: the reading fires it, so the box is not a regex.
 
 `facedown` is the classic "stepping away" reading: bind it to `afk` and `faceup`
 to `afk off`. It waits for the phone to settle. A phone in your hand or pocket
@@ -2874,7 +2981,9 @@ show their current state under the label (e.g. Follow **on**).
 
     **Nav**
         What it is for: Getting around
-        Actions: Path to, Go there, Find, Center, Follow, Record
+        Actions: Path to, Go there, Find, Center, Follow, Record.
+        While Record is on, **Name** is there too (`.map name`): it sets
+        the current room's name from recent lines and does not run on every step.
 
     **Floors**
         What it is for: Levels of this map
@@ -2987,6 +3096,7 @@ Print the summary with `.map dirs`.
     `.map mode fullscreen|float`                                            Presentation mode
     `.map mode browse|edit|toggle`                                          Map interaction mode (Browse default; Edit for nests/Draw/Links/delete)
     `.map record on|off|toggle`                                             Record movement into tiles/exits (`rec` alias)
+    `.map name`                                                             While recording, set the current room's name from recent lines (Nav → Name). Does not run on every step.
     `.map follow on|off|toggle`                                             Keep the view centered on you
     `.map level list|prev|next|set <name>`                                  List / nest down (prev) / nest up (next) / jump by name
     `.map level delete <id|name>`                                           Delete a floor and all its tiles (Edit; cannot delete last)
@@ -3014,7 +3124,7 @@ Print the summary with `.map dirs`.
     `.map delete [id]`                                                      Remove a tile (and links to it)
     `.map neighbor <cmd> [from <id>]`                                       Create/link a neighbor by walk verb
     `.map move [id] <x> <y>`                                                Reposition a tile on the grid
-    `.map title` / `.map note`                                              Edit current tile text
+    `.map title` / `.map note`                                              Edit current tile text. A note keeps its line breaks (Enter in the tile editor)
     `.map title for <id> <text>` / `.map note for <id> <text>`              Edit a specific tile
     `.map link <cmd> [from <id>] to <tileId>`                               Manual link
     `.map unlink <cmd> [from <id>]`                                         Remove an exit
@@ -3124,6 +3234,8 @@ Shows or hides the **Edit** button (same as Options → Window → Show Edit but
 
 Toggles (or forces) the Edit tools strip above the input row. Same strip as the **Edit** button. No argument toggles.
 
+`.editrows on` puts that strip on two rows while the phone is landscape (Select, Cut, Copy, Paste, then the cursor pad). `.editrows off` (the default) keeps one full-width row in both orientations.
+
 ### `.sendbutton`
 
 ```
@@ -3142,8 +3254,52 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
   `.pick hold` (or another sticky pick), that second finger **cancels the
   pick** so you can drag to scroll. Copy is unchanged when pick is off.
 - One-finger long-press alone does not open copy.
-- Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
+- Drag the cursors, then use **copy** / **swap ends** / **close** around
+  the magnifier (outside the circle, not on the text). A slow drag follows
+  the finger. A flick moves further across the text. On-screen buttons
+  may hide while selecting so the widget stays usable.
+  Size and zoom: Options → Window → **Copy loupe size (%)** /
+  **Copy loupe zoom (%)**, or `.copy loupe size 118` / `.copy loupe zoom
+  200`. `.copy` prints the current values; `.copy loupe default` restores
+  both.
+- If **Text width** is over 100 (`.width 150`), drag the magnifier to the
+  right edge and the canvas pans so you can copy the overflow; left edge
+  pans back.
 - The same two-finger gesture works in **extra text** windows (float/drawer).
+  Extra text stays on this copy gesture. Global gestures are the main window only.
+
+## Global gestures
+
+Optional swipes on the main game text. **Classic** is the default: one finger
+scrolls, two fingers copy. One mode at a time, saved with that world.
+
+- **⋮ → Gesture mode** sets the mode and the scrolling choice. The same scrolling
+  choice is under Options → Input → Global gestures. `.gesture mode classic|1|2|both`.
+  `.gesture scroll two|hold|off` sets that choice. Classic and Two fingers
+  refuse it, the same as the grey row.
+- **One finger** — Scrolling is **With two fingers**, **Hold, then gesture**
+  (80–800 ms, 280 is the default), or **Off**. A stationary long-press on a
+  word still opens that word's menu. With two fingers, a one-finger swipe sends
+  a command and two fingers scroll the text.
+- **Two fingers** — one finger scrolls. The scrolling choice is grey. A
+  two-finger swipe can send a command, and a short tap can copy.
+- **Both** — Scrolling is the same choice as One finger. **With two fingers**
+  scrolls with two fingers. The both-fingers switch is only for Hold or Off,
+  and it is grey in the other modes.
+- A blank direction sends nothing. Before the hold, a move still scrolls. After
+  the hold, a blank direction does not scroll the text. Lift without a direction
+  and nothing is sent. A second finger cancels a one-finger gesture. A third
+  finger cancels a two-finger gesture.
+- `.gesture` prints the current setup. `.gesture edit` opens the direction
+  commands (also ⋮ → **Edit global gestures** and Options → Input → Global
+  gestures → **Edit global gestures**).
+- `.gesture show on|off` is the mode label near the top-right, inset from the
+  corner. Off by default.
+- `.gesture preview on|off` shows the arrow and the command together. The two
+  can be split in Options.
+- `.editbuttons` opens Edit buttons. Long-press ⋮ still does that until you
+  replace the hold under Edit buttons → gear → Extra gestures. An empty hold
+  does nothing. You can put `.options` in that hold to open Options.
 
 ## Font size
 
@@ -3159,6 +3315,10 @@ above the circle. Options → Window → **Pick loupe size (%)** (50–200,
 default 118) and **Pick loupe zoom (%)** (150–350, default 200 = 2×), or
 `.pick loupe size 118` / `.pick loupe zoom 200`. `.pick loupe` prints the
 current values; `.pick loupe default` restores both.
+
+The two-finger copy widget has its own size and zoom (Options → Window →
+**Copy loupe size (%)** / **Copy loupe zoom (%)**, or `.copy loupe`); copy
+/ swap / close sit outside the circle.
 
 ## Font (typeface)
 
@@ -3181,6 +3341,33 @@ face fall back to DejaVu, then to emoji.
 
 Old profiles that still name Bitstream Vera keep that file; it is no longer
 in the list because it is the same design as DejaVu.
+
+## Text avoids on-screen buttons
+
+**Options → Window → Text avoids on-screen buttons?** (off by default), or
+`.avoidbuttons on|off`. With it on, an on-screen button is a hole: game text
+wraps in the columns left of it (and continues on the right if there is
+room) instead of drawing underneath. Leftover on that row is clipped; it
+does not insert extra rows that shove the rest of the screen. Two buttons
+that share a row are one blob from the leftmost edge to the rightmost —
+text does not squeeze between them. That includes the ordinary grid pad
+and floating copies.
+
+**Avoid-buttons break** (`.avoidbuttons letters|words`, default **letters**):
+how text packs around that hole while avoid is on. `letters` moves one
+character at a time past the button (today's behaviour). `words` keeps
+whole words on one side of the hole — it does not split a word across the
+button. Global **Word Wrap?** is a different option and is unchanged. When
+avoid is off, text paints normally and the break choice is ignored.
+
+This follows **Text width** (`.width`): at 100% you only wrap; over 100%
+you can still drag the canvas sideways, and the holes stay on the screen
+while the text pans. HP widgets and extra-text windows are not holes. The
+wrap updates while you drag a floating button.
+
+**Caveat:** ASCII maps and other cell graphics will look wrong. Leave this
+off for those games. NAWS (the width reported to the world) does not
+change.
 
 ## Colours the world sends
 
@@ -3313,6 +3500,23 @@ scrolled back.
 .timestamp on | off | toggle
 .timestamp log on | off | toggle
 .timestamp hour | minute | second | month | year [on|off]
+```
+
+## Split screen
+
+`.split 40` shows the same game text twice: the left (or top) pane is about
+40 percent wide, each pane scrolls on its own, and buttons still hit the
+primary pane. Default percent is 50. `.split horizontal` / `.split h` (or
+`.split left`) is left/right; `.split vertical` / `.split v` (or `.split top`)
+is top/bottom. `.split off` returns to one pane. This is not a second buffer
+and not an extra-text window.
+
+```
+.split
+.split on | off
+.split horizontal | h | left | right
+.split vertical | v | top | bottom
+.split 40
 ```
 
 ## OSC 8 hyperlinks
@@ -3499,7 +3703,7 @@ moves with the tiles rather than leaving them to overlap, and nothing is
 re-flowed into rows. **Layout template** next to it only chooses which pack the
 wizard offers first; it installs nothing on its own.
 
-**Edit layout:** open **⋮ → Edit buttons**, or long-press **⋮**. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
+**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
 
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.
@@ -3869,12 +4073,13 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 `.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
 `white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
 
-**Keyboard.** `.widget ime <id> stay|hide|overlay`:
+**Keyboard.** `.widget ime <id> stay|hide|overlay|pin`:
 
 - **stay** (default) — stays on the game window, following IME lift
 - **hide** — gone while the keyboard is up
 - **overlay** — may sit over the keyboard (`TYPE_APPLICATION_OVERLAY`, same
   **"Display over other apps"** permission as [super-buttons](#super-buttons-buttons-on-top-of-the-keyboard))
+- **pin** — stays visible and does not follow the lift
 
 `.bind` is the same verb as `.source`. Bare `.widget` prints usage.
 
@@ -3907,7 +4112,7 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 .widget hold <id> [command]
 .widget warn <id> <percent> [color]
 .widget warn <id> off
-.widget ime <id> stay|hide|overlay
+.widget ime <id> stay|hide|overlay|pin
 ```
 
 ## GMCP (short)
@@ -4097,7 +4302,8 @@ Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
 Timers). Options has a search field at the bottom; tap a hit to jump there
 and flash the matching row.
 
-- **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons.
+- **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons,
+  Edit global gestures, Gesture mode.
   The pack/size wizard is **Options → Button → Load button set from wizard**.
 - **SESSION** — Options, Speedwalk Directions, Map (same as `.map open`),
   Plugins
@@ -4117,6 +4323,12 @@ settings they depend on. Storage access is there too.
 Connection duration appears on the ongoing notification and launcher row.
 With more than one world connected, that notification expands: every live
 session is listed, and each name is a button that opens that world.
+
+**Options → Service → Notification stack** is **One stack** or **Separate
+bars**. One stack puts the connection, alerts and chat in one shade group.
+Separate bars gives each its own. With several worlds open, the world you
+are in decides. A trigger set to **Spawn new?** stays on its own bar either
+way.
 
 **Persistent Connection?** (Options → Miscellaneous): only while **Auto
 Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for

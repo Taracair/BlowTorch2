@@ -23,6 +23,26 @@ public class GestureCatalogTest {
 	}
 
 	@Test
+	public void aRecordedShakeStaysInTheEditorList() {
+		assertEquals(GestureCatalog.all().size() + 1,
+				GestureCatalog.editorChoices("!u:slash", true).size());
+		assertEquals("u:slash", GestureCatalog.editorChoices("!u:slash", true)
+				.get(GestureCatalog.all().size()).getId());
+		assertEquals(GestureCatalog.all().size(),
+				GestureCatalog.editorChoices("!wave", true).size());
+		assertEquals(GestureCatalog.all().size(),
+				GestureCatalog.editorChoices("hello", true).size());
+	}
+
+	@Test
+	public void aRecordedShakeIsAGestureAndABareWordIsNot() {
+		assertTrue(GestureCatalog.isGesturePattern("!u:slash", true));
+		assertEquals("u:slash", GestureCatalog.fromPattern("!u:slash", true).getId());
+		assertFalse(GestureCatalog.isGesturePattern("!slash", true));
+		assertFalse(GestureCatalog.isGesturePattern("!u:wave", true));
+	}
+
+	@Test
 	public void anUnknownNameAfterThePrefixIsOrdinaryText() {
 		// The reservation is deliberately narrow. A player whose world shouts
 		// "!!!" keeps their trigger, and a profile from a later version naming a

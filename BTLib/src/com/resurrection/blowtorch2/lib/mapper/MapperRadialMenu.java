@@ -46,6 +46,8 @@ public final class MapperRadialMenu {
 	public static final String ACTION_CENTER = "center";
 	public static final String ACTION_FOLLOW = "follow";
 	public static final String ACTION_REC = "rec";
+	/** While recording: set the current room name from recent lines. */
+	public static final String ACTION_NAME = "namefrom";
 	public static final String ACTION_UNDO = "undo";
 
 	// Floors
@@ -104,15 +106,27 @@ public final class MapperRadialMenu {
 
 	public static void showNav(ViewGroup parent, Listener listener,
 			boolean recording, boolean follow) {
-		Item[] items = {
-				new Item(ACTION_PATH_TO, "Path to"),
-				new Item(ACTION_GO_THERE, "Go there"),
-				new Item(ACTION_FIND, "Find"),
-				new Item(ACTION_CENTER, "Center"),
-				new Item(ACTION_FOLLOW, "Follow", follow ? "on" : "off"),
-				new Item(ACTION_REC, "Record", recording ? "on" : "off")
-				// Undo lives in Edit: it undoes edits, not movement.
-		};
+		Item[] items;
+		if (recording) {
+			items = new Item[] {
+					new Item(ACTION_PATH_TO, "Path to"),
+					new Item(ACTION_GO_THERE, "Go there"),
+					new Item(ACTION_FIND, "Find"),
+					new Item(ACTION_CENTER, "Center"),
+					new Item(ACTION_FOLLOW, "Follow", follow ? "on" : "off"),
+					new Item(ACTION_NAME, "Name", "buffer"),
+					new Item(ACTION_REC, "Record", "on")
+			};
+		} else {
+			items = new Item[] {
+					new Item(ACTION_PATH_TO, "Path to"),
+					new Item(ACTION_GO_THERE, "Go there"),
+					new Item(ACTION_FIND, "Find"),
+					new Item(ACTION_CENTER, "Center"),
+					new Item(ACTION_FOLLOW, "Follow", follow ? "on" : "off"),
+					new Item(ACTION_REC, "Record", "off")
+			};
+		}
 		show(parent, "Nav", items, listener);
 	}
 

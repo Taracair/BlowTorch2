@@ -398,6 +398,12 @@ public class SensorProbeDialog extends Dialog {
 	}
 
 	private void caveatFor(final String provider) {
+		if (gesture.getId() != null && gesture.getId().startsWith("u:")) {
+			caveat.setText("This shows that the phone sees the movement. Whether it"
+					+ " matches the shape you recorded is My shakes, and only while"
+					+ " Use my shakes is on.");
+			return;
+		}
 		if ("shake".equals(gesture.getId())) {
 			caveat.setText("How hard a shake has to be is a number you calibrate, and"
 					+ " it is kept by the part of the app that does the detecting, so"

@@ -8,15 +8,24 @@ import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.window.BaseSelectionDialog;
 import com.resurrection.blowtorch2.lib.window.EditorHelp;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.service.sensor.GestureGate;
+import com.resurrection.blowtorch2.lib.service.sensor.CustomShakeLibrary;
+import com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture;
+import com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -27,6 +36,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -87,13 +97,32 @@ public class GestureListDialog extends Dialog {
 			+ "and Battery low threshold. "
 			+ "Headphone, charger, battery, screen and rotation readings are not affected by either.\n\n"
 			+ "landscape / portrait: the orientation the phone already has when you "
-			+ "bind the reading is not a fire. Turn it the other way, then back.";
+			+ "bind the reading is not a fire. Turn it the other way, then back.\n\n"
+			+ "ON AND OFF\n"
+			+ "The power button at the top silences every reading in this world. "
+			+ "The power buttons on the rows stay as they were, and other worlds "
+			+ "are not touched. From the input bar that is\n"
+			+ "    .sensor all off\n\n"
+			+ "A row's own power button turns that reading off without opening "
+			+ "it. It is there once something is set up, the same button as on "
+			+ "a trigger. Several triggers on one reading all follow it.\n\n"
+			+ "MY SHAKES\n"
+			+ "Record a shake draws each try as a line, on the screen and toward "
+			+ "you, so you can see how far apart they are. Three lines before it "
+			+ "saves; the slider says how close a later shake has to be. The "
+			+ "shape stays on this phone. Use my shakes, on that screen, greys "
+			+ "left, right, up and down in this world and they stay quiet. Shake "
+			+ "the phone keeps its own button.";
 
 	private final IConnectionBinder service;
 	private final boolean showRegexWarning;
 	private LinearLayout rows;
 	/** Whether the readings this phone cannot provide are folded open. */
 	private boolean showUnavailable;
+	/** Shapes recorded on this phone. Empty when the service cannot be asked. */
+	private CustomShakeLibrary shapes = CustomShakeLibrary.empty();
+	/** This world's switch. Directions stay listed, grey, and quiet. */
+	private boolean myShakesOn;
 
 	public GestureListDialog(final Context context, final IConnectionBinder service,
 			final boolean showRegexWarning) {
@@ -173,7 +202,11 @@ public class GestureListDialog extends Dialog {
 	/** Rebuilt rather than patched, so it cannot drift from the settings. */
 	private void build() {
 		rows.removeAllViews();
+		shapes = loadShapes();
+		myShakesOn = readFlag(SensorWorldFlags.MY_SHAKES, false);
 		HashMap<String, List<TriggerData>> byGesture = readTriggers();
+		addMasterRow();
+		addMyShakes(byGesture);
 		List<Gesture> unavailable = new ArrayList<Gesture>();
 		String group = null;
 
@@ -223,6 +256,165 @@ public class GestureListDialog extends Dialog {
 		rows.addView(view);
 	}
 
+	private void addMasterRow() {
+		View row = LayoutInflater.from(getContext())
+				.inflate(R.layout.sensor_list_row, rows, false);
+		TextView label = (TextView) row.findViewById(R.id.label);
+		label.setText("Sensors in this world");
+		final TextView status = (TextView) row.findViewById(R.id.status);
+		final boolean on = readFlag(SensorWorldFlags.ENABLED, true);
+		status.setText(on
+				? "On. Every reading below can fire here. Other worlds have their own."
+				: "Off. Nothing on this list fires here. The power buttons stay as they were.");
+		status.setTextColor(on ? TEXT_CONFIGURED : TEXT_SECONDARY);
+		row.findViewById(R.id.test).setVisibility(View.GONE);
+		row.findViewById(R.id.accent).setBackgroundColor(on ? ACCENT_LIVE : ACCENT_NONE);
+		final ImageButton power = (ImageButton) row.findViewById(R.id.enabled);
+		final boolean[] armed = new boolean[] { on };
+		showPower(power, armed[0]);
+		power.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				armed[0] = !armed[0];
+				showPower(power, armed[0]);
+				writeFlag(SensorWorldFlags.ENABLED, armed[0]);
+				status.setText(armed[0]
+						? "On. Every reading below can fire here. Other worlds have their own."
+						: "Off. Nothing on this list fires here. The power buttons stay as they were.");
+				status.setTextColor(armed[0] ? TEXT_CONFIGURED : TEXT_SECONDARY);
+				row.findViewById(R.id.accent).setBackgroundColor(
+						armed[0] ? ACCENT_LIVE : ACCENT_NONE);
+			}
+		});
+		rows.addView(row);
+	}
+
+	private void addMyShakes(final HashMap<String, List<TriggerData>> byGesture) {
+		addSection("My shakes", null);
+		Button open = new Button(getContext());
+		open.setText("Record a shake");
+		open.setAllCaps(false);
+		open.setTextColor(0xFF66CCFF);
+		open.setTextSize(15);
+		open.setTypeface(Typeface.DEFAULT_BOLD);
+		open.setBackgroundResource(R.drawable.editor_more_button_bg);
+		open.setMinHeight((int) (44 * getContext().getResources().getDisplayMetrics().density));
+		open.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				new MyShakesDialog(getContext(), service, showRegexWarning,
+						new MyShakesDialog.Closed() {
+							@Override
+							public void onClosed() {
+								build();
+							}
+						}).show();
+			}
+		});
+		int inset = (int) (10 * getContext().getResources().getDisplayMetrics().density);
+		LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		openParams.setMargins(inset, inset / 2, inset, inset / 2);
+		rows.addView(open, openParams);
+
+		java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<String>();
+		for (int i = 0; i < shapes.entries().size(); i++) {
+			names.add(shapes.entries().get(i).getName());
+		}
+		for (String id : byGesture.keySet()) {
+			if (id != null && id.startsWith(CustomShakeNames.PREFIX)) {
+				names.add(id.substring(CustomShakeNames.PREFIX.length()));
+			}
+		}
+		for (String name : names) {
+			Gesture g = CustomShakeNames.gesture(name);
+			if (g == null) {
+				continue;
+			}
+			addRow(g, GestureAvailability.resolve(getContext(), g), byGesture.get(g.getId()));
+		}
+	}
+
+	private CustomShakeLibrary loadShapes() {
+		try {
+			return CustomShakeLibrary.decode(service.getCustomShakeLibrary());
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"GestureListDialog.shapes", e);
+			return CustomShakeLibrary.empty();
+		}
+	}
+
+	private static void showPower(final ImageButton power, final boolean on) {
+		power.setVisibility(View.VISIBLE);
+		BaseSelectionDialog.applyToggleTint(power, on);
+		power.setContentDescription(on ? "On" : "Off");
+	}
+
+	private boolean quieted(final Gesture g) {
+		return myShakesOn && (GestureGate.isBuiltinDirection(g.getId())
+				|| GestureGate.isShakePattern(g.getId()));
+	}
+
+	private void paintRow(final TextView label, final TextView status, final View accent,
+			final Gesture g, final GestureAvailability.Resolution r, final boolean configured) {
+		if (quieted(g)) {
+			label.setTextColor(BaseSelectionDialog.ROW_TITLE_COLOR_OFF);
+			status.setTextColor(BaseSelectionDialog.ROW_EXTRA_COLOR_OFF);
+			accent.setBackgroundColor(configured ? ACCENT_LIVE_DEAD : ACCENT_NONE);
+			return;
+		}
+		label.setTextColor(r.isAvailable() ? TEXT_PRIMARY : TEXT_PRIMARY_DEAD);
+		status.setTextColor(configured && r.isAvailable() ? TEXT_CONFIGURED : TEXT_SECONDARY);
+		accent.setBackgroundColor(!configured ? ACCENT_NONE
+				: (r.isAvailable() ? ACCENT_LIVE : ACCENT_LIVE_DEAD));
+	}
+
+	private void setTriggersEnabled(final List<TriggerData> bound, final boolean on) {
+		try {
+			for (int i = 0; i < bound.size(); i++) {
+				TriggerData trigger = bound.get(i);
+				trigger.setEnabled(on);
+				service.setTriggerEnabled(on, trigger.getName());
+			}
+			service.saveSettings();
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"GestureListDialog.switch", e);
+		}
+	}
+
+	private boolean readFlag(final String key, final boolean fallback) {
+		try {
+			SettingsGroup root = service.getSettings();
+			if (root == null) {
+				return fallback;
+			}
+			Option opt = root.findOptionByKey(key);
+			if (opt instanceof BooleanOption) {
+				Object value = ((BooleanOption) opt).getValue();
+				if (value instanceof Boolean) {
+					return ((Boolean) value).booleanValue();
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"GestureListDialog.read", e);
+		}
+		return fallback;
+	}
+
+	private void writeFlag(final String key, final boolean on) {
+		try {
+			service.updateBooleanSetting(key, on);
+			service.saveSettings();
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"GestureListDialog.write", e);
+		}
+	}
+
 	private void addRow(final Gesture g, final GestureAvailability.Resolution r,
 			final List<TriggerData> bound) {
 		final boolean configured = bound != null && !bound.isEmpty();
@@ -231,16 +423,12 @@ public class GestureListDialog extends Dialog {
 
 		TextView label = (TextView) row.findViewById(R.id.label);
 		label.setText(g.getLabel());
-		label.setTextColor(r.isAvailable() ? TEXT_PRIMARY : TEXT_PRIMARY_DEAD);
 
-		TextView status = (TextView) row.findViewById(R.id.status);
+		final TextView status = (TextView) row.findViewById(R.id.status);
 		status.setText(describe(g, r, bound));
-		status.setTextColor(configured && r.isAvailable()
-				? TEXT_CONFIGURED : TEXT_SECONDARY);
 
-		View accent = row.findViewById(R.id.accent);
-		accent.setBackgroundColor(!configured ? ACCENT_NONE
-				: (r.isAvailable() ? ACCENT_LIVE : ACCENT_LIVE_DEAD));
+		final View accent = row.findViewById(R.id.accent);
+		paintRow(label, status, accent, g, r, configured);
 
 		// Deliberately still tappable when the sensor is missing: profiles are
 		// shared, and one built here should be buildable for a phone that does
@@ -259,6 +447,26 @@ public class GestureListDialog extends Dialog {
 				probe(g);
 			}
 		});
+
+		final ImageButton power = (ImageButton) row.findViewById(R.id.enabled);
+		if (configured) {
+			boolean anyOn = false;
+			for (int i = 0; i < bound.size(); i++) {
+				anyOn = anyOn || bound.get(i).isEnabled();
+			}
+			final boolean[] armed = new boolean[] { anyOn };
+			showPower(power, armed[0]);
+			power.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(final View v) {
+					armed[0] = !armed[0];
+					setTriggersEnabled(bound, armed[0]);
+					showPower(power, armed[0]);
+					status.setText(describe(g, r, bound));
+					paintRow(label, status, accent, g, r, true);
+				}
+			});
+		}
 
 		rows.addView(row);
 	}
@@ -296,23 +504,54 @@ public class GestureListDialog extends Dialog {
 		if (!r.isAvailable()) {
 			out.append(r.missingReason()).append(' ');
 		}
+		if (myShakesOn && (GestureGate.isBuiltinDirection(g.getId())
+				|| GestureGate.isShakePattern(g.getId()))) {
+			out.append("Quiet while Use my shakes is on. ");
+		}
+		String shape = shapeNote(g);
 		if (bound == null || bound.isEmpty()) {
 			// With nothing set up, what the reading means is the useful thing to
 			// say. Once something answers it, what that is matters more.
+			if (shape != null && shape.startsWith("Not recorded")) {
+				out.append(shape);
+				return out.toString();
+			}
+			if (shape != null) {
+				out.append(shape).append(' ');
+			}
 			out.append(g.getHelp());
 			return out.toString();
 		}
-		TriggerData first = bound.get(0);
-		if (!first.isEnabled()) {
+		boolean anyOn = false;
+		for (int i = 0; i < bound.size(); i++) {
+			anyOn = anyOn || bound.get(i).isEnabled();
+		}
+		if (!anyOn) {
 			out.append("Turned off \u2014 ");
 		}
-		out.append(describeActions(first));
+		out.append(describeActions(bound.get(0)));
 		if (bound.size() > 1) {
 			// Not an error, and worth saying plainly: all of them run.
 			out.append(" \u00b7 ").append(bound.size())
 				.append(" triggers answer this, and all of them run");
 		}
+		if (shape != null) {
+			out.append(" \u00b7 ").append(shape);
+		}
 		return capitalised(out.toString());
+	}
+
+	/** Stroke count for a recorded shake, or null for a built-in reading. */
+	private String shapeNote(final Gesture g) {
+		if (g == null || !g.getId().startsWith(CustomShakeNames.PREFIX)) {
+			return null;
+		}
+		CustomShakeLibrary.Entry entry = shapes.byName(
+				g.getId().substring(CustomShakeNames.PREFIX.length()));
+		if (entry == null || !entry.canMatch()) {
+			return "Not recorded on this phone yet.";
+		}
+		return entry.getTraces().size() + " lines, match " + entry.getTolerance();
 	}
 
 	private static String capitalised(final String text) {

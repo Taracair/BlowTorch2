@@ -251,6 +251,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	public final static int MESSAGE_TAPWORDMENU = 8889;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
+	private static final int MESSAGE_BUTTON_HEAT = 8871;
 	/** MCP displayurl — open Intent.ACTION_VIEW with obj as URL string. */
 	private static final int MESSAGE_MCP_LAUNCHURL = 8862;
 	/** MCP simpleedit — Bundle with reference/title/type/content. */
@@ -320,6 +321,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_INSERT_LITERAL = 936;
 	/** Open the Options screen; sent by {@code .options}. */
 	protected static final int MESSAGE_OPEN_OPTIONS = 937;
+	protected static final int MESSAGE_RUN_UI_ACTION = 945;
 	/** obj: incoming text, for the word completer's vocabulary. */
 	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
 	/** obj: the world's prompt for the prompt bar; empty hides it. */
@@ -333,6 +335,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_GAUGE_WIDGET_VALUES = 941;
 	/** Command history browse; arg1 negative = older. */
 	protected static final int MESSAGE_INPUT_HISTORY = 942;
+	/** arg1: 0=off, 1=left/right, 2=top/bottom; arg2: primary percent. */
+	protected static final int MESSAGE_APPLY_SPLIT = 944;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -385,6 +389,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean floatingButtonsEnabled = true;
 	/** Windows for mudstd.frame image frames; built on demand, see ensureFrameOverlays(). */
 	private FrameOverlayController frameOverlay;
+	/** Secondary view of mainDisplay's buffer when {@code .split} is on. */
+	private com.resurrection.blowtorch2.lib.window.Window mSplitMirror;
+	private LinearLayout mSplitHost;
+	private int mSplitOrientation = SplitLayout.ORIENTATION_HORIZONTAL;
+	private int mSplitPercent = SplitLayout.DEFAULT_PERCENT;
+	private boolean mSplitOn;
+	/** Last split the service asked for. 0 is off. Cleanup clears it so the next broadcast wins. */
+	private int mPendingSplitOrientation;
+	private int mPendingSplitPercent = SplitLayout.DEFAULT_PERCENT;
 	/** Cached extra-text slots from settings (UI process; Connection holds service copy). */
 	private final java.util.ArrayList<ExtraTextSlot> extraTextSlotsCache =
 			new java.util.ArrayList<ExtraTextSlot>();
@@ -1254,6 +1267,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 					}
 					break;
+				case MESSAGE_APPLY_SPLIT:
+					applySplitLayout(msg.arg1, msg.arg2);
+					break;
 				case MESSAGE_OPEN_CHAT_THREAD:
 					ensureChatPanel();
 					if (chatPanel != null) {
@@ -1575,7 +1591,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 						
 						com.resurrection.blowtorch2.lib.window.Window w = (com.resurrection.blowtorch2.lib.window.Window) MainWindow.this.findViewById(MAIN_WINDOW_ID);
-						if(w != null) {
+						if (w != null && w.jumpsOnSend()) {
 							w.jumpToStart();
 						}
 						//} catch (RemoteException e1) {
@@ -1621,6 +1637,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_CLEARALLBUTTONS:
 					MainWindow.this.windowCall("button_window", "clearButtons", "");
 					break;
+				case MESSAGE_BUTTON_HEAT:
+					MainWindow.this.windowCall("button_window", "buttonHeat",
+							msg.obj == null ? "" : String.valueOf(msg.obj));
+					break;
 				case MESSAGE_CHANGEBUTTONSET:
 					if (msg.obj != null && service != null) {
 						try {
@@ -1638,6 +1658,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_OPEN_OPTIONS:
 					openOptionsDialog();
+					break;
+				case MESSAGE_RUN_UI_ACTION:
+					runUiAction((String) msg.obj);
 					break;
 				case MESSAGE_VOCABULARY_TEXT:
 					if (msg.obj instanceof DisplayedString) {
@@ -1902,7 +1925,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		boolean useStandard = mCompatibilityMode || isKeepLast;
+		boolean have = Boolean.TRUE.equals(mInputBox.getBackSpaceBugFix());
 		mInputBox.setBackSpaceBugFix(useStandard);
+		if (have == useStandard) {
+			return;
+		}
 		// Through restartInputConnection so a live password mask is re-asserted
 		// after the IME rebuild (Keep Last uses the BackSpaceBugFix path).
 		restartInputConnection();
@@ -2150,6 +2177,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		//SubMenu sm = menu.addSubMenu(0, 900, 0, "More");
 		menu.add(0, 450, 450, "Edit buttons");
+		menu.add(0, 451, 451, "Edit global gestures");
+		menu.add(0, 452, 452, "Gesture mode");
 		menu.add(0, 500, 500 ,"Speedwalk Directions");
 		menu.add(0, 520, 520, "Map");
 		menu.add(0, 600, 600, "Plugins");
@@ -2615,6 +2644,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		case 450: // Edit buttons (same as long-press ⋮)
 			windowCall("button_window", "doEdit", "");
+			break;
+		case 451:
+			openGlobalGestureEditor();
+			break;
+		case 452:
+			openGestureModeDialog();
 			break;
 		case 401: // Button Sets (Lua PopulateMenu; backup if invoke() did not run)
 			try {
@@ -3174,8 +3209,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		boolean follow = suggestionsFollowCaret();
 		String prefix = WordSuggestions.completionPrefix(text, caret, follow);
 		boolean atStart = isAtLineStart(text, caret, prefix);
-		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
-				atStart, atStart ? null : leadingVerb(text)));
+		if (prefix.length() == 0) {
+			String done = WordSuggestions.completedWordBefore(text, caret);
+			if (done.length() > 0) {
+				mWordSuggestionList.addAll(mWordSuggestions.suggestNext(done,
+						mWordSuggestionShow));
+			}
+		} else {
+			mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
+					atStart, atStart ? null : leadingVerb(text)));
+		}
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
 	}
@@ -3673,20 +3716,28 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null
-				|| prefix.length() == 0) {
+		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null) {
 			mInputBox.setGhostCompletion(null, null, 0);
 			mInputBox.setGhostExtras(null, null, null);
 			return;
 		}
 		final int at = 0;
 		String top = words.get(at);
-		// Inline ghost sits on top of whatever follows the caret. That is fine
-		// at the end of the line and reads as corruption in the middle, so
-		// mid-line (with Complete at the cursor) the list goes under the line
-		// instead, including the top suggestion the ghost would have been.
 		boolean atEnd = caretAtEndOfInput();
 		boolean inline = atEnd || !suggestionsFollowCaret();
+		if (prefix.length() == 0) {
+			if (!inline) {
+				mInputBox.setGhostCompletion(null, null, 0);
+				showGhostExtras(words, -1);
+				return;
+			}
+			mInputBox.setGhostCompletion(top, top, at + 1);
+			showGhostExtras(words, at);
+			return;
+		}
+		// Inline ghost sits on top of whatever follows the caret. That is fine
+		// at the end of the line and reads as corruption in the middle, so
+		// mid-line the numbered list is on its own rows under the text.
 		if (top.equalsIgnoreCase(prefix)) {
 			if (inline) {
 				mInputBox.setGhostCompletion(null, null, 0);
@@ -4096,6 +4147,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			}
 		});
+		mInputBox.setGhostBelowFieldLiftListener(
+				new BetterEditText.GhostBelowFieldLiftListener() {
+					@Override
+					public void onGhostBelowFieldLiftPx(final int liftPx) {
+						if (chrome != null) {
+							chrome.setGhostBelowFieldLiftPx(liftPx);
+						}
+					}
+				});
 	}
 
 	/**
@@ -4620,6 +4680,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		refreshGameChrome();
+		scheduleInputActionLayoutRefresh();
 		// Floating buttons keep one stored position per orientation. Post it
 		// rather than doing it here: the branches above can ask for the other
 		// orientation outright (the "force landscape" profile option), and the
@@ -5090,6 +5151,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// Before the early return: a pause with no service is still a pause, and
 		// this is the last reliable moment to write what the session taught.
 		saveCommandKnowledge();
+		windowCall("button_window", "flushButtonHeat", "");
 		if(service == null) { super.onPause(); return; };
 		cancelTouchOnPause();
 		try {
@@ -5352,6 +5414,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (growOpt != null && growOpt.getValue() instanceof Boolean) {
 				mGrowInputBar = (Boolean) growOpt.getValue();
 			}
+			publishGlobalGestures(group);
 			BaseOption lowerOpt = (BaseOption) group.findOptionByKey("lowercase_command_start");
 			if (lowerOpt != null && lowerOpt.getValue() instanceof Boolean) {
 				mLowercaseCommandStart = (Boolean) lowerOpt.getValue();
@@ -5501,6 +5564,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setPhrases(phrasesOpt != null
 					&& phrasesOpt.getValue() instanceof Boolean
 					&& (Boolean) phrasesOpt.getValue());
+			BaseOption nextOpt = (BaseOption) group.findOptionByKey(
+					"word_complete_next");
+			// On when the key is absent: that is the plugin default, and an
+			// older profile did not store it.
+			boolean suggestNext = true;
+			if (nextOpt != null && nextOpt.getValue() instanceof Boolean) {
+				suggestNext = (Boolean) nextOpt.getValue();
+			}
+			mWordSuggestions.setSuggestNext(suggestNext);
 			BaseOption whereOpt =
 					(BaseOption) group.findOptionByKey("word_complete_where");
 			mWordSuggestionsWhere = whereOpt != null
@@ -5569,9 +5641,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			mCompatibilityMode = (Boolean)((BaseOption)group.findOptionByKey("compatibility_mode")).getValue();
 			applyInputConnectionMode();
-			
-			InputMethodManager imm = (InputMethodManager) mInputBox.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-			imm.restartInput(mInputBox);
 			//imm.
 			//im
 			//get the rest of the window options that are necessary to function
@@ -5616,10 +5685,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void setupEditor(boolean useExtractUI,boolean useSuggestions) {
 		this.fullscreenEditor = useExtractUI;
 		this.useSuggestions = useSuggestions;
-		if (mInputBox != null) {
+		if (mInputBox != null && !mLocalEchoOff) {
 			mInputBox.setAllowSuggestions(useSuggestions);
 		}
 
+		int imeBefore = mInputBox.getImeOptions();
 		if (useExtractUI) {
 			int current = mInputBox.getImeOptions();
 			int wanted = current & (0xFFFFFFFF ^ EditorInfo.IME_FLAG_NO_EXTRACT_UI);
@@ -5633,7 +5703,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setUseFullScreen(false);
 		}
 		// setInputType must include MULTI_LINE when growing — otherwise Android forces single-line.
-		applyGrowInputBar(mGrowInputBar);
+		applyGrowInputBar(mGrowInputBar, mInputBox.getImeOptions() != imeBefore);
 	}
 
 	/** True while the server echoes for us (telnet ECHO) — the input bar is masked. */
@@ -5676,6 +5746,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Apply Options → Input → Grow Input Bar? / {@code .wrap} to the input field. */
 	private void applyGrowInputBar(boolean grow) {
+		applyGrowInputBar(grow, false);
+	}
+
+	private void applyGrowInputBar(boolean grow, final boolean imeChanged) {
 		mGrowInputBar = grow;
 		if (mInputBox == null) {
 			return;
@@ -5691,6 +5765,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			type |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 		}
 		if (mLocalEchoOff) {
+			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+		}
+		android.text.method.TransformationMethod transform = mInputBox.getTransformationMethod();
+		boolean havePassword = transform instanceof android.text.method.PasswordTransformationMethod;
+		boolean haveSingle = transform instanceof android.text.method.SingleLineTransformationMethod;
+		int wantMax = (mLocalEchoOff || !grow) ? 1 : INPUT_GROW_MAX_LINES;
+		if (!InputBarRestart.needed(mInputBox.getInputType(), type,
+				mInputBox.getMaxLines(), wantMax,
+				havePassword, mLocalEchoOff,
+				haveSingle, !mLocalEchoOff && !grow,
+				imeChanged, !mLocalEchoOff && grow)) {
+			return;
+		}
+		if (mLocalEchoOff) {
 			// Server said IAC WILL ECHO — it is taking over echoing, which on a MUD
 			// means a password prompt. Hide the characters and keep the keyboard from
 			// learning them. PasswordTransformationMethod does the masking; we deliberately
@@ -5698,7 +5786,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// to Autofill / password managers (Bitwarden). BetterEditText returns
 			// AUTOFILL_TYPE_NONE (Android 14+) and IME_FLAG_NO_PERSONALIZED_LEARNING so
 			// SwiftKey Incognito / Gboard private mode only while the password is held.
-			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 			mInputBox.setAllowSuggestions(false);
 			mInputBox.setNoPersonalizedLearning(true);
 			mInputBox.setInputType(type);
@@ -5881,6 +5968,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(pick);
 		}
 
+		@Override
+		public void applySplit(int orientation, int percent) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(
+					MESSAGE_APPLY_SPLIT, orientation, percent));
+		}
+
 		public void invokeDirtyExit() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_DIRTYEXITNOW);
 			
@@ -6016,6 +6109,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendEmptyMessage(MESSAGE_OPEN_OPTIONS);
 		}
 
+		public void runUiAction(String action) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_RUN_UI_ACTION, action));
+		}
+
 		public void vocabularyText(String display, String text) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT,
 					new DisplayedString(display, text)));
@@ -6104,6 +6201,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		public void clearAllButtons() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_CLEARALLBUTTONS);
+		}
+
+		public void buttonHeat(String mode) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_BUTTON_HEAT,
+					mode == null ? "" : mode));
 		}
 		
 		public void updateMaxVitals(int hp, int mana, int moves) {
@@ -6310,6 +6412,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		myhandler.removeMessages(MESSAGE_INITIALIZEWINDOWS);
+		myhandler.removeMessages(MESSAGE_APPLY_SPLIT);
 		myhandler.removeMessages(MESSAGE_RETRYWINDOWTOKENS);
 		myhandler.removeMessages(MESSAGE_REBINDSERVICE);
 		myhandler.removeMessages(MESSAGE_MARKWINDOWSDIRTY);
@@ -6489,6 +6592,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// later loadSettings → applyGrowInputBar refresh cannot leave the
 		// previous world's strip open (or close this world's .editpanel).
 		scheduleInputActionLayoutRefresh();
+		if (mPendingSplitOrientation != 0) {
+			applySplitLayout(mPendingSplitOrientation, mPendingSplitPercent);
+		}
 		//Debug.stopMethodTracing();
 	}
 
@@ -6706,6 +6812,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
+				public void noteButtonHeat(int index, String kind) {
+					windowCall("button_window", "noteButtonHeatAt",
+							index + "\t" + (kind == null ? "" : kind));
+				}
+
+				@Override
 				public void loadButtonSet(String name) {
 					if (name == null || name.length() == 0 || service == null) {
 						return;
@@ -6744,6 +6856,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
+				public View getButtonWindowView() {
+					RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+					if (rl == null) {
+						return null;
+					}
+					return rl.findViewWithTag("button_window");
+				}
+
+				@Override
 				public boolean showGestureHints() {
 					return true;
 				}
@@ -6776,6 +6897,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 		}
 		floatingButtons.bringUnderChrome();
+		bindAvoidButtonsToMainWindow();
+	}
+
+	private void bindAvoidButtonsToMainWindow() {
+		final com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
+		if (main == null || floatingButtons == null) {
+			return;
+		}
+		main.setFloatingButtonObstacles(new com.resurrection.blowtorch2.lib.window.Window.FloatingButtonObstacles() {
+			@Override
+			public void collectWindowLocalRects(
+					com.resurrection.blowtorch2.lib.window.Window window,
+					java.util.List<ButtonTextFlow.RectPx> dest) {
+				if (floatingButtons != null) {
+					floatingButtons.collectWindowLocalRects(window, dest);
+				}
+			}
+		});
+		floatingButtons.setLayoutListener(new FloatingButtonController.LayoutListener() {
+			@Override
+			public void onFloatingButtonsMoved() {
+				com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
+				if (w != null) {
+					w.onFloatingButtonsMoved();
+				}
+			}
+		});
 	}
 
 	/** Re-raise floaters above frames/extra text/mapper, still under ⋮ (D4). */
@@ -7568,6 +7716,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			extraTextOverlay.refreshScrollSpeeds();
 		}
 		applyGameLightChrome();
+		if (w != null && "mainDisplay".equals(w.getName())) {
+			bindAvoidButtonsToMainWindow();
+		}
 		if (w != null && "mainDisplay".equals(w.getName())
 				&& mPrefixPick.isArmed()
 				&& (mPrefixPickCommandMode == PickCommand.MODE_ONCE
@@ -7579,6 +7730,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	
 	public void cleanupWindows() {
+		mPendingSplitOrientation = 0;
+		clearSplitLayout();
 		if (chatPanel != null) {
 			chatPanel.detach();
 		}
@@ -7996,6 +8149,143 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
 
+	private void publishGlobalGestures(final SettingsGroup group) {
+		if (group == null) {
+			GlobalGestures.publish(GlobalGestures.defaults());
+			refreshGlobalGestureWindows();
+			return;
+		}
+		GlobalGestures.publish(new GlobalGestures(
+				optInt(group, GlobalGestures.KEY_MODE, GlobalGestures.MODE_CLASSIC),
+				optInt(group, GlobalGestures.KEY_SCROLL, GlobalGestures.SCROLL_HOLD),
+				optInt(group, GlobalGestures.KEY_HOLD_MS, GlobalGestures.DEFAULT_HOLD_MS),
+				optBool(group, GlobalGestures.KEY_SHOW_MODE, false),
+				optBool(group, GlobalGestures.KEY_SHOW_ARROW, true),
+				optBool(group, GlobalGestures.KEY_SHOW_COMMAND, true),
+				optBool(group, GlobalGestures.KEY_TWO_DIR, true),
+				optBool(group, GlobalGestures.KEY_TWO_COPY, true),
+				optBool(group, GlobalGestures.KEY_TWO_SCROLL, false),
+				optString(group, GlobalGestures.KEY_BINDINGS, "")));
+		refreshGlobalGestureWindows();
+	}
+
+	private static int optInt(final SettingsGroup group, final String key, final int fallback) {
+		BaseOption o = (BaseOption) group.findOptionByKey(key);
+		if (o != null && o.getValue() instanceof Integer) {
+			return ((Integer) o.getValue()).intValue();
+		}
+		return fallback;
+	}
+
+	private static boolean optBool(final SettingsGroup group, final String key, final boolean fallback) {
+		BaseOption o = (BaseOption) group.findOptionByKey(key);
+		if (o != null && o.getValue() instanceof Boolean) {
+			return ((Boolean) o.getValue()).booleanValue();
+		}
+		return fallback;
+	}
+
+	private static String optString(final SettingsGroup group, final String key, final String fallback) {
+		BaseOption o = (BaseOption) group.findOptionByKey(key);
+		if (o != null && o.getValue() != null) {
+			return o.getValue().toString();
+		}
+		return fallback;
+	}
+
+	private void refreshGlobalGestureWindows() {
+		if (windowMap == null) {
+			return;
+		}
+		for (com.resurrection.blowtorch2.lib.window.Window w : windowMap.values()) {
+			if (w != null) {
+				w.invalidate();
+			}
+		}
+	}
+
+	private void runUiAction(final String action) {
+		if ("editbuttons".equals(action)) {
+			windowCall("button_window", "doEdit", "");
+			return;
+		}
+		if ("gesture-edit".equals(action)) {
+			openGlobalGestureEditor();
+			return;
+		}
+		if ("gesture-mode".equals(action)) {
+			openGestureModeDialog();
+		}
+	}
+
+	public void openGlobalGestureEditor() {
+		myhandler.post(new Runnable() {
+			@Override
+			public void run() {
+				GlobalGestureEditorDialog.show(MainWindow.this, service, new Runnable() {
+					@Override
+					public void run() {
+						refreshGlobalGestureWindows();
+					}
+				});
+			}
+		});
+	}
+
+	public void openGestureModeDialog() {
+		myhandler.post(new Runnable() {
+			@Override
+			public void run() {
+				GlobalGestureEditorDialog.showMode(MainWindow.this,
+						GlobalGestures.current().mode(),
+						GlobalGestures.current().scroll(),
+						new GlobalGestureEditorDialog.ModeChoice() {
+							@Override
+							public void onMode(final int which) {
+								try {
+									if (service != null) {
+										service.updateIntegerSetting(GlobalGestures.KEY_MODE, which);
+									}
+								} catch (RemoteException e) {
+									com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+											"MainWindow.openGestureModeDialog", e);
+								}
+								GlobalGestures.publish(GlobalGestures.current().withMode(which));
+								refreshGlobalGestureWindows();
+							}
+
+							@Override
+							public void onScroll(final int which) {
+								try {
+									if (service != null) {
+										service.updateIntegerSetting(GlobalGestures.KEY_SCROLL, which);
+									}
+								} catch (RemoteException e) {
+									com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+											"MainWindow.openGestureModeDialog", e);
+								}
+								GlobalGestures.publish(GlobalGestures.current().withScroll(which));
+								refreshGlobalGestureWindows();
+							}
+						});
+			}
+		});
+	}
+
+	/** Long-press ⋮. Absent hold still opens Edit buttons. Empty hold does nothing. */
+	public void runOverflowHold() {
+		String hold = ChromeGestures.current().get(
+				ChromeGestures.TARGET_OVERFLOW, ChromeGestures.GESTURE_HOLD);
+		if (hold == null || ".editbuttons".equals(hold)) {
+			windowCall("button_window", "doEdit", "");
+			return;
+		}
+		if (hold.length() == 0) {
+			return;
+		}
+		runChromeGestureCommand(hold);
+	}
+
 	/** Attach gesture handling to the chrome around the game view.
 	 *
 	 * The listeners sit alongside the existing click handling and only claim an
@@ -8344,12 +8634,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			edit.setVisibility(View.GONE);
 			mInputSendButton.setVisibility(View.GONE);
+			mInputBox.setActionStripInset(0, 0);
 			if (changed) {
 				actions.requestLayout();
 			}
 			RelativeLayout rlGone = (RelativeLayout) findViewById(R.id.window_container);
 			chrome.bringGameplayChromeToFront(rlGone);
 			restoreInputEditToolsForWorld(false);
+			applyEditToolsRows();
 			refreshGameChrome();
 			return;
 		}
@@ -8374,14 +8666,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		actions.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.END);
 
 		ViewGroup.LayoutParams rawAlp = actions.getLayoutParams();
-		if (rawAlp instanceof LinearLayout.LayoutParams) {
-			LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) rawAlp;
+		if (rawAlp instanceof android.widget.FrameLayout.LayoutParams) {
+			android.widget.FrameLayout.LayoutParams alp =
+					(android.widget.FrameLayout.LayoutParams) rawAlp;
+			int grav = android.view.Gravity.BOTTOM | android.view.Gravity.END;
 			if (alp.width != colW
-					|| alp.height != LinearLayout.LayoutParams.WRAP_CONTENT
-					|| alp.gravity != android.view.Gravity.BOTTOM) {
+					|| alp.height != android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+					|| alp.gravity != grav) {
 				alp.width = colW;
-				alp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
-				alp.gravity = android.view.Gravity.BOTTOM;
+				alp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+				alp.gravity = grav;
 				actions.setLayoutParams(alp);
 				changed = true;
 			}
@@ -8420,18 +8714,25 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			changed = true;
 		}
 
-		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines.
+		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines. The field
+		// spans the row; Hide/Send sit on the bottom end and only cover that
+		// corner, so lines above them use the width.
 		ViewGroup.LayoutParams etLp = mInputBox.getLayoutParams();
-		if (etLp instanceof LinearLayout.LayoutParams) {
-			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) etLp;
-			if (elp.height != LinearLayout.LayoutParams.WRAP_CONTENT
-					|| elp.gravity != android.view.Gravity.BOTTOM) {
-				elp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
-				elp.gravity = android.view.Gravity.BOTTOM;
+		if (etLp instanceof android.widget.FrameLayout.LayoutParams) {
+			android.widget.FrameLayout.LayoutParams elp =
+					(android.widget.FrameLayout.LayoutParams) etLp;
+			int grav = android.view.Gravity.BOTTOM;
+			if (elp.width != android.view.ViewGroup.LayoutParams.MATCH_PARENT
+					|| elp.height != android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+					|| elp.gravity != grav) {
+				elp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+				elp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+				elp.gravity = grav;
 				mInputBox.setLayoutParams(elp);
 				changed = true;
 			}
 		}
+		mInputBox.setActionStripInset(stripWidth(actions, colW), btnH);
 
 		ViewParent parent = actions.getParent();
 		if (parent instanceof LinearLayout) {
@@ -8444,7 +8745,97 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		chrome.bringGameplayChromeToFront(rl);
 		restoreInputEditToolsForWorld(false);
+		applyEditToolsRows();
 		refreshGameChrome();
+	}
+
+	/** Hide/Send column plus its margins, so the one-line field stops beside it. */
+	private static int stripWidth(final View actions, final int colW) {
+		int strip = colW;
+		android.view.ViewGroup.LayoutParams lp = actions.getLayoutParams();
+		if (lp instanceof android.view.ViewGroup.MarginLayoutParams) {
+			android.view.ViewGroup.MarginLayoutParams mlp =
+					(android.view.ViewGroup.MarginLayoutParams) lp;
+			strip += mlp.leftMargin + mlp.rightMargin;
+		}
+		return strip;
+	}
+
+	private java.util.ArrayList<View> mEditToolOriginal;
+
+	/**
+	 * One full-width row unless Options → Window → Edit strip: two rows in
+	 * landscape? is on, and the phone is landscape.
+	 */
+	private void applyEditToolsRows() {
+		LinearLayout tools = (LinearLayout) findViewById(R.id.input_edit_tools);
+		if (tools == null) {
+			return;
+		}
+		if (mEditToolOriginal == null) {
+			mEditToolOriginal = new java.util.ArrayList<View>();
+			for (int i = 0; i < tools.getChildCount(); i++) {
+				mEditToolOriginal.add(tools.getChildAt(i));
+			}
+		}
+		for (int i = 0; i < mEditToolOriginal.size(); i++) {
+			View v = mEditToolOriginal.get(i);
+			android.view.ViewParent parent = v.getParent();
+			if (parent instanceof android.view.ViewGroup) {
+				((android.view.ViewGroup) parent).removeView(v);
+			}
+		}
+		tools.removeAllViews();
+		boolean two = readMainWindowBooleanOption("input_edit_tools_two_rows", false)
+				&& isLandscape();
+		if (!two) {
+			tools.setOrientation(LinearLayout.HORIZONTAL);
+			for (int i = 0; i < mEditToolOriginal.size(); i++) {
+				View v = mEditToolOriginal.get(i);
+				styleEditTool(v, false);
+				tools.addView(v);
+			}
+			return;
+		}
+		tools.setOrientation(LinearLayout.VERTICAL);
+		LinearLayout row1 = editToolRow();
+		LinearLayout row2 = editToolRow();
+		int buttons = 0;
+		for (int i = 0; i < mEditToolOriginal.size(); i++) {
+			View v = mEditToolOriginal.get(i);
+			if (!(v instanceof Button)) {
+				continue;
+			}
+			styleEditTool(v, true);
+			buttons++;
+			if (buttons <= 4) {
+				row1.addView(v);
+			} else {
+				row2.addView(v);
+			}
+		}
+		tools.addView(row1);
+		tools.addView(row2);
+	}
+
+	private LinearLayout editToolRow() {
+		LinearLayout row = new LinearLayout(this);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+		row.setLayoutParams(new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
+		return row;
+	}
+
+	private void styleEditTool(View v, boolean twoRows) {
+		if (!(v instanceof Button)) {
+			return;
+		}
+		Button b = (Button) v;
+		b.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, twoRows ? 14f : 11f);
+		if (b.getId() == R.id.input_btn_select) {
+			b.setText(twoRows ? "Select" : "Sel");
+		}
 	}
 
 	/**
@@ -8867,6 +9258,198 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return null;
 	}
 
+	private static final String SPLIT_HOST_TAG = "mainDisplaySplitHost";
+	private static final String SPLIT_MIRROR_TAG = "mainDisplayMirror";
+
+	/**
+	 * Two views of the same main buffer. {@code orientation} 0 clears;
+	 * 1 left/right; 2 top/bottom. Percent is the primary pane share.
+	 */
+	void applySplitLayout(final int orientation, final int percent) {
+		if (orientation == 0) {
+			mPendingSplitOrientation = 0;
+			clearSplitLayout();
+			return;
+		}
+		int orient = orientation == SplitLayout.ORIENTATION_VERTICAL
+				? SplitLayout.ORIENTATION_VERTICAL
+				: SplitLayout.ORIENTATION_HORIZONTAL;
+		int pct = SplitLayout.clampPercent(percent);
+		mPendingSplitOrientation = orient;
+		mPendingSplitPercent = pct;
+		com.resurrection.blowtorch2.lib.window.Window primary = mainDisplayWindow();
+		if (primary == null || primary.getBuffer() == null) {
+			return;
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			return;
+		}
+		if (mSplitOn && mSplitHost != null && mSplitMirror != null
+				&& mSplitOrientation == orient && mSplitPercent == pct
+				&& primary.getParent() == mSplitHost) {
+			return;
+		}
+		if (mSplitOn) {
+			clearSplitLayout();
+			primary = mainDisplayWindow();
+			if (primary == null || primary.getBuffer() == null) {
+				return;
+			}
+		}
+		ViewGroup.LayoutParams oldLp = primary.getLayoutParams();
+		RelativeLayout.LayoutParams hostLp;
+		if (oldLp instanceof RelativeLayout.LayoutParams) {
+			hostLp = new RelativeLayout.LayoutParams((RelativeLayout.LayoutParams) oldLp);
+		} else {
+			hostLp = new RelativeLayout.LayoutParams(
+					RelativeLayout.LayoutParams.MATCH_PARENT,
+					RelativeLayout.LayoutParams.MATCH_PARENT);
+			hostLp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			chrome.anchorWindowAboveInputChrome(hostLp, "mainDisplay");
+		}
+		int index = rl.indexOfChild(primary);
+		rl.removeView(primary);
+
+		LinearLayout host = new LinearLayout(this);
+		host.setTag(SPLIT_HOST_TAG);
+		host.setOrientation(orient == SplitLayout.ORIENTATION_VERTICAL
+				? LinearLayout.VERTICAL
+				: LinearLayout.HORIZONTAL);
+		host.setLayoutParams(hostLp);
+		boolean horizontal = orient == SplitLayout.ORIENTATION_HORIZONTAL;
+		LinearLayout.LayoutParams primaryLp = new LinearLayout.LayoutParams(
+				horizontal ? 0 : LinearLayout.LayoutParams.MATCH_PARENT,
+				horizontal ? LinearLayout.LayoutParams.MATCH_PARENT : 0,
+				pct);
+		LinearLayout.LayoutParams mirrorLp = new LinearLayout.LayoutParams(
+				horizontal ? 0 : LinearLayout.LayoutParams.MATCH_PARENT,
+				horizontal ? LinearLayout.LayoutParams.MATCH_PARENT : 0,
+				100 - pct);
+		primary.setLayoutParams(primaryLp);
+
+		String dataDir = "";
+		try {
+			ApplicationInfo ai = getPackageManager().getApplicationInfo(
+					getPackageName(), PackageManager.GET_META_DATA);
+			if (ai != null) {
+				dataDir = ai.dataDir;
+			}
+		} catch (NameNotFoundException e) {
+			dataDir = "";
+		}
+		com.resurrection.blowtorch2.lib.window.Window mirror =
+				new com.resurrection.blowtorch2.lib.window.Window(
+						dataDir, this, SPLIT_MIRROR_TAG, "mainDisplay",
+						myhandler, primary.getSettings(), this);
+		mirror.setSharedBufferFollower(true);
+		mirror.setTag(SPLIT_MIRROR_TAG);
+		mirror.setBufferText(false);
+		mirror.setBuffer(primary.getBuffer());
+		mirror.setSgr1Weight(mSgr1Weight);
+		mirror.setLayoutParams(mirrorLp);
+		mirror.setVisibility(View.VISIBLE);
+		if (primary.getSettings() != null) {
+			primary.getSettings().setListener(primary);
+		}
+		primary.setBufferFollower(mirror);
+
+		View divider = new View(this);
+		int thick = Math.max(1, (int) (1f * getResources().getDisplayMetrics().density));
+		LinearLayout.LayoutParams divLp = horizontal
+				? new LinearLayout.LayoutParams(thick, LinearLayout.LayoutParams.MATCH_PARENT)
+				: new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, thick);
+		divider.setLayoutParams(divLp);
+		divider.setBackgroundColor(0x44FFFFFF);
+
+		host.addView(primary);
+		host.addView(divider);
+		host.addView(mirror);
+		if (index < 0 || index > rl.getChildCount()) {
+			rl.addView(host);
+		} else {
+			rl.addView(host, index);
+		}
+		mSplitHost = host;
+		mSplitMirror = mirror;
+		mSplitOrientation = orient;
+		mSplitPercent = pct;
+		mSplitOn = true;
+		applyGameLightChrome();
+		scheduleRenawsAfterChromeRefresh();
+		primary.invalidate();
+		mirror.invalidate();
+		reapplyImeLiftAfterSplit();
+	}
+
+	void clearSplitLayout() {
+		if (!mSplitOn && mSplitHost == null && mSplitMirror == null) {
+			return;
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		com.resurrection.blowtorch2.lib.window.Window primary = mainDisplayWindow();
+		if (primary != null) {
+			primary.setBufferFollower(null);
+		}
+		if (mSplitMirror != null) {
+			mSplitMirror.setSharedBufferFollower(false);
+			mSplitMirror.setBufferFollower(null);
+			if (mSplitMirror.getParent() instanceof ViewGroup) {
+				((ViewGroup) mSplitMirror.getParent()).removeView(mSplitMirror);
+			}
+			mSplitMirror.shutdown();
+			mSplitMirror = null;
+		}
+		RelativeLayout.LayoutParams restoreLp = null;
+		if (mSplitHost != null) {
+			ViewGroup.LayoutParams hlp = mSplitHost.getLayoutParams();
+			if (hlp instanceof RelativeLayout.LayoutParams) {
+				restoreLp = new RelativeLayout.LayoutParams((RelativeLayout.LayoutParams) hlp);
+			}
+			int index = rl != null ? rl.indexOfChild(mSplitHost) : -1;
+			if (primary != null && primary.getParent() == mSplitHost) {
+				mSplitHost.removeView(primary);
+			}
+			if (rl != null && mSplitHost.getParent() == rl) {
+				rl.removeView(mSplitHost);
+			}
+			if (primary != null && rl != null && primary.getParent() == null) {
+				if (restoreLp == null) {
+					restoreLp = new RelativeLayout.LayoutParams(
+							RelativeLayout.LayoutParams.MATCH_PARENT,
+							RelativeLayout.LayoutParams.MATCH_PARENT);
+					restoreLp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+					chrome.anchorWindowAboveInputChrome(restoreLp, "mainDisplay");
+				}
+				primary.setLayoutParams(restoreLp);
+				if (index < 0 || index > rl.getChildCount()) {
+					rl.addView(primary);
+				} else {
+					rl.addView(primary, index);
+				}
+			}
+			mSplitHost = null;
+		}
+		mSplitOn = false;
+		if (primary != null && primary.getSettings() != null) {
+			primary.getSettings().setListener(primary);
+		}
+		scheduleRenawsAfterChromeRefresh();
+		reapplyImeLiftAfterSplit();
+	}
+
+	/** Keyboard may already be up; the panes just moved in or out of the host. */
+	private void reapplyImeLiftAfterSplit() {
+		if (chrome == null) {
+			return;
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			return;
+		}
+		chrome.applyImeChromeLift(rl, chrome.getImeLiftPx());
+	}
+
 	private String inputBarText() {
 		if (mInputBox == null || mInputBox.getText() == null) {
 			return "";
@@ -8987,7 +9570,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					"MainWindow.prefixPick", e);
 		}
 		com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
-		if (w != null) {
+		if (w != null && w.jumpsOnSend()) {
 			w.jumpToStart();
 		}
 	}

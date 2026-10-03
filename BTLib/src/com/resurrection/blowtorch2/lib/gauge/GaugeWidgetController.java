@@ -627,6 +627,9 @@ public class GaugeWidgetController {
 		}
 		int[] xy = clampPosition(xPx, yPx, wh[0], wh[1], parent, overlay);
 		placeView(g.getId(), view, xy[0], xy[1], wh[0], wh[1], overlay);
+		if (!overlay) {
+			applyStayIme(g, view);
+		}
 		boolean parentMeasured = parent != null && parent.getWidth() > 0
 				&& parent.getHeight() > 0;
 		if (unplaced && parentMeasured) {
@@ -653,6 +656,9 @@ public class GaugeWidgetController {
 		View parent = overlay ? windowContainer() : layer;
 		int[] localXy = overlay ? screenToContainer(x, y)
 				: screenToParent(parent, x, y);
+		if (!overlay && g.getImeMode() == GaugeWidget.ImeMode.PIN) {
+			localXy[1] -= Math.round(view.getTranslationY());
+		}
 		int w = view.getWidth() > 0 ? view.getWidth() : overlayWidth(id, view);
 		int h = view.getHeight() > 0 ? view.getHeight() : overlayHeight(id, view);
 		int[] xy = clampPosition(localXy[0], localXy[1], w, h, parent, overlay);
@@ -852,15 +858,33 @@ public class GaugeWidgetController {
 	}
 
 	private void applyImeHide() {
-		boolean imeUp = lastLiftPx > 0;
 		for (Map.Entry<String, GaugeWidgetView> e : stayViews.entrySet()) {
-			GaugeWidget g = findWidget(e.getKey());
-			if (g == null || e.getValue() == null) {
-				continue;
-			}
-			if (g.getImeMode() == GaugeWidget.ImeMode.HIDE) {
-				e.getValue().setVisibility(imeUp ? View.GONE : View.VISIBLE);
-			}
+			applyStayIme(findWidget(e.getKey()), e.getValue());
+		}
+	}
+
+	/**
+	 * HIDE drops the widget while the keyboard is up. PIN stays on screen:
+	 * the gauge layer rides the lift, so the pin widget is shifted back by
+	 * that same amount.
+	 */
+	private void applyStayIme(final GaugeWidget g, final GaugeWidgetView view) {
+		if (g == null || view == null) {
+			return;
+		}
+		boolean imeUp = lastLiftPx > 0;
+		if (g.getImeMode() == GaugeWidget.ImeMode.HIDE) {
+			view.setTranslationY(0f);
+			view.setVisibility(imeUp ? View.GONE : View.VISIBLE);
+			return;
+		}
+		if (view.getVisibility() == View.GONE) {
+			view.setVisibility(View.VISIBLE);
+		}
+		if (g.getImeMode() == GaugeWidget.ImeMode.PIN && layer != null) {
+			view.setTranslationY(-layer.getTranslationY());
+		} else {
+			view.setTranslationY(0f);
 		}
 	}
 

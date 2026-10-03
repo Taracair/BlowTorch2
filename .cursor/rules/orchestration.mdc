@@ -9,6 +9,16 @@ Work on branch `staging`. The maintainer decides what ships. Full version in
 `CLAUDE.md`; this file exists because Cursor needs the short list unconditionally
 present, not fetched.
 
+## One topic
+
+This chat does the work. One topic at a time. Do not launch implementation
+subagents unless the maintainer asks for several agents in that turn.
+
+When they do: one issue per agent (`generalPurpose`, model `grok-4.7-xhigh`,
+never fast, never the `bugbot` type). Each change gets its own reviewer
+before it lands. One install after that batch, then one summary. Detail:
+`.cursor/rules/subagent-review.mdc`.
+
 ## Six rules
 
 The rest of what used to be here is enforced by scripts now. `docs/GUARDRAILS.md`

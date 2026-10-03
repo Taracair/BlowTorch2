@@ -127,6 +127,33 @@ public class ConditionEvaluatorTest {
 		assertTrue(eval(ConditionType.VARIABLE_BELOW, "hp", " 30 ", store));
 	}
 
+	@Test public void timerAndForegroundGates() {
+		assertTrue(ConditionGates.timer(ConditionType.TIMER_EXISTS, true, false, 10, ""));
+		assertFalse(ConditionGates.timer(ConditionType.TIMER_EXISTS, false, false, -1, ""));
+		assertTrue(ConditionGates.timer(ConditionType.TIMER_RUNNING, true, true, 10, ""));
+		assertFalse(ConditionGates.timer(ConditionType.TIMER_RUNNING, true, false, 10, ""));
+		assertTrue(ConditionGates.timer(ConditionType.TIMER_REMAINING_BELOW, true, true, 9, "10"));
+		assertFalse(ConditionGates.timer(ConditionType.TIMER_REMAINING_BELOW, true, true, 10, "10"));
+		assertTrue(ConditionGates.timer(ConditionType.TIMER_REMAINING_ABOVE, true, false, 11, "10"));
+		assertFalse(ConditionGates.timer(ConditionType.TIMER_REMAINING_BELOW, false, false, -1, "10"));
+		assertFalse(ConditionGates.timer(ConditionType.TIMER_REMAINING_ABOVE, true, true, 5, "nope"));
+		assertTrue(ConditionGates.foreground(ConditionType.UI_IN_FRONT, true));
+		assertFalse(ConditionGates.foreground(ConditionType.UI_IN_FRONT, false));
+		assertTrue(ConditionGates.foreground(ConditionType.UI_IN_BACKGROUND, false));
+		assertFalse(ConditionGates.foreground(ConditionType.UI_IN_BACKGROUND, true));
+		assertTrue(ConditionType.TIMER_EXISTS.isTimerGate());
+		assertTrue(ConditionType.TIMER_REMAINING_BELOW.needsExpectedValue());
+		assertFalse(ConditionType.TIMER_RUNNING.needsExpectedValue());
+		assertTrue(ConditionType.UI_IN_FRONT.isForegroundGate());
+		assertFalse(ConditionType.UI_IN_FRONT.needsExpectedValue());
+		assertTrue(new ConditionLeaf(ConditionType.TIMER_REMAINING_BELOW, "heal", "", "5")
+				.summary().contains("below 5"));
+		assertEquals("This window is in front",
+				new ConditionLeaf(ConditionType.UI_IN_FRONT, "", "", "").summary());
+		assertEquals(ConditionType.TIMER_RUNNING, ConditionType.fromXml("timer_running"));
+		assertEquals(ConditionType.UI_IN_BACKGROUND, ConditionType.fromXml("ui_in_background"));
+	}
+
 	@Test public void belowAboveSummariesReadAsNumbers() {
 		assertTrue(new ConditionLeaf(ConditionType.VARIABLE_BELOW, "hp", "", "30")
 				.summary().contains("below 30"));

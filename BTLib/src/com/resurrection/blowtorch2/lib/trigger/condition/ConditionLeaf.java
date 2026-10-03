@@ -117,6 +117,18 @@ public class ConditionLeaf implements Parcelable {
 			return "Trigger " + qualifiedName() + " is OFF";
 		case TRIGGER_MATCHED:
 			return "Trigger " + qualifiedName() + " matches this line";
+		case TIMER_EXISTS:
+			return "Timer " + name + " exists";
+		case TIMER_RUNNING:
+			return "Timer " + name + " is running";
+		case TIMER_REMAINING_BELOW:
+			return "Timer " + name + " remaining is below " + value;
+		case TIMER_REMAINING_ABOVE:
+			return "Timer " + name + " remaining is above " + value;
+		case UI_IN_FRONT:
+			return "This window is in front";
+		case UI_IN_BACKGROUND:
+			return "This window is not in front";
 		default:
 			return type != null ? type.displayLabel() : "";
 		}

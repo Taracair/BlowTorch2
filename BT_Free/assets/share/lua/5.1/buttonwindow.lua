@@ -4,6 +4,7 @@ respath = string.sub(respath,0,string.find(respath,"?")-1).."res"
 require("button")
 require("serialize")
 require("bit")
+local buttonHeatLib = require("buttonheat")
 local marshal = require("marshal")
 defaults = nil
 -- When true, loadButtons skips notifyFloatingButtonsChanged so a following
@@ -1427,6 +1428,252 @@ local function toggleAccordion(button)
 	end
 end
 
+buttonHeatCounts = {}
+buttonHeatOverlay = false
+-- False until this world's file has been applied. A save before that would
+-- write a short session over the file from last time.
+buttonHeatReady = false
+buttonHeatDirty = false
+buttonHeatDiscardLoad = false
+buttonHeatWorld = nil
+buttonHeatLastWritten = nil
+buttonHeatScaleMax = 0
+buttonHeatScaleGeneration = -1
+buttonHeatGeneration = 0
+local BUTTON_HEAT_SAVE_ID = 9902
+local BUTTON_HEAT_REDRAW_ID = 9904
+
+local function buttonHeatId(button)
+	if button == nil or button.data == nil then
+		return "?"
+	end
+	local id = button.data.label or ""
+	if id == "" then
+		id = button.data.command or "?"
+	end
+	return id
+end
+
+local function buttonHeatMaxOnPad()
+	local max = 0
+	if buttons == nil then
+		return 0
+	end
+	local function consider(b)
+		local t = buttonHeatLib.total(buttonHeatCounts, buttonHeatId(b))
+		if t > max then
+			max = t
+		end
+	end
+	for i = 1, #buttons do
+		consider(buttons[i])
+		local parent = buttons[i]
+		if parent.expanded and parent.accordionOverlay ~= nil then
+			for j = 1, #parent.accordionOverlay do
+				consider(parent.accordionOverlay[j])
+			end
+		end
+	end
+	return max
+end
+
+local function recomputeButtonHeatScale()
+	buttonHeatScaleMax = buttonHeatMaxOnPad()
+	buttonHeatScaleGeneration = buttonHeatGeneration
+end
+
+function writeButtonHeatFile()
+	if buttonHeatReady ~= true or buttonHeatWorld == nil or buttonHeatWorld == "" then
+		return false
+	end
+	local body = buttonHeatLib.encode(buttonHeatCounts)
+	if body == buttonHeatLastWritten then
+		buttonHeatDirty = false
+		return true
+	end
+	local activity = GetActivity()
+	if activity == nil then
+		return false
+	end
+	local ok = pcall(function()
+		local Store = luajava.bindClass(
+			"com.resurrection.blowtorch2.lib.window.ButtonHeatStore")
+		Store:save(activity, buttonHeatWorld, body)
+	end)
+	if ok then
+		buttonHeatLastWritten = body
+		buttonHeatDirty = false
+	end
+	return ok
+end
+
+function flushButtonHeat()
+	if buttonHeatDirty ~= true then
+		return
+	end
+	writeButtonHeatFile()
+end
+
+local function scheduleButtonHeatSave()
+	buttonHeatDirty = true
+	if buttonHeatReady ~= true then
+		return
+	end
+	if CancelCallback ~= nil then
+		CancelCallback(BUTTON_HEAT_SAVE_ID)
+	end
+	ScheduleCallback(BUTTON_HEAT_SAVE_ID, "flushButtonHeat", 2000)
+end
+
+function buttonHeatVisual(button)
+	if buttonHeatOverlay ~= true or manage == true then
+		return nil
+	end
+	if buttonHeatScaleGeneration ~= buttonHeatGeneration then
+		recomputeButtonHeatScale()
+	end
+	local total = buttonHeatLib.total(buttonHeatCounts, buttonHeatId(button))
+	local alpha = buttonHeatLib.alpha(total, buttonHeatScaleMax)
+	local lr, lg, lb = buttonHeatLib.labelRgb(alpha)
+	return {
+		alpha = alpha,
+		fill = Color:argb(alpha, buttonHeatLib.FILL_R, buttonHeatLib.FILL_G, buttonHeatLib.FILL_B),
+		label = Color:argb(255, lr, lg, lb),
+		rim = Color:argb(math.max(alpha, 72), buttonHeatLib.FILL_R, buttonHeatLib.FILL_G, buttonHeatLib.FILL_B),
+	}
+end
+
+function buttonHeatPaint(button)
+	local v = buttonHeatVisual(button)
+	if v == nil then
+		return nil
+	end
+	local lr, lg, lb = buttonHeatLib.labelRgb(v.alpha)
+	return v.alpha, buttonHeatLib.FILL_R, buttonHeatLib.FILL_G, buttonHeatLib.FILL_B, lr, lg, lb
+end
+
+local function refreshHeatmapChrome()
+	if drawButtons ~= nil then
+		drawButtons()
+	end
+	-- OnDraw only copies buttonLayer onto the screen. Without this the new
+	-- colours sit in the bitmap until some later tap invalidates the window.
+	if view ~= nil then
+		view:invalidate()
+	end
+	if notifyFloatingButtonsChanged ~= nil then
+		notifyFloatingButtonsChanged()
+	end
+end
+
+function redrawHeatmap()
+	if buttonHeatOverlay ~= true or manage == true then
+		return
+	end
+	refreshHeatmapChrome()
+end
+
+local function scheduleHeatmapRedraw()
+	if buttonHeatOverlay ~= true then
+		return
+	end
+	if CancelCallback ~= nil then
+		CancelCallback(BUTTON_HEAT_REDRAW_ID)
+	end
+	-- After the gesture returns. Rebuilding a floating copy from inside its
+	-- own finger-up tears the view down mid-call.
+	ScheduleCallback(BUTTON_HEAT_REDRAW_ID, "redrawHeatmap", 16)
+end
+
+function noteButtonHeat(button, kind)
+	if manage == true or button == nil or kind == nil or kind == "" then
+		return
+	end
+	local key = buttonHeatId(button) .. "|" .. kind
+	buttonHeatCounts[key] = (buttonHeatCounts[key] or 0) + 1
+	buttonHeatGeneration = buttonHeatGeneration + 1
+	scheduleButtonHeatSave()
+	scheduleHeatmapRedraw()
+end
+
+-- Floating copies are not the grid touch path. index is the 1-based pad slot.
+function noteButtonHeatAt(payload)
+	payload = payload or ""
+	local indexText, kind = string.match(payload, "^(%d+)\t(.+)$")
+	local index = tonumber(indexText)
+	if index == nil or buttons == nil or buttons[index] == nil then
+		return
+	end
+	noteButtonHeat(buttons[index], kind)
+end
+
+function buttonHeatLabel(button)
+	if buttonHeatOverlay ~= true or manage == true then
+		return nil
+	end
+	local total = buttonHeatLib.total(buttonHeatCounts, buttonHeatId(button))
+	if total <= 0 then
+		return nil
+	end
+	return tostring(total)
+end
+
+function applyButtonHeat(payload)
+	local world, loaded = buttonHeatLib.unpack(payload or "")
+	buttonHeatWorld = world
+	if buttonHeatDiscardLoad then
+		buttonHeatDiscardLoad = false
+	else
+		for k, n in pairs(loaded) do
+			local cur = buttonHeatCounts[k] or 0
+			if n > cur then
+				buttonHeatCounts[k] = n
+			end
+		end
+	end
+	buttonHeatReady = true
+	buttonHeatGeneration = buttonHeatGeneration + 1
+	if buttonHeatDirty then
+		writeButtonHeatFile()
+	end
+	if buttonHeatOverlay == true then
+		refreshHeatmapChrome()
+	end
+end
+
+function buttonHeat(arg)
+	arg = arg or ""
+	if arg == "off" then
+		buttonHeatOverlay = false
+		Note("\nHeatmap hidden. Counts keep collecting for this world.\n")
+	elseif arg == "reset" then
+		buttonHeatCounts = {}
+		buttonHeatGeneration = buttonHeatGeneration + 1
+		buttonHeatDirty = true
+		buttonHeatLastWritten = nil
+		if buttonHeatReady then
+			writeButtonHeatFile()
+		else
+			buttonHeatDiscardLoad = true
+		end
+		Note("\nHeatmap cleared for this world.\n")
+	else
+		buttonHeatOverlay = true
+		local lines = {}
+		for key, n in pairs(buttonHeatCounts) do
+			table.insert(lines, string.gsub(key, "|", " ") .. "  " .. tostring(n))
+		end
+		table.sort(lines)
+		if #lines == 0 then
+			Note("\nHeatmap on. Nothing pressed yet. Counts are kept for this world.\n")
+		else
+			Note("\nHeatmap for this world (kept between sessions). Brighter tiles are used more:\n"
+				.. table.concat(lines, "\n") .. "\n")
+		end
+	end
+	refreshHeatmapChrome()
+end
+
 local function dispatchButtonAction(cmd)
 	if buttonsCleared then
 		revertButtons()
@@ -1513,6 +1760,7 @@ function doShortHold()
 	end
 	if touchedbutton ~= nil and hasButtonCommand(touchedbutton.data.holdCommand) then
 		shortHoldFired = true
+		noteButtonHeat(touchedbutton, "hold")
 		dispatchButtonAction(touchedbutton.data.holdCommand)
 		collapseAccordionChildParentIfNeeded(touchedbutton)
 	end
@@ -1530,6 +1778,7 @@ function doAccordionHold()
 	end
 	accordionHoldFired = true
 	performHapticPress()
+	noteButtonHeat(touchedbutton, touchedbutton.expanded and "accordion-close" or "accordion-open")
 	toggleAccordion(touchedbutton)
 end
 
@@ -1818,11 +2067,13 @@ function normalTouch.onTouch(v,e)
 						touchedbutton.data.accordionDirection,
 						swipeDir) then
 					-- Accordion still matches on the 4-way direction only.
+					noteButtonHeat(touchedbutton, touchedbutton.expanded and "accordion-close" or "accordion-open")
 					toggleAccordion(touchedbutton)
 					sent = true
 				else
 					local fireDir = resolveSwipeDirection(touchedbutton.data, dx, dy, swipeThreshold)
 					if fireDir ~= nil then
+						noteButtonHeat(touchedbutton, "swipe-" .. fireDir)
 						sent = dispatchButtonAction(getSwipeCommand(touchedbutton.data, fireDir))
 					end
 				end
@@ -1831,11 +2082,14 @@ function normalTouch.onTouch(v,e)
 				if touchedbutton.isAccordionChild and touchedbutton.accordionParent ~= nil then
 					if r:contains(x, y)
 							or not hasButtonCommand(touchedbutton.data.flipCommand) then
+						noteButtonHeat(touchedbutton, "child")
 						sent = dispatchButtonAction(touchedbutton.data.command)
 					else
+						noteButtonHeat(touchedbutton, "flip")
 						sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 					end
 				elseif isAccordionCloseHit(touchedbutton, x, y) then
+					noteButtonHeat(touchedbutton, "accordion-close")
 					collapseAccordion(touchedbutton)
 					sent = true
 				elseif hasAccordionConfig(touchedbutton.data) then
@@ -1843,6 +2097,7 @@ function normalTouch.onTouch(v,e)
 					local inside = r:contains(x, y)
 					local action = accordionParentFingerUpAction(trigger, inside, swipeDir, false)
 					if action == "toggle" then
+						noteButtonHeat(touchedbutton, accordionWasExpandedAtDown and "accordion-close" or "accordion-open")
 						if accordionWasExpandedAtDown then
 							collapseAccordion(touchedbutton)
 						else
@@ -1850,13 +2105,17 @@ function normalTouch.onTouch(v,e)
 						end
 						sent = true
 					elseif action == "tap_command" then
+						noteButtonHeat(touchedbutton, "tap")
 						sent = dispatchButtonAction(touchedbutton.data.command)
 					elseif action == "flip_command" then
+						noteButtonHeat(touchedbutton, "flip")
 						sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 					end
 				elseif(r:contains(x,y)) then
+					noteButtonHeat(touchedbutton, "tap")
 					sent = dispatchButtonAction(touchedbutton.data.command)
 				else
+					noteButtonHeat(touchedbutton, "flip")
 					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 				end
 			end
@@ -2170,6 +2429,7 @@ function delayedStatusRefresh()
 		drawButtons()
 	end
 	view:invalidate()
+	notifyFloatingButtonsChanged()
 end
 
 
@@ -2299,6 +2559,55 @@ function exitManagerModeNoSave()
 	-- async loadButtonSet → loadButtons path, which notifies with fresh data.
 end
 
+-- Grid-pad tiles in button_window pixels. Java maps them onto the game
+-- window. Skip play-mode floaters (the floating layer already reports those)
+-- and inactive / pinned-accordion sources, matching drawButtons.
+local function putGridObstacleRect(arr, JSONObject, b)
+	if b == nil or b.rect == nil or JSONObject == nil then
+		return
+	end
+	local r = b.rect
+	local l = tonumber(r.left)
+	local t = tonumber(r.top)
+	local right = tonumber(r.right)
+	local bottom = tonumber(r.bottom)
+	if l == nil or t == nil or right == nil or bottom == nil then
+		return
+	end
+	if right <= l or bottom <= t then
+		return
+	end
+	local o = luajava.new(JSONObject)
+	o:put("l", math.floor(l))
+	o:put("t", math.floor(t))
+	o:put("r", math.ceil(right))
+	o:put("b", math.ceil(bottom))
+	arr:put(o)
+end
+
+local function appendGridObstacles(arr, JSONObject)
+	if arr == nil or buttons == nil then
+		return
+	end
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if not isPlayModeInactive(b)
+				and not isPlayModeFloaterHiddenFromGrid(b)
+				and not isPlayModePinnedAccordionSource(b) then
+			putGridObstacleRect(arr, JSONObject, b)
+		end
+		if b ~= nil and b.expanded and b.accordionOverlay ~= nil
+				and not isPlayModeInactive(b) then
+			for j = 1, #b.accordionOverlay do
+				local child = b.accordionOverlay[j]
+				if not isPlayModeInactive(child) then
+					putGridObstacleRect(arr, JSONObject, child)
+				end
+			end
+		end
+	end
+end
+
 -- Tell Java which buttons should float. Called after load/edit/manage transitions.
 -- When manage is true, editing=true and buttons=[] so the overlay hides.
 -- Payload is JSON (org.json) — Java parses JSONObject, not Lua serialize.
@@ -2357,11 +2666,21 @@ function notifyFloatingButtonsChanged()
 						and d.showGestureHints ~= false)
 					o:put("wrapLabel", d.wrapLabel == true)
 					o:put("switchTo", tostring(d.switchTo or ""))
-					o:put("primaryColor", floaterArgb(d.primaryColor))
-					o:put("selectedColor", floaterArgb(d.selectedColor))
-					o:put("flipColor", floaterArgb(d.flipColor))
-					o:put("labelColor", floaterArgb(d.labelColor))
-					o:put("flipLabelColor", floaterArgb(d.flipLabelColor))
+					local heat = buttonHeatVisual(b)
+					if heat ~= nil then
+						-- Session .buttonopacity must not flatten the scale.
+						o:put("primaryColor", heat.fill)
+						o:put("selectedColor", heat.fill)
+						o:put("flipColor", heat.fill)
+						o:put("labelColor", heat.label)
+						o:put("flipLabelColor", heat.label)
+					else
+						o:put("primaryColor", floaterArgb(d.primaryColor))
+						o:put("selectedColor", floaterArgb(d.selectedColor))
+						o:put("flipColor", floaterArgb(d.flipColor))
+						o:put("labelColor", floaterArgb(d.labelColor))
+						o:put("flipLabelColor", floaterArgb(d.flipLabelColor))
+					end
 					o:put("width", tonumber(d.width) or 80)
 					o:put("height", tonumber(d.height) or 80)
 					o:put("labelSize", tonumber(d.labelSize) or 23)
@@ -2392,8 +2711,13 @@ function notifyFloatingButtonsChanged()
 					-- Player-chosen grid border also paints on the floating
 					-- copy (shape follows floatRound). Separates from floatFrame,
 					-- which is the legacy auto-contrast outline.
-					o:put("border", d.border == true)
-					o:put("borderColor", floaterArgb(d.borderColor))
+					if heat ~= nil then
+						o:put("border", true)
+						o:put("borderColor", heat.rim)
+					else
+						o:put("border", d.border == true)
+						o:put("borderColor", floaterArgb(d.borderColor))
+					end
 					-- Same px radius the grid uses (options.roundness * density).
 					o:put("cornerRadiusPx", tonumber(buttonRoundness) or 0)
 					arr:put(o)
@@ -2401,6 +2725,11 @@ function notifyFloatingButtonsChanged()
 			end
 		end
 		root:put("buttons", arr)
+		local grid = luajava.new(JSONArray)
+		if not editing then
+			appendGridObstacles(grid, JSONObject)
+		end
+		root:put("grid", grid)
 		local activity = GetActivity()
 		if activity ~= nil and activity.onFloatingButtonsChanged ~= nil then
 			activity:onFloatingButtonsChanged(root:toString())
@@ -4083,6 +4412,7 @@ function collapseAccordion(parent, skipRedraw)
 	if not skipRedraw then
 		drawButtons()
 		view:invalidate()
+		notifyFloatingButtonsChanged()
 	end
 end
 
@@ -4095,6 +4425,7 @@ function collapseAllAccordions(skipRedraw)
 	if not skipRedraw then
 		drawButtons()
 		view:invalidate()
+		notifyFloatingButtonsChanged()
 	end
 end
 
@@ -4197,6 +4528,7 @@ function expandAccordion(parent, skipRedraw)
 	if not skipRedraw then
 		drawButtons()
 		view:invalidate()
+		notifyFloatingButtonsChanged()
 	end
 end
 
@@ -4258,6 +4590,9 @@ function isPlayModeInactive(b)
 end
 
 function drawButtons()
+	if buttonHeatOverlay == true and manage ~= true then
+		recomputeButtonHeatScale()
+	end
 	local canvas = buttonCanvas
 	if canvas == nil then return end
 	height = view:getHeight()
@@ -4972,6 +5307,7 @@ function OnSizeChanged(w,h,oldw,oldh)
 	if oldw == 0 and w > 0 then
 		maybeOfferLayoutWizard()
 	end
+	notifyFloatingButtonsChanged()
 	
 	debugString("Button Window ending View.onSizeChanged()")
 end
@@ -5042,6 +5378,11 @@ end
 
 function OnDestroy()
 	--Note("destroying button window")
+	if CancelCallback ~= nil then
+		CancelCallback(BUTTON_HEAT_SAVE_ID)
+		CancelCallback(BUTTON_HEAT_REDRAW_ID)
+	end
+	writeButtonHeatFile()
 	debugString("Button Window in View.OnDestroy()")
 	if(managerLayer ~= nil) then
 		managerLayer:recycle()

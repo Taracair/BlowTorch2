@@ -63,4 +63,18 @@ public class TimerDurationTest {
 		assertEquals("1h", TimerDuration.format(3600));
 		assertEquals("0s", TimerDuration.format(0));
 	}
+
+	@Test
+	public void adjustRemainingAddsAndFloorsAtZero() {
+		assertEquals(60, TimerDuration.adjustRemaining(10, 50));
+		assertEquals(0, TimerDuration.adjustRemaining(10, -50));
+		assertEquals(5, TimerDuration.adjustRemaining(10, -5));
+	}
+
+	@Test
+	public void remainingAfterEditKeepsLiveWhenSecondsUnchanged() {
+		assertEquals(17, TimerDuration.remainingAfterEdit(90, 90, 17));
+		assertEquals(30, TimerDuration.remainingAfterEdit(90, 30, 17));
+		assertEquals(0, TimerDuration.remainingAfterEdit(90, 90, -3));
+	}
 }

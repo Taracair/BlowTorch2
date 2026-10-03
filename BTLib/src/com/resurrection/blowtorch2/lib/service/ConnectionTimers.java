@@ -10,6 +10,7 @@ import java.util.HashMap;
 import android.os.Message;
 
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
+import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerDuration;
@@ -61,10 +62,60 @@ final class ConnectionTimers {
 			doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.PAUSE);
 			break;
 		case Connection.MESSAGE_TIMERDURATION:
-			doTimerDuration((String) msg.obj, msg.arg1, msg.arg2);
+			if (msg.obj instanceof TimerCommand.DurationChange) {
+				doTimerDuration((TimerCommand.DurationChange) msg.obj);
+			} else {
+				doTimerDuration((String) msg.obj, msg.arg1, msg.arg2);
+			}
 			break;
 		default:
 			break;
+		}
+	}
+
+	/** Absolute set (bare seconds) or relative remaining adjust ({@code 50s}/{@code -2m}). */
+	void doTimerDuration(final TimerCommand.DurationChange change) {
+		if (change == null || change.name == null) {
+			return;
+		}
+		if (change.relative) {
+			doTimerDurationRelative(change.name, change.seconds, change.silent);
+		} else {
+			doTimerDuration(change.name, change.seconds, change.silent ? 0 : 50);
+		}
+	}
+
+	/**
+	 * Adds {@code deltaSeconds} to remaining only; stored duration is unchanged.
+	 * Keeps a running timer running when remaining stays above zero.
+	 */
+	void doTimerDurationRelative(final String name, final int deltaSeconds,
+			final boolean silent) {
+		Plugin timerHost = findTimerHost(name);
+		if (timerHost == null) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		timerHost.updateTimerProgress();
+		TimerData t = timerHost.getSettings().getTimers().get(name);
+		if (t == null) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		boolean wasRunning = timerHost.isTimerRunning(name);
+		int next = TimerDuration.adjustRemaining(t.getRemainingTime(), deltaSeconds);
+		timerHost.cancelTimerTask(name);
+		t.setRemainingTime(next);
+		t.setPlaying(false);
+		timerHost.getSettings().setDirty(true);
+		if (wasRunning && next > 0) {
+			timerHost.startTimer(name, true);
+		}
+		persistTimerSettings();
+		if (!silent) {
+			host.toast("Timer " + name + ": " + TimerDuration.format(next) + " left");
 		}
 	}
 
@@ -126,7 +177,8 @@ final class ConnectionTimers {
 		}
 		int seconds = t.getSeconds() == null ? 0 : t.getSeconds().intValue();
 		String text = TimerInfoText.describe(name, seconds, t.getRemainingTime(),
-				timerHost.isTimerRunning(name), t.isRepeat());
+				timerHost.isTimerRunning(name), t.isRepeat(),
+				timerHost.timerDisplayFull(name));
 		emitTimerInfo(text, toWindow);
 	}
 
@@ -160,7 +212,8 @@ final class ConnectionTimers {
 			}
 			int seconds = t.getSeconds() == null ? 0 : t.getSeconds().intValue();
 			sb.append(TimerInfoText.describe(n, seconds, t.getRemainingTime(),
-					owner.isTimerRunning(n), t.isRepeat()));
+					owner.isTimerRunning(n), t.isRepeat(),
+					owner.timerDisplayFull(n)));
 		}
 	}
 
@@ -182,6 +235,51 @@ final class ConnectionTimers {
 			}
 		}
 		return null;
+	}
+
+	boolean gateExists(final String plugin, final String name) {
+		return gateTimerPlugin(plugin, name) != null;
+	}
+
+	boolean gateRunning(final String plugin, final String name) {
+		Plugin owner = gateTimerPlugin(plugin, name);
+		return owner != null && owner.isTimerRunning(name);
+	}
+
+	int gateRemainingSeconds(final String plugin, final String name) {
+		Plugin owner = gateTimerPlugin(plugin, name);
+		if (owner == null || name == null) {
+			return -1;
+		}
+		owner.updateTimerProgress();
+		com.resurrection.blowtorch2.lib.timer.TimerData t =
+				owner.getSettings().getTimers().get(name);
+		if (t == null) {
+			return -1;
+		}
+		return t.getRemainingTime();
+	}
+
+	private Plugin gateTimerPlugin(final String plugin, final String name) {
+		if (name == null || name.length() == 0) {
+			return null;
+		}
+		if (plugin != null && plugin.length() > 0) {
+			if (host.mSettings != null && plugin.equals(host.mSettings.getName())
+					&& host.mSettings.getSettings().getTimers().containsKey(name)) {
+				return host.mSettings;
+			}
+			if (host.mPlugins != null) {
+				for (Plugin p : host.mPlugins) {
+					if (p != null && plugin.equals(p.getName())
+							&& p.getSettings().getTimers().containsKey(name)) {
+						return p;
+					}
+				}
+			}
+			return null;
+		}
+		return findTimerHost(name);
 	}
 
 	/** Work horse method for the timer command.
@@ -309,19 +407,13 @@ final class ConnectionTimers {
 
 	/** Replaces a timer with its edited version, in whichever plugin owns it.
 	 *
-	 * Two rules, and they were both got wrong once each:
+	 * If the stored seconds value changed, remaining starts from the new length
+	 * (carrying the old remaining across a shorter duration used to fire late —
+	 * stuck-timer report of 1 Aug 2026). If seconds are unchanged, keep the live
+	 * remaining so Done / "show as overlay widget" does not restart a run from zero.
 	 *
-	 * The remaining time is reset. It is a position inside a run of the <em>old</em>
-	 * length, so against a new length it means nothing — and startTimer reads a
-	 * remaining time that differs from the duration as a run to resume. While it was
-	 * carried over, a timer changed from 30 s to 10 s still fired after 30, which was
-	 * half of the stuck-timer report of 1 Aug 2026.
-	 *
-	 * A timer that was running keeps running, on the new length. Changing how long a
-	 * timer runs is not a request to stop it; stop is for that. Asked before the
-	 * cancel, because cancelling is what makes the two cases indistinguishable
-	 * afterwards — and asked of the scheduler map rather than the playing flag, which
-	 * can be stale.
+	 * A timer that was running keeps running when remaining stays above zero.
+	 * Asked of the scheduler map before cancel; the playing flag can be stale.
 	 *
 	 * @param owner The plugin holding the timer.
 	 * @param old The timer as it was, whose name may differ from the new one.
@@ -330,13 +422,28 @@ final class ConnectionTimers {
 	private void applyTimerEdit(final Plugin owner, final TimerData old,
 		final TimerData newtimer) {
 		boolean wasRunning = owner.isTimerRunning(old.getName());
+		if (wasRunning) {
+			owner.updateTimerProgress();
+		}
+		TimerData live = owner.getSettings().getTimers().get(old.getName());
+		int previousSeconds = 0;
+		if (live != null && live.getSeconds() != null) {
+			previousSeconds = live.getSeconds().intValue();
+		} else if (old.getSeconds() != null) {
+			previousSeconds = old.getSeconds().intValue();
+		}
+		int newSeconds = newtimer.getSeconds() == null ? 0 : newtimer.getSeconds().intValue();
+		int liveRemaining = live != null ? live.getRemainingTime()
+				: (old.getRemainingTime() > 0 ? old.getRemainingTime() : newSeconds);
+		int keepRemaining = TimerDuration.remainingAfterEdit(
+				previousSeconds, newSeconds, liveRemaining);
 		owner.cancelTimerTask(old.getName());
 		owner.getSettings().getTimers().remove(old.getName());
 		newtimer.setPlaying(false);
-		newtimer.setRemainingTime(newtimer.getSeconds());
+		newtimer.setRemainingTime(keepRemaining);
 		owner.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		owner.getSettings().setDirty(true);
-		if (wasRunning) {
+		if (wasRunning && keepRemaining > 0) {
 			owner.startTimer(newtimer.getName());
 		}
 		persistTimerSettings();

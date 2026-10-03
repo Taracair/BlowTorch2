@@ -26,12 +26,16 @@ public class SettingsOptionKeyOwnershipTest {
 				"light_paper", "light_paper_shade",
 				"scroll_dates", "scroll_dates_opacity",
 				"line_stamps", "line_stamps_log", "line_stamps_fields",
+				"text_canvas_width", "text_avoid_buttons", "text_avoid_buttons_break",
+				"jump_on_send",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
+				"input_edit_tools_two_rows",
 				"cutout_portrait", "cutout_landscape",
 				"hyperlinks_enabled", "osc8_links",
 				"hyperlink_mode", "hyperlink_color", "hyperlink_bare_domains",
 				"hyperlink_extra_tlds", "color_option", "line_extra", "font_path",
-				"tap_dismiss_keyboard", "pick_loupe_size", "pick_loupe_zoom" };
+				"tap_dismiss_keyboard", "pick_loupe_size", "pick_loupe_zoom",
+				"copy_loupe_size", "copy_loupe_zoom" };
 		for (String key : windowKeys) {
 			assertTrue(key + " should be owned by WindowTokenParser",
 					WindowTokenParser.isWindowOptionKey(key));
@@ -83,6 +87,7 @@ public class SettingsOptionKeyOwnershipTest {
 	public void theSuggestionBarPlaceIsWrittenAndTheOldSwitchIsNot() {
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_where"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_caret"));
+		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_next"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_typos"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_skip_head"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_wrong_first"));
@@ -137,6 +142,14 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void notificationGroupingIsConnectionOwnedNotWindow() {
+		assertTrue("notification_grouping must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("notification_grouping"));
+		assertFalse("notification_grouping must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("notification_grouping"));
+	}
+
+	@Test
 	public void overflowButtonCornerIsConnectionOwnedNotWindow() {
 		assertTrue("overflow_button_corner must be persisted by the connection writer",
 				ConnectionSetttingsParser.isConnectionOptionKey("overflow_button_corner"));
@@ -150,6 +163,30 @@ public class SettingsOptionKeyOwnershipTest {
 				"chat_announce_seconds", "chat_android_notify",
 				"chat_max_messages" };
 		for (String key : chatKeys) {
+			assertTrue(key + " must be persisted by the connection writer",
+					ConnectionSetttingsParser.isConnectionOptionKey(key));
+			assertFalse(key + " must not be claimed by the window writer",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
+	}
+
+	@Test
+	public void unaccentSendIsConnectionOwnedNotWindow() {
+		assertTrue("unaccent_send must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("unaccent_send"));
+		assertFalse("unaccent_send must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey("unaccent_send"));
+	}
+
+	@Test
+	public void globalGestureKeysAreConnectionOwnedNotWindow() {
+		String[] keys = {
+				"global_gesture_mode", "global_gesture_scroll", "global_gesture_hold_ms",
+				"global_gesture_show_mode", "global_gesture_show_arrow",
+				"global_gesture_show_command", "global_gesture_two_dir",
+				"global_gesture_two_copy", "global_gesture_two_scroll",
+				"global_gesture_bindings" };
+		for (String key : keys) {
 			assertTrue(key + " must be persisted by the connection writer",
 					ConnectionSetttingsParser.isConnectionOptionKey(key));
 			assertFalse(key + " must not be claimed by the window writer",

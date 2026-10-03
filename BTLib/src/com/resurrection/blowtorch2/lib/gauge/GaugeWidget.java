@@ -110,12 +110,14 @@ public final class GaugeWidget {
 	 * Where the overlay sits while the IME is up. Default {@link #STAY}: on the
 	 * game window, following IME lift. {@link #HIDE} is gone while the IME is
 	 * up. {@link #OVERLAY} may sit over the IME ({@code TYPE_APPLICATION_OVERLAY},
-	 * same permission as floating buttons).
+	 * same permission as floating buttons). {@link #PIN} stays visible and does
+	 * not follow the lift.
 	 */
 	public enum ImeMode {
 		STAY("stay"),
 		HIDE("hide"),
-		OVERLAY("overlay");
+		OVERLAY("overlay"),
+		PIN("pin");
 
 		private final String jsonValue;
 
@@ -144,6 +146,9 @@ public final class GaugeWidget {
 			}
 			if ("overlay".equals(s) || "over".equals(s) || "float".equals(s)) {
 				return OVERLAY;
+			}
+			if ("pin".equals(s) || "still".equals(s) || "fixed".equals(s)) {
+				return PIN;
 			}
 			for (ImeMode m : values()) {
 				if (m.jsonValue.equals(s)) {

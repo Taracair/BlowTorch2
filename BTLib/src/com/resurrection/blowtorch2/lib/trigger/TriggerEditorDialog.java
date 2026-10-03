@@ -82,6 +82,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 	/** Fold the match preview when it has more than this many lines. */
 	static final int PREVIEW_COLLAPSE_AFTER_LINES = 3;
+	/** Colour of the pattern field before a gesture greys it. */
+	private Integer patternColor;
+
 	/** A one-line regex wraps in the preview; count newlines alone misses it. */
 	static final int PREVIEW_COLLAPSE_AFTER_CHARS =
 			PREVIEW_COLLAPSE_AFTER_LINES * 40;
@@ -351,14 +354,19 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			return;
 		}
 		final java.util.List<com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture>
-				gestures = com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.all();
+				gestures = com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+						.editorChoices(the_trigger.getPattern(),
+								!the_trigger.isInterpretAsRegex());
 		final java.util.List<String> labels = new java.util.ArrayList<String>();
 		labels.add("A line from the world");
 		for (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g : gestures) {
 			com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.Resolution r =
 					com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.resolve(
 							getContext(), g);
-			labels.add(g.getLabel() + (r.isAvailable() ? "" : "  (not on this phone)"));
+			String name = g.getId().startsWith(
+					com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX)
+					? "My shake: " + g.getLabel() : g.getLabel();
+			labels.add(name + (r.isAvailable() ? "" : "  (not on this phone)"));
 		}
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
 				android.R.layout.simple_spinner_item, labels);
@@ -416,9 +424,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	/** Lock or release the two fields a gesture owns. Gestures are not game text. */
 	private void applySourceLock(final EditText pattern, final CheckBox literal,
 			final boolean isGesture) {
+		if (patternColor == null) {
+			patternColor = Integer.valueOf(pattern.getCurrentTextColor());
+		}
 		pattern.setEnabled(!isGesture);
 		pattern.setFocusable(!isGesture);
 		pattern.setFocusableInTouchMode(!isGesture);
+		pattern.setTextColor(isGesture ? 0xFF6E7680 : patternColor.intValue());
+		View row = (View) pattern.getParent();
+		if (row instanceof android.widget.TableRow && ((android.widget.TableRow) row).getChildCount() > 0) {
+			((android.widget.TableRow) row).getChildAt(0).setAlpha(isGesture ? 0.4f : 1f);
+		}
 		literal.setEnabled(!isGesture);
 		int vis = isGesture ? View.GONE : View.VISIBLE;
 		View header = findViewById(R.id.trigger_style_header);
@@ -1075,28 +1091,36 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			}
 			
 			// A sensor reading arrives here with its pattern already filled in,
-			// so Done is valid the moment the editor opens and one tap saves a
-			// trigger with nothing in it. It then shows up on the Sensors list
-			// as set up, which is the opposite of true. Style-only text
-			// triggers can reach Done with a blank pattern; this guard is
-			// still only for the readings.
+			// so Done is valid the moment the editor opens. Empty actions on a
+			// brand-new gesture must not create a trigger; on an existing one
+			// Done removes it (Sensors "unset"). Non-gesture triggers keep
+			// their own empty-actions path below.
 			if (the_trigger.getResponders().isEmpty()
 					&& com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
 							.isGesturePattern(pattern.getText().toString(),
 									literal.isChecked())) {
-				AlertDialog.Builder builder =
-						new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
-				builder.setTitle("Nothing to do yet");
-				builder.setMessage("This reading has no actions, so firing it would do"
-						+ " nothing. Add one under Actions — Ack sends a command to the"
-						+ " game — or Cancel to leave the reading unset.");
-				builder.setPositiveButton("Back to the editor",
-						new DialogInterface.OnClickListener() {
-							public void onClick(DialogInterface d, int which) {
-								d.dismiss();
-							}
-						});
-				builder.create().show();
+				if (isEditor) {
+					try {
+						String name = original_trigger != null
+								? original_trigger.getName() : the_trigger.getName();
+						if (selectedPlugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
+							service.deleteTrigger(name);
+						} else {
+							service.deletePluginTrigger(selectedPlugin, name);
+						}
+						com.resurrection.blowtorch2.lib.util.SettingsSaver
+								.saveInBackground(service);
+					} catch (RemoteException e) {
+						throw new RuntimeException(e);
+					}
+					if (finish_with != null) {
+						finish_with.sendMessageDelayed(
+								finish_with.obtainMessage(100, the_trigger), 10);
+					}
+					TriggerEditorDialog.this.dismiss();
+					return;
+				}
+				TriggerEditorDialog.this.dismiss();
 				return;
 			}
 

@@ -28,6 +28,9 @@ public class FloatingButtonView extends View {
 	interface Callbacks {
 		void sendCommand(String text);
 
+		/** Grid heatmap. {@code index} is the 1-based pad slot. Kind is tap, hold, flip, or swipe-*. */
+		void noteButtonHeat(int index, String kind);
+
 		void loadButtonSet(String name);
 
 		void onFloatPositionChanged(int index, int x, int y);
@@ -606,6 +609,7 @@ public class FloatingButtonView extends View {
 
 		String dir = SuperButtonGestures.resolveSwipeDirection(bound, dx, dy, swipeThresholdPx);
 		if (dir != null) {
+			callbacks.noteButtonHeat(model.index, "swipe-" + dir);
 			String cmd = model.commandForDirection(dir);
 			if (cmd != null) {
 				callbacks.sendCommand(cmd);
@@ -613,13 +617,16 @@ public class FloatingButtonView extends View {
 		} else if (SuperButtonGestures.shouldFireHoldOnRelease(duration, enteredMoveMode,
 				holdCancelledByMove)
 				&& model.holdCommand != null && model.holdCommand.length() > 0) {
+			callbacks.noteButtonHeat(model.index, "hold");
 			callbacks.sendCommand(model.holdCommand);
 		} else if (outside && model.flipCommand != null && model.flipCommand.length() > 0) {
+			callbacks.noteButtonHeat(model.index, "flip");
 			callbacks.sendCommand(model.flipCommand);
 			if (callbacks.hapticFlipEnabled()) {
 				performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
 			}
 		} else if (!outside) {
+			callbacks.noteButtonHeat(model.index, "tap");
 			if (model.switchTo != null && model.switchTo.length() > 0) {
 				callbacks.loadButtonSet(model.switchTo);
 			} else if (model.command != null && model.command.length() > 0) {

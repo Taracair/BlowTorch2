@@ -19,8 +19,10 @@ import java.util.Map;
  * {@code target.gesture=command} joined by newlines; commands may not contain a
  * newline, which the editor enforces.
  *
- * Overflow deliberately has no hold binding: long-pressing it opens the button
- * editor, and that must stay.
+ * Overflow hold is optional. Absent means long-press still opens Edit buttons.
+ * An explicit empty {@code overflow.hold=} means the long-press does nothing.
+ * {@code .editbuttons} opens the editor. The swipe listener does not also
+ * fire that hold; {@code MainWindow.runOverflowHold} does.
  */
 public final class ChromeGestures {
 
@@ -101,12 +103,15 @@ public final class ChromeGestures {
 				continue;
 			}
 			int eq = line.indexOf('=');
-			if (eq <= 0 || eq == line.length() - 1) {
+			if (eq <= 0) {
 				continue;
 			}
 			String key = line.substring(0, eq).trim();
-			String command = line.substring(eq + 1).trim();
+			String command = eq == line.length() - 1 ? "" : line.substring(eq + 1).trim();
 			if (command.length() == 0) {
+				if ((TARGET_OVERFLOW + "." + GESTURE_HOLD).equals(key)) {
+					out.bindings.put(key, "");
+				}
 				continue;
 			}
 			int dot = key.indexOf('.');
@@ -126,7 +131,7 @@ public final class ChromeGestures {
 			for (int g = 0; g < SWIPES.length; g++) {
 				appendIfSet(sb, target, SWIPES[g]);
 			}
-			if (supportsHold(target)) {
+			if (supportsHold(target) || TARGET_OVERFLOW.equals(target)) {
 				appendIfSet(sb, target, GESTURE_HOLD);
 			}
 		}
@@ -134,23 +139,36 @@ public final class ChromeGestures {
 	}
 
 	private void appendIfSet(final StringBuilder sb, final String target, final String gesture) {
-		String cmd = get(target, gesture);
+		String key = target + "." + gesture;
+		if (!bindings.containsKey(key)) {
+			return;
+		}
+		String cmd = bindings.get(key);
 		if (cmd == null) {
+			return;
+		}
+		if (cmd.length() == 0
+				&& !(TARGET_OVERFLOW.equals(target) && GESTURE_HOLD.equals(gesture))) {
 			return;
 		}
 		sb.append(target).append('.').append(gesture).append('=').append(cmd).append('\n');
 	}
 
-	/** Bind a command, or clear the binding when the command is empty. */
+	/** Bind a command, or clear the binding when the command is empty.
+	 * Overflow hold keeps an explicit empty string: that long-press does nothing. */
 	public void put(final String target, final String gesture, final String command) {
 		if (target == null || gesture == null) {
 			return;
 		}
+		String key = target + "." + gesture;
 		if (TARGET_OVERFLOW.equals(target) && GESTURE_HOLD.equals(gesture)) {
-			// Long-press on the overflow opens the button editor and stays that way.
+			if (command == null) {
+				bindings.remove(key);
+				return;
+			}
+			bindings.put(key, command.trim().replace("\n", " "));
 			return;
 		}
-		String key = target + "." + gesture;
 		if (command == null || command.trim().length() == 0) {
 			bindings.remove(key);
 			return;

@@ -83,6 +83,33 @@ public final class TimerSchedule {
 	}
 
 	/**
+	 * First delay after {@code .timer duration 50s}. Remaining above the stored
+	 * length is the point of that command; {@link #clampRemaining} treats it as
+	 * a stale edit and would schedule a full run instead (phone, 29 Sep 2026).
+	 */
+	public static long firstDelayMillis(final int seconds, final int remaining,
+			final boolean honourAboveDuration) {
+		int full = normaliseSeconds(seconds);
+		if (honourAboveDuration && remaining > full) {
+			return (long) remaining * MILLIS_PER_SECOND;
+		}
+		return delayMillis(seconds, remaining);
+	}
+
+	/**
+	 * Length the progress readout counts down. The repeat period stays
+	 * {@code seconds}; only this run may be longer.
+	 */
+	public static int runFullSeconds(final int seconds, final int remaining,
+			final boolean honourAboveDuration) {
+		int full = normaliseSeconds(seconds);
+		if (honourAboveDuration && remaining > full) {
+			return remaining;
+		}
+		return full;
+	}
+
+	/**
 	 * Period to hand to {@code Timer.schedule} for a repeating timer.
 	 *
 	 * @param seconds The timer's full duration.

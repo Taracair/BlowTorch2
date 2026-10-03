@@ -207,4 +207,16 @@ interface IConnectionBinder {
 	 * {@link #updateIntegerSetting} alone — that writes the connection plugin.
 	 */
 	void updateMainWindowInteger(String key, int value);
+	/** Recorded shakes on this phone, or an empty library. Never null. */
+	String getCustomShakeLibrary();
+	/** Replace the recorded shakes. Kept on this phone, not in the world profile. */
+	void setCustomShakeLibrary(String encoded);
+	/** The shake hardness in force, in m/s². Read in the service process. */
+	float getShakeThreshold();
+	/**
+	 * True while a shake is being recorded, so practice strokes do not fire.
+	 * {@code client} dies with the UI process and ends recording if the dialog
+	 * never closes.
+	 */
+	void setShakeRecording(boolean on, IBinder client);
 }

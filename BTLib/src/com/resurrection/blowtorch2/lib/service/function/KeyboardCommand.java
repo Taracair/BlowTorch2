@@ -47,7 +47,7 @@ public class KeyboardCommand extends SpecialCommand {
 		}
 		
 		if(failed) {
-			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options [message]\n" +
+			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",
 					"Text ops: insert, insertliteral, insertword, add, popup, flush, close, clear\n" +
 					"Edit ops: sel | selectall, cut, copy, paste\n" +
 					"Cursor: start | cursorstart, end | cursorend,\n" +

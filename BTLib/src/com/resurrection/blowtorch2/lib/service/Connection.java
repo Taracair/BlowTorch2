@@ -41,6 +41,7 @@ import com.resurrection.blowtorch2.lib.responder.setvariable.SessionVariableSide
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableApply;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableOp;
 import com.resurrection.blowtorch2.lib.service.function.BellCommand;
+import com.resurrection.blowtorch2.lib.service.function.ButtonHeatCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
@@ -50,10 +51,12 @@ import com.resurrection.blowtorch2.lib.service.function.TriggerCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.EditButtonCommand;
+import com.resurrection.blowtorch2.lib.service.function.EditButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.EditPanelCommand;
 import com.resurrection.blowtorch2.lib.service.function.SendButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
+import com.resurrection.blowtorch2.lib.service.function.GestureCommand;
 import com.resurrection.blowtorch2.lib.service.function.FrameCommand;
 import com.resurrection.blowtorch2.lib.service.function.FontCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
@@ -67,6 +70,7 @@ import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
 import com.resurrection.blowtorch2.lib.service.function.PickCommand;
+import com.resurrection.blowtorch2.lib.service.function.CopyCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
@@ -76,6 +80,7 @@ import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.WidgetCommand;
+import com.resurrection.blowtorch2.lib.service.function.UnaccentCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
@@ -85,6 +90,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
@@ -563,6 +569,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** The map of special commands. */
 	private HashMap<String, SpecialCommand> mSpecialCommands = new HashMap<String, SpecialCommand>();
 
+	/** Session {@code .split}: two views of the main buffer. Not persisted. */
+	private boolean mSplitEnabled;
+	private int mSplitOrientation = com.resurrection.blowtorch2.lib.window.SplitLayout.ORIENTATION_HORIZONTAL;
+	private int mSplitPercent = com.resurrection.blowtorch2.lib.window.SplitLayout.DEFAULT_PERCENT;
+
 	/** Remainder of a {@code .wait} batch, armed after the prefix is flushed. */
 	private PausedOutbound mJustPaused = null;
 
@@ -596,11 +607,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mRevCommand = new SpeedwalkCommand(null, new Data(), true);
 		LoadButtonsCommand lbcmd = new LoadButtonsCommand();
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
+		ButtonHeatCommand heatcmd = new ButtonHeatCommand();
 		NoteCommand notecmd = new NoteCommand();
 		WrapCommand wrapcmd = new WrapCommand();
+		UnaccentCommand unaccentcmd = new UnaccentCommand();
 		EditPanelCommand editpanelcmd = new EditPanelCommand();
 		EditButtonCommand editbtncmd = new EditButtonCommand();
 		SendButtonCommand sendbtncmd = new SendButtonCommand();
+		GestureCommand gesturecmd = new GestureCommand();
+		EditButtonsCommand editbuttonscmd = new EditButtonsCommand();
+		mSpecialCommands.put(gesturecmd.commandName, gesturecmd);
+		mSpecialCommands.put(editbuttonscmd.commandName, editbuttonscmd);
 		mSpecialCommands.put(colordebug.commandName, colordebug);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
 		mSpecialCommands.put(timercmd.commandName, timercmd);
@@ -616,6 +633,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(mRevCommand.commandName, mRevCommand);
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
+		mSpecialCommands.put(heatcmd.commandName, heatcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
 		ProbeCommand probecmd = new ProbeCommand();
 		mSpecialCommands.put(probecmd.commandName, probecmd);
@@ -650,6 +668,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
 		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
+		mSpecialCommands.put(unaccentcmd.commandName, unaccentcmd);
 		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =
 				new com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand();
 		mSpecialCommands.put(dimrepeatcmd.commandName, dimrepeatcmd);
@@ -677,6 +696,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						"tips", "tipsCommand");
 		mSpecialCommands.put(tipscmd.commandName, tipscmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
+		com.resurrection.blowtorch2.lib.service.function.EditRowsCommand editrowscmd =
+				new com.resurrection.blowtorch2.lib.service.function.EditRowsCommand();
+		mSpecialCommands.put(editrowscmd.commandName, editrowscmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
 		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
 		com.resurrection.blowtorch2.lib.service.function.FontCommand fontcmd =
@@ -685,6 +707,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand widthcmd =
 				new com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand();
 		mSpecialCommands.put(widthcmd.commandName, widthcmd);
+		com.resurrection.blowtorch2.lib.service.function.AvoidButtonsCommand avoidbtnscmd =
+				new com.resurrection.blowtorch2.lib.service.function.AvoidButtonsCommand();
+		mSpecialCommands.put(avoidbtnscmd.commandName, avoidbtnscmd);
+		com.resurrection.blowtorch2.lib.service.function.JumpSendCommand jumpsendcmd =
+				new com.resurrection.blowtorch2.lib.service.function.JumpSendCommand();
+		mSpecialCommands.put(jumpsendcmd.commandName, jumpsendcmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();
@@ -693,6 +721,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(grabcmd.commandName, grabcmd);
 		PickCommand pickcmd = new PickCommand();
 		mSpecialCommands.put(pickcmd.commandName, pickcmd);
+		CopyCommand copycmd = new CopyCommand();
+		mSpecialCommands.put(copycmd.commandName, copycmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
 		FrameCommand framecmd = new FrameCommand();
@@ -728,6 +758,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(settingscmd.commandName, settingscmd);
 		OptionsCommand optionscmd = new OptionsCommand();
 		mSpecialCommands.put(optionscmd.commandName, optionscmd);
+		com.resurrection.blowtorch2.lib.service.function.SplitCommand splitcmd =
+				new com.resurrection.blowtorch2.lib.service.function.SplitCommand();
+		mSpecialCommands.put(splitcmd.commandName, splitcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -1051,7 +1084,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_SENDDATA_BYTES:
 				try {
 					resetUntilSendFired();
-					sendToServer((byte[]) msg.obj);
+					sendToServer((byte[]) msg.obj, true);
 				} catch (Exception e1) {
 					reportRuntimeError("outbound command", e1);
 				}
@@ -4327,7 +4360,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			Data d = processPreparedSegments(paused.segments, paused.inheritedEcho,
 					holdover, paused.holdoverPolicy);
-			emitOutbound(d);
+			if (mJustPaused != null) {
+				mJustPaused.unaccent = paused.unaccent;
+			}
+			emitOutbound(d, paused.unaccent);
 			armPendingWait();
 		} catch (Exception e) {
 			reportRuntimeError("wait resume", e);
@@ -4342,6 +4378,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		AliasLocalEcho holdoverPolicy = null;
 		long delayMs;
 		long fireAtElapsed;
+		boolean unaccent;
 	}
 
 	/**
@@ -4819,16 +4856,28 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// the same looper the posting path targets.
 		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
 				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null && gestureId != null && !gestureId.startsWith(
+				com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX)) {
+			g = com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(
+					com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX
+							+ gestureId);
+		}
 		if (g == null) {
 			return "\nThere is no sensor reading called \"" + gestureId + "\". Try .sensor.\n";
 		}
+		String spoken = g.getId().startsWith(
+				com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX)
+				? g.getId().substring(
+						com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX
+								.length())
+				: g.getId();
 		int fired = runDeviceGesture(g.getPattern());
 		if (fired == 0) {
-			return "\nNothing is set up for " + g.getId() + ". Give it something to do"
-					+ " with\n.sensor " + g.getId() + " <command>, or in the Triggers"
+			return "\nNothing is set up for " + spoken + ". Give it something to do"
+					+ " with\n.sensor " + spoken + " <command>, or in the Triggers"
 					+ " editor.\n";
 		}
-		return "\nFired " + g.getId() + ": " + fired
+		return "\nFired " + spoken + ": " + fired
 				+ (fired == 1 ? " trigger answered." : " triggers answered.") + "\n";
 	}
 
@@ -4843,16 +4892,23 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mSettings == null) {
 			return ids;
 		}
-		collectGestureIds(mSettings, ids);
+		if (!flagOption(com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED,
+				true)) {
+			return ids;
+		}
+		boolean myShakes = flagOption(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.MY_SHAKES, false);
+		collectGestureIds(mSettings, ids, myShakes);
 		for (Plugin p : mPlugins) {
 			if (p != null && p.isEnabled() && p != mSettings) {
-				collectGestureIds(p, ids);
+				collectGestureIds(p, ids, myShakes);
 			}
 		}
 		return ids;
 	}
 
-	private void collectGestureIds(final Plugin owner, final java.util.Set<String> into) {
+	private void collectGestureIds(final Plugin owner, final java.util.Set<String> into,
+			final boolean myShakes) {
 		HashMap<String, TriggerData> triggers = owner.getSettings().getTriggers();
 		if (triggers == null) {
 			return;
@@ -4864,9 +4920,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
 					com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
 							t.getPattern(), !t.isInterpretAsRegex());
-			if (g != null) {
-				into.add(g.getId());
+			if (g == null) {
+				continue;
 			}
+			// A recorded shake with the switch off must not keep the accelerometer on.
+			if (!myShakes && g.getId().startsWith(
+					com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX)) {
+				continue;
+			}
+			into.add(g.getId());
 		}
 	}
 
@@ -4895,22 +4957,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return true when it should be allowed through.
 	 */
 	public final boolean allowsGestureNow(final String gestureId) {
-		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
-				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
-		if (g == null) {
-			return false;
-		}
-		if (g.getProviders().contains(
-				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.BY_SYSTEM)) {
-			return true;
-		}
-		if (!flagOption("sensor_background", false) && !isUiInFront()) {
-			return false;
-		}
-		if (!flagOption("sensor_screen_off", false) && !isScreenInteractive()) {
-			return false;
-		}
-		return true;
+		boolean backgroundOk = flagOption("sensor_background", false) || isUiInFront();
+		boolean screenOk = flagOption("sensor_screen_off", false) || isScreenInteractive();
+		return com.resurrection.blowtorch2.lib.service.sensor.GestureGate.allow(gestureId,
+				flagOption(com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED,
+						true),
+				flagOption(com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.MY_SHAKES,
+						false),
+				backgroundOk, screenOk);
 	}
 
 	/**
@@ -4931,6 +4985,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mWindowCallbackMap != null && !mWindowCallbackMap.isEmpty();
 	}
 
+	/** Same answer as the gesture gate. Recents is not in front. */
+	public boolean isUiInFrontNow() {
+		return isUiInFront();
+	}
+
+	public boolean gateTimerExists(final String plugin, final String name) {
+		return mTimers.gateExists(plugin, name);
+	}
+
+	public boolean gateTimerRunning(final String plugin, final String name) {
+		return mTimers.gateRunning(plugin, name);
+	}
+
+	/** Live remaining seconds, or -1 when the timer is missing. */
+	public int gateTimerRemainingSeconds(final String plugin, final String name) {
+		return mTimers.gateRemainingSeconds(plugin, name);
+	}
+
 	/** Ask the system, rather than trusting a broadcast we may have missed. */
 	private boolean isScreenInteractive() {
 		try {
@@ -4943,6 +5015,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// swallowing every gesture the player set up.
 		}
 		return true;
+	}
+
+	/** Whether the Sensors list is live in this world. Default on. */
+	public final boolean sensorsEnabled() {
+		return flagOption(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED, true);
+	}
+
+	/** Whether recorded shakes replace the four directions in this world. */
+	public final boolean myShakesEnabled() {
+		return flagOption(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.MY_SHAKES, false);
 	}
 
 	/** One boolean option by key, with a default when the settings are not up yet. */
@@ -5295,6 +5379,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return list;
 	}
 
+	/** The command registered under {@code name}, or null. */
+	public final SpecialCommand systemCommand(final String name) {
+		return mSpecialCommands.get(name);
+	}
+
 	/** Sets the enabled state of an alias in the target plugin.
 	 * 
 	 * @param plugin Name of the target plugin.
@@ -5588,7 +5677,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/**
 	 * Reads an integer option off the main game window, or {@code fallback} when
-	 * there is no window yet or the key is not an integer option.
+	 * there is no window yet or the key is not an integer or list option.
 	 */
 	public final int getMainWindowIntegerOption(final String key, final int fallback) {
 		try {
@@ -5599,6 +5688,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			Object opt = mWindows.get(0).getSettings().findOptionByKey(key);
 			if (opt instanceof IntegerOption) {
 				return (Integer) ((IntegerOption) opt).getValue();
+			}
+			if (opt instanceof ListOption) {
+				return (Integer) ((ListOption) opt).getValue();
 			}
 		} catch (Exception e) {
 			Log.w("BlowTorch", "getMainWindowIntegerOption " + key, e);
@@ -5910,6 +6002,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// apply here — but the watcher may need to pick a sensor up or
 				// let it go, and that is decided by what is enabled, not by this.
 				break;
+			case sensors_enabled:
+			case sensor_my_shakes:
+				refreshDeviceGestures();
+				break;
 			case device_state_variables:
 				// Applied here rather than asked of the UI: the watcher and the
 				// session variables both live in this process, and the whole
@@ -5928,6 +6024,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_skip_head:
 			case word_complete_wrong_first:
 			case word_complete_phrases:
+			case word_complete_next:
 			case word_complete_short_first:
 			case word_complete_shorter_first:
 			case word_complete_ghost:
@@ -5954,6 +6051,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// Wire transform reads the option tree; IME half reloads Input flags.
 				mService.doExecuteRequestLoadSettings();
 				break;
+			case unaccent_send:
+				// Wire transform reads the option tree; no extra binder.
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case compatibility_mode:
 				mService.doExecuteCompatibilityMode((Boolean) o.getValue());
 				break;
@@ -5971,6 +6072,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case keep_cpu_awake:
 				this.doSetKeepCpuAwake((Boolean) o.getValue());
+				break;
+			case notification_grouping:
+				mService.updateForegroundNotification(null, null);
 				break;
 			case auto_reconnect:
 				mReconnect.setAutoReconnect((Boolean) o.getValue());
@@ -6241,6 +6345,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					ChatStore.forWorld(mService, mDisplay).setMaxMessages(
 							ChatStore.coerceMaxMessages(o.getValue()));
 				}
+				break;
+			case global_gesture_mode:
+			case global_gesture_scroll:
+			case global_gesture_hold_ms:
+			case global_gesture_show_mode:
+			case global_gesture_show_arrow:
+			case global_gesture_show_command:
+			case global_gesture_two_dir:
+			case global_gesture_two_copy:
+			case global_gesture_two_scroll:
+			case global_gesture_bindings:
+				mService.doExecuteRequestLoadSettings();
 				break;
 			default:
 				break;
@@ -6885,6 +7001,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return def;
 	}
 
+	/** Shade layout for this world. Missing key stays on one stack. */
+	public int notificationGrouping() {
+		try {
+			Object opt = mSettings.getSettings().getOptions()
+					.findOptionByKey(ShadeGrouping.OPTION_KEY);
+			if (opt instanceof ListOption) {
+				Object val = ((ListOption) opt).getValue();
+				if (val instanceof Integer) {
+					return ShadeGrouping.layoutFromIndex((Integer) val);
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return ShadeGrouping.NESTED;
+	}
+
 	/** Impelementation of the bell vibrate settings handler.
 	 * 
 	 * @param value New value to use.
@@ -7301,6 +7433,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_skip_head,
 		word_complete_wrong_first,
 		word_complete_phrases,
+		/** After a finished word, offer the one word that followed it. */
+		word_complete_next,
 		/** Put the plain word before the whole name built on it. */
 		word_complete_short_first,
 		/** Order every suggestion by length rather than by what was said last. */
@@ -7311,6 +7445,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		sensor_screen_off,
 		/** Let movement readings fire while the app is in the background. */
 		sensor_background,
+		/** Master switch for every Sensors-list reading in this world. */
+		sensors_enabled,
+		/** Use recorded shakes here and quiet the four directions and pat: patterns. */
+		sensor_my_shakes,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** Suggestions follow the caret into the middle of the line. */
@@ -7345,6 +7483,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		grow_input_bar,
 		/** Soften first letter of sent commands for case-sensitive MUDs. */
 		lowercase_command_start,
+		/** Fold Latin diacritics on the outbound wire. */
+		unaccent_send,
 		/** Input compatibility mode. */
 		compatibility_mode,
 		/** Local echo. */
@@ -7357,6 +7497,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		keep_wifi_alive,
 		/** Keep CPU awake while this world needs the socket poll. */
 		keep_cpu_awake,
+		/** Shade: one stack, or a bar per type. List index, default nested. */
+		notification_grouping,
 		/** Cull extraneous color codes. */
 		cull_extraneous_color,
 		/** Debug telnet data. */
@@ -7476,7 +7618,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Android notification for new chat. */
 		chat_android_notify,
 		/** Inbox cap; 0 is no practical limit (hard ceiling still applies). */
-		chat_max_messages
+		chat_max_messages,
+		/** Screen gestures on the game text. List index. */
+		global_gesture_mode,
+		/** How one finger scrolls while one-finger gestures are on. */
+		global_gesture_scroll,
+		/** Milliseconds a finger stays still before a one-finger gesture. */
+		global_gesture_hold_ms,
+		/** Label at the top of the game text. */
+		global_gesture_show_mode,
+		/** Direction arrow while a gesture is in progress. */
+		global_gesture_show_arrow,
+		/** Command text while a gesture is in progress. */
+		global_gesture_show_command,
+		/** Anchored two-finger direction commands. */
+		global_gesture_two_dir,
+		/** Short two-finger tap copies, in Two fingers and Both. */
+		global_gesture_two_copy,
+		/** Both fingers moving together scroll. */
+		global_gesture_two_scroll,
+		/** Direction commands. Stored on the Edit global gestures row. */
+		global_gesture_bindings
 	}
 	
 	/**
@@ -7509,6 +7671,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param bytes Input to process.
 	 */
 	private void sendToServer(final byte[] bytes) {
+		sendToServer(bytes, false);
+	}
+
+	/**
+	 * @param unaccent true for input-bar / button (BYTES) sends; false for Lua
+	 *        {@code SendToServer} and Ack (STRING)
+	 */
+	private void sendToServer(final byte[] bytes, final boolean unaccent) {
 		if (bytes == null || mSettings == null) {
 			return;
 		}
@@ -7522,13 +7692,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			reportRuntimeError("alias / special command", e2);
 			return;
 		}
+
+		if (mJustPaused != null) {
+			mJustPaused.unaccent = unaccent;
+		}
 		
 		if (d == null) {
 			armPendingWait();
 			return;
 		}
 		try {
-			emitOutbound(d);
+			emitOutbound(d, unaccent);
 		} catch (IOException e) {
 			cancelCommandWaits();
 			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
@@ -7541,7 +7715,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * Socket write + local echo for a batch that {@link #processOutputData} or a
 	 * {@code .wait} resume already finished walking.
 	 */
-	private void emitOutbound(final Data d) throws IOException {
+	private void emitOutbound(final Data d, final boolean unaccentFromBytes) throws IOException {
 		if (d == null) {
 			return;
 		}
@@ -7552,6 +7726,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String nosemidata = null;
 			
 			if (d.mCmdString != null && !d.mCmdString.equals("")) {
+				boolean unaccent = unaccentFromBytes
+						&& readBoolOption("unaccent_send", false);
+				d.mCmdString = CommandUnaccent.foldForSend(d.mCmdString, unaccent, mLocalEcho);
+				if (unaccent && mLocalEcho && d.mVisString != null
+						&& d.mVisString.length() > 0) {
+					d.mVisString = CommandUnaccent.foldForSend(d.mVisString, true, true);
+				}
 				nosemidata = d.mCmdString;
 				if (mMcpEngine != null && mMcpEngine.isUse()) {
 					nosemidata = mMcpEngine.quoteOutboundInBand(nosemidata);
@@ -8685,6 +8866,37 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return "";
 		}
 		return ConnectionDuration.formatElapsed(ms);
+	}
+
+	public final boolean isSplitEnabled() {
+		return mSplitEnabled;
+	}
+
+	public final int getSplitOrientation() {
+		return mSplitOrientation;
+	}
+
+	public final int getSplitPercent() {
+		return mSplitPercent;
+	}
+
+	/**
+	 * Session split layout for the main buffer. Broadcasts to the UI; not a
+	 * second TextTree.
+	 */
+	public final void applySplit(final boolean on, final int orientation,
+			final int percent) {
+		mSplitEnabled = on;
+		if (orientation == com.resurrection.blowtorch2.lib.window.SplitLayout.ORIENTATION_VERTICAL) {
+			mSplitOrientation = com.resurrection.blowtorch2.lib.window.SplitLayout.ORIENTATION_VERTICAL;
+		} else {
+			mSplitOrientation = com.resurrection.blowtorch2.lib.window.SplitLayout.ORIENTATION_HORIZONTAL;
+		}
+		mSplitPercent = com.resurrection.blowtorch2.lib.window.SplitLayout.clampPercent(percent);
+		int mode = on ? mSplitOrientation : 0;
+		if (mService != null) {
+			mService.doApplySplit(mode, mSplitPercent);
+		}
 	}
 	
 	/** Getter for mService. This is really ugly and should be fixed immediatly.

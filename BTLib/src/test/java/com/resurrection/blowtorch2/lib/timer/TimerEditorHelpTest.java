@@ -17,7 +17,9 @@ public class TimerEditorHelpTest {
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("${name}"));
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("OVERLAY WIDGET"));
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains(".timer dump"));
-		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("window"));
+		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("game window"));
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains(".widget source"));
+		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("50s"));
+		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("remaining"));
 	}
 }

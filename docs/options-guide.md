@@ -6,8 +6,8 @@ bottom of Options filters as you type; tap a result to jump there and flash the 
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: **Font** (curated faces + Load from storage; not a dump of `/system/fonts/`), buffer, word wrap, **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Line timestamps?** (`.timestamp`; arrival time on the right of each line), **Timestamps in session log?**, **Timestamp parts**, **Newest text at top?**, **Avoid camera cutout (portrait)?**, **Avoid camera cutout (landscape)?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Android fling?** (off; coast after lift using swipe speed, like a web page; turns off **Scroll sensitivity** while on), **Scroll sensitivity** (50–500%), **Pick loupe size (%)** / **Pick loupe zoom (%)** (`.pick` magnifier; also `.pick loupe size N` / `zoom N`), **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
-| **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
+| **Window** | Per-window text: **Font** (curated faces + Load from storage; not a dump of `/system/fonts/`), buffer, word wrap, **Text width (% of screen)** (`.width`; over 100 drag sideways), **Text avoids on-screen buttons?** (`.avoidbuttons`; opt-in wrap around the grid pad and floating copies, maps may break), **Avoid-buttons break** (`.avoidbuttons letters|words`; default letters), **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Line timestamps?** (`.timestamp`; arrival time on the right of each line), **Timestamps in session log?**, **Timestamp parts**, **Newest text at top?**, **Avoid camera cutout (portrait)?**, **Avoid camera cutout (landscape)?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Android fling?** (off; coast after lift using swipe speed, like a web page; turns off **Scroll sensitivity** while on), **Scroll sensitivity** (50–500%), **Pick loupe size (%)** / **Pick loupe zoom (%)** (`.pick` magnifier; also `.pick loupe size N` / `zoom N`), **Copy loupe size (%)** / **Copy loupe zoom (%)** (two-finger copy magnifier), **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
+| **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, **Strip accents when sending** / `.unaccent`, …) |
 | **Service** | Encoding, **Heavier MUD bold (SGR 1)?** (off; world's `[1m` also heavier), background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Chat** | Unread mark on ⋮, a line in the game window, Android notifications, keep-at-most-N messages |
 | **Bell** | Bell character reactions |
@@ -237,6 +237,7 @@ patterns.
 
 - **Keep Wifi Alive?** (Service) holds a Wi‑Fi lock while connected (`WIFI_MODE_FULL_HIGH_PERF`). Does nothing on mobile data.
 - **Keep CPU Awake?** (Service, default on) holds a partial CPU wake lock while this world is connected, handshaking, or waiting to reconnect. Off saves some battery, but `.wait`, triggers and timers may not fire on time with the screen off. Other worlds that still have it on keep the lock. The duration ticker does not drop that lock.
+- **Notification stack** (Service, default **One stack**) puts the connection, trigger alerts and chat in one shade group. **Separate bars** gives connection, alerts and chat each their own bar. With several worlds open, the world you are in decides. A trigger set to **Spawn new** stays on its own bar either way. The group header goes away when that stack is empty. The connection row is not the header, so its server buttons stay on the expanded notification.
 - **Battery optimization…** opens the system exemption flow; a one-shot dialog
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.
@@ -251,7 +252,7 @@ conditions and timers.
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Device state as variables** | off | Keep `device.facing`, `device.screen`, `device.headphones`, `device.charging`, `device.battery`, `device.covered`, `device.light` up to date as session variables. With it off nothing is registered and a condition testing one is *false*, never true |
-| **Sensors…** | — | The list screen, built like the Alias / Trigger / Timer chooser: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger, battery, screen and rotation*, each row one line of what it is or what already answers it. Tapping a row opens the trigger editor; **Test** opens a live probe. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. The `?` in the button bar is what the screen is for; which chip provides a reading is `.sensor caps`, not the row |
+| **Sensors…** | — | The list screen, built like the Alias / Trigger / Timer chooser: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger, battery, screen and rotation*, each row one line of what it is or what already answers it. Tapping a row opens the trigger editor; **Test** opens a live probe. A power button at the top silences every reading in this world (`.sensor all off`); the same power button as on a trigger, on a row that already has a command, turns that reading off without opening it. **Record a shake…** stores a movement on this phone (three or more lines, a closeness slider, toward-you as well as across the screen). The pattern box for that command is grey. **Use my shakes** greys left/right/up/down and they stay quiet, and `pat:` patterns stay quiet, in this world; Shake the phone keeps its own power button. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. The `?` in the button bar is what the screen is for; which chip provides a reading is `.sensor caps`, not the row |
 | **Test** (on a row) | — | Watches the sensor while you do the gesture and says whether the phone saw it — the question `.sensor fire` cannot answer. Runs in the UI process and releases every listener when it closes. Near/far, which way up, the one-shot sensors and the system events get a verdict from the same shared code the real detector uses; **shake** and the two **light** readings show the raw number instead, because their thresholds are calibrated and kept by the service process. Where a reading has an enabled trigger the probe also offers **Run the actions**, which is `.sensor fire` |
 | **Calibrate shake…** | — | Two measurements (shaking, then walking) and it picks a threshold between them; refuses when they overlap. Kept with the phone, never exported |
 | **Calibrate light…** | — | Tap once somewhere dark and once somewhere bright. Lux is not comparable between phones or rooms, so this is the only way "dark" can mean yours |
@@ -266,6 +267,14 @@ jack comes out has to work precisely when you are not looking at the screen.
 `landscape` / `portrait` fire when the screen actually turns. The orientation
 the phone already has when you bind the reading is not a fire — turn it the
 other way, then back.
+
+A shake pattern is several direction shakes in order. `.sensor pat:lr look`
+sends `look` after a shake left and then a shake right. Letters are `l` left,
+`r` right, `u` up, `d` down, two to eight of them. Each shake is as hard as
+Shake, and the next one has to come within 2.5 seconds. `.sensor` is written
+`pat:lr`. The trigger editor stores the literal pattern `!pat:lr`. The game
+receives `look`. **Use my shakes** keeps these quiet. A phone without linear
+acceleration only fires Shake.
 
 A sensor trigger is **not aimed at one world**: it fires in every world you have
 open, so with two MUDs connected one shake sends its command twice.
@@ -388,10 +397,12 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
+- **Global gestures:** Options → Input → Global gestures. `.gesture` prints the mode. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off` (refused in Classic and Two fingers, the same as the grey row), `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`. `.editbuttons` opens Edit buttons. Classic (the default) is unchanged: one finger scrolls, two fingers copy.
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
 - **Light theme:** `.light on|off|toggle|1-5|shade N`. Five papers (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Game colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window.
 - **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). Hold where several tappable words sit close together (OSC 8, MXP, or a Tappable Word trigger) and a small loupe appears so you can slide to the one you meant. `.probe osc8` dumps a tappable sample without a MUD.
 - **Pick loupe:** `.pick loupe` prints size and zoom. `.pick loupe size N` (50–200, default 118) and `.pick loupe zoom N` (150–350, 200 = 2×). Also Options → Window. During `.pick hold`, a second finger cancels that pick so you can scroll (two fingers with pick off still copy). Bar prefix: `fix ` appends the word; `fix $1 helmet` plus pick `iron` sends `fix iron helmet` (`$1` / `$0` / `$word`).
+- **Copy loupe:** `.copy` / `.copy loupe` prints size and zoom. `.copy loupe size N` (50–200, default 118) and `.copy loupe zoom N` (150–350, 200 = 2×). Also Options → Window. Copy / swap / close sit outside the circle. With **Text width** over 100, dragging the magnifier to the right or left edge pans the canvas.
 - **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
 - **`.options`** — opens the Options screen, same as ⋮. Put it on a button.
 - **`.widget` / `.gauge`** — overlay HP/mana/timer gauges. Options → Window → Widgets. See the user manual.
@@ -410,17 +421,35 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
   (backslash stripped, never reaches the MUD). With the option off, `\Look` is
   sent as typed.
 
+## Strip accents when sending
+
+- **Options → Input → Strip accents when sending** (default off) — folds Latin
+  letters with marks on the way to the game (`usiądź przy stole` →
+  `usiadz przy stole`). Local echo shows the folded form; the input bar
+  still shows what you typed. Passwords are never rewritten. Lua
+  `SendToServer` from a plugin is not rewritten; on-screen button commands
+  are.
+- Dot command: `.unaccent on` / `.unaccent off` (no args prints status).
+
 ## Word completion
 
 Completes mob / player / item words the world just used, which the soft keyboard
-never learns. All of it is off by default and lives under **Options → Input**;
-each has a dot form on `.suggest`.
+never learns. It lives under **Options → Input → Suggestions**; each switch
+has a dot form on `.suggest`. Nearby misspellings, skip-head, the next
+word, and order by place in the line are on by default. The rest wait until
+you ask.
 
 All of these live under **Options → Input → Suggestions** — one feature with
 seven switches was making the Input page a wall.
 
 - **Complete words the game used** — `.suggest on|off`. While off, incoming text
   is not even sent to the completer, so it costs nothing.
+- **Suggest the next word** — `.suggest next on|off`. **On by default.** After
+  a finished word and a space, offer the one word that followed it in the game:
+  the game shows `cave troll emerges`, you type `cave` and a space, and it
+  offers `troll`, then `emerges`. Off, a finished word offers nothing until
+  you type the next one. Not whole names — that offer is the phrase while the
+  first word is still being typed (`.suggest phrases`).
 - **Completion memory (lines)** — `.suggest lines N`. Freshness is the last `N`
   lines the world sent (default 300), not a word count; `0` keeps the whole
   session. "Recent" then means on screen what it means to the completer.
@@ -451,17 +480,17 @@ seven switches was making the Input page a wall.
   - A forgiven typo shows the whole word behind an arrow, because the letters
     have to change rather than grow: `grzld → grizzled`. Tapping replaces what
     you typed.
-  - The ghost never makes the bar taller. If it does not fit the rest of the
-    line it continues on the next line when the bar already has one, and is cut
-    with `…` when it does not.
+  - If it does not fit the rest of the line, the bar grows by one row and the
+    rest continues there, cut with `…` when even that row is short.
 - **Complete at the cursor** — `.suggest caret on|off` (also `.suggest cursor`).
   **Off by default.** On, prefix chips follow the cursor into the middle of a
   line, not only the end: type two letters of a name while rewriting a command,
   or stand on the word you want to replace, and taking a chip puts it there.
   Nearby misspellings already follow the word at the cursor even when this is
   off. The inline ghost still only draws at the end of the line (it would cover
-  what follows); with the ghost on, the numbered list sits under the line
-  instead.
+  what follows). With the ghost on, the numbered list starts after the text
+  already on the line, and takes a new line under it only when that line is
+  full. The input bar grows so that extra line stays above the keyboard.
 - **Suggestions float over the game** — `.suggest overlay on|off`. **On by
   default.** The strip below the game window takes height, so the text jumps when
   a suggestion appears; floating over the game text costs the layout nothing and

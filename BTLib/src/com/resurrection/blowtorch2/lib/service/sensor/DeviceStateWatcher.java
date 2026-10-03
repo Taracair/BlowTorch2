@@ -22,6 +22,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.view.Display;
+import android.view.WindowManager;
 
 /**
  * Push {@link DeviceState} into worlds that asked. Runs in {@code :stellar}
@@ -43,8 +45,8 @@ public final class DeviceStateWatcher {
 	 * been measured. Calibration per device is the step that replaces this.
 	 */
 	private float shakeThreshold = GestureTuning.DEFAULT_SHAKE;
-	/** Without a dead time one shake of the wrist fires four times. */
-	private static final long SHAKE_DEAD_MILLIS = 500L;
+	/** True while My shakes is drawing lines. Set only on {@link #handler}. */
+	private boolean shakeRecording;
 
 	private boolean receiverRegistered;
 	private boolean sensorRegistered;
@@ -94,7 +96,8 @@ public final class DeviceStateWatcher {
 	 * after each firing. Kept apart because their API is not the streaming one. */
 	private OneShotGestures oneShot;
 	private long coveredSince;
-	private long lastShakeAt;
+	/** When the last shake opened, or -1. {@link ShakeCapture#mayStart} reads this. */
+	private long lastShakeAt = -1L;
 	private Runnable pendingCover;
 
 	/** The connections to serve; supplied by the service, never held. */
@@ -203,7 +206,8 @@ public final class DeviceStateWatcher {
 	 * the option off releases the sensor without the player restarting anything.
 	 */
 	/** What the last refresh decided, so an unchanged one costs almost nothing. */
-	private java.util.Set<String> lastWanted;
+	/** Published from {@link #refresh()} and read on the sensor looper. */
+	private volatile java.util.Set<String> lastWanted;
 	private boolean lastWantedState;
 
 	public synchronized void refresh() {
@@ -227,7 +231,11 @@ public final class DeviceStateWatcher {
 		}
 		boolean wantsProximity = wantsState
 				|| wanted.contains("wave") || wanted.contains("cover");
-		boolean wantsMotion = wanted.contains("shake");
+		boolean wantsMotion = wanted.contains("shake")
+				|| wanted.contains("shakeleft") || wanted.contains("shakeright")
+				|| wanted.contains("shakeup") || wanted.contains("shakedown")
+				|| ShakeAxis.wantsPattern(wanted)
+				|| CustomShakeNames.wanted(wanted);
 		boolean wantsFacing = wanted.contains("facedown") || wanted.contains("faceup");
 		boolean wantsLight = wantsState
 				|| wanted.contains("gotdark") || wanted.contains("gotbright");
@@ -572,6 +580,8 @@ public final class DeviceStateWatcher {
 	}
 
 	private void stopMotion() {
+		shakeSequence.reset();
+		dropCustomCapture();
 		if (!motionRegistered || sensorManager == null) {
 			return;
 		}
@@ -581,6 +591,33 @@ public final class DeviceStateWatcher {
 			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterMotion", e);
 		}
 		motionRegistered = false;
+	}
+
+	/** The sample list is only touched on the sensor handler. */
+	private void dropCustomCapture() {
+		if (Looper.myLooper() == handler.getLooper()) {
+			customCapture = null;
+			return;
+		}
+		handler.post(new Runnable() {
+			@Override
+			public void run() {
+				customCapture = null;
+			}
+		});
+	}
+
+	/** Practice strokes in the UI must not send the world's shake commands. */
+	public void setShakeRecording(final boolean on) {
+		handler.post(new Runnable() {
+			@Override
+			public void run() {
+				shakeRecording = on;
+				if (on) {
+					customCapture = null;
+				}
+			}
+		});
 	}
 
 	/**
@@ -617,30 +654,72 @@ public final class DeviceStateWatcher {
 		coveredSince = 0L;
 	}
 
+	private final ShakeSequence shakeSequence = new ShakeSequence();
+	/** Open only while a world is waiting on a recorded shake. Null keeps the one-sample path. */
+	private ShakeCapture customCapture;
+	/** Screen-space sample for a recorded shake. Touched only on {@link #handler}. */
+	private final float[] screenAccel = new float[3];
+
 	private final SensorEventListener motionListener = new SensorEventListener() {
 		@Override
 		public void onSensorChanged(final SensorEvent event) {
 			if (event == null || event.values == null || event.values.length < 3) {
 				return;
 			}
+			float x = event.values[0];
+			float y = event.values[1];
+			float z = event.values[2];
 			double magnitude;
 			if (motionHasGravity) {
-				magnitude = MotionStats.gravityRemoved(event.values[0], event.values[1],
-						event.values[2], SensorManager.GRAVITY_EARTH);
+				magnitude = MotionStats.gravityRemoved(x, y, z, SensorManager.GRAVITY_EARTH);
 			} else {
-				magnitude = Math.sqrt((event.values[0] * event.values[0])
-						+ (event.values[1] * event.values[1])
-						+ (event.values[2] * event.values[2]));
+				magnitude = Math.sqrt((x * x) + (y * y) + (z * z));
+			}
+			if (shakeRecording) {
+				return;
+			}
+			long now = android.os.SystemClock.elapsedRealtime();
+			// Dead-time samples are the rest of this shake, not a second firing.
+			// Recorded shakes are stored in screen axes so the plot matches play.
+			if (customCapture != null && !motionHasGravity) {
+				toScreen(x, y, z);
+				ShakeTrace done = customCapture.add(now, screenAccel[0], screenAccel[1],
+						screenAccel[2], (float) magnitude, shakeThreshold);
+				if (done != null) {
+					customCapture = null;
+					dispatchCustom(done);
+				} else if (!customCapture.isOpen()) {
+					customCapture = null;
+				}
+				// The rest of this stroke, or the sample that closed it. A new
+				// shake waits for a later sample and for mayStart.
+				return;
 			}
 			if (magnitude < shakeThreshold) {
 				return;
 			}
-			long now = android.os.SystemClock.elapsedRealtime();
-			if (now - lastShakeAt < SHAKE_DEAD_MILLIS) {
+			if (!ShakeCapture.mayStart(now, lastShakeAt)) {
 				return;
 			}
 			lastShakeAt = now;
 			fire("shake");
+			if (motionHasGravity) {
+				return;
+			}
+			String letter = ShakeAxis.letter(x, y, z);
+			String dir = ShakeAxis.gestureId(letter);
+			if (dir != null) {
+				fire(dir);
+			}
+			for (String id : shakeSequence.push(letter, now, lastWanted)) {
+				fire(id);
+			}
+			if (customCapture == null && CustomShakeNames.wanted(lastWanted)) {
+				toScreen(x, y, z);
+				customCapture = new ShakeCapture();
+				customCapture.add(now, screenAccel[0], screenAccel[1], screenAccel[2],
+						(float) magnitude, shakeThreshold);
+			}
 		}
 
 		@Override
@@ -728,6 +807,37 @@ public final class DeviceStateWatcher {
 		public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
 		}
 	};
+
+	/** Device axes to the screen the player sees. Built-in directions stay on device axes. */
+	private void toScreen(final float x, final float y, final float z) {
+		ScreenAxes.toScreen(displayRotation(), x, y, z, screenAccel);
+	}
+
+	@SuppressWarnings("deprecation")
+	private int displayRotation() {
+		try {
+			Object raw = context.getSystemService(Context.WINDOW_SERVICE);
+			if (raw instanceof WindowManager) {
+				Display display = ((WindowManager) raw).getDefaultDisplay();
+				if (display != null) {
+					return display.getRotation();
+				}
+			}
+		} catch (RuntimeException ignored) {
+		}
+		return ScreenAxes.ROTATION_0;
+	}
+
+	private void dispatchCustom(final ShakeTrace trace) {
+		try {
+			String name = CustomShakeStore.load(context).match(trace);
+			if (name != null) {
+				fire(CustomShakeNames.PREFIX + name);
+			}
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.dispatchCustom", e);
+		}
+	}
 
 	/**
 	 * Hand the gesture to every world waiting for it.

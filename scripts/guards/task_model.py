@@ -2,7 +2,7 @@
 """Rewrite Cursor Task inputs so BlowTorch reviews do not run as Composer 2.5.
 
 Cursor's `bugbot` subagent type is pinned to Composer 2.5 and ignores `model`.
-Passing `cursor-grok-4.6-xhigh` on a bugbot Task does not change what the UI
+Passing `grok-4.7-xhigh` on a bugbot Task does not change what the UI
 shows. This module is the rule; the hook only translates JSON.
 
 Run `python3 scripts/guards/task_model.py --self-test` (also a check.sh stage).
@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import sys
 
-REQUIRED_MODEL = "cursor-grok-4.6-xhigh"
+REQUIRED_MODEL = "grok-4.7-xhigh"
 REQUIRED_TYPE = "generalPurpose"
 PINNED_TYPES = frozenset({"bugbot"})
 REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
@@ -57,6 +57,20 @@ def _model_needs_replace(model: str) -> bool:
     if m.startswith("composer-2.5") or m.endswith("-fast"):
         return True
     return m != REQUIRED_MODEL.lower()
+
+
+def rewrite_model_only(inp: dict) -> tuple[dict | None, str]:
+    """Every Task uses the required model, not only reviewer launches."""
+    if not isinstance(inp, dict) or is_review_task(inp):
+        return None, ""
+    if "subagent_type" not in inp and "model" not in inp:
+        return None, ""
+    model = _norm(inp.get("model"))
+    if not _model_needs_replace(model):
+        return None, ""
+    out = dict(inp)
+    out["model"] = REQUIRED_MODEL
+    return out, f"model {model or 'omitted'} -> {REQUIRED_MODEL}"
 
 
 def rewrite_task_input(inp: dict) -> tuple[dict | None, str]:
@@ -164,6 +178,8 @@ def handle_payload(payload: dict) -> dict:
         return {"permission": "allow"}
 
     new, reason = rewrite_task_input(tool_input(payload))
+    if not new:
+        new, reason = rewrite_model_only(tool_input(payload))
     if not new:
         return {"permission": "allow"}
 
@@ -301,8 +317,9 @@ def _self_test() -> int:
         "tool_name": "Task",
         "tool_input": {"subagent_type": "explore", "description": "search"},
     })
-    if allow_explore.get("permission") != "allow" or "updated_input" in allow_explore:
-        print(f"FAIL explore untouched: {allow_explore!r}", file=sys.stderr)
+    explore_in = allow_explore.get("updated_input") if isinstance(allow_explore.get("updated_input"), dict) else {}
+    if allow_explore.get("permission") != "allow" or explore_in.get("model") != REQUIRED_MODEL:
+        print(f"FAIL explore model: {allow_explore!r}", file=sys.stderr)
         failed += 1
 
     inject = handle_payload({

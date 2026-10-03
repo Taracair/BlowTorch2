@@ -278,6 +278,7 @@ public final class WindowTokenParser {
 					case word_wrap:
 					case hyperlinks_enabled:
 					case osc8_links:
+					case jump_on_send:
 						if (!(Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
@@ -307,6 +308,7 @@ public final class WindowTokenParser {
 						break;
 					case newest_at_top:
 					case dim_repeated_lines:
+					case text_avoid_buttons:
 					case light_paper:
 					case scroll_dates:
 					case line_stamps:
@@ -317,6 +319,16 @@ public final class WindowTokenParser {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
+					case text_avoid_buttons_break:
+						// Default letters (0); persist only when words.
+						if (((Integer) ((ListOption) o).getValue()).intValue()
+								!= WindowToken.DEFAULT_AVOID_BUTTONS_BREAK) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((ListOption) o).getValue()).toString());
 							out.endTag("", "option");
 						}
 						break;
@@ -415,6 +427,7 @@ public final class WindowTokenParser {
 						}
 						break;
 					case ime_keep_text:
+					case input_edit_tools_two_rows:
 						if ((Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
@@ -485,6 +498,22 @@ public final class WindowTokenParser {
 						break;
 					case pick_loupe_zoom:
 						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_PICK_LOUPE_ZOOM) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
+					case copy_loupe_size:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_COPY_LOUPE_SIZE) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
+					case copy_loupe_zoom:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_COPY_LOUPE_ZOOM) {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text(((Integer) ((IntegerOption) o).getValue()).toString());

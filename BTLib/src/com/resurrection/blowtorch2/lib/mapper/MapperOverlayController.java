@@ -1951,7 +1951,7 @@ public class MapperOverlayController
 						String t = title.getText().toString();
 						String n = notes.getText().toString();
 						host.runMapCommand("title for " + tileId + " " + t);
-						host.runMapCommand("note for " + tileId + " " + n);
+						host.runMapCommand("note for " + tileId + " " + MapNoteText.encode(n));
 						host.runMapCommand("locktitle for " + tileId + " "
 								+ (lockTitle.isChecked() ? "on" : "off"));
 						host.runMapCommand("lockposition for " + tileId + " "
@@ -2419,6 +2419,17 @@ public class MapperOverlayController
 			}
 		} else if (MapperRadialMenu.ACTION_FIND.equals(action)) {
 			openSearch();
+		} else if (MapperRadialMenu.ACTION_NAME.equals(action)) {
+			if (!isRecordingNow()) {
+				Toast.makeText(host.getMainWindow(),
+						"Turn Record on, then Name takes the room from the recent lines.",
+						Toast.LENGTH_SHORT).show();
+			} else if (controller != null) {
+				toastStatus(controller.nameFromBuffer());
+				refreshFromController();
+			} else {
+				host.runMapCommand("name");
+			}
 		} else if (MapperRadialMenu.ACTION_REC.equals(action)) {
 			runToolbarAction("rec");
 		} else if (MapperRadialMenu.ACTION_FOLLOW.equals(action)) {

@@ -615,18 +615,36 @@ function BUTTON:draw(state,canvas)
 	local rect = self.rect
 	--Note("drawing button, roundness is"..buttonRoundness)
 	--buttonRoundness = 30.0
-	local fill = tileColor(self.data.primaryColor)
-	if(usestate == 0) then
+	-- Heatmap view: one white, alpha is use. Nil keeps the tile's own colours
+	-- while pressed too, so a tap does not flash the saved colour.
+	local heatA, heatR, heatG, heatB, heatLR, heatLG, heatLB
+	if buttonHeatPaint ~= nil then
+		heatA, heatR, heatG, heatB, heatLR, heatLG, heatLB = buttonHeatPaint(self)
+	end
+	local heat = heatA ~= nil
+	local fill
+	if heat then
+		fill = Color:argb(heatA, heatR, heatG, heatB)
+		local drawRect = rect
+		if usestate == 1 or usestate == 2 then
+			drawRect = self.inset
+		end
 		p:setColor(fill)
-		canvas:drawRoundRect(rect,buttonRoundness,buttonRoundness,p)
-	elseif(usestate == 1) then
-		fill = tileColor(self.data.selectedColor)
-		p:setColor(fill)
-		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
-	elseif(usestate == 2) then
-		fill = tileColor(self.data.flipColor)
-		p:setColor(fill)
-		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
+		canvas:drawRoundRect(drawRect, buttonRoundness, buttonRoundness, p)
+	else
+		fill = tileColor(self.data.primaryColor)
+		if(usestate == 0) then
+			p:setColor(fill)
+			canvas:drawRoundRect(rect,buttonRoundness,buttonRoundness,p)
+		elseif(usestate == 1) then
+			fill = tileColor(self.data.selectedColor)
+			p:setColor(fill)
+			canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
+		elseif(usestate == 2) then
+			fill = tileColor(self.data.flipColor)
+			p:setColor(fill)
+			canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
+		end
 	end
 	-- Badges reuse this, not a second fade: tileColor already applied
 	-- buttonOpacityOverride (or left the colour's own alpha).
@@ -634,7 +652,15 @@ function BUTTON:draw(state,canvas)
 	self._fillAlpha = fillAlpha
 	
 	local label = nil
-	if(usestate == 0 or usestate == 1) then
+	if heat then
+		p:setColor(Color:argb(255, heatLR, heatLG, heatLB))
+		p:setTextSize(tonumber(self.data.labelSize)*self.density)
+		if(usestate == 2 and self.data.flipLabel ~= nil and self.data.flipLabel ~= "") then
+			label = self.data.flipLabel
+		else
+			label = self.data.label
+		end
+	elseif(usestate == 0 or usestate == 1) then
 		p:setColor(tileColor(self.data.labelColor))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		--p:setTypeface(DEFAULT_BOLD_TYPEFACE)
@@ -700,7 +726,22 @@ function BUTTON:draw(state,canvas)
 	-- the fill for this state. Restore FILL: paintOpts is shared across draws.
 	-- Play-mode floaters are skipped entirely in drawButtons; this guard still
 	-- matters if something draws a floating tile while manage is off.
-	if self.data.border == true then
+	if heat then
+		-- Same white rim on every tile, so an unused button with no border is still a shape.
+		local previousStyle = p:getStyle()
+		local previousWidth = p:getStrokeWidth()
+		local stroke = math.max(1.5 * self.density, 2)
+		local frameRect = rect
+		if usestate == 1 or usestate == 2 then
+			frameRect = self.inset
+		end
+		p:setStyle(PaintStyle.STROKE)
+		p:setStrokeWidth(stroke)
+		p:setColor(Color:argb(math.max(heatA, 72), heatR, heatG, heatB))
+		canvas:drawRoundRect(frameRect, buttonRoundness, buttonRoundness, p)
+		p:setStrokeWidth(previousWidth)
+		p:setStyle(previousStyle)
+	elseif self.data.border == true then
 		local floatingOwnsChrome = self.data.floating == true and manage ~= true
 		local borderColor = self.data.borderColor
 		if not floatingOwnsChrome and borderColor ~= nil then
@@ -716,6 +757,19 @@ function BUTTON:draw(state,canvas)
 			p:setColor(tileColor(borderColor))
 			canvas:drawRoundRect(frameRect, buttonRoundness, buttonRoundness, p)
 			p:setStrokeWidth(previousWidth)
+			p:setStyle(previousStyle)
+		end
+	end
+	if buttonHeatLabel ~= nil then
+		local badge = buttonHeatLabel(self)
+		if badge ~= nil and badge ~= "" then
+			local previousStyle = p:getStyle()
+			p:setStyle(PaintStyle.FILL)
+			p:setColor(Color:argb(255, 255, 220, 80))
+			p:setTextSize(math.max(10 * self.density, 12))
+			local bx = rectRight(rect) - p:measureText(badge) - 3 * self.density
+			local by = rectTop(rect) + p:getTextSize()
+			canvas:drawText(badge, bx, by, p)
 			p:setStyle(previousStyle)
 		end
 	end

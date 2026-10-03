@@ -37,6 +37,12 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_HYPERLINK_MODE = 3;
 	/** Default colorizing mode. */
 	public static final int DEFAULT_COLOR_MODE = 0;
+	/** .avoidbuttons letters — one character at a time past the button hole. */
+	public static final int AVOID_BUTTONS_BREAK_LETTERS = 0;
+	/** .avoidbuttons words — do not split a word across the button hole. */
+	public static final int AVOID_BUTTONS_BREAK_WORDS = 1;
+	/** Default break mode while text_avoid_buttons is on (letters). */
+	public static final int DEFAULT_AVOID_BUTTONS_BREAK = AVOID_BUTTONS_BREAK_LETTERS;
 	/** Default font size. */
 	public static final int DEFAULT_FONT_SIZE = 20;
 	/** Default .pick magnifier size (percent of the original circle). */
@@ -44,6 +50,12 @@ public class WindowToken implements Parcelable {
 			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_SIZE;
 	/** Default .pick magnifier zoom (percent; 200 = 2×). */
 	public static final int DEFAULT_PICK_LOUPE_ZOOM =
+			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_ZOOM;
+	/** Default copy-widget magnifier size (percent of the original circle). */
+	public static final int DEFAULT_COPY_LOUPE_SIZE =
+			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_SIZE;
+	/** Default copy-widget magnifier zoom (percent; 200 = 2×). */
+	public static final int DEFAULT_COPY_LOUPE_ZOOM =
 			com.resurrection.blowtorch2.lib.window.PrefixPickLoupe.DEFAULT_ZOOM;
 	/** Default opacity of the scroll-dates overlay (percent). Matches the first paint. */
 	public static final int DEFAULT_SCROLL_DATES_OPACITY = 75;
@@ -143,6 +155,12 @@ public class WindowToken implements Parcelable {
 		line_stamps_fields,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
+		/** Wrap game text around floating buttons instead of drawing under them. */
+		text_avoid_buttons,
+		/** While avoiding buttons: break letters (default) or whole words. */
+		text_avoid_buttons_break,
+		/** After a send, jump the main window to the live edge. Default on. */
+		jump_on_send,
 		/** Newest game lines at the top of the window (older below). */
 		newest_at_top,
 		/** Top inset for game text (pixels); extra to the camera-cutout options. */
@@ -161,6 +179,8 @@ public class WindowToken implements Parcelable {
 		input_bar_show_edit,
 		/** Show the Send button on the input bar (main window chrome). */
 		input_bar_show_send,
+		/** Landscape Edit strip uses two rows. Off: one full-width row. */
+		input_edit_tools_two_rows,
 		/** Coast after lift using swipe speed (OverScroller), like a web page. */
 		android_fling,
 		/** How far the text travels per unit of finger travel when scrolling. */
@@ -180,7 +200,11 @@ public class WindowToken implements Parcelable {
 		/** .pick magnifier diameter, percent of the original circle. Default 118. */
 		pick_loupe_size,
 		/** .pick magnifier zoom, percent (200 = 2×). */
-		pick_loupe_zoom
+		pick_loupe_zoom,
+		/** Copy-widget magnifier diameter, percent of the original circle. Default 118. */
+		copy_loupe_size,
+		/** Copy-widget magnifier zoom, percent (200 = 2×). */
+		copy_loupe_zoom
 	}
 	/** Hyperlink decoration off. */
 	private static final int HYPERLINK_OFF = 0;
@@ -513,6 +537,29 @@ public class WindowToken implements Parcelable {
 		canvasWidth.setValue(100);
 		window.addOption(canvasWidth);
 
+		BooleanOption avoidButtons = new BooleanOption();
+		avoidButtons.setTitle("Text avoids on-screen buttons?");
+		avoidButtons.setDescription("Opt-in: game text wraps around on-screen buttons (the grid pad and floating copies) instead of drawing under them. ASCII maps and cell graphics may break. .avoidbuttons on|off. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Off by default.");
+		avoidButtons.setKey("text_avoid_buttons");
+		avoidButtons.setValue(false);
+		window.addOption(avoidButtons);
+
+		ListOption avoidButtonsBreak = new ListOption();
+		avoidButtonsBreak.setTitle("Avoid-buttons break");
+		avoidButtonsBreak.setDescription("While text avoids buttons: Letters moves one character at a time past the hole (default, today's behaviour). Words keeps whole words on one side of the hole. Only used while Text avoids on-screen buttons? is on. .avoidbuttons letters|words");
+		avoidButtonsBreak.setKey("text_avoid_buttons_break");
+		avoidButtonsBreak.addItem("Letters");
+		avoidButtonsBreak.addItem("Words");
+		avoidButtonsBreak.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_BREAK));
+		window.addOption(avoidButtonsBreak);
+
+		BooleanOption jumpOnSend = new BooleanOption();
+		jumpOnSend.setTitle("Jump to the live edge when you send?");
+		jumpOnSend.setDescription("After you send a line, scroll to the newest text. Incoming text near the live edge still snaps there. On by default. .jumpsend on|off");
+		jumpOnSend.setKey("jump_on_send");
+		jumpOnSend.setValue(true);
+		window.addOption(jumpOnSend);
+
 		// Tappable words used to live here as a world-wide word list. They are a
 		// trigger action now (responder/tap): the trigger pattern decides what is
 		// tappable, so the words follow the same groups, conditions and enable
@@ -588,6 +635,13 @@ public class WindowToken implements Parcelable {
 		showInputSend.setValue(true);
 		window.addOption(showInputSend);
 
+		BooleanOption editToolsTwoRows = new BooleanOption();
+		editToolsTwoRows.setTitle("Edit strip: two rows in landscape?");
+		editToolsTwoRows.setDescription("When on, the Edit tools (Select/Cut/Copy/Paste and the cursor pad) sit on two rows while the phone is landscape, with room for the labels. Portrait and the default stay one full-width row. .editrows on|off");
+		editToolsTwoRows.setKey("input_edit_tools_two_rows");
+		editToolsTwoRows.setValue(false);
+		window.addOption(editToolsTwoRows);
+
 		BooleanOption androidFling = new BooleanOption();
 		androidFling.setTitle("Android fling?");
 		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. Scroll sensitivity is off while this is on.");
@@ -651,6 +705,20 @@ public class WindowToken implements Parcelable {
 		pickLoupeZoom.setKey("pick_loupe_zoom");
 		pickLoupeZoom.setValue(DEFAULT_PICK_LOUPE_ZOOM);
 		window.addOption(pickLoupeZoom);
+
+		IntegerOption copyLoupeSize = new IntegerOption();
+		copyLoupeSize.setTitle("Copy loupe size (%)");
+		copyLoupeSize.setDescription("How big the two-finger copy magnifier is (50–200). 100 is the original circle; 118 is the default. Separate from Pick loupe size. Also .copy loupe size N.");
+		copyLoupeSize.setKey("copy_loupe_size");
+		copyLoupeSize.setValue(DEFAULT_COPY_LOUPE_SIZE);
+		window.addOption(copyLoupeSize);
+
+		IntegerOption copyLoupeZoom = new IntegerOption();
+		copyLoupeZoom.setTitle("Copy loupe zoom (%)");
+		copyLoupeZoom.setDescription("How much the two-finger copy magnifier enlarges the game text (150–350; 200 is 2×). Separate from Pick loupe zoom. Also .copy loupe zoom N.");
+		copyLoupeZoom.setKey("copy_loupe_zoom");
+		copyLoupeZoom.setValue(DEFAULT_COPY_LOUPE_ZOOM);
+		window.addOption(copyLoupeZoom);
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");

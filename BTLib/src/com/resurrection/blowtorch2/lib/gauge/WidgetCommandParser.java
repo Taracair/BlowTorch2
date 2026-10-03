@@ -59,6 +59,7 @@ public final class WidgetCommandParser {
 	public static final String IME_STAY = GaugeWidget.ImeMode.STAY.toJsonValue();
 	public static final String IME_HIDE = GaugeWidget.ImeMode.HIDE.toJsonValue();
 	public static final String IME_OVERLAY = GaugeWidget.ImeMode.OVERLAY.toJsonValue();
+	public static final String IME_PIN = GaugeWidget.ImeMode.PIN.toJsonValue();
 
 	public static final String SWIPE_UP = SuperButtonGestures.DIR_UP;
 	public static final String SWIPE_DOWN = SuperButtonGestures.DIR_DOWN;
@@ -219,7 +220,7 @@ public final class WidgetCommandParser {
 				+ "           (stored; long-press enters edit and does not fire hold)\n"
 				+ "       .widget warn <id> <percent> [color]\n"
 				+ "       .widget warn <id> off\n"
-				+ "       .widget ime <id> stay|hide|overlay\n";
+				+ "       .widget ime <id> stay|hide|overlay|pin\n";
 	}
 
 	private static Result parseList(final String[] parts) {
@@ -518,12 +519,12 @@ public final class WidgetCommandParser {
 			return r;
 		}
 		if (parts.length != 3) {
-			return fail("ime takes an id and stay|hide|overlay.");
+			return fail("ime takes an id and stay|hide|overlay|pin.");
 		}
 		final String ime = normalizeIme(parts[2]);
 		if (ime == null) {
 			return fail("Unknown ime mode '" + parts[2]
-					+ "' (stay, hide, overlay).");
+					+ "' (stay, hide, overlay, pin).");
 		}
 		r.ime = ime;
 		return r;
@@ -648,6 +649,9 @@ public final class WidgetCommandParser {
 		if ("overlay".equals(s) || "over".equals(s) || "float".equals(s)
 				|| "keyboard".equals(s)) {
 			return GaugeWidget.ImeMode.OVERLAY.toJsonValue();
+		}
+		if ("pin".equals(s) || "still".equals(s) || "fixed".equals(s)) {
+			return GaugeWidget.ImeMode.PIN.toJsonValue();
 		}
 		return null;
 	}

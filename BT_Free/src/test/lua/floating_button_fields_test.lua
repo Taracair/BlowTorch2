@@ -126,6 +126,22 @@ check(wrapRestored.wrapLabel == true, "wrapLabel true")
 check(wrapRestored.showGestureHints == true, "hints stay on when callout is off")
 check(wrapRestored.showGestureLabel == false, "callout off")
 
+print("5. notify payload includes grid-pad obstacle rects")
+local windowSrc
+do
+	local handle = assert(io.open(ROOT .. "/buttonwindow.lua", "r"), "cannot open buttonwindow.lua")
+	windowSrc = handle:read("*a")
+	handle:close()
+end
+check(windowSrc:find('root:put("grid", grid)', 1, true) ~= nil,
+	"notifyFloatingButtonsChanged puts a grid array")
+check(windowSrc:find("appendGridObstacles", 1, true) ~= nil,
+	"grid holes come from appendGridObstacles")
+check(windowSrc:find("putGridObstacleRect", 1, true) ~= nil,
+	"grid holes are {l,t,r,b} rects")
+check(windowSrc:find("isPlayModeFloaterHiddenFromGrid(b)", 1, true) ~= nil,
+	"grid holes skip play-mode floaters")
+
 if failures == 0 then
 	print("All floating_button_fields tests passed.")
 else

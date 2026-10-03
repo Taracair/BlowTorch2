@@ -3727,6 +3727,50 @@ public class MapperController {
 		return sb.toString();
 	}
 
+	/**
+	 * While recording, set the current room's name from the recent lines.
+	 * Uses the capture-title regex. Does not write exits. Not run on every step.
+	 */
+	public String nameFromBuffer() {
+		if (!mRecording) {
+			return "Mapper: turn Record on, then Name takes the room from the recent lines.";
+		}
+		List<String> lines = lastBufferLines(40);
+		if (lines.isEmpty()) {
+			return "Mapper: no recent lines to name the room from.";
+		}
+		StringBuilder text = new StringBuilder();
+		for (int i = 0; i < lines.size(); i++) {
+			if (i > 0) {
+				text.append('\n');
+			}
+			text.append(lines.get(i));
+		}
+		CapturePreview preview = previewCapture(getCaptureTitleRegex(), "$^",
+				text.toString(), lines.size());
+		return applyRoomName(preview.title);
+	}
+
+	/** Set the current room's name, creating the first tile if recording has not stepped yet. */
+	String applyRoomName(final String title) {
+		if (title == null || title.length() == 0) {
+			return "Mapper: no room name matched in the recent lines.";
+		}
+		if (currentTile() == null) {
+			ensureDefaultLevel();
+			MapTile created = createTileAt(mMap.getCurrentLevelId(), 0, 0);
+			if (created == null) {
+				return "Mapper: no tile.";
+			}
+			mMap.setCurrentTileId(created.getId());
+		}
+		String status = setTitle(null, title);
+		if (status != null && status.indexOf("title set") >= 0) {
+			return "Mapper: named the room \"" + title + "\".";
+		}
+		return status;
+	}
+
 	public String captureApply() {
 		if (mLastCapturePreview == null) {
 			capturePreview(20);

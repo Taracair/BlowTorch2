@@ -21,6 +21,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.service.notification.StatusBarNotification;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -88,6 +89,29 @@ public class StellarService extends Service {
 	private static final int NOTIFICATION_START_VALUE = 100;
 	/** Jedyne ID powiadomienia foreground (ongoing). */
 	public static final int FOREGROUND_NOTIFICATION_ID = 1;
+	/**
+	 * Group header for trigger, bell and chat alerts. Not the connection
+	 * notification: marking that one as the summary hid it, including the
+	 * buttons that switch servers (phone, 29 Sep 2026).
+	 */
+	public static final int ALERT_GROUP_SUMMARY_ID = 2;
+	/** Separate-mode header for chat. Cancelled when that bar has no children. */
+	public static final int CHAT_GROUP_SUMMARY_ID = 3;
+	/**
+	 * Nested-stack group ({@link ShadeGrouping#GROUP_STACK}). The connection
+	 * notification is a child of this group, never the summary.
+	 */
+	public static final String NOTIFICATION_GROUP = ShadeGrouping.GROUP_STACK;
+	/**
+	 * Open a live session. {@code RESET_TASK_IF_NEEDED} walks the launcher
+	 * task and is what made a backgrounded session slow to return.
+	 */
+	public static final int SESSION_ACTIVITY_FLAGS =
+			Intent.FLAG_ACTIVITY_NEW_TASK
+					| Intent.FLAG_ACTIVITY_SINGLE_TOP
+					| Intent.FLAG_ACTIVITY_CLEAR_TOP;
+	/** Last shade layout published for trigger notifications posted off the service instance. */
+	private static volatile int sNotificationGrouping = ShadeGrouping.NESTED;
 	/** File copy buffer size. */
 	private static final int FILE_COPY_BUFFER_SIZE = 1024;
 	/**
@@ -219,6 +243,7 @@ public class StellarService extends Service {
 				startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
 				mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
 				mHasForegroundNotification = true;
+				postAlertGroupSummary();
 			} catch (RuntimeException e) {
 				// A system-initiated restart runs while the app is in the
 				// background, and background FGS starts can be refused. Refused
@@ -421,6 +446,40 @@ public class StellarService extends Service {
 		// push, device.* would be right only after the next time something was
 		// plugged in.
 		mDeviceState.push();
+	}
+
+	private IBinder shakeRecordingClient;
+	private final IBinder.DeathRecipient shakeRecordingGone = new IBinder.DeathRecipient() {
+		@Override
+		public void binderDied() {
+			setShakeRecording(false, null);
+		}
+	};
+
+	/**
+	 * My shakes is drawing. The watcher must not send commands for those strokes.
+	 * {@code client} is the dialog's token; its death ends recording.
+	 */
+	public final synchronized void setShakeRecording(final boolean on, final IBinder client) {
+		if (shakeRecordingClient != null) {
+			try {
+				shakeRecordingClient.unlinkToDeath(shakeRecordingGone, 0);
+			} catch (RuntimeException ignored) {
+			}
+			shakeRecordingClient = null;
+		}
+		boolean armed = on && client != null;
+		if (armed) {
+			try {
+				client.linkToDeath(shakeRecordingGone, 0);
+				shakeRecordingClient = client;
+			} catch (RemoteException dead) {
+				armed = false;
+			}
+		}
+		if (mDeviceState != null) {
+			mDeviceState.setShakeRecording(armed);
+		}
 	}
 
 	/** Put a freshly calibrated threshold to work without waiting for anything. */
@@ -825,6 +884,41 @@ public class StellarService extends Service {
 		}
 	}
 
+	/**
+	 * After a window rebuild, tell this UI the session split again. The
+	 * activity does not keep the panes across {@code loadWindowSettings}.
+	 */
+	public final void pushSplitState(final IConnectionBinderCallback callback,
+			final Connection c) {
+		if (callback == null || c == null) {
+			return;
+		}
+		int mode = c.isSplitEnabled() ? c.getSplitOrientation() : 0;
+		try {
+			callback.applySplit(mode, c.getSplitPercent());
+		} catch (RemoteException e) {
+			android.util.Log.w("BlowTorch", "applySplit: client gone", e);
+		}
+	}
+
+	/**
+	 * Main-buffer split. {@code orientation} 0=off, 1=left/right, 2=top/bottom.
+	 */
+	public final void doApplySplit(final int orientation, final int percent) {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).applySplit(orientation, percent);
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "applySplit: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
 	public final void doOpenLogHistory() {
 		final int n = mCallbacks.beginBroadcast();
 		try {
@@ -1028,7 +1122,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
 		notificationIntent.putExtra("TLS", tlsFor(display));
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		notificationIntent.setFlags(SESSION_ACTIVITY_FLAGS);
 	
 		PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, activityPendingIntentFlags());
 		
@@ -1037,14 +1131,17 @@ public class StellarService extends Service {
 
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(
 				this);
-		Notification note = builder.setContentIntent(contentIntent)
+		builder.setContentIntent(contentIntent)
 				.setContentTitle(contentTitle)
-				.setContentText(contentText).build();
+				.setContentText(contentText);
+		applyShadeGroup(builder, ShadeGrouping.KIND_ALERT, false);
+		Notification note = builder.build();
 		//mNM.notify(NOTIFICATION, notification);
 		note.icon = resId;
 		note.flags = Notification.DEFAULT_ALL;
 		
 		mNotificationManager.notify(StellarService.getNotificationId(), note);
+		postAlertGroupSummary();
 	}
 
 	/**
@@ -1079,8 +1176,7 @@ public class StellarService extends Service {
 			notificationIntent.putExtra("TLS", tlsFor(display));
 			notificationIntent.putExtra(ChatAnnounce.EXTRA_THREAD,
 					threadId == null ? "" : threadId);
-			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-					| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+			notificationIntent.setFlags(SESSION_ACTIVITY_FLAGS);
 			String key = (display == null ? "" : display) + '\0'
 					+ (threadId == null ? "" : threadId);
 			int id = 0x6B740000 | (key.hashCode() & 0xFFFF);
@@ -1104,6 +1200,7 @@ public class StellarService extends Service {
 					.setAutoCancel(true)
 					.setOnlyAlertOnce(!alert)
 					.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+			applyShadeGroup(builder, ShadeGrouping.KIND_CHAT, false);
 			Integer nid = Integer.valueOf(id);
 			String prev = mChatNotifyChannel.get(nid);
 			if (prev == null || !prev.equals(chatChannel)) {
@@ -1114,6 +1211,7 @@ public class StellarService extends Service {
 			}
 			mChatNotifyChannel.put(nid, chatChannel);
 			mNotificationManager.notify(id, builder.build());
+			postAlertGroupSummary();
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logMinor("StellarService.doNotifyChat", e);
 		}
@@ -1288,24 +1386,26 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
 		notificationIntent.putExtra("TLS", tlsFor(display));
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		notificationIntent.setFlags(SESSION_ACTIVITY_FLAGS);
 		int id = getNotificationId();
 		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, activityPendingIntentFlags());
 		//note.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
 
 		String alertChannel = createAlertNotificationChannel();
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannel);
-		Notification note = builder.setContentIntent(contentIntent)
+		builder.setContentIntent(contentIntent)
 							.setContentTitle(contentTitle)
 							.setContentText(contentText)
 							.setSmallIcon(resId)
 							.setAutoCancel(true)
 							.setOnlyAlertOnce(true)
-							.setPriority(NotificationCompat.PRIORITY_DEFAULT)
-							.build();
+							.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+		applyShadeGroup(builder, ShadeGrouping.KIND_ALERT, false);
+		Notification note = builder.build();
 		//note.icon = resId;
 		//note.flags = note.flags | Notification.FLAG_AUTO_CANCEL | Notification.FLAG_ONLY_ALERT_ONCE;
 		mNotificationManager.notify(id, note);
+		postAlertGroupSummary();
 		
 		//now, if the launcher connection list has a listener, we should notify it that a connection has gone
 		int n = mLauncherCallbacks.beginBroadcast();
@@ -1368,9 +1468,14 @@ public class StellarService extends Service {
 			title = getString(R.string.notification_session_many_title, brand, Integer.valueOf(model.count));
 			body = model.collapsed;
 		}
-		Intent tapIntent = sessionWindowIntent(model.tapDisplay);
-		PendingIntent contentIntent = PendingIntent.getActivity(
-				this, FOREGROUND_NOTIFICATION_ID, tapIntent, activityPendingIntentFlags());
+		PendingIntent contentIntent;
+		if (AlertGroupSummaryPolicy.useSessionTap(model.count > 0)) {
+			contentIntent = PendingIntent.getActivity(
+					this, FOREGROUND_NOTIFICATION_ID,
+					sessionWindowIntent(model.tapDisplay), activityPendingIntentFlags());
+		} else {
+			contentIntent = launcherPendingIntent();
+		}
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
 				.setContentTitle(title)
 				.setContentText(body)
@@ -1379,6 +1484,7 @@ public class StellarService extends Service {
 				.setOnlyAlertOnce(true)
 				.setPriority(NotificationCompat.PRIORITY_LOW)
 				.setContentIntent(contentIntent);
+		applyShadeGroup(builder, ShadeGrouping.KIND_CONNECTION, false);
 		if (model.expand()) {
 			NotificationCompat.InboxStyle inbox = new NotificationCompat.InboxStyle()
 					.setBigContentTitle(title);
@@ -1398,6 +1504,226 @@ public class StellarService extends Service {
 		startForeground(FOREGROUND_NOTIFICATION_ID, note);
 		mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
 		mHasForegroundNotification = true;
+		postAlertGroupSummary();
+	}
+
+	/**
+	 * Headers for the shade stack. Each summary is cancelled when its group has
+	 * no children. The connection notification is a child, never a summary, so
+	 * its server buttons stay on the expanded row.
+	 */
+	private void postAlertGroupSummary() {
+		if (mNotificationManager == null) {
+			return;
+		}
+		int layout = publishGrouping();
+		regroupShadeChildren(mNotificationManager, this, layout);
+		applyAlertGroupSummary(mNotificationManager, this, layout, summaryTapIntent());
+	}
+
+	/**
+	 * After a group child is posted without going through
+	 * {@link #postAlertGroupSummary()} (trigger {@code NotificationResponder}).
+	 * Tap opens that world via MainWindow — no package-manager class lookup.
+	 */
+	public static void syncAlertGroupSummary(final Context context,
+			final String display, final String host, final int port) {
+		if (context == null) {
+			return;
+		}
+		NotificationManager nm = (NotificationManager) context.getSystemService(
+				Context.NOTIFICATION_SERVICE);
+		if (nm == null) {
+			return;
+		}
+		int layout = sNotificationGrouping;
+		regroupShadeChildren(nm, context, layout);
+		PendingIntent contentIntent;
+		if (AlertGroupSummaryPolicy.useSessionTap(
+				display != null && display.length() > 0)) {
+			Intent tap = new Intent(ConfigurationLoader.getConfigurationValue(
+					"windowAction", context.getApplicationContext()));
+			tap.setClassName(context.getPackageName(), MAIN_WINDOW_CLASS);
+			tap.setPackage(context.getPackageName());
+			tap.setFlags(SESSION_ACTIVITY_FLAGS);
+			tap.putExtra("DISPLAY", display);
+			if (host != null) {
+				tap.putExtra("HOST", host);
+			}
+			tap.putExtra("PORT", Integer.toString(port));
+			contentIntent = PendingIntent.getActivity(
+					context, ALERT_GROUP_SUMMARY_ID, tap, activityPendingIntentFlags());
+		} else {
+			Intent launch = context.getPackageManager()
+					.getLaunchIntentForPackage(context.getPackageName());
+			if (launch == null) {
+				contentIntent = null;
+			} else {
+				launch.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+						| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+				contentIntent = PendingIntent.getActivity(
+						context, ALERT_GROUP_SUMMARY_ID, launch,
+						activityPendingIntentFlags());
+			}
+		}
+		applyAlertGroupSummary(nm, context, layout, contentIntent);
+	}
+
+	/** Layout the shade is using. Trigger notifications read this from the service process. */
+	public static int notificationGrouping() {
+		return sNotificationGrouping;
+	}
+
+	private int publishGrouping() {
+		int layout = ShadeGrouping.NESTED;
+		Connection source = null;
+		if (mConnections != null) {
+			if (mConnectionClutch != null) {
+				source = mConnections.get(mConnectionClutch);
+			}
+			if (source == null) {
+				for (Connection c : mConnections.values()) {
+					if (c != null && (c.isConnected() || c.isStarting())) {
+						source = c;
+						break;
+					}
+				}
+			}
+		}
+		if (source != null) {
+			layout = source.notificationGrouping();
+		}
+		sNotificationGrouping = layout;
+		return layout;
+	}
+
+	private PendingIntent summaryTapIntent() {
+		boolean sessionExists = false;
+		if (mConnections != null) {
+			for (Connection c : mConnections.values()) {
+				if (c != null && (c.isConnected() || c.isStarting())) {
+					sessionExists = true;
+					break;
+				}
+			}
+		}
+		if (!AlertGroupSummaryPolicy.useSessionTap(sessionExists)) {
+			return launcherPendingIntent();
+		}
+		return PendingIntent.getActivity(this, ALERT_GROUP_SUMMARY_ID,
+				sessionWindowIntent(mConnectionClutch), activityPendingIntentFlags());
+	}
+
+	private void applyShadeGroup(final NotificationCompat.Builder builder,
+			final int kind, final boolean spawnNew) {
+		String group = ShadeGrouping.groupKey(publishGrouping(), kind, spawnNew);
+		if (group != null) {
+			builder.setGroup(group);
+		}
+	}
+
+	private static void regroupShadeChildren(final NotificationManager nm,
+			final Context context, final int layout) {
+		StatusBarNotification[] active = nm.getActiveNotifications();
+		if (active == null) {
+			return;
+		}
+		for (int i = 0; i < active.length; i++) {
+			int id = active[i].getId();
+			if (id == FOREGROUND_NOTIFICATION_ID
+					|| id == ALERT_GROUP_SUMMARY_ID
+					|| id == CHAT_GROUP_SUMMARY_ID) {
+				continue;
+			}
+			Notification n = active[i].getNotification();
+			if (n == null) {
+				continue;
+			}
+			String group = NotificationCompat.getGroup(n);
+			if (!ShadeGrouping.isManagedGroup(group)) {
+				continue;
+			}
+			String next = ShadeGrouping.groupKey(layout,
+					ShadeGrouping.kindForChannel(n.getChannelId()), false);
+			if (next == null || next.equals(group)) {
+				continue;
+			}
+			try {
+				Notification moved = Notification.Builder.recoverBuilder(context, n)
+						.setGroup(next)
+						.build();
+				nm.notify(id, moved);
+			} catch (RuntimeException e) {
+				BlowTorchLogger.logMinor("StellarService.regroupShadeChildren", e);
+			}
+		}
+	}
+
+	private static void applyAlertGroupSummary(final NotificationManager nm,
+			final Context context, final int layout, final PendingIntent contentIntent) {
+		StatusBarNotification[] active = nm.getActiveNotifications();
+		int stack = countGroup(active, ShadeGrouping.GROUP_STACK);
+		int alerts = countGroup(active, ShadeGrouping.GROUP_ALERTS);
+		int chat = countGroup(active, ShadeGrouping.GROUP_CHAT);
+		if (layout == ShadeGrouping.SEPARATE) {
+			postOrCancelSummary(nm, context, contentIntent, ALERT_GROUP_SUMMARY_ID,
+					ShadeGrouping.GROUP_ALERTS, "Alerts", alerts);
+			postOrCancelSummary(nm, context, contentIntent, CHAT_GROUP_SUMMARY_ID,
+					ShadeGrouping.GROUP_CHAT, "Chat", chat);
+		} else {
+			postOrCancelSummary(nm, context, contentIntent, ALERT_GROUP_SUMMARY_ID,
+					ShadeGrouping.GROUP_STACK, "", stack);
+			nm.cancel(CHAT_GROUP_SUMMARY_ID);
+		}
+	}
+
+	private static int countGroup(final StatusBarNotification[] active, final String group) {
+		if (active == null || active.length == 0) {
+			return 0;
+		}
+		int[] ids = new int[active.length];
+		String[] groups = new String[active.length];
+		for (int i = 0; i < active.length; i++) {
+			ids[i] = active[i].getId();
+			Notification n = active[i].getNotification();
+			groups[i] = n == null ? null : NotificationCompat.getGroup(n);
+		}
+		return AlertGroupSummaryPolicy.countAlertChildren(
+				ids, groups, ALERT_GROUP_SUMMARY_ID, CHAT_GROUP_SUMMARY_ID, group);
+	}
+
+	/** Cancel {@code id} when {@code children} is 0. Never marks the connection as the summary. */
+	private static void postOrCancelSummary(final NotificationManager nm,
+			final Context context, final PendingIntent contentIntent,
+			final int id, final String group, final String text, final int children) {
+		if (!AlertGroupSummaryPolicy.shouldPostSummary(children)) {
+			nm.cancel(id);
+			return;
+		}
+		int resId = context.getResources().getIdentifier(
+				ConfigurationLoader.getConfigurationValue("notificationIcon",
+						context.getApplicationContext()),
+				"drawable", context.getPackageName());
+		if (resId == 0) {
+			resId = android.R.drawable.stat_notify_chat;
+		}
+		CharSequence brand = ConfigurationLoader.getConfigurationValue(
+				"ongoingNotificationLabel", context);
+		com.resurrection.blowtorch2.lib.util.NotificationChannels.ensureChannels(context);
+		String channelId = com.resurrection.blowtorch2.lib.util.NotificationChannels
+				.sessionChannelId(context);
+		NotificationCompat.Builder summary = new NotificationCompat.Builder(
+				context, channelId)
+				.setSmallIcon(resId)
+				.setContentTitle(brand == null ? "" : brand.toString())
+				.setContentText(text)
+				.setGroup(group)
+				.setGroupSummary(true)
+				.setOngoing(false)
+				.setOnlyAlertOnce(true)
+				.setPriority(NotificationCompat.PRIORITY_LOW)
+				.setContentIntent(contentIntent);
+		nm.notify(id, summary.build());
 	}
 
 	private Intent sessionWindowIntent(final String display) {
@@ -1407,8 +1733,7 @@ public class StellarService extends Service {
 		// refresh (measured 380 ms on the service thread under StrictMode).
 		notificationIntent.setClassName(this.getPackageName(), MAIN_WINDOW_CLASS);
 		notificationIntent.setPackage(getPackageName());
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-				| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		notificationIntent.setFlags(SESSION_ACTIVITY_FLAGS);
 		Connection active = (display != null && display.length() > 0)
 				? mConnections.get(display) : null;
 		if (active == null && mConnectionClutch != null && !mConnectionClutch.isEmpty()) {
@@ -1529,6 +1854,9 @@ public class StellarService extends Service {
 		if (mConnectionNotificationMap.size() == 0) {
 			mConnectionClutch = "";
 			mForegroundNotificationId = -1;
+			// Connection was a group child; without this the stack header (id 2,
+			// and id 3 in separate-bars) stays after the last row is gone.
+			postAlertGroupSummary();
 			return;
 		}
 		String[] tmp = new String[mConnectionNotificationMap.size()];
@@ -1575,6 +1903,8 @@ public class StellarService extends Service {
 		this.stopForeground(true);
 		mHasForegroundNotification = false;
 		mForegroundNotificationId = -1;
+		// stopSelf is not instant; drop empty stack headers before the process goes.
+		postAlertGroupSummary();
 		this.stopSelf();
 	}
 	
@@ -1656,6 +1986,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(i).loadWindowSettings();
 				mCallbacks.getBroadcastItem(i).loadSettings();
 				mCallbacks.getBroadcastItem(i).reloadBuffer();
+				pushSplitState(mCallbacks.getBroadcastItem(i), target);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.switchTo", e);
 			}
@@ -1687,9 +2018,13 @@ public class StellarService extends Service {
 	public final void reloadWindows() {
 		int n = mCallbacks.beginBroadcast();
 		
+		Connection active = mConnections.get(mConnectionClutch);
 		for (int i = 0; i < n; i++) {
 			try {
 				mCallbacks.getBroadcastItem(0).loadWindowSettings();
+				if (i == 0) {
+					pushSplitState(mCallbacks.getBroadcastItem(0), active);
+				}
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.reloadWindows", e);
 			}
@@ -1793,6 +2128,19 @@ public class StellarService extends Service {
 	/** The utility method to clear all buttons. I don't think that this is actually used, as this code
 	 * has been folded into the plugin.
 	 */
+	public final void doButtonHeat(final String mode) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).buttonHeat(mode == null ? "" : mode);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doButtonHeat", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	public final void doClearAllButtons() {
 		
 		int n = mCallbacks.beginBroadcast();
@@ -1925,6 +2273,20 @@ public class StellarService extends Service {
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 						"StellarService.doOpenOptions", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/** Ask the UI to open a screen that lives in that process. */
+	public final void doRunUiAction(final String action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).runUiAction(action);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doRunUiAction", e);
 			}
 		}
 		mCallbacks.finishBroadcast();

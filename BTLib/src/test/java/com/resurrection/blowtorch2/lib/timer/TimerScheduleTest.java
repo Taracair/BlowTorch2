@@ -64,6 +64,15 @@ public class TimerScheduleTest {
 		// old remaining still stored, so play waited 30 s instead of 10.
 		assertEquals(10, TimerSchedule.clampRemaining(10, 30));
 		assertEquals(10000L, TimerSchedule.delayMillis(10, 30));
+		assertEquals(10000L, TimerSchedule.firstDelayMillis(10, 30, false));
+	}
+
+	@Test
+	public void durationPlusHonoursRemainingAboveTheStoredLength() {
+		assertEquals(60000L, TimerSchedule.firstDelayMillis(15, 60, true));
+		assertEquals(60, TimerSchedule.runFullSeconds(15, 60, true));
+		assertEquals(10000L, TimerSchedule.firstDelayMillis(15, 10, true));
+		assertEquals(15, TimerSchedule.runFullSeconds(15, 10, true));
 	}
 
 	@Test

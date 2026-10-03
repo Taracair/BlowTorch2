@@ -115,7 +115,7 @@ scripts/guards/          rules, one file each, exit-code based
   lua-syntax.sh          luac -p
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
-  task_model.py          reviewer Task is Grok, not Composer-pinned bugbot
+  task_model.py          every Task is grok-4.7-xhigh, not Composer-pinned bugbot
 scripts/java-home.sh     JDK 17 for Gradle 8.2; sourced by check.sh and deploy.sh
 scripts/review-diff.sh   index on stdout; hunks in .scratch/review-diff/page-NN.txt
 scripts/hooks/
@@ -127,7 +127,7 @@ scripts/hooks/
 .cursor/hooks/
   before-shell-execution.py
   after-file-edit.py
-  pre-tool-use.py          Task/subagentStart: reviewer model is Grok
+  pre-tool-use.py          Task/subagentStart: model is grok-4.7-xhigh
 ```
 
 `scripts/adb-device.sh` is **not** in this list and not in git: it is gitignored

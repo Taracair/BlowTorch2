@@ -45,7 +45,7 @@ public final class GaugeWidgetsDialog {
 	private static final String[] SOURCES = new String[] {
 			"manual", "gmcp", "mcp", "var", "timer", "regex"
 	};
-	private static final String[] IME_MODES = new String[] { "stay", "hide", "overlay" };
+	private static final String[] IME_MODES = new String[] { "stay", "hide", "overlay", "pin" };
 
 	static final String EDIT_HELP =
 			"A widget does not have a trigger of its own. You pick a Source, "
@@ -368,7 +368,7 @@ public final class GaugeWidgetsDialog {
 		final Spinner ime = spinner(context, IME_MODES);
 		selectValue(ime, IME_MODES, existing != null
 				? existing.getImeMode().toJsonValue() : "stay");
-		form.addView(label(context, "IME (stay / hide / overlay)"));
+		form.addView(label(context, "IME (stay / hide / overlay / pin)"));
 		form.addView(ime);
 
 		final CheckBox showValue = new CheckBox(context);

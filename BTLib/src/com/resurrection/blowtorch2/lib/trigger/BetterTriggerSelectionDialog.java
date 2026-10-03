@@ -50,6 +50,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	private static final String SORT_SEQUENCE = "sequence";
 	/** After Enable all / Disable all in {@link #addPluginFilterOptions}. */
 	private static final int OPTION_SORT = 2;
+	private static final int OPTION_CLEAR_GROUP = 3;
 
 	public BetterTriggerSelectionDialog(Context context,
 			IConnectionBinder service,boolean showWarning) {
@@ -77,6 +78,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	protected void addPluginFilterOptions() {
 		super.addPluginFilterOptions();
 		this.addOptionItem(sortOptionLabel(), true);
+		this.addOptionItem("Clear group label (keeps triggers)", true);
 	}
 
 	@Override
@@ -86,7 +88,84 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			hideOptionsMenu();
 			return;
 		}
+		if (row == OPTION_CLEAR_GROUP) {
+			hideOptionsMenu();
+			confirmClearGroupLabel();
+			return;
+		}
 		super.onOptionItemClicked(row);
+	}
+
+	private void confirmClearGroupLabel() {
+		if (currentGroupFilter == null || currentGroupFilter.length() == 0) {
+			String which = currentGroupFilter == null ? "All" : "(default)";
+			new AlertDialog.Builder(getContext())
+					.setTitle("Nothing cleared")
+					.setMessage(which + " is not a group label. Nothing is cleared and nothing is deleted. Pick a named group in the Group filter first.")
+					.setPositiveButton("OK", null)
+					.show();
+			return;
+		}
+		final String group = currentGroupFilter;
+		AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+		builder.setTitle("Clear group label?");
+		builder.setMessage("This removes the group name \"" + group
+				+ "\" from every trigger in the current filter ("
+				+ getCurrentFilterLabel()
+				+ "). The triggers stay. Continue?");
+		builder.setPositiveButton("Clear label", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				clearGroupLabel(group);
+			}
+		});
+		builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+			}
+		});
+		builder.setIcon(android.R.drawable.ic_dialog_alert);
+		builder.create().show();
+	}
+
+	private void clearGroupLabel(String group) {
+		if (sortedKeys == null || sortedKeys.length == 0) {
+			Toast.makeText(getContext(), "No triggers in current list", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		int count = 0;
+		try {
+			for (String key : sortedKeys) {
+				TriggerData d = dataMap.get(key);
+				if (d == null || !group.equals(groupKey(d))) {
+					continue;
+				}
+				TriggerData from = d.copy();
+				TriggerData to = d.copy();
+				to.setGroup(TriggerData.DEFAULT_GROUP);
+				String src = getSourcePlugin(key);
+				if (MAIN_SETTINGS.equals(src)) {
+					service.updateTrigger(from, to);
+				} else {
+					service.updatePluginTrigger(src, from, to);
+				}
+				count++;
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"BetterTriggerSelectionDialog.clear group label", e);
+		}
+		currentGroupFilter = null;
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
+		refreshGroupNamesFromService();
+		refreshGroupSpinner();
+		buildList();
+		Toast.makeText(getContext(),
+				"Cleared group label from " + count
+						+ " trigger" + (count == 1 ? "" : "s"),
+				Toast.LENGTH_SHORT).show();
 	}
 
 	private String sortOptionLabel() {

@@ -22,26 +22,41 @@ public final class TimerInfoText {
 	 */
 	public static String describe(final String name, final int seconds,
 			final int remaining, final boolean running, final boolean repeat) {
+		return describe(name, seconds, remaining, running, repeat, seconds);
+	}
+
+	/**
+	 * @param runFull countdown length for this run. {@code .timer duration 50s}
+	 *        can leave remaining above the stored length; pass that run length
+	 *        so the status does not clamp the extra away.
+	 */
+	public static String describe(final String name, final int seconds,
+			final int remaining, final boolean running, final boolean repeat,
+			final int runFull) {
 		int full = seconds < 0 ? 0 : seconds;
 		int left = remaining;
 		if (left < 0) {
 			left = 0;
 		}
-		if (left > full) {
-			left = full;
+		int countdown = runFull > full ? runFull : full;
+		if (left > countdown) {
+			countdown = left;
 		}
 
 		String stage;
 		int elapsed;
 		if (running) {
 			stage = "running";
-			elapsed = full - left;
-		} else if (left > 0 && left < full) {
+			elapsed = countdown - left;
+		} else if (left > 0 && left != full) {
 			stage = "paused";
-			elapsed = full - left;
+			elapsed = countdown - left;
 		} else {
 			stage = "stopped";
 			left = full;
+			elapsed = 0;
+		}
+		if (elapsed < 0) {
 			elapsed = 0;
 		}
 

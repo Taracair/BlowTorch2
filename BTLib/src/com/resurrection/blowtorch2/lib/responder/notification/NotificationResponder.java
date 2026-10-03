@@ -320,7 +320,7 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
 		notificationIntent.setPackage(c.getPackageName());
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		notificationIntent.setFlags(com.resurrection.blowtorch2.lib.service.StellarService.SESSION_ACTIVITY_FLAGS);
 
 		int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
 		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
@@ -333,6 +333,13 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		builder.setContentIntent(contentIntent)
 				.setContentTitle(xformedtitle)
 				.setContentText(xformedmessage);
+		String shadeGroup = com.resurrection.blowtorch2.lib.service.ShadeGrouping.groupKey(
+				com.resurrection.blowtorch2.lib.service.StellarService.notificationGrouping(),
+				com.resurrection.blowtorch2.lib.service.ShadeGrouping.KIND_ALERT,
+				isSpawnNewNotification());
+		if (shadeGroup != null) {
+			builder.setGroup(shadeGroup);
+		}
 		//note.setLatestEventInfo(c, xformedtitle, xformedmessage, contentIntent);
 		
 		int defaults = 0;
@@ -360,6 +367,8 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		NM.cancel(myTriggerId); //cancel my id if i am a not spawn new kind of guy, if that is true this shouldn't be a problem here, as the id doens't exist in the notification system yet.
 		
 		NM.notify(myTriggerId,builder.build());
+		com.resurrection.blowtorch2.lib.service.StellarService.syncAlertGroupSummary(
+				c, displayname, host, port);
 		
 		return false;
 	}

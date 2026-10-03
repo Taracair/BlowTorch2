@@ -69,10 +69,14 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
+		cmd("avoidbuttons", "The window",
+				"wrap text around buttons; .avoidbuttons letters|words");
+		cmd("jumpsend", "The window", "after a send, jump to the newest text");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("timestamp", "The window", "time each line arrived, on the right; .timestamp log");
+		cmd("split", "The window", "two views of the same buffer; .split 40 | horizontal | vertical | off");
 		cmd("ping", "The window", "one ICMP echo to this world's host; not sent to the world");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
@@ -96,10 +100,18 @@ public class HelpCommand extends SpecialCommand {
 				"same as .suggest (alias); also .complete");
 		cmd("prompt", "Input and suggestions", "pin the world's prompt above the input bar");
 		cmd("editpanel", "Input and suggestions", "show or hide the editing strip");
+		cmd("editrows", "Input and suggestions",
+				"two rows for the editing strip in landscape");
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
+		cmd("editbuttons", "Buttons", "open Edit buttons");
+		cmd("gesture", "The window", "screen swipes on the game text; .gesture mode classic|1|2|both");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
 		cmd("pick", "Input and suggestions",
 				"prefix plus a word from the game text; .pick loupe size/zoom");
+		cmd("copy", "Input and suggestions",
+				"copy-widget magnifier; .copy loupe size/zoom");
+		cmd("unaccent", "Input and suggestions",
+				"strip accents when sending (usiądź → usiadz); .unaccent on|off");
 
 		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
 		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
@@ -129,7 +141,11 @@ public class HelpCommand extends SpecialCommand {
 		cmd("map", "The map", "the mapper: recording, walking, rooms and exits");
 
 		cmd("loadset", "Buttons", "load a button set");
+		cmd("layoutwizard", "Buttons",
+				"open the button layout wizard (packs, set names, size)");
 		cmd("clearbuttons", "Buttons", "take the buttons away until the next set");
+		cmd("heatmap", "Buttons",
+				"count taps, holds, swipes and accordion opens; brighter tiles are used more");
 		cmd("buttonopacity", "Buttons",
 				"force every tile's alpha (.buttonopacity 100) until .buttonopacity restore");
 		cmd("buttonsopacity", "Buttons", "same as .buttonopacity");
@@ -158,15 +174,26 @@ public class HelpCommand extends SpecialCommand {
 			if (!seen.add(name)) {
 				continue;
 			}
-			if (filter.length() > 0 && !name.contains(filter)) {
+			String canonical = name;
+			if (c != null) {
+				SpecialCommand bound = c.systemCommand(name);
+				if (bound != null && bound.commandName != null) {
+					canonical = bound.commandName;
+				}
+			}
+			String display = rowName(name, canonical, filter);
+			if (display == null) {
 				continue;
 			}
-			String what = WHAT.get(name);
-			String section = WHERE.get(name);
+			if (!display.equals(name) && !seen.add(display)) {
+				continue;
+			}
+			String what = WHAT.get(display);
+			String section = WHERE.get(display);
 			if (section == null || bySection.get(section) == null) {
 				section = "Other";
 			}
-			bySection.get(section).add(HelpColumn.formatRow("." + name,
+			bySection.get(section).add(HelpColumn.formatRow("." + display,
 					what == null ? "(no description yet)" : what, width));
 		}
 
@@ -201,8 +228,34 @@ public class HelpCommand extends SpecialCommand {
 		return null;
 	}
 
+	/**
+	 * A synonym with its own sentence stays. A bare alias ({@code .kb},
+	 * {@code .commands}) does not get a second line.
+	 */
+	static boolean includeInIndex(final String name, final String canonical) {
+		if (WHAT.containsKey(name)) {
+			return true;
+		}
+		return canonical == null || canonical.equals(name);
+	}
+
+	/** Name to print, or null. {@code .help kb} prints {@code .keyboard}. */
+	static String rowName(final String name, final String canonical, final String filter) {
+		if (filter != null && filter.length() > 0 && (name == null || !name.contains(filter))) {
+			return null;
+		}
+		if (includeInIndex(name, canonical)) {
+			return name;
+		}
+		if (filter != null && filter.length() > 0 && canonical != null
+				&& !canonical.contains(filter) && WHAT.containsKey(canonical)) {
+			return canonical;
+		}
+		return null;
+	}
+
 	/** When the filter names one command family, list its subcommands. */
-	private static String subcommandHelp(final String filter) {
+	static String subcommandHelp(final String filter) {
 		if (filter == null || filter.length() == 0) {
 			return null;
 		}
@@ -269,6 +322,26 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .width <N> | +N | -N\n"
 					+ "  .width toggle | off\n";
 		}
+		if (filter.equals("avoidbuttons")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .avoidbuttons:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .avoidbuttons           — say whether text wraps, and letters vs words\n"
+					+ "  .avoidbuttons on|off|toggle\n"
+					+ "  .avoidbuttons letters|words\n"
+					+ "Off by default. ASCII maps may break. Grid pad and floating copies; live while dragging.\n"
+					+ "letters (default) moves one character at a time; words keeps whole words off the hole.\n"
+					+ "Also: Options → Window → Text avoids on-screen buttons?\n";
+		}
+		if (filter.equals("jumpsend")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .jumpsend:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .jumpsend               — say whether a send jumps to the live edge\n"
+					+ "  .jumpsend on|off|toggle\n"
+					+ "On by default. Incoming text near the live edge still snaps there.\n"
+					+ "Also: Options → Window → Jump to the live edge when you send?\n";
+		}
 		if (filter.equals("dimrepeat")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .dimrepeat:"
@@ -310,6 +383,17 @@ public class HelpCommand extends SpecialCommand {
 					+ "Log prefixes the same stamp on the left of each session-log line.\n"
 					+ "Not the same as .when (that is history chrome next to ⋮).\n";
 		}
+		if (filter.equals("split")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .split:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .split                 — status\n"
+					+ "  .split on|40|horizontal|h|vertical|v|left|right|top|bottom\n"
+					+ "  .split off             — one pane again\n"
+					+ "horizontal/h is left/right; vertical/v is top/bottom.\n"
+					+ "Primary (left or top) gets the percent (default 50). Buttons,\n"
+					+ "mapper, chat and NAWS stay on the primary. Not a second buffer.\n";
+		}
 		if (filter.equals("ping")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .ping:"
@@ -324,6 +408,37 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .wrap              — say whether the input bar may grow\n"
 					+ "  .wrap on|off\n";
+		}
+		if (filter.equals("gesture")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .gesture:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .gesture                 — what is on now\n"
+					+ "  .gesture mode classic|1|2|both\n"
+					+ "  .gesture scroll two|hold|off   Scrolling. Refused in Classic and Two fingers\n"
+					+ "  .gesture edit            — direction commands\n"
+					+ "  .gesture show on|off     — mode label\n"
+					+ "  .gesture preview on|off  — arrow and command\n"
+					+ "Classic: one finger scrolls, two fingers copy.\n"
+					+ "One finger: a one-finger swipe sends a command.\n"
+					+ "Two fingers: a two-finger swipe sends a command; a short tap can copy.\n"
+					+ "Both: one-finger and two-finger swipes send commands.\n"
+					+ "Options → Input → Global gestures\n";
+		}
+		if (filter.equals("editbuttons")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .editbuttons:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .editbuttons       — open Edit buttons\n"
+					+ "Same as ⋮ → Edit buttons.\n";
+		}
+		if (filter.equals("unaccent")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .unaccent:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .unaccent              — say whether accents are stripped on send\n"
+					+ "  .unaccent on|off\n"
+					+ "Local echo shows the folded form (usiądź → usiadz); the input bar does not.\n";
 		}
 		if (filter.equals("togglefullscreen")) {
 			return "\n"
@@ -343,7 +458,17 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .editpanel:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .editpanel         — toggle the Edit tools strip\n"
-					+ "  .editpanel on|off\n";
+					+ "  .editpanel on|off\n"
+					+ "Two rows in landscape: .editrows on|off (off keeps one row).\n";
+		}
+		if (filter.equals("editrows")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .editrows:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .editrows          — say whether landscape uses two rows\n"
+					+ "  .editrows on|off|toggle\n"
+					+ "Off by default. Portrait stays one full-width row.\n"
+					+ "Also: Options → Window → Edit strip: two rows in landscape?\n";
 		}
 		if (filter.equals("editbutton")) {
 			return "\n"
@@ -382,6 +507,17 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .clearbuttons      — clear all buttons (no arguments)\n";
 		}
+		if (filter.equals("heatmap")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .heatmap:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .heatmap           — show the heatmap and list the counts\n"
+					+ "  .heatmap off       — hide it; counting continues\n"
+					+ "  .heatmap reset     — forget this world's counts\n"
+					+ "Tap, hold, each swipe direction, accordion open, accordion close,\n"
+					+ "and a child tap are counted apart. Tiles are one white; a brighter\n"
+					+ "tile has been used more. Counts are kept for this world.\n";
+		}
 		if (filter.equals("buttonopacity") || filter.equals("buttonsopacity")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .buttonopacity:"
@@ -408,6 +544,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
 					+ "  .suggest opacity N\n"
 					+ "  .suggest persist on|off\n"
+					+ "  .suggest next on|off      (the word that followed a finished one)\n"
 					+ "  .suggest phrases|plain|short|loose|typos on|off\n"
 					+ "  .suggest skiphead|firstletter on|off\n"
 					+ "  .suggest rank|pairs on|off\n"
@@ -436,7 +573,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .kb insertword <text>  — same as insert\n"
 					+ "  .kb add|popup|flush|clear|close\n"
 					+ "  .kb sel|copy|cut|paste\n"
-					+ "  .kb start|end|stepf|stepb|stepu|stepd|lineu|lined\n";
+					+ "  .kb start|end|stepf|stepb\n"
+					+ "  .kb stepu|stepd        — older / newer command in history\n"
+					+ "  .kb lineu|lined        — caret one line up / down, no history\n";
 		}
 		if (filter.equals("trigger")) {
 			return "\n"
@@ -453,10 +592,12 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .timer:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .timer play|pause|reset|stop <name> [silent]\n"
-					+ "  .timer info <name> [window]      toast, or game window with window\n"
-					+ "  .timer dump <name>               same as info … window\n"
-					+ "  .timer duration <name>            status (same as info)\n"
-					+ "  .timer duration <name> <seconds> [silent]\n"
+					+ "  .timer info <name>          status in the game window\n"
+					+ "  .timer dump <name>          same as info\n"
+					+ "  .timer duration <name>      same as info\n"
+					+ "  .timer duration <name> <seconds> [silent]   set length and restart from full\n"
+					+ "  .timer duration <name> 50s|2m|1h [silent]   add to remaining (keep running)\n"
+					+ "  .timer duration <name> -50s|-2m [silent]    subtract from remaining (floor 0)\n"
 					+ "  .timer dump / .timer list / .timer info   every timer, in the window\n";
 		}
 		if (filter.equals("wait")) {
@@ -546,7 +687,13 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .sensor caps — which hardware provides each reading\n"
 					+ "  .sensor <gesture> <command> — wire a reading to a command\n"
 					+ "  .sensor <gesture> on|off | fire <gesture>\n"
-					+ "  .sensor threshold shake|light|battery … | help | examples\n"
+					+ "  .sensor all on|off — every reading in this world\n"
+					+ "  .sensor pat:lr look — left then right; the trigger stores !pat:lr\n"
+					+ "  .sensor slash look — a shake you recorded, after My shakes\n"
+					+ "  .sensor watch on|off — keep device.* up to date\n"
+					+ "  .sensor examples | help\n"
+					+ "  .sensor threshold shake|light|battery …\n"
+					+ "A name already used by a saved shake or a built-in reading is refused.\n"
 					+ "landscape/portrait: the orientation already showing when you bind is not a fire.\n";
 		}
 		if (filter.equals("sound")) {
@@ -681,6 +828,16 @@ public class HelpCommand extends SpecialCommand {
 					+ "so you can drag to scroll. Two fingers with pick off still copy.\n"
 					+ "Loupe: Options → Window → Pick loupe size / zoom, or .pick loupe.\n";
 		}
+		if (filter.equals("copy")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .copy:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .copy / .copy loupe  print size and zoom; also size N / zoom N / default\n"
+					+ "  .copy loupe size N   magnifier size 50–200 (118 default)\n"
+					+ "  .copy loupe zoom N   magnifier zoom 150–350 (200 = 2×)\n"
+					+ "  .copy loupe default\n"
+					+ "Two-finger copy widget. Also Options → Window → Copy loupe size / zoom.\n";
+		}
 		if (filter.equals("grabber")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .grabber:"
@@ -743,6 +900,14 @@ public class HelpCommand extends SpecialCommand {
 					+ "Send wants tell Bob $text. Send refuses leftover $1/$text.\n"
 					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default),\n"
 					+ "keep at most N messages (default 4000; 0 still caps at 50000).\n";
+		}
+		if (filter.equals("layoutwizard")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .layoutwizard:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .layoutwizard       — open the button layout wizard\n"
+					+ "Also: Options → Button → Load button set from wizard.\n"
+					+ "The offline Starter Tutorial keeps its own pad and refuses this.\n";
 		}
 		return null;
 	}

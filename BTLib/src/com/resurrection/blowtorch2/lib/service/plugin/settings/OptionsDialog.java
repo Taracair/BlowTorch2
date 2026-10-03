@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.util.SettingsSaver;
 import com.resurrection.blowtorch2.lib.window.FontCatalog;
+import com.resurrection.blowtorch2.lib.window.GlobalGestures;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.window.ScrollSensitivity;
 
@@ -104,6 +105,19 @@ public class OptionsDialog extends Dialog {
 	private static final java.util.HashSet<String> EDITOR_OWNED_KEYS =
 			new java.util.HashSet<String>(java.util.Arrays.asList(
 					"show_gesture_hints", "show_swipe_preview"));
+
+	/**
+	 * Stored in the profile, drawn on the Sensors list. A second checkbox here
+	 * would be the same switch with nowhere to see the rows it gates.
+	 */
+	private static final java.util.HashSet<String> HIDDEN_OPTION_KEYS;
+	static {
+		HIDDEN_OPTION_KEYS = new java.util.HashSet<String>(EDITOR_OWNED_KEYS);
+		HIDDEN_OPTION_KEYS.add(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED);
+		HIDDEN_OPTION_KEYS.add(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.MY_SHAKES);
+	}
 
 	HashMap<Integer,String> pluginSettingsMap = new HashMap<Integer,String>();
 	boolean toggle = true;
@@ -260,7 +274,7 @@ public class OptionsDialog extends Dialog {
 	}
 
 	static ArrayList<SearchHit> searchHits(SettingsGroup root, String query) {
-		return searchHits(root, query, EDITOR_OWNED_KEYS);
+		return searchHits(root, query, HIDDEN_OPTION_KEYS);
 	}
 
 	static ArrayList<SearchHit> searchHits(SettingsGroup root, String query,
@@ -338,7 +352,7 @@ public class OptionsDialog extends Dialog {
 	 * in the tree (the button editor still writes them).
 	 */
 	static ArrayList<PageRow> pageRows(SettingsGroup group) {
-		return pageRows(group, EDITOR_OWNED_KEYS);
+		return pageRows(group, HIDDEN_OPTION_KEYS);
 	}
 
 	static ArrayList<PageRow> pageRows(SettingsGroup group,
@@ -806,9 +820,10 @@ public class OptionsDialog extends Dialog {
 				//widget.setFocusable(flase)
 				widget.addView(indicator);
 				widget.setTag(o);
-				
-				v.setOnClickListener(new IntegerOptionClickedListener(indicator));
-				widget.setOnClickListener(new IntegerOptionClickedListener(indicator));
+				if (!locked) {
+					v.setOnClickListener(new IntegerOptionClickedListener(indicator));
+					widget.setOnClickListener(new IntegerOptionClickedListener(indicator));
+				}
 				//widget.setOnClickListener(new IntegerOptionClickedListener());
 				
 				break;
@@ -986,6 +1001,13 @@ public class OptionsDialog extends Dialog {
 				MainWindow mwg = findMainWindowHost();
 				if (mwg != null) {
 					mwg.openGestureListFromOptions();
+				}
+				return;
+			}
+			if ("global_gesture_bindings".equals(key)) {
+				MainWindow mwgg = findMainWindowHost();
+				if (mwgg != null) {
+					mwgg.openGlobalGestureEditor();
 				}
 				return;
 			}
@@ -2448,11 +2470,40 @@ public class OptionsDialog extends Dialog {
 	}
 
 	static String lockedRequiresSuffix(final String key) {
+		if (key != null && key.startsWith("global_gesture_")
+				&& !GlobalGestures.KEY_MODE.equals(key)
+				&& !GlobalGestures.KEY_SHOW_MODE.equals(key)
+				&& !GlobalGestures.KEY_BINDINGS.equals(key)) {
+			return " Not used with the current mode.";
+		}
 		return "";
 	}
 
 	private boolean isOptionLocked(final Option o) {
-		return o != null && isRowLocked(o.getKey(), isAndroidFlingOptionOn());
+		if (o == null) {
+			return false;
+		}
+		if (isRowLocked(o.getKey(), isAndroidFlingOptionOn())) {
+			return true;
+		}
+		return GlobalGestures.optionUnused(o.getKey(),
+				intOption(GlobalGestures.KEY_MODE, GlobalGestures.MODE_CLASSIC),
+				intOption(GlobalGestures.KEY_SCROLL, GlobalGestures.SCROLL_HOLD));
+	}
+
+	private int intOption(final String key, final int fallback) {
+		if (mCurrent == null) {
+			return fallback;
+		}
+		Option found = mCurrent.findOptionByKey(key);
+		if (!(found instanceof BaseOption)) {
+			return fallback;
+		}
+		Object value = ((BaseOption) found).getValue();
+		if (value instanceof Integer) {
+			return ((Integer) value).intValue();
+		}
+		return fallback;
 	}
 
 	private void notifyCurrentPageAdapter() {
@@ -2541,6 +2592,13 @@ public class OptionsDialog extends Dialog {
 			
 			
 			dialog.dismiss();
+			if (GlobalGestures.KEY_MODE.equals(option.getKey())) {
+				GlobalGestures.publish(GlobalGestures.current().withMode(stored));
+				notifyCurrentPageAdapter();
+			} else if (GlobalGestures.KEY_SCROLL.equals(option.getKey())) {
+				GlobalGestures.publish(GlobalGestures.current().withScroll(stored));
+				notifyCurrentPageAdapter();
+			}
 		}
 		
 	}

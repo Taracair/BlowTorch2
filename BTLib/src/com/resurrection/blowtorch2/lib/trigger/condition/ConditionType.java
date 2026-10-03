@@ -13,7 +13,14 @@ public enum ConditionType {
 	VARIABLE_EQUALS("variableEquals"),
 	VARIABLE_EXISTS("variableExists"),
 	VARIABLE_BELOW("variableBelow"),
-	VARIABLE_ABOVE("variableAbove");
+	VARIABLE_ABOVE("variableAbove"),
+	TIMER_EXISTS("timerExists"),
+	TIMER_RUNNING("timerRunning"),
+	TIMER_REMAINING_BELOW("timerRemainingBelow"),
+	TIMER_REMAINING_ABOVE("timerRemainingAbove"),
+	/** Game window in front. Recents counts as not in front. */
+	UI_IN_FRONT("uiInFront"),
+	UI_IN_BACKGROUND("uiInBackground");
 
 	private final String xmlValue;
 
@@ -64,6 +71,26 @@ public enum ConditionType {
 		if ("variableAbove".equalsIgnoreCase(s) || "variable_above".equalsIgnoreCase(s)) {
 			return VARIABLE_ABOVE;
 		}
+		if ("timerExists".equalsIgnoreCase(s) || "timer_exists".equalsIgnoreCase(s)) {
+			return TIMER_EXISTS;
+		}
+		if ("timerRunning".equalsIgnoreCase(s) || "timer_running".equalsIgnoreCase(s)) {
+			return TIMER_RUNNING;
+		}
+		if ("timerRemainingBelow".equalsIgnoreCase(s)
+				|| "timer_remaining_below".equalsIgnoreCase(s)) {
+			return TIMER_REMAINING_BELOW;
+		}
+		if ("timerRemainingAbove".equalsIgnoreCase(s)
+				|| "timer_remaining_above".equalsIgnoreCase(s)) {
+			return TIMER_REMAINING_ABOVE;
+		}
+		if ("uiInFront".equalsIgnoreCase(s) || "ui_in_front".equalsIgnoreCase(s)) {
+			return UI_IN_FRONT;
+		}
+		if ("uiInBackground".equalsIgnoreCase(s) || "ui_in_background".equalsIgnoreCase(s)) {
+			return UI_IN_BACKGROUND;
+		}
 		return null;
 	}
 
@@ -89,6 +116,18 @@ public enum ConditionType {
 			return "Variable is below";
 		case VARIABLE_ABOVE:
 			return "Variable is above";
+		case TIMER_EXISTS:
+			return "Timer exists";
+		case TIMER_RUNNING:
+			return "Timer is running";
+		case TIMER_REMAINING_BELOW:
+			return "Timer remaining is below";
+		case TIMER_REMAINING_ABOVE:
+			return "Timer remaining is above";
+		case UI_IN_FRONT:
+			return "This window is in front";
+		case UI_IN_BACKGROUND:
+			return "This window is not in front";
 		default:
 			return name();
 		}
@@ -111,9 +150,21 @@ public enum ConditionType {
 				|| this == VARIABLE_BELOW || this == VARIABLE_ABOVE;
 	}
 
+	/** True when this leaf names a timer. */
+	public boolean isTimerGate() {
+		return this == TIMER_EXISTS || this == TIMER_RUNNING
+				|| this == TIMER_REMAINING_BELOW || this == TIMER_REMAINING_ABOVE;
+	}
+
+	/** True when this leaf only cares whether the game window is in front. */
+	public boolean isForegroundGate() {
+		return this == UI_IN_FRONT || this == UI_IN_BACKGROUND;
+	}
+
 	/** True when the leaf needs a free-text expected value. */
 	public boolean needsExpectedValue() {
 		return this == VARIABLE_EQUALS || this == ALIAS_EQUALS
-				|| this == VARIABLE_BELOW || this == VARIABLE_ABOVE;
+				|| this == VARIABLE_BELOW || this == VARIABLE_ABOVE
+				|| this == TIMER_REMAINING_BELOW || this == TIMER_REMAINING_ABOVE;
 	}
 }

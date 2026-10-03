@@ -60,11 +60,14 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_skip_head,
 		word_complete_wrong_first,
 		word_complete_phrases,
+		word_complete_next,
 		word_complete_short_first,
 		word_complete_shorter_first,
 		device_state_variables,
 		sensor_screen_off,
 		sensor_background,
+		sensors_enabled,
+		sensor_my_shakes,
 		word_complete_ghost,
 		word_complete_caret,
 		word_complete_ghost_lines,
@@ -78,6 +81,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		prompt_bar,
 		grow_input_bar,
 		lowercase_command_start,
+		unaccent_send,
 		compatibility_mode,
 		local_echo,
 		process_system_commands,
@@ -85,6 +89,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		echo_alias_updates,
 		keep_wifi_alive,
 		keep_cpu_awake,
+		notification_grouping,
 		auto_reconnect,
 		auto_reconnect_limit,
 		cull_extraneous_color,
@@ -116,7 +121,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 		extra_text_windows_enabled, extra_text_windows,
 		gauge_widgets_enabled, gauge_widgets,
 		chat_unread_dot, chat_announce, chat_announce_seconds, chat_android_notify,
-		chat_max_messages
+		chat_max_messages,
+		global_gesture_mode,
+		global_gesture_scroll,
+		global_gesture_hold_ms,
+		global_gesture_show_mode,
+		global_gesture_show_arrow,
+		global_gesture_show_command,
+		global_gesture_two_dir,
+		global_gesture_two_copy,
+		global_gesture_two_scroll,
+		global_gesture_bindings
 	}
 	
 	/**
@@ -595,6 +610,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
+					case word_complete_next:
+						// Default is true; persist when the player turns it off.
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
 					case word_complete_short_first:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
@@ -615,6 +636,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case sensor_screen_off:
 					case sensor_background:
 						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case sensors_enabled:
+						// Default is true. Only a world that was silenced is written.
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case sensor_my_shakes:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
@@ -692,8 +724,14 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
-					case compatibility_mode:
+					case unaccent_send:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case compatibility_mode:
+						// Default is true; persist when the player turns it off.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;
@@ -719,6 +757,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case keep_cpu_awake:
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case notification_grouping:
+						// List index; default 0 (one stack). Keep in sync with the plugin.
+						if((Integer)opt.getValue() != 0) {
 							dooutput = true;
 						}
 						break;
@@ -1101,6 +1145,44 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case chat_max_messages:
 						// Default 4000 in ConnectionSettingsPlugin.
 						if((Integer)opt.getValue() != 4000) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_mode:
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_scroll:
+						if((Integer)opt.getValue() != 1) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_hold_ms:
+						if((Integer)opt.getValue() != 280) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_show_mode:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_show_arrow:
+					case global_gesture_show_command:
+					case global_gesture_two_dir:
+					case global_gesture_two_copy:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_two_scroll:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_bindings:
+						if(opt.getValue() != null && !opt.getValue().toString().equals("")) {
 							dooutput = true;
 						}
 						break;

@@ -7,6 +7,7 @@ import java.util.Locale;
 import android.os.Message;
 
 import com.resurrection.blowtorch2.lib.mapper.MapDirections;
+import com.resurrection.blowtorch2.lib.mapper.MapNoteText;
 import com.resurrection.blowtorch2.lib.mapper.MapMoveEffect;
 import com.resurrection.blowtorch2.lib.mapper.MapTile;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
@@ -67,6 +68,12 @@ public class MapCommand extends SpecialCommand {
 		case "record":
 		case "rec":
 			return doRecord(c, mapper, rest);
+		case "name":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			note(c, mapper.nameFromBuffer());
+			return null;
 		case "follow":
 			return doFollow(c, mapper, rest);
 		case "level":
@@ -285,7 +292,7 @@ public class MapCommand extends SpecialCommand {
 		if (title) {
 			note(c, mapper.setTitle(tileId, text));
 		} else {
-			note(c, mapper.setNotes(tileId, text));
+			note(c, mapper.setNotes(tileId, MapNoteText.decode(text)));
 		}
 		return null;
 	}
@@ -1127,6 +1134,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("Mapper (").append(statusLine(m)).append(")\n");
 		sb.append("  .map open|close|toggle\n");
 		sb.append("  .map record|rec on|off|toggle\n");
+		sb.append("  .map name   (while recording: room name from recent lines; Nav → Name)\n");
 		sb.append("  .map follow on|off|toggle\n");
 		sb.append("  .map level list|prev|next|set <name>|rename [<id|name>] <new>|delete <id|name>|move <tileId> <level>\n");
 		sb.append("      (L-/L+ follow/return nests; create only in Edit mode)\n");

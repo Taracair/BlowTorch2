@@ -9,6 +9,7 @@ import java.io.UnsupportedEncodingException;
 
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.List;
 import java.util.ListIterator;
 import org.keplerproject.luajava.JavaFunction;
 import org.keplerproject.luajava.LuaException;
@@ -159,6 +160,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mTapDismissKeyboard = true;
 	/** When true, newest buffer lines draw at the top (older below). */
 	private boolean mNewestAtTop = false;
+	/** When true, game text wraps around floating buttons (main window only). */
+	private boolean mAvoidButtons = false;
+	/**
+	 * While {@link #mAvoidButtons}: break at whole words instead of one letter
+	 * at a time. Default false = letters (today's path).
+	 */
+	private boolean mAvoidBreakWords = false;
+	/** Supplies Window-local floating-button rects; null on extra-text windows. */
+	private FloatingButtonObstacles mFloatingButtonObstacles;
+	private final ArrayList<ButtonTextFlow.RectPx> mAvoidButtonRects =
+			new ArrayList<ButtonTextFlow.RectPx>();
+	private final ArrayList<ButtonTextFlow.Run> mAvoidRuns =
+			new ArrayList<ButtonTextFlow.Run>();
+	private final StringBuilder mAvoidWrapPlain = new StringBuilder(128);
+	private final int[] mAvoidIo = new int[3];
+	private final boolean[] mAvoidLinkFlag = new boolean[1];
+	private boolean mAvoidRemap;
+	private int mAvoidVisualRows = 1;
+	private float mAvoidY0;
+	private int mAvoidSliceFrom;
+	/** Viewport blob for the wrap-row being painted; null when not remapped. */
+	private ButtonTextFlow.RectPx mAvoidBlobPx;
+	private int mAvoidHoleCol0;
+	private int mAvoidHoleCol1;
+	/** View-space bands from the last onDraw, for tap/copy while avoid-buttons is on. */
+	private final ArrayList<AvoidHitSpan> mAvoidHitSpans = new ArrayList<AvoidHitSpan>();
+	private final float[] mAvoidCellIo = new float[4];
 	/** When true, finished lines that match a recent long line paint dimmer. */
 	private boolean mDimRepeatedLines = false;
 	/** When true, OSC 8 hrefs are tappable. Independent of regex linkify. */
@@ -198,6 +226,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	private int mDrawerInsetTop = 0;
 	private int mDrawerInsetBottom = 0;
+	/**
+	 * Second view of this window's buffer ({@code .split}). Same TextTree, own
+	 * scroll. Null when not split. Only the primary registers an IWindowCallback.
+	 */
+	private Window mBufferFollower;
+	/**
+	 * True on the secondary pane: adopts the primary's buffer and must not
+	 * rewrap or empty it when its own size changes.
+	 */
+	private boolean mSharedBufferFollower;
 	/** When true, IME lift skips game text windows (input bar still rises). */
 	private boolean mImeKeepText = false;
 	private boolean mCutoutPortrait = true;
@@ -255,8 +293,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFitChars = -1;
 	/** Tracker value for weather or not to buffer incoming text (used while text selecting). */
 	private boolean mBufferText = false;
-	/** Tracker value for weather or not to center justify text being drawn. */
-	private boolean mCenterJustify = false;
+	/** After a send, scroll to the live edge. Incoming text is unchanged. */
+	private boolean mJumpOnSend = true;
 	/** Tracker value for weather or not the window has a script OnMeasure function implemented. */
 	private boolean mHasScriptOnMeasure = false;
 	/** Tracker value for what the current color debug mode is. */
@@ -410,8 +448,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return line != null
 				&& line.getBreaks() == 0
 				&& line.getInlineImageKey() == null
-				&& line != mSearchHighlightLine
-				&& !mCenterJustify;
+				&& line != mSearchHighlightLine;
 	}
 
 	/** Union of the {@link #drawTextOnGrid} clip box and the ANSI cell. */
@@ -589,34 +626,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	/** Application context. */
 	//private Context mContext = null;
-	/** Bitmap that holds the selection indicator widget. */
-	private Bitmap mSelectionIndicatorBitmap = null;
-	/** Canvas that allows drawing to the selection indicator bitmap. */
-	private Canvas mSelectionIndicatorCanvas = null;
-	/** True while {@link #mSelectionIndicatorCanvas} has an unmatched save() for the circular clip. */
-	private boolean mSelectionCanvasSaved = false;
-	/** The font size for the selection widget. */
-	private int mSelectionIndicatorFontSize = 30;
-	/** Another patint object associatied with drawing the selection indicator. */
-	private Paint mSelectionIndicatorPaint = new Paint();
-	/** The measure of one character in the selection widget. */
-	private int mSelectionCharacterWidth = 1;
-	/** The measure of half of the selection widget. */
+	/** Disc radius of the copy widget, from {@link PrefixPickLoupe} size. */
 	private int mSelectionIndicatorHalfDimension = 60;
-	/** Clip object to cut away the outside of the circle by masking. */
-	private Path mSelectionIndicatorClipPath = new Path();
-	/** Left button hot zone for the selection widget. */
-	private Rect mSelectionIndicatorLeftButtonRect = new Rect();
-	/** right button hot zone for the selection widget. */
-	private Rect mSelectionIndicatorRightButtonRect = new Rect();
-	/** top button hot zone for the selection widget. */
-	private Rect mSelectionIndicatorUpButtonRect = new Rect();
-	/** bottom button hot zone for the selection widget. */
-	private Rect mSelectionIndicatorDownButtonRect = new Rect();
-	/** center button hot zone for the selection widget. */
-	private Rect mSelectionIndicatorCenterButtonRect = new Rect();
-	/** hot zone for the selection widget. */
-	private Rect mSelectionIndicatorRect = new Rect();
+	/** Copy, swap, close button centres from {@link CopyLoupeLayout#placeButtons}. */
+	private final float[] mCopyLoupeButtons = new float[6];
+	/** Destination for a copy-widget action icon. */
+	private final RectF mCopyLoupeIconDst = new RectF();
+	/** Leftover finger pixels on the copy disc, X then Y. */
+	private final float[] mCopyDragRem = new float[2];
+	private float mCopyDragLastX;
+	private float mCopyDragLastY;
+	private long mCopyDragLastTime;
 	/** Scroll repeat acceleration. */
 	private int mScrollRepeatRateStep = 1;
 	/** Scroll repeat rate variable. */
@@ -666,6 +686,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mLineStamps = false;
 	private int mLineStampsFields = TimestampFormat.DEFAULT;
 	private final Paint mJumpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/** Same window name as {@code ConnectionSettingsIO}'s main game window. */
+	private static final String MAIN_DISPLAY = "mainDisplay";
+	private final GlobalGestureSession mGlobalGesture = new GlobalGestureSession();
+	private final Paint mGestureChromePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private String mGestureDir;
+	private String mGestureCmd;
+	private float mGestureAtX;
+	private float mGestureAtY;
+	private int mGlobalScrollAxis;
+	private float mGlobalScrollPendingX;
+	private float mGlobalScrollPendingY;
+	private long mGlobalScrollLastTime;
+	private float mGlobalScrollVy;
+	/** Vertical two-finger lift has armed a coast. A later move or the last lift must not stop it. */
+	private boolean mGlobalScrollCoast;
+	private boolean mGestureCopyReady;
+	private float mGestureCopyX0;
+	private float mGestureCopyY0;
+	private float mGestureCopyX1;
+	private float mGestureCopyY1;
 	private final Path mJumpPath = new Path();
 	private final Paint mWhenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/** View bounds for the the scroller rectangle. */
@@ -805,13 +845,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void init(final String dataDir, final String name, final String owner, final Handler mainWindowHandler, final SettingsGroup settings) {
 		this.mDataDir = dataDir;
 		this.mDensity = this.getContext().getResources().getDisplayMetrics().density;
-		if ((Window.this.getContext().getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK) == Configuration.SCREENLAYOUT_SIZE_XLARGE) {
-			mSelectionIndicatorHalfDimension = (int) (90 * mDensity);
-		} else {
-			mSelectionIndicatorHalfDimension = (int) (60 * mDensity);
-		}
-		
-		mSelectionIndicatorClipPath.addCircle(mSelectionIndicatorHalfDimension, mSelectionIndicatorHalfDimension, mSelectionIndicatorHalfDimension - 10, Path.Direction.CCW);
+		applyCopyLoupeSize();
 		mTextSelectionCancelBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.cancel_tiny);
 		mTextSelectionCopyBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.copy_tiny);
 		mTextSelectionSwapBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.swap);
@@ -895,6 +929,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				case MESSAGE_CLEARTEXT:
 					mBuffer.empty();
 					mHoldBuffer.empty();
+					kickBufferFollower();
 					break;
 				case MESSAGE_SHUTDOWN:
 					Window.this.shutdown();
@@ -935,20 +970,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		mName = name;
 		
-		mSelectionIndicatorBitmap = Bitmap.createBitmap(2 * mSelectionIndicatorHalfDimension, 2 * mSelectionIndicatorHalfDimension, Bitmap.Config.ARGB_8888);
-		mSelectionIndicatorCanvas = new Canvas(mSelectionIndicatorBitmap);
-		
-		int full = mSelectionIndicatorHalfDimension * 2;
-		int third = full / 3;
-		
-		mSelectionIndicatorLeftButtonRect.set(third, 0, 2 * third, 40);
-		mSelectionIndicatorUpButtonRect.set(0, third, 40, 2 * third);
-		mSelectionIndicatorRightButtonRect.set(full - 40, third, full, 2 * third);
-		mSelectionIndicatorDownButtonRect.set(third, 2 * third, 2 * third, full);
-		mSelectionIndicatorCenterButtonRect.set(third, third, 2 * third, 2 * third);
-		
-		mSelectionIndicatorRect.set(0, 0, full, full);
-		
 		//start extracting and setting settings.
 		IntegerOption fontsize = (IntegerOption) settings.findOptionByKey("font_size");
 		IntegerOption lineextra = (IntegerOption) settings.findOptionByKey("line_extra");
@@ -962,6 +983,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (canvasWidth != null) {
 			mCanvasWidthFactor = Math.max(1.0f,
 					Math.min(2.0f, ((Integer) canvasWidth.getValue()).intValue() / 100f));
+		}
+		BooleanOption avoidButtons = (BooleanOption) settings.findOptionByKey("text_avoid_buttons");
+		if (avoidButtons != null) {
+			mAvoidButtons = (Boolean) avoidButtons.getValue();
+		}
+		ListOption avoidBreak = (ListOption) settings.findOptionByKey("text_avoid_buttons_break");
+		if (avoidBreak != null) {
+			mAvoidBreakWords = ((Integer) avoidBreak.getValue()).intValue()
+					== WindowToken.AVOID_BUTTONS_BREAK_WORDS;
+		}
+		BooleanOption jumpOnSend = (BooleanOption) settings.findOptionByKey("jump_on_send");
+		if (jumpOnSend != null) {
+			mJumpOnSend = (Boolean) jumpOnSend.getValue();
 		}
 		BooleanOption hlenabled = (BooleanOption) settings.findOptionByKey("hyperlinks_enabled");
 		BooleanOption tapDismiss = (BooleanOption) settings.findOptionByKey("tap_dismiss_keyboard");
@@ -1030,6 +1064,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			pickLoupeZoom.setValue(Integer.valueOf(n));
 			mPickLoupeZoom = n;
 		}
+		IntegerOption copyLoupeSize =
+				(IntegerOption) settings.findOptionByKey("copy_loupe_size");
+		if (copyLoupeSize != null) {
+			int n = PrefixPickLoupe.clampSize(
+					((Integer) copyLoupeSize.getValue()).intValue());
+			copyLoupeSize.setValue(Integer.valueOf(n));
+			mCopyLoupeSize = n;
+		}
+		IntegerOption copyLoupeZoom =
+				(IntegerOption) settings.findOptionByKey("copy_loupe_zoom");
+		if (copyLoupeZoom != null) {
+			int n = PrefixPickLoupe.clampZoom(
+					((Integer) copyLoupeZoom.getValue()).intValue());
+			copyLoupeZoom.setValue(Integer.valueOf(n));
+			mCopyLoupeZoom = n;
+		}
+		applyCopyLoupeSize();
 		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
 		if (osc8Links != null) {
 			applyOsc8Links((Boolean) osc8Links.getValue());
@@ -1372,6 +1423,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Convert raw view touch Y to a buffer broken-line index (0 = live / newest). */
 	private int touchYToBufferLine(final float touchY) {
+		if (avoidButtonsActive() && mAvoidHitSpans.size() > 0) {
+			for (int i = 0; i < mAvoidHitSpans.size(); i++) {
+				AvoidHitSpan s = mAvoidHitSpans.get(i);
+				if (touchY >= s.viewTop && touchY < s.viewBottom) {
+					return s.bufferLine;
+				}
+			}
+		}
 		// Short content always draws at the live edge; keep scroll delta at 0 so empty
 		// padding does not invent huge line numbers before clamp.
 		double scrollDelta = mScrollback - SCROLL_MIN;
@@ -1409,6 +1468,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Screen Y for a buffer line index (0 = newest), used by selection chrome. */
 	private int bufferLineToScreenY(final int line, final float withinLineOffset) {
+		if (avoidButtonsActive() && mAvoidHitSpans.size() > 0) {
+			for (int i = 0; i < mAvoidHitSpans.size(); i++) {
+				AvoidHitSpan s = mAvoidHitSpans.get(i);
+				if (s.bufferLine == line) {
+					return Math.round(s.viewBaseline + withinLineOffset);
+				}
+			}
+		}
 		final double scrollDelta = mScrollback - SCROLL_MIN;
 		final float logicalFromBottom = line * mPrefLineSize + withinLineOffset - (float) scrollDelta;
 		final int pad = textPadTop();
@@ -1519,11 +1586,378 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		final boolean wasUp = mImeLiftPx > 0;
 		mImeLiftPx = lift;
+		if (mAvoidButtons) {
+			dropLineTiles();
+			invalidate();
+		}
 		if (mBottomPaddingIme <= 0 || wasUp == (lift > 0)) {
 			return;
 		}
 		reflowForInsetChange();
 		invalidate();
+	}
+
+	/** Visible on-screen button rects in this window's pixel space. */
+	public interface FloatingButtonObstacles {
+		void collectWindowLocalRects(Window window, List<ButtonTextFlow.RectPx> dest);
+	}
+
+	public void setFloatingButtonObstacles(final FloatingButtonObstacles src) {
+		mFloatingButtonObstacles = src;
+	}
+
+	public void onFloatingButtonsMoved() {
+		if (!avoidButtonsActive()) {
+			return;
+		}
+		dropLineTiles();
+		invalidate();
+	}
+
+	private static final class AvoidHitSpan {
+		final float viewTop;
+		final float viewBottom;
+		final float viewBaseline;
+		final int bufferLine;
+		final int visualRow;
+		final int sliceFrom;
+		final int holeCol1;
+		final float blobRight;
+		final ButtonTextFlow.Run[] runs;
+
+		AvoidHitSpan(final float viewTop, final float viewBottom, final float viewBaseline,
+				final int bufferLine, final int visualRow, final int sliceFrom,
+				final int holeCol1, final float blobRight, final ButtonTextFlow.Run[] runs) {
+			this.viewTop = viewTop;
+			this.viewBottom = viewBottom;
+			this.viewBaseline = viewBaseline;
+			this.bufferLine = bufferLine;
+			this.visualRow = visualRow;
+			this.sliceFrom = sliceFrom;
+			this.holeCol1 = holeCol1;
+			this.blobRight = blobRight;
+			this.runs = runs;
+		}
+	}
+
+	private boolean avoidButtonsActive() {
+		return mAvoidButtons && "mainDisplay".equals(mName);
+	}
+
+	private void refreshAvoidButtonRects() {
+		mAvoidButtonRects.clear();
+		if (!avoidButtonsActive() || mFloatingButtonObstacles == null) {
+			return;
+		}
+		mFloatingButtonObstacles.collectWindowLocalRects(this, mAvoidButtonRects);
+	}
+
+	private void beginAvoidWrapRow(final Line l, final ListIterator<Unit> it, final float y,
+			final int bufferLine) {
+		mAvoidRemap = false;
+		mAvoidVisualRows = 1;
+		mAvoidY0 = y;
+		mAvoidSliceFrom = 0;
+		mAvoidBlobPx = null;
+		mAvoidHoleCol0 = 0;
+		mAvoidHoleCol1 = 0;
+		mAvoidRuns.clear();
+		if (!avoidButtonsActive() || mAvoidButtonRects.isEmpty() || it == null
+				|| mOneCharWidth <= 0 || mCalculatedRowsInWindow <= 0) {
+			recordAvoidHitSpans(bufferLine, y, 1, 0, null);
+			return;
+		}
+		int rowTop = Math.round(cellTop(y));
+		int rowH = Math.max(1, mPrefLineSize);
+		int rowBottom = rowTop + rowH;
+		ButtonTextFlow.RectPx blob = ButtonTextFlow.mergedBlobPx(mAvoidButtonRects, rowTop,
+				rowBottom);
+		if (blob == null) {
+			recordAvoidHitSpans(bufferLine, y, 1, 0, null);
+			return;
+		}
+		int viewportCols = mCalculatedRowsInWindow;
+		String plain = peekWrapRowPlain(l, it);
+		int n = plain.length();
+		int scrollCols = (int) Math.floor(mScrollX / (float) mOneCharWidth);
+		if (scrollCols < 0) {
+			scrollCols = 0;
+		}
+		mAvoidSliceFrom = Math.min(scrollCols, n);
+		int vis = n - mAvoidSliceFrom;
+		if (vis > viewportCols) {
+			vis = viewportCols;
+		}
+		if (vis < 0) {
+			vis = 0;
+		}
+		int sliceEnd = mAvoidSliceFrom + vis;
+		if (sliceEnd > n) {
+			sliceEnd = n;
+			vis = sliceEnd - mAvoidSliceFrom;
+		}
+		String slice = vis > 0 ? plain.substring(mAvoidSliceFrom, sliceEnd) : "";
+		if (vis <= 0) {
+			recordAvoidHitSpans(bufferLine, y, 1, mAvoidSliceFrom, null);
+			return;
+		}
+		// Letters: hardBreak one character at a time. Words: break at spaces so
+		// a word is not split across the button hole. The line's own soft wraps
+		// are already Breaks. Global word-wrap is a different option.
+		boolean wordBreak = mAvoidBreakWords;
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutInRow(vis, mAvoidButtonRects,
+				rowTop, rowH, mOneCharWidth, viewportCols, wordBreak, !wordBreak, slice);
+		mAvoidRuns.addAll(runs);
+		mAvoidRemap = true;
+		mAvoidVisualRows = 1;
+		mAvoidBlobPx = blob;
+		int[] holeCols = ButtonTextFlow.blobColumns(blob, mOneCharWidth, 0, viewportCols);
+		if (holeCols != null) {
+			mAvoidHoleCol0 = holeCols[0];
+			mAvoidHoleCol1 = holeCols[1];
+		}
+		ButtonTextFlow.Run[] runArr = mAvoidRuns.isEmpty() ? null
+				: mAvoidRuns.toArray(new ButtonTextFlow.Run[mAvoidRuns.size()]);
+		recordAvoidHitSpans(bufferLine, y, 1, mAvoidSliceFrom, runArr);
+	}
+
+	private void recordAvoidHitSpans(final int bufferLine, final float logicalY0,
+			final int visualRows, final int sliceFrom, final ButtonTextFlow.Run[] runs) {
+		if (!avoidButtonsActive() || mPrefLineSize <= 0) {
+			return;
+		}
+		int rows = visualRows < 1 ? 1 : visualRows;
+		int holeCol1 = mAvoidHoleCol1;
+		float blobRight = mAvoidBlobPx != null ? mAvoidBlobPx.right : 0f;
+		for (int i = 0; i < rows; i++) {
+			float logical = logicalY0 + i * mPrefLineSize;
+			mAvoidHitSpans.add(new AvoidHitSpan(cellTop(logical), cellBottom(logical),
+					screenBaselineY(logical), bufferLine, i, sliceFrom, holeCol1, blobRight,
+					runs));
+		}
+	}
+
+	private String peekWrapRowPlain(final Line l, final ListIterator<Unit> it) {
+		mAvoidWrapPlain.setLength(0);
+		if (l == null || it == null) {
+			return "";
+		}
+		java.util.LinkedList<Unit> data = l.getData();
+		if (data == null) {
+			return "";
+		}
+		int idx = it.nextIndex();
+		for (int i = idx; i < data.size(); i++) {
+			Unit u = data.get(i);
+			if (u instanceof TextTree.Break || u instanceof TextTree.NewLine) {
+				break;
+			}
+			if (u instanceof TextTree.Text) {
+				String s = ((TextTree.Text) u).getString();
+				if (s != null) {
+					mAvoidWrapPlain.append(s);
+				}
+			}
+		}
+		return mAvoidWrapPlain.toString();
+	}
+
+	private ButtonTextFlow.Run avoidRunAt(final int wrapSrc) {
+		int src = wrapSrc - mAvoidSliceFrom;
+		if (src < 0) {
+			return null;
+		}
+		for (int i = 0; i < mAvoidRuns.size(); i++) {
+			ButtonTextFlow.Run r = mAvoidRuns.get(i);
+			if (src >= r.srcStart && src < r.srcEnd) {
+				return r;
+			}
+		}
+		return null;
+	}
+
+	private int avoidWrapRowAdvance() {
+		return mAvoidRemap ? Math.max(1, mAvoidVisualRows) : 1;
+	}
+
+	/** Clip a panned remnant to the viewport pocket so it does not smear under the button. */
+	private void clipAvoidPocket(final Canvas c, final int destCol) {
+		if (mAvoidBlobPx == null || c == null) {
+			return;
+		}
+		int h = Math.max(1, getHeight());
+		int w = Math.max(1, getWidth());
+		if (destCol < mAvoidHoleCol0) {
+			c.clipRect(0, 0, mAvoidBlobPx.left, h);
+		} else if (destCol >= mAvoidHoleCol1) {
+			c.clipRect(mAvoidBlobPx.right, 0, w, h);
+		} else {
+			c.clipRect(0, 0, 0, 0);
+		}
+	}
+
+	private boolean paintAvoidMappedText(final Canvas c, final Line l, final TextTree.Text text,
+			final Paint textPaint, final Paint bgPaint, final boolean useBackground,
+			final boolean scrollingGesture, final int linemode, final int startcol,
+			final int endcol, final int[] io, final boolean[] linkFlag) {
+		String s = text.getString();
+		if (s == null) {
+			s = "";
+		}
+		int n = text.charcount;
+		int workingcol = io[0];
+		int tapCol = io[1];
+		int searchPlainPos = io[2];
+		boolean doingLink = linkFlag[0];
+		int utf16 = 0;
+		int consumed = 0;
+		while (consumed < n) {
+			ButtonTextFlow.Run run = avoidRunAt(workingcol + consumed);
+			int remaining = n - consumed;
+			int remainingCp = 0;
+			if (utf16 < s.length()) {
+				remainingCp = s.codePointCount(utf16, s.length());
+			}
+			if (remainingCp <= 0) {
+				break;
+			}
+			int take;
+			float dx;
+			float dy;
+			if (run == null) {
+				take = 1;
+				if (take > remainingCp) {
+					take = remainingCp;
+				}
+				utf16 = s.offsetByCodePoints(utf16, take);
+				consumed += take;
+				continue;
+			}
+			int src = workingcol + consumed - mAvoidSliceFrom;
+			take = run.srcEnd - src;
+			if (take > remaining) {
+				take = remaining;
+			}
+			if (take > remainingCp) {
+				take = remainingCp;
+			}
+			if (take <= 0) {
+				break;
+			}
+			int utf16End = s.offsetByCodePoints(utf16, take);
+			String piece = s.substring(utf16, utf16End);
+			int destCol = run.destCol + (src - run.srcStart);
+			if (destCol >= mAvoidHoleCol1 && mAvoidBlobPx != null) {
+				dx = ButtonTextFlow.rightPocketViewX(destCol, mAvoidHoleCol1, mAvoidBlobPx.right,
+						mOneCharWidth, mScrollX);
+			} else {
+				dx = ButtonTextFlow.panViewX(destCol, mAvoidSliceFrom, mOneCharWidth, mScrollX);
+			}
+			dy = mAvoidY0 + run.visualRow * mPrefLineSize;
+			c.save();
+			try {
+			clipAvoidPocket(c, destCol);
+			if (theSelection != null) {
+				int finishCol = workingcol + consumed + take;
+				boolean selected = false;
+				switch (linemode) {
+				case 1:
+					selected = finishCol > startcol && workingcol + consumed <= endcol;
+					break;
+				case 2:
+					selected = finishCol > startcol;
+					break;
+				case 3:
+					selected = true;
+					break;
+				case 4:
+					selected = workingcol + consumed <= endcol;
+					break;
+				default:
+					break;
+				}
+				if (selected) {
+					c.drawRect(dx, cellTop(dy), dx + cellWidth(CellWidth.cells(piece)), cellBottom(dy),
+							mTextSelectionIndicatorBackgroundPaint);
+				}
+			}
+			if (useBackground) {
+				c.drawRect(dx, cellTop(dy), dx + cellWidth(CellWidth.cells(piece)), cellBottom(dy), bgPaint);
+			}
+			if (l == mSearchHighlightLine && mSearchMatchLen > 0
+					&& !mSearchMatchStarts.isEmpty() && piece.length() > 0) {
+				int unitPlainStart = searchPlainPos + (utf16);
+				for (int mi = 0; mi < mSearchMatchStarts.size(); mi++) {
+					int matchStart = mSearchMatchStarts.get(mi).intValue();
+					int matchEnd = matchStart + mSearchMatchLen;
+					int overlapStart = Math.max(matchStart, unitPlainStart);
+					int overlapEnd = Math.min(matchEnd, unitPlainStart + piece.length());
+					if (overlapStart >= overlapEnd) {
+						continue;
+					}
+					int localStart = overlapStart - unitPlainStart;
+					int localEnd = overlapEnd - unitPlainStart;
+					float left = dx + cellWidthPrefix(piece, localStart);
+					float right = left + cellWidthSpan(piece, localStart, localEnd);
+					c.drawRect(left, cellTop(dy), right, cellBottom(dy), mSearchMatchPaint);
+				}
+			}
+			boolean mxpLink = text.getHref() != null
+					&& com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(text.getHref())
+					&& !com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isExpireCommand(
+							text.getHref());
+			boolean osc8 = (mOsc8Links || mxpLink) && text.getHref() != null
+					&& !com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isExpireCommand(
+							text.getHref());
+			Paint drawPaint = textPaint;
+			if (osc8 || text.isLink() || doingLink) {
+				if (text instanceof TextTree.WhiteSpace && !osc8) {
+					for (int z = 0; z < linkBoxes.size(); z++) {
+						if (linkBoxes.get(z).getData() == null) {
+							linkBoxes.get(z).setData(mCurrentLink.toString());
+						}
+					}
+					mCurrentLink.setLength(0);
+					doingLink = false;
+				} else {
+					if (!osc8) {
+						doingLink = true;
+						mCurrentLink.append(piece);
+					}
+					if (!scrollingGesture) {
+						Rect r = new Rect();
+						final float linkY = screenBaselineY(dy);
+						r.left = (int) dx;
+						r.top = (int) (linkY - textPaint.getTextSize());
+						r.right = (int) (dx + cellWidth(CellWidth.cells(piece)));
+						r.bottom = (int) (linkY + 5);
+						LinkBox linkbox = new LinkBox(null, r);
+						if (osc8) {
+							linkbox.setData(text.getHref());
+						}
+						linkbox.setLabel(piece);
+						linkBoxes.add(linkbox);
+					}
+					drawPaint = linkColor != null ? linkColor : textPaint;
+				}
+			}
+			markTappableWords(c, text, dx, dy, drawPaint, scrollingGesture, tapCol + utf16,
+					piece);
+			drawTextOnGrid(c, piece, dx, dy, drawPaint);
+			if (l == mSearchHighlightLine) {
+				drawSearchMatchText(c, piece, dx, dy, searchPlainPos + utf16);
+			}
+			} finally {
+				c.restore();
+			}
+			utf16 = utf16End;
+			consumed += take;
+		}
+		io[0] = workingcol + n;
+		io[1] = tapCol + s.length();
+		io[2] = searchPlainPos + s.length();
+		linkFlag[0] = doingLink;
+		return doingLink;
 	}
 
 	/**
@@ -1636,11 +2070,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mCalculatedLinesInWindow = 1;
 		}
 		
-		mSelectionIndicatorPaint.setTextSize(mSelectionIndicatorFontSize);
-		mSelectionIndicatorPaint.setTypeface(mPrefFont);
-		applyTerminalFontFeatures(mSelectionIndicatorPaint);
-		mSelectionIndicatorPaint.setAntiAlias(true);
-		mSelectionCharacterWidth = (int) Math.ceil(mSelectionIndicatorPaint.measureText("W"));
 		selectionIndicatorVectorX = mOneCharWidth + mSelectionIndicatorHalfDimension;
 		if (automaticBreaks) {
 			this.setLineBreaks(0);
@@ -1790,6 +2219,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean shouldCoalesceScrollRun(final boolean scrollingGesture,
 			final TextTree.Line line, final TextTree.Text text, final boolean doingLink) {
 		return scrollingGesture
+				&& !mAvoidRemap
 				&& theSelection == null
 				&& selectedSelector == null
 				&& line != mSearchHighlightLine
@@ -2429,7 +2859,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mPrefixPickBroken = broken;
-		int visualCol = (int) Math.floor((x + mScrollX) / (float) mOneCharWidth);
+		int visualCol = touchXToColumn(x, y);
 		String plain = TextTree.deColorLine(line).toString();
 		java.util.List<String> rows = PrefixPickHit.visualRows(line);
 		if (mPrefixPickWrapRow >= 0 && mPrefixPickWrapRow < rows.size()) {
@@ -2453,12 +2883,32 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int visStart = Math.max(span.start, rowStart);
 		int visEnd = Math.min(span.end, rowStart + row.length());
 		int cells = Math.max(1, visEnd - visStart);
-		int left = (int) PrefixPickLoupe.cellLeft(col0, mOneCharWidth, mScrollX);
+		int wrapSrc = visStart - rowStart;
+		if (wrapSrc < 0) {
+			wrapSrc = 0;
+		}
+		int left;
+		int top;
+		int bottom;
+		if (avoidViewCell(broken, wrapSrc, mAvoidCellIo)) {
+			left = (int) mAvoidCellIo[0];
+			top = (int) mAvoidCellIo[2];
+			bottom = (int) mAvoidCellIo[3];
+			int wrapEnd = visEnd - rowStart - 1;
+			if (wrapEnd > wrapSrc && avoidViewCell(broken, wrapEnd, mAvoidCellIo)) {
+				int rightCell = (int) mAvoidCellIo[0] + mOneCharWidth;
+				if (rightCell > left) {
+					cells = Math.max(1, (rightCell - left) / Math.max(1, mOneCharWidth));
+				}
+			}
+		} else {
+			left = (int) PrefixPickLoupe.cellLeft(col0, mOneCharWidth, mScrollX);
+			float a = bufferLineToScreenY(broken, 0f);
+			float b = bufferLineToScreenY(broken, mPrefLineSize);
+			top = (int) Math.min(a, b);
+			bottom = (int) Math.max(a, b);
+		}
 		int right = left + cells * mOneCharWidth;
-		float a = bufferLineToScreenY(broken, 0f);
-		float b = bufferLineToScreenY(broken, mPrefLineSize);
-		int top = (int) Math.min(a, b);
-		int bottom = (int) Math.max(a, b);
 		mPrefixPickBox.set(left, top, right, bottom);
 	}
 
@@ -2700,11 +3150,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return null;
 		}
 		int broken = touchYToBufferLine(y);
-		int visualCol = mOneCharWidth > 0
-				? (int) Math.floor((x + mScrollX) / (float) mOneCharWidth) : 0;
-		if (visualCol < 0) {
-			visualCol = 0;
-		}
+		int visualCol = touchXToColumn(x, y);
 		StyleInspect.Hit hit = StyleInspect.at(mBuffer.getLines(), styleGrabberModels(),
 				broken, visualCol, mWrapColumns);
 		if (hit == null || hit.snap == null) {
@@ -2715,15 +3161,457 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		float cellRight = 0f;
 		float cellBottom = 0f;
 		if (mOneCharWidth > 0 && mPrefLineSize > 0) {
-			cellLeft = visualCol * (float) mOneCharWidth - mScrollX;
-			cellRight = cellLeft + mOneCharWidth;
-			float a = bufferLineToScreenY(broken, 0f);
-			float b = bufferLineToScreenY(broken, mPrefLineSize);
-			cellTop = Math.min(a, b);
-			cellBottom = Math.max(a, b);
+			if (avoidViewCell(broken, visualCol, mAvoidCellIo)) {
+				cellLeft = mAvoidCellIo[0];
+				cellRight = cellLeft + mOneCharWidth;
+				cellTop = mAvoidCellIo[2];
+				cellBottom = mAvoidCellIo[3];
+			} else {
+				cellLeft = visualCol * (float) mOneCharWidth - mScrollX;
+				cellRight = cellLeft + mOneCharWidth;
+				float a = bufferLineToScreenY(broken, 0f);
+				float b = bufferLineToScreenY(broken, mPrefLineSize);
+				cellTop = Math.min(a, b);
+				cellBottom = Math.max(a, b);
+			}
 		}
 		return new StyleGrabberOverlay.Inspect(hit.snap, hit.glyph,
 				cellLeft, cellTop, cellRight, cellBottom);
+	}
+
+	/** Classic mode returns false and the rest of {@link #onTouchEvent} runs unchanged. */
+	private boolean dispatchGlobalGesture(final MotionEvent t) {
+		if (!MAIN_DISPLAY.equals(getName())) {
+			return false;
+		}
+		if (theSelection != null || mPrefixPickFinger || mTapLongPressFired || mLoupeActive) {
+			return false;
+		}
+		if (mStyleGrabber != null && mStyleGrabber.isOn()) {
+			return false;
+		}
+		GlobalGestures cfg = GlobalGestures.current();
+		if (t.getActionMasked() == MotionEvent.ACTION_DOWN) {
+			mGlobalScrollAxis = 0;
+			mGlobalScrollPendingX = 0f;
+			mGlobalScrollPendingY = 0f;
+			mGlobalScrollLastTime = 0L;
+			mGlobalScrollVy = 0f;
+			mGlobalScrollCoast = false;
+			mGestureCopyReady = false;
+		}
+		if (cfg.mode() == GlobalGestures.MODE_CLASSIC) {
+			mGlobalGesture.reset();
+			clearGesturePreview();
+			return false;
+		}
+		mGlobalGesture.setConfig(cfg, 8f * mDensity, 24f * mDensity);
+		if (t.getPointerCount() >= 2) {
+			mGestureCopyX0 = t.getX(0);
+			mGestureCopyY0 = t.getY(0);
+			mGestureCopyX1 = t.getX(1);
+			mGestureCopyY1 = t.getY(1);
+			mGestureCopyReady = true;
+		}
+		GlobalGestureSession.Decision d = feedGlobalGesture(t);
+		if (d.kind == GlobalGestureSession.Decision.Kind.IGNORE) {
+			if (t.getPointerCount() >= 2 && cfg.twoFingerMode()) {
+				endGlobalGestureTouch(true);
+				return true;
+			}
+			return false;
+		}
+		applyGlobalGesture(t, d);
+		return true;
+	}
+
+	private GlobalGestureSession.Decision feedGlobalGesture(final MotionEvent t) {
+		int count = t.getPointerCount();
+		float x0 = count > 0 ? t.getX(0) : 0f;
+		float y0 = count > 0 ? t.getY(0) : 0f;
+		float x1 = count > 1 ? t.getX(1) : 0f;
+		float y1 = count > 1 ? t.getY(1) : 0f;
+		long time = t.getEventTime();
+		switch (t.getActionMasked()) {
+		case MotionEvent.ACTION_DOWN:
+			return mGlobalGesture.onDown(time, x0, y0);
+		case MotionEvent.ACTION_POINTER_DOWN:
+			return mGlobalGesture.onPointerDown(time, count, x0, y0, x1, y1);
+		case MotionEvent.ACTION_MOVE:
+			return mGlobalGesture.onMove(time, count, x0, y0, x1, y1);
+		case MotionEvent.ACTION_POINTER_UP:
+			return mGlobalGesture.onPointerUp(time, count - 1);
+		case MotionEvent.ACTION_UP:
+			return mGlobalGesture.onUp(time, x0, y0);
+		case MotionEvent.ACTION_CANCEL:
+			return mGlobalGesture.onCancel();
+		default:
+			return GlobalGestureSession.Decision.ignore();
+		}
+	}
+
+	private void applyGlobalGesture(final MotionEvent t, final GlobalGestureSession.Decision d) {
+		int action = t.getActionMasked();
+		int axisBefore = mGlobalScrollAxis;
+		switch (d.kind) {
+		case PREVIEW:
+			mGestureDir = d.direction;
+			mGestureCmd = d.command;
+			int at = d.finger;
+			if (at < 0 || at >= t.getPointerCount()) {
+				at = 0;
+			}
+			if (t.getPointerCount() > at) {
+				mGestureAtX = t.getX(at);
+				mGestureAtY = t.getY(at);
+			}
+			break;
+		case SCROLL:
+			nudgeGlobalScroll(d.dx, d.dy, t.getEventTime());
+			if (mAndroidFling) {
+				if (mVelocityTracker == null) {
+					obtainVelocityTracker();
+				}
+				mVelocityTracker.addMovement(t);
+			}
+			break;
+		case COPY:
+			openGlobalGestureCopy(t);
+			clearGesturePreview();
+			break;
+		case FIRE:
+			if (d.command != null && mMainWindowHandler != null) {
+				mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+						MainWindow.MESSAGE_SENDBUTTONDATA, d.command));
+			}
+			clearGesturePreview();
+			break;
+		default:
+			clearGesturePreview();
+			break;
+		}
+		boolean keepFling = false;
+		if (action == MotionEvent.ACTION_CANCEL) {
+			mGlobalScrollCoast = false;
+		}
+		if (d.kind != GlobalGestureSession.Decision.Kind.SCROLL) {
+			boolean lift = action == MotionEvent.ACTION_UP
+					|| action == MotionEvent.ACTION_POINTER_UP;
+			if (lift && axisBefore == 2
+					&& d.kind == GlobalGestureSession.Decision.Kind.EAT) {
+				keepFling = armGlobalScrollFling(t);
+				if (keepFling) {
+					mGlobalScrollCoast = true;
+				}
+			}
+			mGlobalScrollAxis = 0;
+			mGlobalScrollPendingX = 0f;
+			mGlobalScrollPendingY = 0f;
+			mGlobalScrollLastTime = 0L;
+			mGlobalScrollVy = 0f;
+		}
+		boolean preserveCoast = keepFling
+				|| (mGlobalScrollCoast
+						&& d.kind == GlobalGestureSession.Decision.Kind.EAT
+						&& (action == MotionEvent.ACTION_MOVE
+								|| action == MotionEvent.ACTION_UP));
+		if (!preserveCoast) {
+			mGlobalScrollCoast = false;
+		}
+		boolean scrolling = d.kind == GlobalGestureSession.Decision.Kind.SCROLL;
+		// Inside 8 dp the eat must not drop the down point. Sideways scroll
+		// locks from that point once the finger passes the slop; vertical does not.
+		boolean atDown = action == MotionEvent.ACTION_MOVE
+				&& d.kind == GlobalGestureSession.Decision.Kind.EAT
+				&& !cancelHoldFor(t, d);
+		boolean fingerDown = scrolling || atDown;
+		endGlobalGestureTouch(cancelHoldFor(t, d), preserveCoast,
+				(scrolling && mAndroidFling) || atDown, fingerDown);
+		if (scrolling || preserveCoast) {
+			postInvalidateOnAnimation();
+		} else {
+			invalidate();
+		}
+	}
+
+	/** A second finger, or a move past the 8 dp slop, cancels the word menu.
+	 * An eat inside that slop leaves the menu armed. */
+	private boolean cancelHoldFor(final MotionEvent t, final GlobalGestureSession.Decision d) {
+		if (d.kind != GlobalGestureSession.Decision.Kind.EAT) {
+			return true;
+		}
+		if (t.getPointerCount() >= 2 || start_x == null || mStartY == null) {
+			return true;
+		}
+		float dx = t.getX(0) - start_x.floatValue();
+		float dy = t.getY(0) - mStartY.floatValue();
+		return Math.hypot(dx, dy) > 8f * mDensity;
+	}
+
+	private void openGlobalGestureCopy(final MotionEvent t) {
+		if (!mTextSelectionEnabled || mBuffer.getBrokenLineCount() == 0) {
+			return;
+		}
+		boolean live = t.getPointerCount() >= 2;
+		if (!live && !mGestureCopyReady) {
+			return;
+		}
+		float x0 = live ? t.getX(0) : mGestureCopyX0;
+		float y0 = live ? t.getY(0) : mGestureCopyY0;
+		float x1 = live ? t.getX(1) : mGestureCopyX1;
+		float y1 = live ? t.getY(1) : mGestureCopyY1;
+		stopFling();
+		int line = touchYToBufferLine(y0);
+		int col = touchXToColumn(x0, y0);
+		int line2 = touchYToBufferLine(y1);
+		int col2 = touchXToColumn(x1, y1);
+		if (line2 != line || col2 != col) {
+			startSelectionBetween(line, col, line2, col2);
+		} else {
+			startSelection(line, col);
+		}
+	}
+
+	private void nudgeGlobalScroll(final float fingerDx, final float fingerDy, final long eventTime) {
+		float dx = fingerDx;
+		float dy = fingerDy;
+		if (mGlobalScrollAxis == 0) {
+			mGlobalScrollPendingX += dx;
+			mGlobalScrollPendingY += dy;
+			if (Math.hypot(mGlobalScrollPendingX, mGlobalScrollPendingY) < 8f * mDensity) {
+				return;
+			}
+			mGlobalScrollAxis = Math.abs(mGlobalScrollPendingX) > Math.abs(mGlobalScrollPendingY)
+					? 1 : 2;
+			dx = mGlobalScrollPendingX;
+			dy = mGlobalScrollPendingY;
+			mGlobalScrollPendingX = 0f;
+			mGlobalScrollPendingY = 0f;
+		}
+		if (mGlobalScrollAxis == 1) {
+			scrollHorizontallyBy(-dx);
+			mGlobalScrollVy = 0f;
+			return;
+		}
+		noteGlobalScrollVelocity(fingerDy, eventTime);
+		float gain = mAndroidFling ? 1f : mScrollSensitivity;
+		double delta = (mNewestAtTop ? -dy : dy) * gain;
+		mScrollback = mScrollback + delta;
+		double max = mBuffer.getBrokenLineCount() * mPrefLineSize;
+		if (mScrollback < SCROLL_MIN) {
+			mScrollback = SCROLL_MIN;
+		} else if (mScrollback >= max) {
+			mScrollback = max;
+		}
+		stopFling();
+	}
+
+	/** Same cap as a one-finger drag, from this event's vertical delta. */
+	private void noteGlobalScrollVelocity(final float fingerDy, final long eventTime) {
+		if (mGlobalScrollLastTime != 0L && eventTime > mGlobalScrollLastTime) {
+			float dt = (eventTime - mGlobalScrollLastTime) / 1000f;
+			if (dt < 0.001f) {
+				dt = 0.001f;
+			}
+			float v = fingerDy / dt;
+			if (v > MAX_VELOCITY) {
+				v = MAX_VELOCITY;
+			} else if (v < -MAX_VELOCITY) {
+				v = -MAX_VELOCITY;
+			}
+			mGlobalScrollVy = v;
+		}
+		mGlobalScrollLastTime = eventTime;
+	}
+
+	/** Coast after a two-finger lift the same way a one-finger lift does. */
+	private boolean armGlobalScrollFling(final MotionEvent t) {
+		if (mAndroidFling) {
+			float vy = mGlobalScrollVy;
+			if (mVelocityTracker != null) {
+				mVelocityTracker.addMovement(t);
+				final ViewConfiguration vc = ViewConfiguration.get(getContext());
+				mVelocityTracker.computeCurrentVelocity(1000,
+						vc.getScaledMaximumFlingVelocity());
+				int n = t.getPointerCount();
+				if (n > 0) {
+					float sum = 0f;
+					for (int i = 0; i < n; i++) {
+						sum += mVelocityTracker.getYVelocity(t.getPointerId(i));
+					}
+					vy = sum / n;
+				}
+			}
+			startAndroidFling(vy);
+			return mFlingScroller != null && !mFlingScroller.isFinished();
+		}
+		mFlingVelocity = mGlobalScrollVy * mScrollSensitivity;
+		if (Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
+			finger_down_to_up = true;
+			return true;
+		}
+		return false;
+	}
+
+	private void endGlobalGestureTouch(final boolean cancelHold) {
+		endGlobalGestureTouch(cancelHold, false, false, false);
+	}
+
+	private void endGlobalGestureTouch(final boolean cancelHold, final boolean keepFling,
+			final boolean keepTracker, final boolean fingerDown) {
+		// Line tiles need the finger down. Sideways scroll needs the original
+		// down x, which an eat inside 8 dp must not clear.
+		mFingerDown = fingerDown;
+		if (!fingerDown) {
+			pointer = -1;
+			mDragAxis = DRAG_UNDECIDED;
+			mMoveLastX = null;
+			mDownX = null;
+		}
+		if (cancelHold) {
+			cancelTapLongPress();
+			cancelPrefixPickLongPress();
+		}
+		if (!keepTracker) {
+			recycleVelocityTracker();
+		}
+		if (!keepFling) {
+			stopFling();
+		}
+	}
+
+	private void clearGesturePreview() {
+		if (mGestureDir == null && mGestureCmd == null) {
+			return;
+		}
+		mGestureDir = null;
+		mGestureCmd = null;
+	}
+
+	private void drawGlobalGestureChrome(final Canvas c) {
+		if (c == null || !MAIN_DISPLAY.equals(getName())) {
+			return;
+		}
+		GlobalGestures g = GlobalGestures.current();
+		mGestureChromePaint.setAntiAlias(true);
+		mGestureChromePaint.setColor(0xBB2A4A6E);
+		mGestureChromePaint.setStyle(Paint.Style.FILL);
+		mGestureChromePaint.setTextAlign(Paint.Align.CENTER);
+		if (g.showMode()) {
+			String label = GlobalGestures.modeLabel(g.mode());
+			float d = mDensity;
+			mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.LEFT);
+			mGestureChromePaint.setTextSize(16f * d);
+			android.graphics.Paint.FontMetrics fm = mGestureChromePaint.getFontMetrics();
+			float textW = mGestureChromePaint.measureText(label);
+			float padX = 8f * d;
+			float padY = 4f * d;
+			float boxW = textW + padX * 2f;
+			float boxH = (fm.descent - fm.ascent) + padY * 2f;
+			float right = mWidth - (24f * d);
+			float left = right - boxW;
+			if (left < 8f * d) {
+				left = 8f * d;
+			}
+			float top = 12f * d;
+			mGestureChromePaint.setColor(0xE8141418);
+			c.drawRoundRect(left, top, left + boxW, top + boxH, 6f * d, 6f * d,
+					mGestureChromePaint);
+			mGestureChromePaint.setColor(0xFFF2F4F6);
+			c.drawText(label, left + padX, top + padY - fm.ascent, mGestureChromePaint);
+			mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.CENTER);
+		}
+		if (mGestureDir == null && (mGestureCmd == null || mGestureCmd.length() == 0)) {
+			return;
+		}
+		drawGesturePreview(c, g);
+	}
+
+	private void drawGesturePreview(final Canvas c, final GlobalGestures g) {
+		float d = mDensity;
+		float radius = 42f * d;
+		float cx = mGestureAtX;
+		float cy = mGestureAtY - (78f * d);
+		float margin = 8f * d;
+		if (cx < radius + margin) {
+			cx = radius + margin;
+		} else if (cx > mWidth - radius - margin) {
+			cx = mWidth - radius - margin;
+		}
+		float labelH = 28f * d;
+		float top = cy - radius - (10f * d) - labelH;
+		if (top < margin) {
+			cy += margin - top;
+		}
+		if (cy + radius > mGestureAtY - (20f * d)) {
+			cy = mGestureAtY - (20f * d) - radius;
+		}
+		int active = GlobalGestures.sectorIndex(mGestureDir);
+		if (g.showArrow() && active >= 0) {
+			android.graphics.RectF oval = new android.graphics.RectF(
+					cx - radius, cy - radius, cx + radius, cy + radius);
+			for (int i = 0; i < 8; i++) {
+				mGestureChromePaint.setStyle(android.graphics.Paint.Style.FILL);
+				mGestureChromePaint.setColor(i == active ? 0xDD3D6A96 : 0x55304458);
+				c.drawArc(oval, i * 45f - 20.5f, 41f, true, mGestureChromePaint);
+			}
+			drawGestureArrowHead(c, cx, cy, active, radius);
+		}
+		if (g.showCommand() && mGestureCmd != null && mGestureCmd.length() > 0) {
+			drawGestureCommand(c, cx, cy - radius - (8f * d), mGestureCmd);
+		}
+	}
+
+	private void drawGestureArrowHead(final Canvas c, final float cx, final float cy,
+			final int sector, final float radius) {
+		double rad = Math.toRadians(sector * 45.0);
+		float ux = (float) Math.cos(rad);
+		float uy = (float) Math.sin(rad);
+		float px = -uy;
+		float py = ux;
+		float tip = radius * 0.78f;
+		float base = radius * 0.22f;
+		float half = radius * 0.2f;
+		android.graphics.Path path = new android.graphics.Path();
+		path.moveTo(cx + ux * tip, cy + uy * tip);
+		path.lineTo(cx + ux * base - px * half, cy + uy * base - py * half);
+		path.lineTo(cx + ux * base + px * half, cy + uy * base + py * half);
+		path.close();
+		mGestureChromePaint.setStyle(android.graphics.Paint.Style.FILL);
+		mGestureChromePaint.setColor(0xE6F2F4F6);
+		c.drawPath(path, mGestureChromePaint);
+	}
+
+	private void drawGestureCommand(final Canvas c, final float cx, final float bottom,
+			final String command) {
+		String label = command.length() > 42 ? command.substring(0, 41) + "…" : command;
+		mGestureChromePaint.setTextSize(14f * mDensity);
+		float textW = mGestureChromePaint.measureText(label);
+		float padX = 10f * mDensity;
+		float boxW = textW + padX * 2f;
+		float boxH = mGestureChromePaint.getTextSize() + (12f * mDensity);
+		float left = cx - boxW * 0.5f;
+		float margin = 8f * mDensity;
+		if (left < margin) {
+			left = margin;
+		} else if (left + boxW > mWidth - margin) {
+			left = mWidth - margin - boxW;
+		}
+		float top = bottom - boxH;
+		android.graphics.RectF box = new android.graphics.RectF(left, top, left + boxW, bottom);
+		mGestureChromePaint.setStyle(android.graphics.Paint.Style.FILL);
+		mGestureChromePaint.setColor(0xE8141418);
+		c.drawRoundRect(box, 6f * mDensity, 6f * mDensity, mGestureChromePaint);
+		mGestureChromePaint.setStyle(android.graphics.Paint.Style.STROKE);
+		mGestureChromePaint.setStrokeWidth(Math.max(1f, mDensity));
+		mGestureChromePaint.setColor(0x9988CCFF);
+		c.drawRoundRect(box, 6f * mDensity, 6f * mDensity, mGestureChromePaint);
+		mGestureChromePaint.setStyle(android.graphics.Paint.Style.FILL);
+		mGestureChromePaint.setColor(0xFFF2F4F6);
+		mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.LEFT);
+		c.drawText(label, left + padX, top + boxH * 0.5f + mGestureChromePaint.getTextSize() * 0.35f,
+				mGestureChromePaint);
+		mGestureChromePaint.setTextAlign(android.graphics.Paint.Align.CENTER);
 	}
 
 	@Override
@@ -2731,6 +3619,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int action = t.getActionMasked();
 		if (action == MotionEvent.ACTION_POINTER_DOWN && mPrefixPickFinger) {
 			endPrefixPickFinger(false);
+			return true;
+		}
+		if (dispatchGlobalGesture(t)) {
 			return true;
 		}
 		// Two fingers on the game text → open copy widget (one-finger long-press does not).
@@ -2751,8 +3642,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					float x0 = t.getX(idx0);
 					float y0 = t.getY(idx0);
 					selLine = touchYToBufferLine(y0);
-					selCol = mOneCharWidth > 0
-							? (int) Math.floor((x0 + mScrollX) / (float) mOneCharWidth) : 0;
+					selCol = touchXToColumn(x0, y0);
 				}
 			} catch (Exception ignored) {
 			}
@@ -2767,8 +3657,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				int idx1 = t.findPointerIndex(t.getPointerId(1));
 				if (idx1 >= 0) {
 					selLine2 = touchYToBufferLine(t.getY(idx1));
-					selCol2 = mOneCharWidth > 0
-							? (int) Math.floor((t.getX(idx1) + mScrollX) / (float) mOneCharWidth) : 0;
+					selCol2 = touchXToColumn(t.getX(idx1), t.getY(idx1));
 					haveSecond = true;
 				}
 			} catch (Exception ignored) {
@@ -2888,8 +3777,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				mMoveLastX = Float.valueOf(x);
 				mDownX = Float.valueOf(x);
 				mTouchDownLine = touchYToBufferLine(y);
-				mTouchDownColumn = mOneCharWidth > 0
-						? (int) Math.floor(x / (float) mOneCharWidth) : 0;
+				mTouchDownColumn = touchXToColumn(x, y);
 				// One-finger long-press no longer opens the copy widget.
 				
 				if (homeWidgetShowing) {
@@ -3508,24 +4396,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final long blinkNow = SystemClock.uptimeMillis();
 		mBlinkHiddenSlow = ((blinkNow / SgrStyle.BLINK_SLOW_MS) & 1L) == 1L;
 		mBlinkHiddenFast = ((blinkNow / SgrStyle.BLINK_FAST_MS) & 1L) == 1L;
-		mSelectionCanvasSaved = false;
-		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
-			mSelectionIndicatorBitmap.eraseColor(0x00000000);
-			int color = mScrollerPaint.getColor();
-			int newcolor = 0xFF000000 | color;
-			mScrollerPaint.setColor(newcolor);
-			mSelectionIndicatorCanvas.drawRect(mSelectionIndicatorLeftButtonRect, mScrollerPaint);
-			mSelectionIndicatorCanvas.drawRect(mSelectionIndicatorUpButtonRect, mScrollerPaint);
-			mSelectionIndicatorCanvas.drawRect(mSelectionIndicatorRightButtonRect, mScrollerPaint);
-			mSelectionIndicatorCanvas.drawRect(mSelectionIndicatorDownButtonRect, mScrollerPaint);
-			mScrollerPaint.setColor(color);
-			
-			mSelectionIndicatorCanvas.save();
-			mSelectionCanvasSaved = true;
-			mSelectionIndicatorCanvas.clipPath(mSelectionIndicatorClipPath);
-			mSelectionIndicatorCanvas.drawColor(0xFF444444);
-			
-		}
 		int startline2 = 0, startcol = 0, endline = 0, endcol = 0;
 		if (theSelection  != null) {
 
@@ -3598,6 +4468,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			p.setTextSkewX(0f);
 			mSgr.clear();
 			ensureGridCache(p);
+			refreshAvoidButtonRects();
+			mAvoidHitSpans.clear();
 			
 			// Sideways scroll is applied at the row origin rather than with
 			// canvas.translate on purpose: link boxes are built from this same x
@@ -3661,16 +4533,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			}
 			if (!gotIt) {
-				releaseSelectionCanvas();
 				this.invalidate();
 				return;
 			}
 			screenIt = bundle.getI();
 			y = bundle.getOffset();
-
 			int extraLines = bundle.getExtraLines();
 			if (screenIt == null) {
-				releaseSelectionCanvas();
 				return;
 			}
 			
@@ -3787,10 +4656,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				final int lineRows = 1 + l.getBreaks();
 				final int tileKey = workingline;
 				final float y0 = y;
-				if (lineTileable(l) && blitLineTile(hw, tileKey, y0)) {
-					y = y + lineRows * mPrefLineSize;
+				// Each Line has its own iterator. .avoidbuttons on assigned it
+				// every line; off reused another line's exhausted iterator so
+				// the screen painted empty (phone, 17 Sep 2026).
+				unitIterator = l.getIterator();
+				if (avoidButtonsActive()) {
+					beginAvoidWrapRow(l, unitIterator, y, workingline);
+				} else {
+					mAvoidRemap = false;
+				}
+				int avoidRowsForLine = avoidWrapRowAdvance();
+				// Remap is viewport-Y, not line-local: a tile baked beside a button
+				// would keep the hole after the line has scrolled off it.
+				final boolean avoidTileOk = !mAvoidRemap;
+				if (avoidTileOk && lineTileable(l) && blitLineTile(hw, tileKey, y0)) {
+					y = y + avoidRowsForLine * mPrefLineSize;
 					x = -mScrollX;
-					drawnlines += lineRows;
+					drawnlines += avoidRowsForLine;
 					workingline = workingline - lineRows;
 					drawLineStamp(hw, l, y0);
 					if (drawnlines > mCalculatedLinesInWindow + extraLines) {
@@ -3799,7 +4681,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					continue;
 				}
 				boolean cap = false;
-				if (lineTilesWanted() && lineTileable(l)) {
+				if (avoidTileOk && lineTilesWanted() && lineTileable(l)) {
 					final Canvas tile = beginLineTile(tileKey, y0);
 					if (tile != null) {
 						c = tile;
@@ -3819,15 +4701,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 
 
-				if (mCenterJustify) {
-					//center justify.
-
-					int amount = mOneCharWidth * l.charcount;
-					x = (float) ((mWidth / 2.0) - (amount / 2.0));
-				}
 				mPinGlyphsToCells = lineNeedsCellOrigins(l);
-				unitIterator = l.getIterator();
-				// Whole-line matching, before the coloured runs are drawn.
 				if (!scrollingGesture) {
 					findTapHitsForLine(l);
 				} else {
@@ -3860,6 +4734,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					case WHITESPACE:
 					case TEXT:
 						TextTree.Text text = (TextTree.Text) u;
+						if (mAvoidRemap) {
+							mAvoidIo[0] = workingcol;
+							mAvoidIo[1] = tapCol;
+							mAvoidIo[2] = searchPlainPos;
+							mAvoidLinkFlag[0] = doingLink;
+							paintAvoidMappedText(c, l, text, p, b, useBackground,
+									scrollingGesture, linemode, startcol, endcol,
+									mAvoidIo, mAvoidLinkFlag);
+							workingcol = mAvoidIo[0];
+							tapCol = mAvoidIo[1];
+							searchPlainPos = mAvoidIo[2];
+							doingLink = mAvoidLinkFlag[0];
+							break;
+						}
 						if (shouldCoalesceScrollRun(scrollingGesture, l, text, doingLink)) {
 							mCoalesceIo[0] = workingcol;
 							mCoalesceIo[1] = tapCol;
@@ -3869,15 +4757,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							tapCol = mCoalesceIo[1];
 							break;
 						}
-						boolean doIndicator = false;
-						int indicatorlineoffset = 0;
-						if (selectedSelector != null && selectedSelector.line == workingline) {
-							doIndicator = true;
-						} else if (selectedSelector != null && Math.abs(selectedSelector.line - workingline) < 3) {
-							doIndicator = true;
-							indicatorlineoffset = selectedSelector.line - workingline;
-						}
-						
 						if (theSelection  != null) {
 							switch(linemode) {
 							case 1:
@@ -4064,20 +4943,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								linkColor.setUnderlineText(true);
 							}
 							
-							if (doIndicator) {
-								int unitEndCol = workingcol + (text.charcount - 1);
-								if (unitEndCol > selectedSelector.column - 10 && workingcol < selectedSelector.column + 10) {
-									float size = p.getTextSize();
-									p.setTextSize(30);
-									int overshoot = workingcol - selectedSelector.column;
-									int ix = 0, iy = mSelectionIndicatorFontSize;
-									ix = (int) (mSelectionIndicatorHalfDimension + (overshoot * mSelectionCharacterWidth) - 0.5 * mSelectionCharacterWidth);
-									iy = (int) (mSelectionIndicatorHalfDimension + (0.5 * mSelectionIndicatorFontSize)) + (indicatorlineoffset * mSelectionIndicatorFontSize);
-									mSelectionIndicatorCanvas.drawText(text.getString(), ix, iy, p);
-									p.setTextSize(size);
-								}
-								
-							}
 							markTappableWords(c, text, x, y, linkColor, scrollingGesture, tapCol);
 							tapCol += text.getString() != null ? text.getString().length() : 0;
 							workingcol += text.charcount;
@@ -4089,20 +4954,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							
 						} else {
 							
-							if (doIndicator) {
-								int unitEndCol = workingcol + (text.charcount - 1);
-								if (unitEndCol > selectedSelector.column - 10 && workingcol < selectedSelector.column + 10) {
-									float size = p.getTextSize();
-									p.setTextSize(30);
-									int overshoot = workingcol - selectedSelector.column;
-									int ix = 0 , iy = mSelectionIndicatorFontSize;
-									ix = (int) (mSelectionIndicatorHalfDimension + (overshoot * mSelectionCharacterWidth) - 0.5 * mSelectionCharacterWidth);
-									iy = (int) (mSelectionIndicatorHalfDimension + (0.5 * mSelectionIndicatorFontSize)) + (indicatorlineoffset * mSelectionIndicatorFontSize);
-									mSelectionIndicatorCanvas.drawText(text.getString(), ix, iy, p);
-									p.setTextSize(size);
-								}
-								
-							}
 							markTappableWords(c, text, x, y, p, scrollingGesture, tapCol);
 							tapCol += text.getString() != null ? text.getString().length() : 0;
 							workingcol += text.charcount;
@@ -4161,15 +5012,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						
 						finishedWithNewLine = true;
 						
-						//TODO: make sure that where this is moved to works
-						y = y + mPrefLineSize;
-						
-						
+						int avoidRows = avoidWrapRowAdvance();
+						y = y + avoidRows * mPrefLineSize;
 						x = -mScrollX;
-						drawnlines++;
+						drawnlines += 1;
 						workingcol = 0;
 						if (drawnlines > mCalculatedLinesInWindow + extraLines) {
 							stop = true;
+						}
+						if (!stop && u instanceof TextTree.Break) {
+							beginAvoidWrapRow(l, unitIterator, y, workingline);
 						}
 						break;
 					default:
@@ -4177,9 +5029,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 				if (!finishedWithNewLine) {
-					y = y + mPrefLineSize;
+					int avoidRows = avoidWrapRowAdvance();
+					y = y + avoidRows * mPrefLineSize;
 					x = -mScrollX;
-					drawnlines++;
+					drawnlines += 1;
 					workingcol = 0;
 				}
 				workingline = workingline - 1;
@@ -4196,8 +5049,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
 			}
-			drawSelectionWidget(c);
 			c.restore();
+			drawGlobalGestureChrome(c);
 			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
 				postInvalidateOnAnimation();
 			} else if (!mFingerDown) {
@@ -4250,6 +5103,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		c.restore();
 		drawLoupe(c);
 		drawPrefixPick(c);
+		drawSelectionWidget(c);
 		if (mStyleGrabber != null) {
 			mStyleGrabber.draw(c);
 		}
@@ -4366,31 +5220,51 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		if (theSelection != null) {
 			//compute rects for the guys.
-			int startEdge = bufferLineToScreenY(theSelection.start.line, 0);
+			int startLeft;
+			int startRight;
 			int startTop;
 			int startBottom;
-			if (mNewestAtTop) {
-				startTop = startEdge;
-				startBottom = startEdge + mPrefLineSize;
+			if (avoidViewCell(theSelection.start.line, theSelection.start.column, mAvoidCellIo)) {
+				startLeft = (int) mAvoidCellIo[0];
+				startRight = startLeft + mOneCharWidth;
+				startTop = (int) mAvoidCellIo[2];
+				startBottom = (int) mAvoidCellIo[3];
 			} else {
-				startBottom = startEdge;
-				startTop = startEdge - mPrefLineSize;
+				int startEdge = bufferLineToScreenY(theSelection.start.line, 0);
+				if (mNewestAtTop) {
+					startTop = startEdge;
+					startBottom = startEdge + mPrefLineSize;
+				} else {
+					startBottom = startEdge;
+					startTop = startEdge - mPrefLineSize;
+				}
+				startLeft = (int) (theSelection.start.column * mOneCharWidth
+						- mScrollX);
+				startRight = startLeft + mOneCharWidth;
 			}
-			int startLeft = theSelection.start.column * mOneCharWidth;
-			int startRight = startLeft + mOneCharWidth;
-			
-			int endEdge = bufferLineToScreenY(theSelection.end.line, 0);
+
+			int endLeft;
+			int endRight;
 			int endTop;
 			int endBottom;
-			if (mNewestAtTop) {
-				endTop = endEdge;
-				endBottom = endEdge + mPrefLineSize;
+			if (avoidViewCell(theSelection.end.line, theSelection.end.column, mAvoidCellIo)) {
+				endLeft = (int) mAvoidCellIo[0];
+				endRight = endLeft + mOneCharWidth;
+				endTop = (int) mAvoidCellIo[2];
+				endBottom = (int) mAvoidCellIo[3];
 			} else {
-				endBottom = endEdge;
-				endTop = endEdge - mPrefLineSize;
+				int endEdge = bufferLineToScreenY(theSelection.end.line, 0);
+				if (mNewestAtTop) {
+					endTop = endEdge;
+					endBottom = endEdge + mPrefLineSize;
+				} else {
+					endBottom = endEdge;
+					endTop = endEdge - mPrefLineSize;
+				}
+				endLeft = (int) (theSelection.end.column * mOneCharWidth
+						- mScrollX);
+				endRight = endLeft + mOneCharWidth;
 			}
-			int endLeft = theSelection.end.column * mOneCharWidth;
-			int endRight = endLeft + mOneCharWidth;
 			
 			//int scroll_from_bottom = (int) (scrollback-SCROLL_MIN);
 			
@@ -4417,25 +5291,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/**
-	 * Undo the clip save taken at the top of onDraw for the selection widget.
-	 *
-	 * onDraw saves the widget canvas before drawing the disc, and showScroller is
-	 * what pairs it with a restore. Two early returns sit between the two, so a
-	 * frame that bailed out left an unmatched save behind and the next frame
-	 * stacked another one on top of it.
-	 */
-	private void releaseSelectionCanvas() {
-		if (!mSelectionCanvasSaved) {
-			return;
-		}
-		try {
-			mSelectionIndicatorCanvas.restore();
-		} catch (IllegalArgumentException ignored) {
-		}
-		mSelectionCanvasSaved = false;
-	}
-
-	/**
 	 * Paint the text selection widget.
 	 *
 	 * This used to live at the tail of showScroller, behind that method's own exit
@@ -4445,65 +5300,142 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * with nothing painted. Pressing where the close icon happens to be put it all
 	 * back, which is what made it look like the widget had broken rather than never
 	 * been drawn. It is the selection's business, not the scrollbar's.
+	 *
+	 * Drawn after the text clip restore so copy/swap/close sit outside the disc
+	 * without being cropped by the pad.
 	 */
 	private void drawSelectionWidget(final Canvas c) {
-		if(selectedSelector != null) {
-			if (mSelectionCanvasSaved) {
-				try {
-					mSelectionIndicatorCanvas.restore();
-				} catch (IllegalArgumentException ignored) {
-				}
-				mSelectionCanvasSaved = false;
-			}
-			Paint edgePaint = new Paint();
-			edgePaint.setStyle(Paint.Style.STROKE);
-			edgePaint.setStrokeWidth(6);
-			edgePaint.setAntiAlias(true);
-			edgePaint.setColor(0xFFAA22AA);
-			
-			mSelectionIndicatorCanvas.drawPath(mSelectionIndicatorClipPath, edgePaint);
-			
-			// Icons after restore so the circle clip does not crop them; inset into the disc.
-			int full = mSelectionIndicatorHalfDimension * 2;
-			int inset = Math.max(8, (int) (10 * mDensity));
-			drawSelectionIcon(mTextSelectionCopyBitmap, inset, inset);
-			drawSelectionIcon(mTextSelectionCancelBitmap, inset, full - inset - iconHeight(mTextSelectionCancelBitmap));
-			drawSelectionIcon(mTextSelectionSwapBitmap, full - inset - iconWidth(mTextSelectionSwapBitmap), inset);
-			
-			float left = (float) (mSelectionIndicatorHalfDimension - (0.5 * mSelectionCharacterWidth));
-			float top = (float) (mSelectionIndicatorHalfDimension - (0.5 * mSelectionIndicatorFontSize));
-			float right = (float) (mSelectionIndicatorHalfDimension + (0.5 * mSelectionCharacterWidth));
-			float bottom = (float) (mSelectionIndicatorHalfDimension + (0.5 * mSelectionIndicatorFontSize));
-			
-			c.drawBitmap(mSelectionIndicatorBitmap, mWidgetX - mSelectionIndicatorHalfDimension, mWidgetY - mSelectionIndicatorHalfDimension, null);
-			c.drawRect(left + (mWidgetX - mSelectionIndicatorHalfDimension), 
-					top + (mWidgetY - mSelectionIndicatorHalfDimension), 
-					right + (mWidgetX - mSelectionIndicatorHalfDimension),
-					bottom + (mWidgetY - mSelectionIndicatorHalfDimension), 
-					mScrollerPaint);		
-		} else if (mSelectionCanvasSaved) {
-			try {
-				mSelectionIndicatorCanvas.restore();
-			} catch (IllegalArgumentException ignored) {
-			}
-			mSelectionCanvasSaved = false;
-		}
-		
-	}
-
-	private int iconWidth(final Bitmap bmp) {
-		return bmp != null ? bmp.getWidth() : 0;
-	}
-
-	private int iconHeight(final Bitmap bmp) {
-		return bmp != null ? bmp.getHeight() : 0;
-	}
-
-	private void drawSelectionIcon(final Bitmap bmp, final int x, final int y) {
-		if (bmp == null || mSelectionIndicatorCanvas == null) {
+		if (selectedSelector == null) {
 			return;
 		}
-		mSelectionIndicatorCanvas.drawBitmap(bmp, x, y, null);
+		float discR = PrefixPickLoupe.radiusPx(mDensity, mCopyLoupeSize);
+		float btnR = CopyLoupeLayout.buttonRadiusPx(mDensity);
+		float gap = CopyLoupeLayout.gapPx(mDensity);
+		CopyLoupeLayout.placeButtons(mWidgetX, mWidgetY, discR, btnR, gap,
+				getWidth(), getHeight(), mCopyLoupeButtons);
+		float cx = mWidgetX;
+		float cy = mWidgetY;
+		float srcX = selectorCenterX;
+		float srcY = selectorCenterY;
+		float scale = PrefixPickLoupe.scale(mCopyLoupeZoom);
+		int paper = LightPaper.paper(mLightPaper, mLightPaperShade);
+		c.save();
+		mPrefixPickClip.reset();
+		mPrefixPickClip.addCircle(cx, cy, discR, Path.Direction.CW);
+		c.clipPath(mPrefixPickClip);
+		c.drawColor(paper);
+		c.translate(cx, cy);
+		c.scale(scale, scale);
+		c.translate(-srcX, -srcY);
+		if (mOneCharWidth > 0 && mPrefLineSize > 0) {
+			float cell = mOneCharWidth;
+			float left = srcX - 0.5f * cell;
+			float top = srcY - 0.5f * mPrefLineSize;
+			c.drawRect(left, top, left + cell, top + mPrefLineSize,
+					mLoupeHighlightPaint);
+		}
+		if (mPrefFontSize > 0 && mPrefLineSize > 0 && mOneCharWidth > 0) {
+			mLoupeTextPaint.setTextSize(mPrefFontSize);
+			mLoupeTextPaint.setTypeface(mPrefFont);
+			applyTerminalFontFeatures(mLoupeTextPaint);
+			mLoupeTextPaint.setUnderlineText(false);
+			mLoupeTextPaint.setStrikeThruText(false);
+			mLoupeTextPaint.setFakeBoldText(false);
+			mLoupeTextPaint.setColor(mLightPaper
+					? LightPaper.inkFor(paper) : 0xFFFFFFFF);
+			int around = 4;
+			for (int d = -around; d <= around; d++) {
+				int broken = selectedSelector.line + d;
+				String row = prefixPickRowAtBroken(broken);
+				if (row.length() == 0) {
+					continue;
+				}
+				float a = bufferLineToScreenY(broken, 0f);
+				float b = bufferLineToScreenY(broken, mPrefLineSize);
+				float baseline = Math.max(a, b) - mLoupeTextPaint.descent();
+				drawPrefixPickGridRow(c, row, baseline);
+			}
+		}
+		c.restore();
+		c.drawCircle(cx, cy, discR, mPrefixPickLoupeEdge);
+		drawCopyLoupeButton(c, mCopyLoupeButtons[0], mCopyLoupeButtons[1], btnR,
+				mTextSelectionCopyBitmap);
+		drawCopyLoupeButton(c, mCopyLoupeButtons[2], mCopyLoupeButtons[3], btnR,
+				mTextSelectionSwapBitmap);
+		drawCopyLoupeButton(c, mCopyLoupeButtons[4], mCopyLoupeButtons[5], btnR,
+				mTextSelectionCancelBitmap);
+	}
+
+	private void drawCopyLoupeButton(final Canvas c, final float cx,
+			final float cy, final float r, final Bitmap icon) {
+		if (icon == null) {
+			return;
+		}
+		float side = CopyLoupeLayout.iconSidePx(r);
+		float left = cx - side / 2f;
+		float top = cy - side / 2f;
+		mCopyLoupeIconDst.set(left, top, left + side, top + side);
+		c.drawBitmap(icon, null, mCopyLoupeIconDst, null);
+	}
+
+	private void applyCopyLoupeSize() {
+		mSelectionIndicatorHalfDimension = Math.max(1,
+				Math.round(PrefixPickLoupe.radiusPx(mDensity, mCopyLoupeSize)));
+	}
+
+	private int copyLoupeHit(final float x, final float y) {
+		float discR = PrefixPickLoupe.radiusPx(mDensity, mCopyLoupeSize);
+		float btnR = CopyLoupeLayout.buttonRadiusPx(mDensity);
+		CopyLoupeLayout.placeButtons(mWidgetX, mWidgetY, discR, btnR,
+				CopyLoupeLayout.gapPx(mDensity), getWidth(), getHeight(),
+				mCopyLoupeButtons);
+		return CopyLoupeLayout.hit(x, y, mWidgetX, mWidgetY, discR,
+				mCopyLoupeButtons, btnR);
+	}
+
+	private void nudgeCopyLoupeFromFinger(final float nowX, final float nowY,
+			final long nowTime) {
+		float dx = nowX - mCopyDragLastX;
+		float dy = mCopyDragLastY - nowY;
+		float dt = (float) (nowTime - mCopyDragLastTime);
+		mCopyDragLastX = nowX;
+		mCopyDragLastY = nowY;
+		mCopyDragLastTime = nowTime;
+		int cols = CopyLoupeDrag.cells(mCopyDragRem, 0, dx, mOneCharWidth, dt);
+		int rows = CopyLoupeDrag.cells(mCopyDragRem, 1, dy, mPrefLineSize, dt);
+		mScrollRepeatRate = SCROLL_REPEAT_RATE;
+		mScrollRepeatRateStep = 1;
+		int n = cols >= 0 ? cols : -cols;
+		for (int i = 0; i < n; i++) {
+			if (cols > 0) {
+				doScrollRight(false);
+			} else {
+				doScrollLeft(false);
+			}
+		}
+		n = rows >= 0 ? rows : -rows;
+		for (int i = 0; i < n; i++) {
+			if (rows > 0) {
+				doScrollUp(false);
+			} else {
+				doScrollDown(false);
+			}
+		}
+	}
+
+	private SelectionWidgetButtons copyLoupeButton(final int hit) {
+		switch (hit) {
+		case CopyLoupeLayout.HIT_COPY:
+			return SelectionWidgetButtons.NEXT;
+		case CopyLoupeLayout.HIT_SWAP:
+			return SelectionWidgetButtons.COPY;
+		case CopyLoupeLayout.HIT_EXIT:
+			return SelectionWidgetButtons.EXIT;
+		case CopyLoupeLayout.HIT_DISC:
+			return SelectionWidgetButtons.CENTER;
+		default:
+			return null;
+		}
 	}
 
 	/** Clears all text from the buffer. */
@@ -4528,6 +5460,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		drawingIterator = null;
 		invalidate();
+		kickBufferFollower();
 	}
 
 	/** Scroll so that {@code brokenLinesFromBottom} broken lines sit above the live edge. */
@@ -4755,6 +5688,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mBuffer.setMaxLines(maxLines);
 		mHoldBuffer.setMaxLines(maxLines);
 		invalidateLineTiles();
+		kickBufferFollower();
 	}
 
 	public void setFont(Typeface font) {
@@ -4867,6 +5801,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mPrefixPickSent = false;
 	private int mPickLoupeSize = PrefixPickLoupe.DEFAULT_SIZE;
 	private int mPickLoupeZoom = PrefixPickLoupe.DEFAULT_ZOOM;
+	private int mCopyLoupeSize = PrefixPickLoupe.DEFAULT_SIZE;
+	private int mCopyLoupeZoom = PrefixPickLoupe.DEFAULT_ZOOM;
 	private final float[] mPrefixPickCaption = new float[4];
 	private String mPrefixPickPrefix = "";
 	private boolean mPrefixPickFinger = false;
@@ -5037,10 +5973,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
 			final float x, final float y, final Paint p, final boolean scrollingGesture,
 			final int unitStartCol) {
+		markTappableWords(c, text, x, y, p, scrollingGesture, unitStartCol, null);
+	}
+
+	private void markTappableWords(final Canvas c, final TextTree.Text text,
+			final float x, final float y, final Paint p, final boolean scrollingGesture,
+			final int unitStartCol, final String slice) {
 		if (scrollingGesture || text == null || mLineTapHits.isEmpty()) {
 			return;
 		}
-		String s = text.getString();
+		String s = slice != null ? slice : text.getString();
 		if (s == null || s.length() == 0) {
 			return;
 		}
@@ -5053,7 +5995,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// does the same thing.
 			int from = Math.max(hit.startCol, unitStartCol);
 			int to = Math.min(hit.endCol, unitEndCol);
-            if (from >= to) {
+			if (from >= to) {
 				continue;
 			}
 			drawTapHit(c, x, y, p, s, from - unitStartCol, to - unitStartCol,
@@ -5460,6 +6402,133 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(), mLoupeTextPaint);
 	}
 
+	/** Canvas column under a screen X, including sideways pan. */
+	private int touchXToColumn(final float x) {
+		if (mOneCharWidth <= 0) {
+			return 0;
+		}
+		int column = (int) Math.floor((x + mScrollX) / (float) mOneCharWidth);
+		return column < 0 ? 0 : column;
+	}
+
+	private int touchXToColumn(final float x, final float y) {
+		if (avoidButtonsActive() && mOneCharWidth > 0 && mAvoidHitSpans.size() > 0) {
+			for (int i = 0; i < mAvoidHitSpans.size(); i++) {
+				AvoidHitSpan s = mAvoidHitSpans.get(i);
+				if (y < s.viewTop || y >= s.viewBottom) {
+					continue;
+				}
+				if (s.runs == null || s.runs.length == 0) {
+					return touchXToColumn(x);
+				}
+				int destCol;
+				if (x >= s.blobRight) {
+					destCol = ButtonTextFlow.rightPocketDestCol(x, s.holeCol1, s.blobRight,
+							mOneCharWidth, mScrollX);
+				} else {
+					destCol = ButtonTextFlow.panDestCol(x, s.sliceFrom, mOneCharWidth,
+							mScrollX);
+				}
+				if (destCol < 0) {
+					destCol = 0;
+				}
+				return mapAvoidDestColToSrc(s, destCol);
+			}
+		}
+		return touchXToColumn(x);
+	}
+
+	private int mapAvoidDestColToSrc(final AvoidHitSpan s, final int destCol) {
+		int mapped = nearestAvoidSrc(s, destCol, true);
+		if (mapped >= 0) {
+			return mapped;
+		}
+		mapped = nearestAvoidSrc(s, destCol, false);
+		if (mapped >= 0) {
+			return mapped;
+		}
+		return s.sliceFrom + destCol;
+	}
+
+	private int nearestAvoidSrc(final AvoidHitSpan s, final int destCol,
+			final boolean thisVisualRowOnly) {
+		ButtonTextFlow.Run nearest = null;
+		int nearestDist = Integer.MAX_VALUE;
+		int exact = -1;
+		for (int j = 0; j < s.runs.length; j++) {
+			ButtonTextFlow.Run r = s.runs[j];
+			if (thisVisualRowOnly && r.visualRow != s.visualRow) {
+				continue;
+			}
+			int width = r.srcEnd - r.srcStart;
+			if (width <= 0) {
+				continue;
+			}
+			int left = r.destCol;
+			int right = r.destCol + width;
+			if (destCol >= left && destCol < right) {
+				exact = s.sliceFrom + r.srcStart + (destCol - r.destCol);
+				if (thisVisualRowOnly) {
+					return exact;
+				}
+			}
+			int dist = destCol < left ? left - destCol : destCol - (right - 1);
+			if (dist < nearestDist) {
+				nearestDist = dist;
+				nearest = r;
+			}
+		}
+		if (exact >= 0 && !thisVisualRowOnly) {
+			return exact;
+		}
+		if (nearest == null) {
+			return -1;
+		}
+		int width = nearest.srcEnd - nearest.srcStart;
+		int dc = destCol;
+		if (dc < nearest.destCol) {
+			dc = nearest.destCol;
+		}
+		if (dc >= nearest.destCol + width) {
+			dc = nearest.destCol + width - 1;
+		}
+		return s.sliceFrom + nearest.srcStart + (dc - nearest.destCol);
+	}
+
+	private boolean avoidViewCell(final int bufferLine, final int srcCol, final float[] out) {
+		if (!avoidButtonsActive() || mOneCharWidth <= 0 || out == null || out.length < 4) {
+			return false;
+		}
+		for (int i = 0; i < mAvoidHitSpans.size(); i++) {
+			AvoidHitSpan s = mAvoidHitSpans.get(i);
+			if (s.bufferLine != bufferLine || s.runs == null) {
+				continue;
+			}
+			int src = srcCol - s.sliceFrom;
+			for (int j = 0; j < s.runs.length; j++) {
+				ButtonTextFlow.Run r = s.runs[j];
+				if (r.visualRow != s.visualRow) {
+					continue;
+				}
+				if (src >= r.srcStart && src < r.srcEnd) {
+					int dest = r.destCol + (src - r.srcStart);
+					if (dest >= s.holeCol1) {
+						out[0] = ButtonTextFlow.rightPocketViewX(dest, s.holeCol1, s.blobRight,
+								mOneCharWidth, mScrollX);
+					} else {
+						out[0] = ButtonTextFlow.panViewX(dest, s.sliceFrom, mOneCharWidth,
+								mScrollX);
+					}
+					out[1] = s.viewBaseline;
+					out[2] = s.viewTop;
+					out[3] = s.viewBottom;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	/** Widest the canvas gets, in pixels. */
 	private float canvasWidthPx() {
 		return mWrapColumns > 0 ? mWrapColumns * (float) mOneCharWidth : 0f;
@@ -5526,33 +6595,36 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	boolean automaticBreaks = true;
 	public void setLineBreaks(Integer i) {
-
-			if(i == 0) {
-				if(mWrapColumns != 0) {
-					mBuffer.setLineBreakAt(mWrapColumns);
-				} else {
-					mBuffer.setLineBreakAt(80);
-				}
-				automaticBreaks = true;
+		if (mSharedBufferFollower) {
+			// Same TextTree as the primary: wrap stays the primary's columns.
+			invalidateLineTiles();
+			this.invalidate();
+			return;
+		}
+		if(i == 0) {
+			if(mWrapColumns != 0) {
+				mBuffer.setLineBreakAt(mWrapColumns);
 			} else {
-				mBuffer.setLineBreakAt(i);
-				automaticBreaks = false;
+				mBuffer.setLineBreakAt(80);
 			}
-		
-		
-			
+			automaticBreaks = true;
+		} else {
+			mBuffer.setLineBreakAt(i);
+			automaticBreaks = false;
+		}
 		invalidateLineTiles();
 		this.invalidate();
+		kickBufferFollower();
 	}
 	
 	public void setWordWrap(boolean pIn ) {
-		
+		if (!mSharedBufferFollower) {
 			mBuffer.setWordWrap(pIn);
-		
-			jumpToZero();
-		
-			invalidateLineTiles();
-			this.invalidate();
+		}
+		jumpToZero();
+		invalidateLineTiles();
+		this.invalidate();
+		kickBufferFollower();
 	}
 	
 	public void setLinkMode(LINK_MODE mode) {
@@ -5575,10 +6647,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// Service-side trees arrive with the default finder; re-apply this
 			// window's bare/extras so Options stick after MainWindow.initWindow
 			// (and Extra text) adopt the shared buffer.
-			applyUrlLinkSettingsFrom(mSettings);
-			this.mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
-			this.mBuffer.setDimRepeatedLines(mDimRepeatedLines);
-			this.mBuffer.setOsc8Links(mOsc8Links);
+			if (!mSharedBufferFollower) {
+				applyUrlLinkSettingsFrom(mSettings);
+				this.mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
+				this.mBuffer.setDimRepeatedLines(mDimRepeatedLines);
+				this.mBuffer.setOsc8Links(mOsc8Links);
+			}
 		}
 		// Pointer swap only — without a draw kick, a window that already laid
 		// out against the empty constructor tree can stay blank after adopting
@@ -5587,11 +6661,43 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		invalidateLineTiles();
 		invalidate();
 	}
+
+	/** Secondary {@code .split} pane: same buffer, own scroll; do not rewrap. */
+	public void setSharedBufferFollower(boolean follower) {
+		mSharedBufferFollower = follower;
+	}
+
+	public boolean isSharedBufferFollower() {
+		return mSharedBufferFollower;
+	}
+
+	/** Primary pane points at the secondary so buffer mutations redraw both. */
+	public void setBufferFollower(Window follower) {
+		mBufferFollower = follower;
+	}
+
+	public Window getBufferFollower() {
+		return mBufferFollower;
+	}
+
+	/** Redraw after the shared TextTree changed (content or wrap). Not for scroll. */
+	public void redrawFromSharedBuffer() {
+		drawingIterator = null;
+		invalidateLineTiles();
+		invalidate();
+	}
+
+	private void kickBufferFollower() {
+		if (mBufferFollower != null) {
+			mBufferFollower.redrawFromSharedBuffer();
+		}
+	}
 	
 	public void clearAllText() {
 			warnIfNotUiThread("clearAllText");
 			mBuffer.empty();
 			invalidateLineTiles();
+			kickBufferFollower();
 	}
 	
 	public void addBytes(byte[] obj,boolean jumpToEnd) {
@@ -5655,6 +6761,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mBuffer.prune();
 			tmpcount = mBuffer.getBrokenLineCount();
 			drawingIterator = null;
+			kickBufferFollower();
 			if (mFingerDown || Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
 				postInvalidateOnAnimation();
 			} else {
@@ -7267,6 +8374,20 @@ end
 				// Stored as percent so it can be an IntegerOption like the rest.
 				setCanvasWidthFactor(((Integer) o.getValue()).intValue() / 100f);
 				break;
+			case text_avoid_buttons:
+				mAvoidButtons = (Boolean) o.getValue();
+				dropLineTiles();
+				this.invalidate();
+				break;
+			case text_avoid_buttons_break:
+				mAvoidBreakWords = ((Integer) o.getValue()).intValue()
+						== WindowToken.AVOID_BUTTONS_BREAK_WORDS;
+				dropLineTiles();
+				this.invalidate();
+				break;
+			case jump_on_send:
+				mJumpOnSend = (Boolean) o.getValue();
+				break;
 			case newest_at_top:
 				mNewestAtTop = (Boolean) o.getValue();
 				dropLineTiles();
@@ -7370,6 +8491,7 @@ end
 				break;
 			case input_bar_show_edit:
 			case input_bar_show_send:
+			case input_edit_tools_two_rows:
 				// Main-window chrome only; extra-text tokens ignore the layout refresh.
 				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_INPUT_ACTIONS);
@@ -7427,6 +8549,26 @@ end
 				}
 				this.invalidate();
 				break;
+			case copy_loupe_size:
+				{
+					int n = PrefixPickLoupe.clampSize(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mCopyLoupeSize = n;
+					applyCopyLoupeSize();
+					if (selectedSelector != null) {
+						moveWidgetToSelector(selectedSelector);
+					}
+				}
+				this.invalidate();
+				break;
+			case copy_loupe_zoom:
+				{
+					int n = PrefixPickLoupe.clampZoom(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mCopyLoupeZoom = n;
+				}
+				this.invalidate();
+				break;
 			case buffer_size:
 				setMaxLines((Integer)o.getValue());
 				// setMaxLines clamps. Put the number it settled on back into the
@@ -7435,11 +8577,13 @@ end
 				if (mBuffer.getMaxLines() != ((Integer)o.getValue()).intValue()) {
 					((IntegerOption)o).setValue(Integer.valueOf(mBuffer.getMaxLines()));
 				}
-				Message msg = mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_WINDOWBUFFERMAXCHANGED);
-				msg.arg1 = mBuffer.getMaxLines();
-				msg.getData().putString("PLUGIN", this.mOwner);
-				msg.getData().putString("WINDOW", mName);
-				mMainWindowHandler.sendMessage(msg);
+				if (!mSharedBufferFollower && mMainWindowHandler != null) {
+					Message msg = mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_WINDOWBUFFERMAXCHANGED);
+					msg.arg1 = mBuffer.getMaxLines();
+					msg.getData().putString("PLUGIN", this.mOwner);
+					msg.getData().putString("WINDOW", mName);
+					mMainWindowHandler.sendMessage(msg);
+				}
 				break;
 			case font_path:
 				mPrefFont = loadFontFromName((String)o.getValue());
@@ -7456,6 +8600,9 @@ end
 			// Key belongs to some other settings group; not ours to apply.
 		} catch (NullPointerException ignored) {
 			// Missing option object — ignore rather than crash the options UI.
+		}
+		if (mBufferFollower != null && !mSharedBufferFollower) {
+			mBufferFollower.updateSetting(key, value);
 		}
 	}
 	
@@ -7487,6 +8634,9 @@ end
 		hyperlink_extra_tlds,
 		word_wrap,
 		text_canvas_width,
+		text_avoid_buttons,
+		text_avoid_buttons_break,
+		jump_on_send,
 		newest_at_top,
 		dim_repeated_lines,
 		dim_repeated_window,
@@ -7507,6 +8657,7 @@ end
 		cutout_landscape,
 		input_bar_show_edit,
 		input_bar_show_send,
+		input_edit_tools_two_rows,
 		android_fling,
 		scroll_sensitivity,
 		color_option,
@@ -7515,6 +8666,8 @@ end
 		line_extra,
 		pick_loupe_size,
 		pick_loupe_zoom,
+		copy_loupe_size,
+		copy_loupe_zoom,
 		buffer_size,
 		font_path,
 		tap_dismiss_keyboard
@@ -7735,172 +8888,44 @@ end
 			
 			float x = event.getX();
 			float y = event.getY();
-			final int pad = textPadTop();
-			final float localY = Math.max(0f, y - pad);
-			
-			if (mNewestAtTop) {
-				y = localY + (float) (mScrollback - SCROLL_MIN);
-			} else {
-				// convert y to be at the bottom of the content area.
-				y = (float) contentHeight() - localY;
-				y += (mScrollback - SCROLL_MIN);
-			}
-			
-			float xform_to_line = y / (float)mPrefLineSize;
-			int line = (int)Math.floor(xform_to_line);
-			
-			float xform_to_column = x / (float)mOneCharWidth;
-			int column = (int)Math.floor(xform_to_column);
+			int line = touchYToBufferLine(y);
+			int column = touchXToColumn(x, y);
 			
 			switch(event.getAction()) {
-			case MotionEvent.ACTION_DOWN:
-				//if(firstPress) {
-
-					
-				//} else {
-					if(Math.abs(theSelection.start.line - line) < 2 && Math.abs(theSelection.start.column - column) < 2) {
-						selectedSelector = theSelection.start;
-						selectionFingerDown = true;
-						moveWidgetToSelector(selectedSelector);
-						//Log.e("window","moving start selector");
-						v.invalidate();
-					} else if(Math.abs(theSelection.end.line - line) < 2 && Math.abs(theSelection.end.column - column) < 2) {
-						selectedSelector = theSelection.end;
-						moveWidgetToSelector(selectedSelector);
-						selectionFingerDown = true;
-						//Log.e("window","moving end selector");
-						v.invalidate();
-					} else {
-						int modx = (int) x - (mWidgetX - mSelectionIndicatorHalfDimension);
-						int mody = (int) event.getY() - (mWidgetY - mSelectionIndicatorHalfDimension);
-						if(mSelectionIndicatorRect.contains(modx,mody)) {
-							
-							//int newx = (int) (x - selectionIndicatorRect.left);
-							//int newy = (int) (mody - selectionIndicatorRect.top);
-							
-							int full = mSelectionIndicatorHalfDimension * 2;
-							int third = full / 3;
-							
-							int col = modx / third;
-							
-							int row = mody / third;
-							
-							switch(row) {
-							case 0:
-								switch(col) {
-								case 0:
-									//upper left
-									selectionButtonDown = SelectionWidgetButtons.NEXT;
-									break;
-								case 1:
-									//upper middle
-									selectionButtonDown = SelectionWidgetButtons.UP;
-									int remainder = ((int)(mScrollback-SCROLL_MIN) % mPrefLineSize)-mPrefLineSize;
-									//selectorCenterY -= PREF_LINESIZE;
-									//if(selectorCenterY - (2*PREF_LINESIZE) < remainder) {
-										//selectorCenterY = selectorCenterY + PREF_LINESIZE;
-										//scrollback += PREF_LINESIZE;
-										mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLUP,700);
-									//}
-									break;
-								case 2:
-									//upper right
-									selectionButtonDown = SelectionWidgetButtons.COPY;
-									break;
-								}
-								break;
-							case 1:
-								switch(col) {
-								case 0:
-									//middle left
-									selectionButtonDown = SelectionWidgetButtons.LEFT;
-									mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLLEFT,700);
-									break;
-								case 1:
-									//center
-									selectionButtonDown = SelectionWidgetButtons.CENTER;
-									widgetCenterMovedX = 0;
-									widgetCenterMovedY = 0;
-									widgetCenterMoveXLast = (int) x;
-									widgetCenterMoveYLast = (int) event.getY();
-									break;
-								case 2:
-									selectionButtonDown = SelectionWidgetButtons.RIGHT;
-									mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLRIGHT, 700);
-									//middle right
-									break;
-								}
-								break;
-							case 2:
-								switch(col) {
-								case 0:
-									//bottom left
-									selectionButtonDown = SelectionWidgetButtons.EXIT;
-									break;
-								case 1:
-									//bottom middle
-									selectionButtonDown = SelectionWidgetButtons.DOWN;
-									//int remainder = ((int)(scrollback-SCROLL_MIN) % PREF_LINESIZE) + PREF_LINESIZE;
-									//selectorCenterY += PREF_LINESIZE;
-									//if(selectorCenterY + PREF_LINESIZE > v.getHeight() - remainder) {
-										//send the message to start scrolling.
-										mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLDOWN,700);
-									//}
-									//calculateWidgetPosition(selectorCenterX,selectorCenterY);
-									break;
-								case 2:
-									//bottom right
-									break;
-								}
-								break;
-							}
-						}
-						
-						
-					//}
+			case MotionEvent.ACTION_DOWN: {
+				SelectionWidgetButtons downBtn = copyLoupeButton(
+						copyLoupeHit(event.getX(), event.getY()));
+				if (downBtn != null && downBtn != SelectionWidgetButtons.CENTER) {
+					selectionButtonDown = downBtn;
+					v.invalidate();
+				} else if (Math.abs(theSelection.start.line - line) < 2
+						&& Math.abs(theSelection.start.column - column) < 2) {
+					selectedSelector = theSelection.start;
+					selectionFingerDown = true;
+					moveWidgetToSelector(selectedSelector);
+					v.invalidate();
+				} else if (Math.abs(theSelection.end.line - line) < 2
+						&& Math.abs(theSelection.end.column - column) < 2) {
+					selectedSelector = theSelection.end;
+					moveWidgetToSelector(selectedSelector);
+					selectionFingerDown = true;
+					v.invalidate();
+				} else if (downBtn == SelectionWidgetButtons.CENTER) {
+					selectionButtonDown = SelectionWidgetButtons.CENTER;
+					mCopyDragRem[0] = 0f;
+					mCopyDragRem[1] = 0f;
+					mCopyDragLastX = event.getX();
+					mCopyDragLastY = event.getY();
+					mCopyDragLastTime = event.getEventTime();
 				}
 				break;
+			}
 				
 			case MotionEvent.ACTION_MOVE:
 				if(selectionButtonDown != null && selectionButtonDown == SelectionWidgetButtons.CENTER) {
-					widgetCenterMovedX += (x - widgetCenterMoveXLast);
-					widgetCenterMovedY -= (event.getY() - widgetCenterMoveYLast);
-					widgetCenterMoveXLast = (int) x;
-					widgetCenterMoveYLast = (int) event.getY();
-					if(Math.abs(widgetCenterMovedX) > mSelectionCharacterWidth) {
-						int sign = (int)Math.signum(widgetCenterMovedX);
-						if(sign > 0) {
-							mScrollRepeatRate = SCROLL_REPEAT_RATE;
-							mScrollRepeatRateStep = 1;
-							doScrollRight(false);
-						} else if(sign < 0) {
-							mScrollRepeatRate = SCROLL_REPEAT_RATE;
-							mScrollRepeatRateStep = 1;
-							doScrollLeft(false);
-						}
-//						selectedSelector.column += 1 * Math.signum(widgetCenterMovedX);
-//						selectorCenterX += one_char_is_this_wide * Math.signum(widgetCenterMovedX);
-//						calculateWidgetPosition(selectorCenterX,selectorCenterY);
-						widgetCenterMovedX = 0;
-						v.invalidate();
-					}
-					if(Math.abs(widgetCenterMovedY) > mSelectionIndicatorFontSize) {
-						int sign = (int)Math.signum(widgetCenterMovedY);
-						if(sign > 0) {
-							mScrollRepeatRate = SCROLL_REPEAT_RATE;
-							mScrollRepeatRateStep = 1;
-							doScrollUp(false);
-						} else if(sign < 0) {
-							mScrollRepeatRate = SCROLL_REPEAT_RATE;
-							mScrollRepeatRateStep = 1;
-							doScrollDown(false);
-						}
-//						selectedSelector.line += 1 * Math.signum(widgetCenterMovedY);
-//						selectorCenterY += PREF_LINESIZE * -Math.signum(widgetCenterMovedY);
-//						calculateWidgetPosition(selectorCenterX,selectorCenterY);
-						widgetCenterMovedY = 0;
-						v.invalidate();
-					}
+					nudgeCopyLoupeFromFinger(event.getX(), event.getY(),
+							event.getEventTime());
+					v.invalidate();
 					return true;
 				}
 				if(selectedSelector != null && selectionFingerDown == true) {
@@ -7927,7 +8952,7 @@ end
 						v.invalidate();
 					} 
 					
-					if(Math.abs(widgetCenterMovedY) > mSelectionIndicatorFontSize) {
+					if(Math.abs(widgetCenterMovedY) > mPrefLineSize) {
 						int sign = (int) Math.signum(widgetCenterMovedY);
 						if(sign > 0) {
 							mScrollRepeatRate = SCROLL_REPEAT_RATE;
@@ -7956,116 +8981,34 @@ end
 					mHandler.removeMessages(MESSAGE_SCROLLRIGHT);
 					mScrollRepeatRate = SCROLL_REPEAT_RATE;
 					mScrollRepeatRateStep = 1;
-					
-					int mod2x = (int) x - (mWidgetX - mSelectionIndicatorHalfDimension);
-					int mod2y = (int) event.getY() - (mWidgetY - mSelectionIndicatorHalfDimension);
-					if(mSelectionIndicatorRect.contains(mod2x,mod2y)) {
-						
-						//int newx = (int) (x - (widgetX - selectionIndic);
-						//int newy = (int) (event.getY() - selectionIndicatorRect.top);
-						
-						int full = mSelectionIndicatorHalfDimension * 2;
-						int third = full / 3;
-						
-						int col = mod2x / third;
-						
-						int row = mod2y / third;
-						
-						SelectionWidgetButtons tmp = null;
-						
-						switch(row) {
-						case 0:
-							switch(col) {
-							case 0:
-								//upper left
-								tmp = SelectionWidgetButtons.NEXT;
-								break;
-							case 1:
-								//upper middle
-								tmp = SelectionWidgetButtons.UP;
-								break;
-							case 2:
-								//upper right
-								tmp = SelectionWidgetButtons.COPY;
-								break;
+
+					SelectionWidgetButtons tmp = copyLoupeButton(
+							copyLoupeHit(event.getX(), event.getY()));
+					if (selectionButtonDown != null && tmp == selectionButtonDown) {
+						switch (tmp) {
+						case NEXT:
+							String copy = mBuffer.getTextSection(theSelection);
+							ClipboardManager cpMan = (ClipboardManager) v.getContext()
+									.getSystemService(Context.CLIPBOARD_SERVICE);
+							cpMan.setText(copy);
+							endTextSelectionMode(v);
+							return true;
+						case COPY:
+							if (selectedSelector == theSelection.end) {
+								selectedSelector = theSelection.start;
+							} else {
+								selectedSelector = theSelection.end;
 							}
+							moveWidgetToSelector(selectedSelector);
 							break;
-						case 1:
-							switch(col) {
-							case 0:
-								//middle left
-								tmp = SelectionWidgetButtons.LEFT;
-								break;
-							case 1:
-								//center
-								tmp = SelectionWidgetButtons.CENTER;
-								break;
-							case 2:
-								tmp = SelectionWidgetButtons.RIGHT;
-								//middle right
-								break;
-							}
-							break;
-						case 2:
-							switch(col) {
-							case 0:
-								//bottom left
-								tmp = SelectionWidgetButtons.EXIT;
-								break;
-							case 1:
-								//bottom middle
-								tmp = SelectionWidgetButtons.DOWN;
-								break;
-							case 2:
-								//bottom right
-								break;
-							}
+						case EXIT:
+							endTextSelectionMode(v);
+							return true;
+						default:
 							break;
 						}
-						
-						if(selectionButtonDown != null && tmp == selectionButtonDown) {
-							switch(tmp) {
-							case UP:
-								doScrollUp(false);
-
-								break;
-							case DOWN:
-								doScrollDown(false);
-								break;
-							case NEXT:
-								String copy = mBuffer.getTextSection(theSelection);
-								ClipboardManager cpMan = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-								cpMan.setText(copy);
-								endTextSelectionMode(v);
-								return true;
-							case LEFT:
-								doScrollLeft(false);
-								break;
-							case RIGHT:
-								doScrollRight(false);
-								break;
-							case CENTER:
-								break;
-							case COPY:
-								//actually switch.
-								if(selectedSelector == theSelection.end) {
-									selectedSelector = theSelection.start;
-								} else {
-									selectedSelector = theSelection.end;
-								}
-								moveWidgetToSelector(selectedSelector);
-								break;
-							case EXIT:
-								//get out and don't copy.
-								endTextSelectionMode(v);
-								return true;
-								//break;
-							}
-
-							v.invalidate();
-						}
+						v.invalidate();
 					}
-					
 				}
 				selectionButtonDown = null;
 				break;
@@ -8087,10 +9030,6 @@ end
 	boolean firstPress = true;
 	
 	private enum SelectionWidgetButtons {
-		UP,
-		DOWN,
-		LEFT,
-		RIGHT,
 		CENTER,
 		EXIT,
 		COPY,
@@ -8163,9 +9102,8 @@ end
 	
 	private void moveWidgetToSelector(TextTree.SelectionCursor cursor) {
 		
-		int part1 = (int) (selectedSelector.line * mPrefLineSize + (0.5*mSelectionIndicatorFontSize));
-		//int part2 = (int) (scrollback);
-		int part2 = (int) (selectedSelector.line * mPrefLineSize - (0.5*mSelectionIndicatorFontSize));
+		int part1 = (int) (selectedSelector.line * mPrefLineSize + (0.5 * mPrefLineSize));
+		int part2 = (int) (selectedSelector.line * mPrefLineSize - (0.5 * mPrefLineSize));
 		
 		
 		if(part1 > mScrollback) {
@@ -8177,11 +9115,15 @@ end
 			mScrollback -= ((mScrollback-SCROLL_MIN) - part2);
 		}
 		
-		// The column is a position on the canvas; the widget is drawn on screen.
-		// Without the offset it stayed where it was created while the text moved
-		// out from under it.
-		int endx = (int) ((selectedSelector.column * mOneCharWidth) + (0.5*mOneCharWidth) - mScrollX);
-		int endy = bufferLineToScreenY(selectedSelector.line, (float) (0.5 * mSelectionIndicatorFontSize));
+		int endx;
+		int endy;
+		if (avoidViewCell(selectedSelector.line, selectedSelector.column, mAvoidCellIo)) {
+			endx = (int) (mAvoidCellIo[0] + 0.5f * mOneCharWidth);
+			endy = (int) ((mAvoidCellIo[2] + mAvoidCellIo[3]) / 2f);
+		} else {
+			endx = (int) ((selectedSelector.column * mOneCharWidth) + (0.5*mOneCharWidth) - mScrollX);
+			endy = bufferLineToScreenY(selectedSelector.line, (float) (0.5 * mPrefLineSize));
+		}
 		//widgetX = endx;
 		//widgetY = endy;
 		selectorCenterX = endx;
@@ -8660,13 +9602,19 @@ end
 	}
 	
 	private void doScrollLeft(boolean repeat) {
-		selectedSelector.column -= 1;
-		if(selectedSelector.column < 0) {
-			selectedSelector.column = 0;
-		} else {
+		boolean movedCol = false;
+		if (selectedSelector.column > 0) {
+			selectedSelector.column -= 1;
+			movedCol = true;
+		}
+		boolean panned = false;
+		if (mScrollX > 0f && CopyLoupeLayout.discAgainstLeft(mWidgetX,
+				mSelectionIndicatorHalfDimension)) {
+			panned = scrollHorizontallyBy(-mOneCharWidth);
+		}
+		if (!panned && movedCol) {
 			selectorCenterX -= mOneCharWidth;
-			mWidgetY -= mOneCharWidth;
-			calculateWidgetPosition(selectorCenterX,selectorCenterY);
+			calculateWidgetPosition(selectorCenterX, selectorCenterY);
 		}
 		this.invalidate();
 		if(repeat) {
@@ -8678,9 +9626,16 @@ end
 	
 	private void doScrollRight(boolean repeat) {
 		selectedSelector.column += 1;
-		selectorCenterX += mOneCharWidth;
-		calculateWidgetPosition(selectorCenterX,selectorCenterY);
-		this.invalidate();
+		boolean panned = false;
+		if (maxScrollX() > 0f && CopyLoupeLayout.discAgainstRight(mWidgetX,
+				mSelectionIndicatorHalfDimension, getWidth())) {
+			panned = scrollHorizontallyBy(mOneCharWidth);
+		}
+		if (!panned) {
+			selectorCenterX += mOneCharWidth;
+			calculateWidgetPosition(selectorCenterX, selectorCenterY);
+			this.invalidate();
+		}
 		if(repeat) {
 			mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLRIGHT, mScrollRepeatRate);
 		}else {
@@ -8789,14 +9744,10 @@ end
 		return false;
 	}
 
-	public boolean isCenterJustify() {
-		return mCenterJustify;
+	public boolean jumpsOnSend() {
+		return mJumpOnSend;
 	}
 
-	public void setCenterJustify(boolean centerJustify) {
-		this.mCenterJustify = centerJustify;
-	}
-	
 	public int getLineSize() {
 		return mPrefLineSize;
 	}

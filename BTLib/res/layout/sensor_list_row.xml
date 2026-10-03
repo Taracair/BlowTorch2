@@ -46,6 +46,19 @@
 			android:orientation="horizontal"
 			android:paddingLeft="6dip">
 
+			<ImageButton
+				android:id="@+id/enabled"
+				android:layout_width="48dip"
+				android:layout_height="40dip"
+				android:padding="9dip"
+				android:src="@drawable/ic_row_toggle"
+				android:scaleType="centerInside"
+				android:background="@android:color/transparent"
+				android:visibility="gone"
+				android:contentDescription="On or off"
+				android:focusable="false"
+				android:focusableInTouchMode="false"/>
+
 			<Button
 				android:id="@+id/test"
 				android:layout_width="wrap_content"

@@ -57,6 +57,14 @@ public class BetterEditText extends EditText {
 	public int getAutofillType() {
 		return AUTOFILL_TYPE_NONE;
 	}
+
+	@Override
+	protected void onDetachedFromWindow() {
+		ghostPaddingHeld = false;
+		ghostTouchDown = false;
+		ghostRoomPosted = false;
+		super.onDetachedFromWindow();
+	}
 	
 	public InputConnection onCreateInputConnection(EditorInfo attrs) {
 		final InputConnection connection;
@@ -416,6 +424,16 @@ public class BetterEditText extends EditText {
 	private CaretListener caretListener = null;
 
 	/**
+	 * Wrap-down ghost clearance changed. Chrome must lift by {@code liftPx}
+	 * (0 to clear) so that row stays above the IME under adjustNothing.
+	 */
+	public interface GhostBelowFieldLiftListener {
+		void onGhostBelowFieldLiftPx(int liftPx);
+	}
+
+	private GhostBelowFieldLiftListener ghostBelowFieldLiftListener = null;
+
+	/**
 	 * Draw extras (and refresh chips) with the caret off the end of the line.
 	 * Off, the ghost is end-of-text only — drawing it over what follows reads
 	 * as corruption.
@@ -433,6 +451,13 @@ public class BetterEditText extends EditText {
 	private int ghostRectCount = 0;
 	/** A touch that went down on the ghost, waiting to see if it is a tap. */
 	private boolean ghostTouchDown = false;
+	/** Hold setPadding until the gesture ends: it nulls Layout and Editor NPEs (Pixel, 15 Sep 2026). */
+	private boolean ghostPaddingHeld = false;
+
+	/** One room pass per frame, after the ghost and the text agree. */
+	private boolean ghostRoomDirty = false;
+
+	private boolean ghostRoomPosted = false;
 
 	/** Most rows the bar will grow by to carry suggestions under the typed line. */
 	public static final int MAX_GHOST_ROWS = 5;
@@ -461,6 +486,18 @@ public class BetterEditText extends EditText {
 	/** The bottom padding this field had before any room was reserved. */
 	private int ghostBasePaddingBottom = -1;
 
+	/** The top padding this field had before wrapped extras reserved room. */
+	private int ghostBasePaddingTop = -1;
+
+	/** The right padding this field had before the Hide/Send inset. */
+	private int ghostBasePaddingRight = -1;
+
+	/** Hide/Send column width, in px. Zero when those buttons are hidden. */
+	private int actionStripWidthPx = 0;
+
+	/** Hide/Send height, in px. */
+	private int actionStripHeightPx = 0;
+
 	/**
 	 * Most rows the bar may <em>grow</em> by for the listing.
 	 *
@@ -472,11 +509,17 @@ public class BetterEditText extends EditText {
 	 */
 	private int ghostMaxRows = 0;
 
-	/** Rows the bar is currently tall enough for. */
-	private int ghostRowsShown = -1;
+	/** Top-padding rows currently reserved for wrapped extras above the typed line. */
+	private int ghostTopRowsShown = -1;
+
+	/** Bottom-padding rows currently reserved (wrap-down ghost only). */
+	private int ghostBottomRowsShown = -1;
 
 	/** Suggestions there was no room to show, counted for the +N mark. */
 	private int ghostHiddenCount = 0;
+
+	/** Highest row index from the last pack, or -1 when nothing was placed. */
+	private int ghostPackedMaxRow = -1;
 
 	/** Right edge and baseline of the last suggestion drawn; -1 when none was. */
 	private float ghostLastDrawnX = -1;
@@ -496,20 +539,42 @@ public class BetterEditText extends EditText {
 		this.caretListener = listener;
 	}
 
+	public void setGhostBelowFieldLiftListener(
+			final GhostBelowFieldLiftListener listener) {
+		this.ghostBelowFieldLiftListener = listener;
+	}
+
+	/**
+	 * Width and height of the Hide/Send column. Zero when those buttons are
+	 * hidden. The field spans the row; the column only covers the bottom end.
+	 */
+	public void setActionStripInset(final int widthPx, final int heightPx) {
+		int w = Math.max(0, widthPx);
+		int h = Math.max(0, heightPx);
+		if (w == actionStripWidthPx && h == actionStripHeightPx) {
+			return;
+		}
+		actionStripWidthPx = w;
+		actionStripHeightPx = h;
+		scheduleGhostRoom();
+		invalidate();
+	}
+
 	public void setGhostAtCaret(final boolean on) {
 		if (ghostAtCaret == on) {
 			return;
 		}
 		ghostAtCaret = on;
-		applyGhostRowPadding(rowsNeeded());
+		scheduleGhostRoom();
 		invalidate();
 	}
 
 	/**
 	 * Ghost after the caret, drawn not inserted — a span would be seen by Keep
 	 * Last and {@code wordBefore}, and a missed strip would send untyped text.
-	 * Never grows the bar. {@code word} is what a tap inserts (may differ from
-	 * {@code drawn} on a forgiven typo).
+	 * Beside the caret when the last line has room; wrap-down only when it does
+	 * not ({@link GhostExtraLayout#fitBesideOrWrapDown}). {@code word} is what a
+	 * tap inserts (may differ from {@code drawn} on a forgiven typo).
 	 */
 	public void setGhostCompletion(String drawn, String word, int number) {
 		String next = drawn == null || drawn.length() == 0 ? null : drawn;
@@ -526,6 +591,8 @@ public class BetterEditText extends EditText {
 			ghostRectCount = 0;
 			ghostTouchDown = false;
 		}
+		// Multi-line draws the ghost below the field and needs that row reserved.
+		scheduleGhostRoom();
 		invalidate();
 	}
 
@@ -534,12 +601,23 @@ public class BetterEditText extends EditText {
 	}
 
 	@Override
+	protected void onLayout(final boolean changed, final int left, final int top,
+			final int right, final int bottom) {
+		super.onLayout(changed, left, top, right, bottom);
+		// setText/setPadding drop Layout; recomputing in that window cleared
+		// the row and onDraw painted it on the keyboard edge (phone, 30 Sep 2026).
+		if (ghostRoomDirty && !ghostPaddingHeld) {
+			scheduleGhostRoom();
+		}
+	}
+
+	@Override
 	protected void onSelectionChanged(final int start, final int end) {
 		super.onSelectionChanged(start, end);
 		// Moving the caret off the end takes the ghost away, and the rows held
 		// for its suggestions have to go with it. Nothing else asks again.
 		if (ghostMaxRows > 0 || ghostAtCaret) {
-			applyGhostRowPadding(rowsNeeded());
+			scheduleGhostRoom();
 		}
 		if (ghostAtCaret) {
 			invalidate();
@@ -550,17 +628,17 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * Suggestions to show under the line being typed, growing the bar for them.
+	 * Suggestions to show with the line being typed, growing the bar for them.
 	 *
 	 * <p>The inline ghost is one word by construction. This is the other answer
-	 * to that, for a player who works without a bar of chips: the field gets
-	 * taller and the rest are listed under what they are typing, each one
-	 * tappable. It costs screen — that is the trade, and it is why this is off
-	 * unless asked for.
+	 * to that, for a player who works without a bar of chips: wrapped extras
+	 * stack above the typed line (top padding) so they stay in the visible band
+	 * above the keyboard under {@code adjustNothing}. It costs screen — that is
+	 * the trade, and it is why this is off unless asked for.
 	 *
-	 * <p>Room is made with bottom padding rather than by putting the words into
-	 * the text. Text is what gets sent; a suggestion must never be able to
-	 * become part of the command by an oversight somewhere else.
+	 * <p>Room is made with padding rather than by putting the words into the
+	 * text. Text is what gets sent; a suggestion must never be able to become
+	 * part of the command by an oversight somewhere else.
 	 *
 	 * @param lines what to draw, or null for none.
 	 * @param words what each line inserts; same length as {@code lines}.
@@ -578,7 +656,7 @@ public class BetterEditText extends EditText {
 		// shrink again the moment a command is sent. The count is worked out
 		// here rather than while drawing, because making room is a layout and a
 		// layout must not happen inside onDraw.
-		applyGhostRowPadding(rowsNeeded());
+		scheduleGhostRoom();
 		invalidate();
 	}
 
@@ -594,7 +672,7 @@ public class BetterEditText extends EditText {
 			return;
 		}
 		ghostMaxRows = want;
-		applyGhostRowPadding(rowsNeeded());
+		scheduleGhostRoom();
 		invalidate();
 	}
 
@@ -603,35 +681,197 @@ public class BetterEditText extends EditText {
 		return getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
 	}
 
+	/**
+	 * Width of a caret-middle row: the full field, minus the Hide/Send column
+	 * the bottom row sits beside.
+	 */
+	private float caretListWidth() {
+		int baseRight = ghostBasePaddingRight >= 0
+				? ghostBasePaddingRight : getPaddingRight();
+		// getWidth() shrinks when the one-line margin is set. Add it back so
+		// the list width stays "full row, minus Hide/Send" either way.
+		float full = getWidth() + actionStripMargin();
+		float w = full - getTotalPaddingLeft() - baseRight - actionStripWidthPx;
+		return w > 0f ? w : 0f;
+	}
+
 	/** The gap between two suggestions sitting side by side. */
 	private float ghostGap() {
 		return getPaint().measureText("  ");
 	}
 
 	/**
-	 * How many rows below the typed line the suggestions need.
+	 * Reserve top padding for wrapped extras (visible band above the typed
+	 * line). A wrap-down ghost keeps a one-line bottom padding draw slot, but
+	 * clearing the IME is chrome {@code translationY}, not more bottom
+	 * padding — under adjustNothing the bar bottom already sits on the IME.
 	 *
-	 * <p>Worked out by the same routine that draws them, so the height the bar
-	 * takes and the words it shows can never disagree. Not done while drawing:
-	 * making room is a layout.
+	 * @return false when Layout was just dropped, so the caller keeps the
+	 *         dirty flag and {@link #onLayout} runs this again.
 	 */
-	private int rowsNeeded() {
-		if (ghostExtras == null || ghostExtras.length == 0 || !ghostWouldDraw()) {
-			return 0;
+	private boolean applyGhostRoom() {
+		// Width is known but Layout was just dropped. Do not zero the reserved
+		// row — the following onLayout pass fills it in.
+		if (getWidth() > 0 && getLayout() == null) {
+			return false;
 		}
-		// Not gated on ghostMaxRows: at 0 the packer fills the rest of the typed
-		// line and stops, so this returns 0 and the bar keeps its height.
-		float avail = ghostRowWidth();
-		if (avail <= 0) {
-			// Not laid out yet. One row is the honest guess, corrected the next
-			// time anything changes — but only where a row is allowed at all.
-			// At a ceiling of zero the answer is known without measuring, and
-			// guessing 1 here grew the bar in the one mode that must never grow
-			// it, with nothing to take the row back until the next refresh.
-			int cap = ghostRowCap();
-			return cap > 0 ? 1 : 0;
+		int marginEnd = GhostExtraLayout.inputEndMarginPx(actionStripWidthPx);
+		// Fit against the width the text will have after this pass. The
+		// current Layout is still the old margin, and clearing the dirty flag
+		// here would leave the reserved row on that line.
+		android.text.Layout target = layoutAt(textInnerWidthForMargin(marginEnd));
+		GhostExtraLayout.Fit inlineFit = inlineGhostFitOn(target);
+		int belowField = inlineFit != null && inlineFit.wrapDown
+				? inlineFit.chromeLiftRows : 0;
+		int topRows = 0;
+		if (ghostExtras != null && ghostExtras.length > 0 && ghostWouldDraw()) {
+			// Suggestions stop before Hide/Send. The typed text does too: the
+			// margin is the button column on every line.
+			float avail = caretListWidth();
+			if (avail <= 0) {
+				// Not laid out yet. One wrapped row is the honest guess when the
+				// ceiling allows growth; at a ceiling of zero the listing must
+				// not grow the bar.
+				int cap = ghostRowCap();
+				if (listAtTextEnd()) {
+					topRows = 0;
+					belowField = Math.max(belowField, cap > 0 ? 1 : 0);
+				} else {
+					topRows = cap > 0 ? 1 : 0;
+				}
+			} else {
+				android.text.Layout layout = target != null ? target : getLayout();
+				float lineHeight = getPaint().getFontSpacing();
+				float descent = getPaint().descent();
+				float contentTop = 0f;
+				float contentBottom = 0f;
+				float ghostBaseline = 0f;
+				if (layout != null) {
+					contentTop = layout.getLineTop(0);
+					int last = layout.getLineCount() - 1;
+					contentBottom = layout.getLineBottom(last);
+					ghostBaseline = layout.getLineBaseline(last);
+				}
+				if (belowField > 0) {
+					ghostBaseline = contentBottom + lineHeight - descent;
+				} else if (layout != null && ghostText != null && caretAtEnd()
+						&& layoutHasOffset(layout, getSelectionStart())) {
+					float ghostWidth = getPaint().measureText(ghostText);
+					float x = layout.getPrimaryHorizontal(getSelectionStart());
+					float room = avail - x;
+					if (ghostWidth > room) {
+						float contentH = getHeight() - getTotalPaddingTop()
+								- getTotalPaddingBottom();
+						if (contentBottom + lineHeight <= layout.getHeight()
+								|| contentBottom + lineHeight <= contentH) {
+							ghostBaseline = ghostBaseline + lineHeight;
+						}
+					}
+				}
+				float startX = listAtTextEnd()
+						? lastLineEndAt(textInnerWidthForMargin(marginEnd))
+						: ghostEndAfter(inlineFit);
+				topRows = packGhostExtras(null, avail, startX,
+						ghostBaseline, contentTop, contentBottom, lineHeight, 0f, 0f);
+				if (listAtTextEnd()) {
+					belowField = GhostExtraLayout.caretListRowsBelow(ghostPackedMaxRow);
+					topRows = 0;
+				}
+			}
 		}
-		return packGhostExtras(null, avail, estimateGhostEndX(), 0f, 0f, 0f, 0f, 0f);
+		int marginBefore = actionStripMargin();
+		applyGhostRowPadding(topRows, belowField, marginEnd);
+		// Margin changed: the next layout reflows the line. Keep the dirty
+		// flag so that pass measures the ghost on the new line.
+		return actionStripMargin() == marginBefore;
+	}
+
+	/**
+	 * One pass after the text and the Layout agree. Several setters in one
+	 * tap (clear the ghost, then set the new list) share that pass.
+	 */
+	private void scheduleGhostRoom() {
+		ghostRoomDirty = true;
+		if (ghostRoomPosted) {
+			return;
+		}
+		ghostRoomPosted = true;
+		post(new Runnable() {
+			@Override
+			public void run() {
+				ghostRoomPosted = false;
+				if (!ghostRoomDirty || !ghostLayoutReady()) {
+					return;
+				}
+				if (applyGhostRoom()) {
+					ghostRoomDirty = false;
+				}
+			}
+		});
+	}
+
+	/** Layout describes the current text. A shorter one must not size the row. */
+	private boolean ghostLayoutReady() {
+		if (getWidth() <= 0) {
+			return false;
+		}
+		android.text.Layout layout = getLayout();
+		if (layout == null) {
+			return false;
+		}
+		CharSequence text = getText();
+		CharSequence laid = layout.getText();
+		if (text == null || laid == null) {
+			return false;
+		}
+		return laid.length() == text.length();
+	}
+
+	/**
+	 * Caret-middle list: after the typed text on the last line, not at the
+	 * caret. At the caret it covers the words that follow (phone, 30 Sep 2026).
+	 */
+	private boolean listAtTextEnd() {
+		return ghostAtCaret && !caretAtEnd();
+	}
+
+	/**
+	 * Inline ghost placement for the current caret and suggestion width, or
+	 * null when there is no end-of-text inline ghost to place.
+	 */
+	private GhostExtraLayout.Fit inlineGhostFit() {
+		return inlineGhostFitOn(getLayout());
+	}
+
+	/**
+	 * Inline ghost on {@code layout}. A tap lengthens the text before Layout
+	 * catches up; {@code getPrimaryHorizontal} then throws (phone, 30 Sep 2026).
+	 */
+	private GhostExtraLayout.Fit inlineGhostFitOn(final android.text.Layout layout) {
+		if (ghostText == null || !caretAtEnd() || !ghostWouldDraw() || layout == null) {
+			return null;
+		}
+		float avail = caretListWidth();
+		if (avail <= 0f) {
+			return null;
+		}
+		int at = getSelectionStart();
+		if (!layoutHasOffset(layout, at)) {
+			return null;
+		}
+		float caretX = layout.getPrimaryHorizontal(at);
+		float ghostWidth = getPaint().measureText(ghostText);
+		return GhostExtraLayout.fitBesideOrWrapDown(caretX, ghostWidth, avail);
+	}
+
+	/**
+	 * True when the inline ghost must start on the line below the typed block
+	 * because the last line has no room left. Multi-line alone is not enough —
+	 * beside the caret when that line still fits the suggestion.
+	 */
+	private boolean ghostDrawsBelowField() {
+		GhostExtraLayout.Fit fit = inlineGhostFit();
+		return fit != null && fit.wrapDown;
 	}
 
 	/**
@@ -640,8 +880,8 @@ public class BetterEditText extends EditText {
 	 * <p>Room must not be held for something that is not going to appear. The
 	 * inline ghost is drawn only with the caret at the very end of the text —
 	 * put it back into the middle of the line and it would sit on top of what
-	 * follows. With {@link #setGhostAtCaret} the extras can still appear under
-	 * the line, so those rows have to stay.
+	 * follows. With {@link #setGhostAtCaret} the extras still draw, starting
+	 * at the end of the typed text, so those rows have to stay.
 	 */
 	private boolean ghostWouldDraw() {
 		if (getText() == null) {
@@ -672,10 +912,9 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * Extra rows the listing may take. Mid-line the rest of the typed line is
-	 * already occupied, so a ceiling of zero would hide every extra — allow
-	 * one row then, or Complete at the cursor would show nothing under the
-	 * line.
+	 * Extra rows the listing may take. A full last line has no room at the
+	 * end, so a ceiling of zero would hide the caret-middle list — allow one
+	 * row below the field then.
 	 */
 	private int ghostRowCap() {
 		if (ghostAtCaret && !caretAtEnd() && ghostMaxRows < 1) {
@@ -684,21 +923,30 @@ public class BetterEditText extends EditText {
 		return ghostMaxRows;
 	}
 
+	/** X where extras follow a fit already measured on the destination width. */
+	private float ghostEndAfter(final GhostExtraLayout.Fit fit) {
+		if (fit == null) {
+			return estimateGhostEndX();
+		}
+		float drawn = ghostText == null ? 0f : getPaint().measureText(ghostText);
+		if (fit.wrapDown) {
+			return drawn;
+		}
+		return fit.x + drawn;
+	}
+
 	/**
 	 * Where the inline ghost is likely to end, without waiting for a draw.
-	 *
-	 * <p>The suggestions carry on from there rather than starting on a fresh
-	 * line, so how much room the first of them has depends on it — and that
-	 * decides how tall the bar must be, which is a layout and cannot wait for
-	 * drawing. Measured from the text rather than remembered from the last
-	 * frame, which would size the bar for the line before this one.
+	 * The suggestions carry on from there, which decides how tall the bar must
+	 * be. Measured from the text, not from the previous frame.
 	 */
 	private float estimateGhostEndX() {
-		if (ghostAtCaret && !caretAtEnd()) {
-			// Force extras onto a row under the typed line: the rest of this
-			// line already holds what follows the caret.
-			float avail = ghostRowWidth();
-			return avail > 0 ? avail : 1f;
+		if (listAtTextEnd()) {
+			return textEndX();
+		}
+		GhostExtraLayout.Fit fit = inlineGhostFit();
+		if (fit != null) {
+			return ghostEndAfter(fit);
 		}
 		CharSequence text = getText();
 		String line = text == null ? "" : text.toString();
@@ -710,18 +958,183 @@ public class BetterEditText extends EditText {
 				+ (ghostText == null ? 0 : getPaint().measureText(ghostText));
 	}
 
-	/** Make the bar exactly tall enough for {@code rows} of suggestions. */
-	private void applyGhostRowPadding(final int rows) {
+	/**
+	 * X where the typed text ends on the last line. A tap inserts the word
+	 * before this runs, while the Layout still describes the shorter text —
+	 * {@code getPrimaryHorizontal} then throws (phone, 30 Sep 2026). Measure
+	 * the last line until the lengths match.
+	 */
+	private float textEndX() {
+		android.text.Layout layout = getLayout();
+		CharSequence text = getText();
+		float x;
+		if (layout != null && text != null && text.length() > 0
+				&& layoutHasOffset(layout, text.length())) {
+			x = layout.getPrimaryHorizontal(text.length());
+		} else {
+			x = measuredLastLineEnd(text);
+		}
+		if (x < 0f) {
+			x = 0f;
+		}
+		float avail = ghostRowWidth();
+		if (avail > 0f && x > avail) {
+			x = avail;
+		}
+		return x;
+	}
+
+	/**
+	 * True when {@code offset} is inside the layout's text, including the
+	 * exclusive end of its line. A longer {@link #getText()}, or a line end
+	 * short of that offset, means the layout is stale and must not be queried.
+	 */
+	private static boolean layoutHasOffset(final android.text.Layout layout,
+			final int offset) {
+		CharSequence laid = layout.getText();
+		if (laid == null || offset < 0 || offset > laid.length()) {
+			return false;
+		}
+		int line = layout.getLineForOffset(offset);
+		int start = layout.getLineStart(line);
+		int limit = layout.getLineEnd(line) - start;
+		int within = offset - start;
+		return within >= 0 && within <= limit;
+	}
+
+	private float measuredLastLineEnd(final CharSequence text) {
+		String line = text == null ? "" : text.toString();
+		int nl = line.lastIndexOf('\n');
+		if (nl >= 0) {
+			line = line.substring(nl + 1);
+		}
+		return getPaint().measureText(line);
+	}
+
+	/**
+	 * Inner text width if the Hide/Send margin were {@code marginEnd}.
+	 * The view's current line count is the wrong input: clearing the margin
+	 * can make a two-line field one line, and the margin comes back.
+	 */
+	private int textInnerWidthForMargin(final int marginEnd) {
+		int inner = getWidth() + actionStripMargin() - marginEnd
+				- getTotalPaddingLeft() - getTotalPaddingRight();
+		return inner > 0 ? inner : 0;
+	}
+
+	/** End of the last line at {@code innerWidth}, not at the view's current width. */
+	private float lastLineEndAt(final int innerWidth) {
+		CharSequence text = getText();
+		if (text == null || text.length() == 0 || innerWidth <= 0) {
+			return 0f;
+		}
+		android.text.Layout layout = layoutAt(innerWidth);
+		if (layout != null && layoutHasOffset(layout, text.length())) {
+			return layout.getPrimaryHorizontal(text.length());
+		}
+		return measuredLastLineEnd(text);
+	}
+
+	private android.text.Layout layoutAt(final int innerWidth) {
+		CharSequence text = getText();
+		android.text.Layout layout = getLayout();
+		if (layout != null && text != null && layout.getText() != null
+				&& layout.getText().length() == text.length()
+				&& layout.getWidth() == innerWidth) {
+			return layout;
+		}
+		if (text == null || text.length() == 0 || innerWidth <= 0) {
+			return layout;
+		}
+		return android.text.StaticLayout.Builder
+				.obtain(text, 0, text.length(), getPaint(), innerWidth)
+				.setIncludePad(getIncludeFontPadding())
+				.setLineSpacing(getLineSpacingExtra(), getLineSpacingMultiplier())
+				.setBreakStrategy(getBreakStrategy())
+				.setHyphenationFrequency(getHyphenationFrequency())
+				.build();
+	}
+
+	/**
+	 * Grow the EditText for suggestion rows. Top padding is the upward stack.
+	 * Bottom padding is a wrap-down slot; IME clearance for that slot is chrome
+	 * {@code translationY}. The end margin is the Hide/Send column on every
+	 * line. Not during a gesture: {@code setLayoutParams} drops {@code Layout}
+	 * (Editor NPE, 15 Sep 2026).
+	 */
+	private void applyGhostRowPadding(final int topRows, final int bottomRows,
+			final int marginEnd) {
+		// Holding blocks shrink (setPadding nulls Layout mid-gesture). Growth
+		// must still happen or extras draw under the keyboard (phone, 30 Sep).
+		if (ghostPaddingHeld && topRows <= ghostTopRowsShown
+				&& bottomRows <= ghostBottomRowsShown) {
+			return;
+		}
 		if (ghostBasePaddingBottom < 0) {
 			ghostBasePaddingBottom = getPaddingBottom();
 		}
-		if (rows == ghostRowsShown) {
+		if (ghostBasePaddingTop < 0) {
+			ghostBasePaddingTop = getPaddingTop();
+		}
+		if (ghostBasePaddingRight < 0) {
+			ghostBasePaddingRight = getPaddingRight();
+		}
+		float lineSpacing = getPaint().getFontSpacing();
+		int lineHeight = Math.round(lineSpacing);
+		// List starts at the bottom of the typed text. Hide/Send is taller than
+		// one line; that surplus sits under the list, and the lift is the whole
+		// pad so the last line is not the strip the keyboard covers
+		// (phone, 30 Sep 2026).
+		boolean caretBelow = listAtTextEnd() && bottomRows > 0;
+		int extraBottom = GhostExtraLayout.belowFieldPadPx(bottomRows, lineSpacing,
+				caretBelow ? actionStripHeightPx : 0);
+		int belowLift = extraBottom;
+		int top = ghostBasePaddingTop + topRows * lineHeight;
+		int right = ghostBasePaddingRight;
+		int bottom = ghostBasePaddingBottom + extraBottom;
+		int marginNow = actionStripMargin();
+		boolean marginOk = ghostPaddingHeld || marginNow == marginEnd;
+		if (topRows == ghostTopRowsShown && bottomRows == ghostBottomRowsShown
+				&& getPaddingTop() == top && getPaddingRight() == right
+				&& getPaddingBottom() == bottom && marginOk) {
+			notifyGhostBelowFieldLift(belowLift);
 			return;
 		}
-		ghostRowsShown = rows;
-		int lineHeight = Math.round(getPaint().getFontSpacing());
-		setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(),
-				ghostBasePaddingBottom + rows * lineHeight);
+		ghostTopRowsShown = topRows;
+		ghostBottomRowsShown = bottomRows;
+		if (!ghostPaddingHeld) {
+			setActionStripMargin(marginEnd);
+		}
+		setPadding(getPaddingLeft(), top, right, bottom);
+		notifyGhostBelowFieldLift(belowLift);
+	}
+
+	private int actionStripMargin() {
+		android.view.ViewGroup.LayoutParams lp = getLayoutParams();
+		if (lp instanceof android.view.ViewGroup.MarginLayoutParams) {
+			return ((android.view.ViewGroup.MarginLayoutParams) lp).rightMargin;
+		}
+		return 0;
+	}
+
+	private void setActionStripMargin(final int marginEnd) {
+		android.view.ViewGroup.LayoutParams lp = getLayoutParams();
+		if (!(lp instanceof android.view.ViewGroup.MarginLayoutParams)) {
+			return;
+		}
+		android.view.ViewGroup.MarginLayoutParams mlp =
+				(android.view.ViewGroup.MarginLayoutParams) lp;
+		if (mlp.rightMargin == marginEnd) {
+			return;
+		}
+		mlp.rightMargin = marginEnd;
+		setLayoutParams(mlp);
+	}
+
+	private void notifyGhostBelowFieldLift(final int liftPx) {
+		if (ghostBelowFieldLiftListener != null) {
+			ghostBelowFieldLiftListener.onGhostBelowFieldLiftPx(liftPx);
+		}
 	}
 
 	/** The word a tap on the ghost would insert; null when there is no ghost. */
@@ -730,8 +1143,21 @@ public class BetterEditText extends EditText {
 	}
 
 	@Override
+	protected void onTextChanged(CharSequence text, int start, int lengthBefore,
+			int lengthAfter) {
+		super.onTextChanged(text, start, lengthBefore, lengthAfter);
+		// A wrap-down ghost needs its row after layout, once the Layout matches
+		// the text (phone, 29 Sep 2026: the ghost drew on the keyboard edge).
+		scheduleGhostRoom();
+	}
+
+	@Override
 	protected void onDraw(android.graphics.Canvas canvas) {
+		// TextView may leave a clip on the scrolled text. Ghost extras sit in
+		// top/bottom padding, which that clip cuts off.
+		int clip = canvas.save();
 		super.onDraw(canvas);
+		canvas.restoreToCount(clip);
 		ghostRectCount = 0;
 		if (!ghostWouldDraw()) {
 			return;
@@ -750,7 +1176,12 @@ public class BetterEditText extends EditText {
 		}
 		ghostPaint.set(getPaint());
 		ghostPaint.setColor((getCurrentTextColor() & 0x00FFFFFF) | 0x70000000);
-		float lineWidth = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
+		// Suggestions stop before Hide/Send. The field margin keeps the typed
+		// text beside those buttons on every line.
+		float lineWidth = caretListWidth();
+		if (lineWidth <= 0f) {
+			lineWidth = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
+		}
 		final float originX = getTotalPaddingLeft() - getScrollX();
 		final float originY = getTotalPaddingTop() - getScrollY();
 		canvas.save();
@@ -758,16 +1189,36 @@ public class BetterEditText extends EditText {
 
 		float endX = lineWidth;
 		float endBaseline = layout.getLineBaseline(layout.getLineCount() - 1);
-		boolean drawInline = atEnd && ghostText != null;
+		// Stale Layout: getPrimaryHorizontal throws. Skip this frame.
+		boolean drawInline = atEnd && ghostText != null && layoutHasOffset(layout, at);
+		GhostExtraLayout.Fit inlineFit = drawInline ? inlineGhostFit() : null;
+		// Wrap down only when the last line has no room — not because lineCount > 1.
+		boolean belowField = inlineFit != null && inlineFit.wrapDown;
 		if (drawInline) {
-			int line = layout.getLineForOffset(at);
-			float x = layout.getPrimaryHorizontal(at);
+			float x;
+			float baseline;
+			float top;
+			float bottom;
+			float lineHeight;
+			if (belowField) {
+				lineHeight = ghostPaint.getFontSpacing();
+				// Tight under the typed block. Pinning to the view bottom left
+				// a gap when the button band was taller than the line, and
+				// drew on the keyboard edge when the row was not padded.
+				x = 0f;
+				top = layout.getLineBottom(layout.getLineCount() - 1);
+				bottom = top + lineHeight;
+				baseline = bottom - ghostPaint.descent();
+			} else {
+				int line = layout.getLineForOffset(at);
+				x = layout.getPrimaryHorizontal(at);
+				baseline = layout.getLineBaseline(line);
+				top = layout.getLineTop(line);
+				bottom = layout.getLineBottom(line);
+				lineHeight = bottom - top;
+			}
 			float room = lineWidth - x;
 			float ghostWidth = ghostPaint.measureText(ghostText);
-			float baseline = layout.getLineBaseline(line);
-			float top = layout.getLineTop(line);
-			float bottom = layout.getLineBottom(line);
-			float lineHeight = bottom - top;
 
 			if (ghostWidth <= room) {
 				canvas.drawText(ghostText, x, baseline, ghostPaint);
@@ -778,12 +1229,12 @@ public class BetterEditText extends EditText {
 			} else {
 				int fits = ghostPaint.breakText(ghostText, true, room, null);
 				// A next line to continue on only exists if the view is already tall
-				// enough for one. The ghost never adds height — that would mean
-				// putting it in the text, which is the path this deliberately avoids.
-				boolean hasNextLine =
-						bottom + lineHeight <= layout.getHeight()
+				// enough for one. Wrap-down keeps to one reserved row (ellipsis).
+				// On the typed line the ghost never adds height.
+				boolean hasNextLine = !belowField
+						&& (bottom + lineHeight <= layout.getHeight()
 						|| bottom + lineHeight <= getHeight() - getTotalPaddingTop()
-								- getTotalPaddingBottom();
+								- getTotalPaddingBottom());
 				if (fits > 0 && hasNextLine) {
 					String head = ghostText.substring(0, fits);
 					String tail = ghostText.substring(fits);
@@ -818,10 +1269,15 @@ public class BetterEditText extends EditText {
 			for (int i = 0; i < ghostExtraRects.length; i++) {
 				ghostExtraRects[i] = null;
 			}
-			float below = layout.getLineBottom(layout.getLineCount() - 1);
-			float extrasStartX = drawInline ? endX : lineWidth;
-			packGhostExtras(canvas, lineWidth, extrasStartX, below,
-					endBaseline, ghostPaint.getFontSpacing(), originX, originY);
+			// After the typed text, on the last line. x=0 on that line, or the
+			// caret's x, paints the list in the background of the sentence.
+			float extrasStartX = drawInline ? endX : textEndX();
+			float rowAvail = lineWidth;
+			float contentTop = layout.getLineTop(0);
+			float contentBottom = layout.getLineBottom(layout.getLineCount() - 1);
+			packGhostExtras(canvas, rowAvail, extrasStartX, endBaseline,
+					contentTop, contentBottom, ghostPaint.getFontSpacing(),
+					originX, originY);
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;
@@ -889,40 +1345,55 @@ public class BetterEditText extends EditText {
 	 */
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		if (ghostTapListener != null
-				&& (ghostWord != null
-					|| (ghostExtraWords != null && ghostExtraWords.length > 0))) {
-			switch (event.getActionMasked()) {
-			case MotionEvent.ACTION_DOWN:
-				if (hitsGhost(event.getX(), event.getY())) {
-					ghostTouchDown = true;
-					return true;
-				}
-				break;
-			case MotionEvent.ACTION_UP:
-				if (ghostTouchDown) {
-					ghostTouchDown = false;
-					String word = ghostWordAt(event.getX(), event.getY());
-					if (word != null) {
-						ghostTapListener.onGhostTapped(word);
+		final int action = event.getActionMasked();
+		if (action == MotionEvent.ACTION_DOWN) {
+			ghostPaddingHeld = true;
+		}
+		try {
+			if (ghostTapListener != null
+					&& (ghostWord != null
+						|| (ghostExtraWords != null && ghostExtraWords.length > 0))) {
+				switch (action) {
+				case MotionEvent.ACTION_DOWN:
+					if (hitsGhost(event.getX(), event.getY())) {
+						ghostTouchDown = true;
+						return true;
 					}
-					return true;
+					break;
+				case MotionEvent.ACTION_UP:
+					if (ghostTouchDown) {
+						ghostTouchDown = false;
+						String word = ghostWordAt(event.getX(), event.getY());
+						if (word != null) {
+							ghostTapListener.onGhostTapped(word);
+						}
+						return true;
+					}
+					break;
+				case MotionEvent.ACTION_CANCEL:
+					if (ghostTouchDown) {
+						ghostTouchDown = false;
+						return true;
+					}
+					break;
+				default:
+					if (ghostTouchDown) {
+						return true;
+					}
+					break;
 				}
-				break;
-			case MotionEvent.ACTION_CANCEL:
-				if (ghostTouchDown) {
-					ghostTouchDown = false;
-					return true;
-				}
-				break;
-			default:
-				if (ghostTouchDown) {
-					return true;
-				}
-				break;
+			}
+			if (getLayout() == null) {
+				return true;
+			}
+			return super.onTouchEvent(event);
+		} finally {
+			if (action == MotionEvent.ACTION_UP
+					|| action == MotionEvent.ACTION_CANCEL) {
+				ghostPaddingHeld = false;
+				scheduleGhostRoom();
 			}
 		}
-		return super.onTouchEvent(event);
 	}
 
 	/**
@@ -931,24 +1402,29 @@ public class BetterEditText extends EditText {
 	 * <p>One routine for both jobs on purpose: measuring in one place and
 	 * drawing in another is how a bar ends up a row short of what it shows.
 	 *
-	 * <p>They carry on from where the inline ghost ended rather than starting
-	 * underneath it. The rest of that line is the cheapest space on the screen,
-	 * and beginning below it spent a whole row on white space.
+	 * <p>They carry on from where the inline ghost ended. Row 0 stays on that
+	 * line; wrapped rows stack upward into top padding ({@link GhostExtraLayout})
+	 * so they stay above the keyboard under adjustNothing. A caret-middle list
+	 * has no inline ghost: row 0 starts after the typed text on the last line,
+	 * and only a row that does not fit goes under the text. The bar lifts by
+	 * those rows so the last one is not under the keyboard.
 	 *
 	 * @param canvas null to measure only.
 	 * @param avail width of a full row.
 	 * @param startX where the first one begins, past the ghost.
-	 * @param below top of the first row under the text block.
 	 * @param ghostBaseline baseline of the line the ghost is on.
+	 * @param contentTop top of the typed text block (layout line top of line 0).
+	 * @param contentBottom bottom of the typed block. Caret-middle rows start
+	 *        here, not at the view bottom.
 	 * @param lineHeight one line of ghost type.
 	 * @param originX left of the content, for hit rectangles.
 	 * @param originY top of the content, for hit rectangles.
-	 * @return rows used <em>below</em> the typed line.
+	 * @return top-padding rows the bar must reserve above the typed block.
 	 */
 	private int packGhostExtras(final android.graphics.Canvas canvas, final float avail,
-			final float startX, final float below, final float ghostBaseline,
-			final float lineHeight, final float originX, final float originY) {
-		final float originYUsed = originY;
+			final float startX, final float ghostBaseline, final float contentTop,
+			final float contentBottom, final float lineHeight, final float originX,
+			final float originY) {
 		ghostHiddenCount = 0;
 		if (canvas != null) {
 			ghostLastDrawnX = -1;
@@ -956,44 +1432,56 @@ public class BetterEditText extends EditText {
 		android.text.TextPaint p = canvas != null && ghostPaint != null
 				? ghostPaint : getPaint();
 		float gap = p.measureText("  ");
-		int row = 0;
-		float x = startX;
+		float[] widths = new float[ghostExtras.length];
 		for (int i = 0; i < ghostExtras.length; i++) {
 			String item = ghostExtras[i];
 			if (item == null) {
+				widths[i] = -1f;
 				continue;
 			}
 			int number = ghostExtraNumbers != null && i < ghostExtraNumbers.length
 					? ghostExtraNumbers[i] : 0;
 			float indexW = number > 0 ? ghostIndexWidth(p, number) : 0f;
-			float w = indexW + p.measureText(item);
-			float lead = x > 0 ? gap : 0;
-			if (x + lead + w > avail) {
-				if (row + 1 > ghostRowCap()) {
-					// Out of rows. What is left is counted, not dropped in
-					// silence — that count is the only thing telling the player
-					// there is more.
-					ghostHiddenCount = countRemaining(i);
-					break;
+			widths[i] = indexW + p.measureText(item);
+		}
+		GhostExtraLayout.Pack pack = GhostExtraLayout.pack(widths, avail, startX, gap,
+				ghostRowCap());
+		ghostHiddenCount = pack.hiddenCount;
+		ghostPackedMaxRow = pack.maxRow;
+		float descent = p.descent();
+		boolean belowField = listAtTextEnd();
+		if (canvas != null) {
+			// Text bottom, not the view bottom: a taller Hide/Send band stays
+			// under the list instead of opening a gap above it.
+			float firstBelow = contentBottom;
+			for (int i = 0; i < ghostExtras.length; i++) {
+				int row = pack.rows[i];
+				if (row < 0) {
+					continue;
 				}
-				row++;
-				x = 0;
-				lead = 0;
+				String item = ghostExtras[i];
+				int number = ghostExtraNumbers != null && i < ghostExtraNumbers.length
+						? ghostExtraNumbers[i] : 0;
+				float indexW = number > 0 ? ghostIndexWidth(p, number) : 0f;
+				float w = widths[i];
 				if (w > avail) {
-					// Wider than the whole bar. Cut it rather than run off.
 					int fits = p.breakText(item, true, avail - indexW, null);
 					item = fits > 1 ? item.substring(0, fits - 1) + "…" : "…";
 					w = indexW + p.measureText(item);
 				}
-			}
-			if (canvas != null) {
-				float itemX = x + lead;
-				float top = row == 0
-						? ghostBaseline - lineHeight + p.descent()
-						: below + (row - 1) * lineHeight;
-				float baseline = row == 0
-						? ghostBaseline
-						: top + lineHeight - p.descent();
+				float itemX = pack.xs[i];
+				float top;
+				float baseline;
+				if (belowField && row > 0) {
+					top = GhostExtraLayout.belowFieldRowTop(row, firstBelow,
+							lineHeight);
+					baseline = top + lineHeight - descent;
+				} else {
+					top = GhostExtraLayout.rowTop(row, ghostBaseline, contentTop,
+							lineHeight, descent);
+					baseline = GhostExtraLayout.rowBaseline(row, ghostBaseline,
+							contentTop, lineHeight, descent);
+				}
 				if (number > 0) {
 					drawGhostIndex(canvas, p, String.valueOf(number), itemX, baseline);
 					itemX += indexW;
@@ -1003,24 +1491,16 @@ public class BetterEditText extends EditText {
 				ghostLastDrawnBaseline = baseline;
 				if (i < ghostExtraRects.length) {
 					ghostExtraRects[i] = new android.graphics.RectF(
-							originX + x + lead, originYUsed + top,
-							originX + x + lead + w, originYUsed + top + lineHeight);
+							originX + pack.xs[i], originY + top,
+							originX + pack.xs[i] + w, originY + top + lineHeight);
 				}
 			}
-			x += lead + w;
 		}
-		return row;
-	}
-
-	/** How many suggestions from this one onwards were not shown. */
-	private int countRemaining(final int from) {
-		int n = 0;
-		for (int i = from; i < ghostExtras.length; i++) {
-			if (ghostExtras[i] != null) {
-				n++;
-			}
+		if (belowField) {
+			return 0;
 		}
-		return n;
+		return GhostExtraLayout.paddingRows(pack.maxRow, ghostBaseline, contentTop,
+				lineHeight, descent);
 	}
 
 	/**

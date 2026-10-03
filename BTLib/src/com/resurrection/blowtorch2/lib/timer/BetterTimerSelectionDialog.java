@@ -12,7 +12,9 @@ import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 import com.resurrection.blowtorch2.lib.window.BaseSelectionDialog;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -20,6 +22,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog implements BaseSelectionDialog.UtilityToolbarListener {
 
@@ -37,6 +40,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	HashMap<String,TimerData> dataMap;
 	String[] sortedKeys;
+
+	/** Options (=) row: soft-clear the Group filter's named label. */
+	private static final int OPTION_CLEAR_GROUP = 0;
 
 	public BetterTimerSelectionDialog(Context context,
 			IConnectionBinder service) {
@@ -62,7 +68,89 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	/** Timers use play/pause — no enable/disable bulk actions. */
 	@Override
 	protected void addPluginFilterOptions() {
-		// Empty options menu hides the "=" button.
+		this.addOptionItem("Clear group label (keeps timers)", true);
+	}
+
+	@Override
+	public void onOptionItemClicked(int row) {
+		if (row == OPTION_CLEAR_GROUP) {
+			hideOptionsMenu();
+			confirmClearGroupLabel();
+			return;
+		}
+		super.onOptionItemClicked(row);
+	}
+
+	private void confirmClearGroupLabel() {
+		if (currentGroupFilter == null || currentGroupFilter.length() == 0) {
+			String which = currentGroupFilter == null ? "All" : "(default)";
+			new AlertDialog.Builder(getContext())
+					.setTitle("Nothing cleared")
+					.setMessage(which + " is not a group label. Nothing is cleared and nothing is deleted. Pick a named group in the Group filter first.")
+					.setPositiveButton("OK", null)
+					.show();
+			return;
+		}
+		final String group = currentGroupFilter;
+		AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+		builder.setTitle("Clear group label?");
+		builder.setMessage("This removes the group name \"" + group
+				+ "\" from every timer in the current filter ("
+				+ getCurrentFilterLabel()
+				+ "). The timers stay. Continue?");
+		builder.setPositiveButton("Clear label", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				clearGroupLabel(group);
+			}
+		});
+		builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+			}
+		});
+		builder.setIcon(android.R.drawable.ic_dialog_alert);
+		builder.create().show();
+	}
+
+	private void clearGroupLabel(String group) {
+		if (sortedKeys == null || sortedKeys.length == 0) {
+			Toast.makeText(getContext(), "No timers in current list", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		int count = 0;
+		try {
+			for (String key : sortedKeys) {
+				TimerData d = dataMap.get(key);
+				if (d == null || !group.equals(groupKey(d))) {
+					continue;
+				}
+				TimerData from = d.copy();
+				TimerData to = d.copy();
+				to.setGroup(TimerData.DEFAULT_GROUP);
+				String src = getSourcePlugin(key);
+				if (MAIN_SETTINGS.equals(src)) {
+					service.updateTimer(from, to);
+				} else {
+					service.updatePluginTimer(src, from, to);
+				}
+				count++;
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"BetterTimerSelectionDialog.clear group label", e);
+		}
+		currentGroupFilter = null;
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
+		refreshGroupNamesFromService();
+		refreshGroupSpinner();
+		buildList();
+		Toast.makeText(getContext(),
+				"Cleared group label from " + count
+						+ " timer" + (count == 1 ? "" : "s"),
+				Toast.LENGTH_SHORT).show();
 	}
 
 	@Override

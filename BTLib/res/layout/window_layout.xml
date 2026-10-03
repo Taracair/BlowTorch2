@@ -36,11 +36,9 @@
 
             <include layout="@layout/input_edit_tools" />
 
-            <LinearLayout
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="bottom"
                 android:paddingLeft="4dip"
                 android:paddingRight="2dip"
                 android:paddingTop="@dimen/game_input_row_padding_vertical"
@@ -51,9 +49,8 @@
                  is not enough on Android 14+; see BetterEditText. -->
             <com.resurrection.blowtorch2.lib.window.BetterEditText
                 android:id="@+id/textinput"
-                android:layout_width="0dip"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:layout_gravity="bottom"
                 android:background="@drawable/input_bar_bg"
                 android:candidatesTextStyleSpans=""
@@ -83,7 +80,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical|end"
-                android:layout_gravity="bottom"
+                android:layout_gravity="bottom|end"
                 android:layout_marginLeft="4dip"
                 android:layout_marginRight="@dimen/game_input_action_margin_end">
 
@@ -110,7 +107,7 @@
                     android:text="Send"
                     android:contentDescription="Send input" />
             </LinearLayout>
-            </LinearLayout>
+            </FrameLayout>
 
         </LinearLayout>
 

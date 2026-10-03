@@ -273,6 +273,9 @@ public final class WordSuggestions {
 	/** Offer the words that followed, not only the word itself. */
 	private boolean phrases = false;
 
+	/** After a finished word, offer the one word that followed it. On by default. */
+	private boolean suggestNextWord = true;
+
 	/**
 	 * Whether the plain word comes before the phrase built on it.
 	 *
@@ -391,6 +394,15 @@ public final class WordSuggestions {
 	 */
 	public void setPhrases(final boolean on) {
 		this.phrases = on;
+	}
+
+	/**
+	 * After a space, offer the single word that followed the one just finished.
+	 * On by default. Whole names ({@link #setPhrases}) are a different offer:
+	 * the phrase while the first word is still being typed.
+	 */
+	public void setSuggestNext(final boolean on) {
+		this.suggestNextWord = on;
 	}
 
 	public boolean isPhrases() {
@@ -802,6 +814,28 @@ public final class WordSuggestions {
 	 *        Ignored unless {@link #setRankByPosition} is on.
 	 * @return never null, possibly empty.
 	 */
+	/**
+	 * The word that last followed {@code previous} in game text. One word,
+	 * not a phrase. Empty when that pair has not been seen.
+	 */
+	public List<String> suggestNext(final String previous, final int max) {
+		List<String> out = new ArrayList<String>();
+		if (!suggestNextWord || previous == null || max <= 0) {
+			return out;
+		}
+		String key = stripWrappingPunctuation(previous.toLowerCase(Locale.US));
+		Seen s = words.get(key);
+		if (s == null || s.next == null) {
+			return out;
+		}
+		Seen nxt = words.get(s.next);
+		if (nxt == null || nxt.spelling == null || nxt.spelling.length() == 0) {
+			return out;
+		}
+		out.add(nxt.spelling);
+		return out;
+	}
+
 	public List<String> suggest(final String prefix, final int max,
 			final boolean atLineStart) {
 		return suggest(prefix, max, atLineStart, null);
@@ -1617,6 +1651,26 @@ public final class WordSuggestions {
 	 * @param caret where the cursor is.
 	 * @return the partial word, empty when the caret is not at the end of one.
 	 */
+	/**
+	 * The word that just finished, when the caret sits in the space after it.
+	 * Empty while a word is still being typed.
+	 */
+	public static String completedWordBefore(final String text, final int caret) {
+		int end = clampCaret(text, caret);
+		if (text == null || end == 0 || isWordChar(text.charAt(end - 1))) {
+			return "";
+		}
+		int i = end;
+		while (i > 0 && !isWordChar(text.charAt(i - 1))) {
+			i--;
+		}
+		int start = i;
+		while (start > 0 && isWordChar(text.charAt(start - 1))) {
+			start--;
+		}
+		return text.substring(start, i);
+	}
+
 	public static String wordBefore(final String text, final int caret) {
 		int end = clampCaret(text, caret);
 		if (text == null) {

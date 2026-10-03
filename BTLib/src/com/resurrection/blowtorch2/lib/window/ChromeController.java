@@ -39,8 +39,22 @@ public final class ChromeController {
 	private boolean isFullScreen = false;
 	/** Last IME lift applied via translationY (px). 0 when keyboard is down. */
 	private int imeLiftPx = 0;
+	/**
+	 * Extra chrome lift (px) so a below-the-words ghost row clears the IME.
+	 * Bottom padding alone leaves that row on the IME edge under adjustNothing.
+	 */
+	private int ghostBelowFieldLiftPx = 0;
 	/** Last {@code WindowInsetsCompat.isVisible(ime)}. */
 	private boolean imeVisible = false;
+	/**
+	 * Container padding last copied into the ⋮ margin. {@link Integer#MIN_VALUE}
+	 * until the first successful place, so a nav inset that does not move
+	 * status or IME still re-places.
+	 */
+	private int placedPadLeft = Integer.MIN_VALUE;
+	private int placedPadTop = Integer.MIN_VALUE;
+	private int placedPadRight = Integer.MIN_VALUE;
+	private int placedPadBottom = Integer.MIN_VALUE;
 
 	/**
 	 * ⋮ appearance, from Options → Miscellaneous. Defaults match the drawable
@@ -71,6 +85,23 @@ public final class ChromeController {
 	/** Current IME lift in px; floating Mode A uses this. */
 	int getImeLiftPx() {
 		return imeLiftPx;
+	}
+
+	/**
+	 * Extra lift for the below-the-words ghost row. Re-applies the current IME
+	 * translation so the input bar (and chrome that copies it) move up by that
+	 * row while the keyboard is up.
+	 */
+	void setGhostBelowFieldLiftPx(final int liftPx) {
+		int next = Math.max(0, liftPx);
+		if (next == ghostBelowFieldLiftPx) {
+			return;
+		}
+		ghostBelowFieldLiftPx = next;
+		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
+		if (rl != null) {
+			applyImeChromeLift(rl, imeLiftPx);
+		}
 	}
 
 	/** Last IME visibility from insets. Mode A hide uses the true→false edge. */
@@ -217,6 +248,10 @@ public final class ChromeController {
 				insetHandler.removeCallbacks(pendingInsetApply);
 				pendingInsetApply = null;
 			}
+			// bars.bottom is already in the padding above. Status and IME can
+			// match the stored values while that inset is new; ⋮ is outside
+			// window_container, so it stays a nav bar too low until Edit.
+			placeFabStripIfContainerPaddingChanged(view);
 			return;
 		}
 		if (pendingInsetApply != null) {
@@ -296,7 +331,9 @@ public final class ChromeController {
 			return;
 		}
 		final boolean keepText = activity.keepTextStillWithIme();
-		float ty = -liftPx;
+		// Below-field ghost clearance rides the same translationY as the IME.
+		// Window.setImeLiftPx and Mode A still see the raw inset (liftPx).
+		float ty = GhostExtraLayout.chromeTranslationY(liftPx, ghostBelowFieldLiftPx);
 		for (int i = 0; i < rl.getChildCount(); i++) {
 			View child = rl.getChildAt(i);
 			if (child instanceof com.resurrection.blowtorch2.lib.window.Window) {
@@ -314,6 +351,11 @@ public final class ChromeController {
 					child.setTranslationY(0f);
 					continue;
 				}
+			}
+			if ("mainDisplaySplitHost".equals(child.getTag() != null
+					? String.valueOf(child.getTag()) : "")) {
+				liftSplitHostForIme(child, liftPx, keepText, ty);
+				continue;
 			}
 			// Mapper / extra-text / floating-button overlays stay pinned; only
 			// game Windows + input lift. Mode B floaters must not move with the
@@ -364,6 +406,23 @@ public final class ChromeController {
 		}
 	}
 
+	/** Split host is a LinearLayout; both panes still need the keyboard lift. */
+	private void liftSplitHostForIme(final View host, final int liftPx,
+			final boolean keepText, final float ty) {
+		if (host instanceof android.view.ViewGroup) {
+			android.view.ViewGroup group = (android.view.ViewGroup) host;
+			for (int i = 0; i < group.getChildCount(); i++) {
+				View pane = group.getChildAt(i);
+				if (pane instanceof com.resurrection.blowtorch2.lib.window.Window) {
+					pane.setTranslationY(0f);
+					((com.resurrection.blowtorch2.lib.window.Window) pane)
+							.setImeLiftPx(liftPx);
+				}
+			}
+		}
+		host.setTranslationY(keepText ? 0f : ty);
+	}
+
 	/**
 	 * Profiles still say {@code above="40"} (legacy divider). The divider now lives
 	 * inside the input bar, so RelativeLayout ignores that rule and text windows
@@ -392,16 +451,19 @@ public final class ChromeController {
 		boolean changed = false;
 		for (int i = 0; i < rl.getChildCount(); i++) {
 			View child = rl.getChildAt(i);
-			if (!(child instanceof com.resurrection.blowtorch2.lib.window.Window)) {
-				continue;
-			}
 			ViewGroup.LayoutParams glp = child.getLayoutParams();
 			if (!(glp instanceof RelativeLayout.LayoutParams)) {
 				continue;
 			}
 			RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+			String tag = child.getTag() != null ? String.valueOf(child.getTag()) : "";
+			boolean windowChild = child instanceof com.resurrection.blowtorch2.lib.window.Window;
+			boolean splitHost = "mainDisplaySplitHost".equals(tag);
+			if (!windowChild && !splitHost) {
+				continue;
+			}
 			int before = lp.getRule(RelativeLayout.ABOVE);
-			anchorWindowAboveInputChrome(lp, String.valueOf(child.getTag()));
+			anchorWindowAboveInputChrome(lp, splitHost ? "mainDisplay" : tag);
 			if (lp.getRule(RelativeLayout.ABOVE) != before) {
 				child.setLayoutParams(lp);
 				changed = true;
@@ -522,11 +584,10 @@ public final class ChromeController {
 					@Override
 					public void onLayoutChange(View v, int left, int top, int right, int bottom,
 							int oldLeft, int oldTop, int oldRight, int oldBottom) {
-						int oldH = oldBottom - oldTop;
-						int newH = bottom - top;
-						int oldW = oldRight - oldLeft;
-						int newW = right - left;
-						if (oldH != newH || oldW != newW) {
+						// Parent padding moves the bar without changing its size.
+						// ⋮ lives in the overlay, so a size-only check leaves it low.
+						if (inputBarShiftRepositionsFab(oldLeft, oldTop, oldRight, oldBottom,
+								left, top, right, bottom)) {
 							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal);
 						}
 					}
@@ -602,6 +663,53 @@ public final class ChromeController {
 		stripLp.setMargins(left, topInset, right, bottomInset);
 		fabStrip.setLayoutParams(stripLp);
 		applyFabStripImeLift(fabStrip, inputbar, 0f);
+		placedPadLeft = navStart;
+		placedPadTop = navTop;
+		placedPadRight = navEnd;
+		placedPadBottom = navPad;
+	}
+
+	/**
+	 * Re-place ⋮ when {@code window_container} padding changed and lift, status
+	 * and IME did not. Those three are what {@link #scheduleInsetApply} treats
+	 * as "nothing changed"; nav padding is not one of them.
+	 */
+	private void placeFabStripIfContainerPaddingChanged(View container) {
+		if (container == null) {
+			return;
+		}
+		int left = container.getPaddingLeft();
+		int top = container.getPaddingTop();
+		int right = container.getPaddingRight();
+		int bottom = container.getPaddingBottom();
+		if (left == placedPadLeft && top == placedPadTop
+				&& right == placedPadRight && bottom == placedPadBottom) {
+			return;
+		}
+		RelativeLayout rl = container instanceof RelativeLayout
+				? (RelativeLayout) container
+				: (RelativeLayout) activity.findViewById(R.id.window_container);
+		View inputbar = rl == null ? null : findGameplayInputBar(rl);
+		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		if (inputbar == null || fabStrip == null) {
+			return;
+		}
+		int margin = (int) (4 * activity.getResources().getDisplayMetrics().density);
+		placeGameplayFabStrip(fabStrip, inputbar, margin);
+	}
+
+	/**
+	 * True when the input bar moved or resized, so ⋮ has to be placed again.
+	 *
+	 * <p>A size-only check misses nav padding: the bar slides up, its height
+	 * stays, and the overlay does not.
+	 */
+	static boolean inputBarShiftRepositionsFab(int oldLeft, int oldTop, int oldRight,
+			int oldBottom, int left, int top, int right, int bottom) {
+		return (oldBottom - oldTop) != (bottom - top)
+				|| (oldRight - oldLeft) != (right - left)
+				|| top != oldTop
+				|| left != oldLeft;
 	}
 
 	/**
@@ -824,8 +932,7 @@ public final class ChromeController {
 			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
 				public boolean onLongClick(View v) {
-					// Long-press overflow enters button edit mode.
-					activity.windowCall("button_window", "doEdit", "");
+					activity.runOverflowHold();
 					return true;
 				}
 			});

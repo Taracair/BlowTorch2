@@ -80,12 +80,15 @@ public final class UserManualIndex {
 		m.put("Suggestions (`.suggest on`)", CATEGORY_INPUT);
 		m.put("Prompt on its own bar (`.prompt on`)", CATEGORY_INPUT);
 		m.put("Lowercase start of sent commands", CATEGORY_INPUT);
+		m.put("Strip accents when sending", CATEGORY_INPUT);
 		m.put("Aliases and triggers (patterns / `$1`)", CATEGORY_TRIGGERS);
 		m.put("Recipes", CATEGORY_RECIPES);
 		m.put("Built-in commands", CATEGORY_COMMANDS);
 		m.put("Chat drawer", CATEGORY_WINDOW);
 		m.put("Copy text from the game window", CATEGORY_WINDOW);
+		m.put("Global gestures", CATEGORY_WINDOW);
 		m.put("Font size", CATEGORY_WINDOW);
+		m.put("Text avoids on-screen buttons", CATEGORY_WINDOW);
 		m.put("Pick loupe", CATEGORY_WINDOW);
 		m.put("Font (typeface)", CATEGORY_WINDOW);
 		m.put("Colours the world sends", CATEGORY_WINDOW);
@@ -96,6 +99,7 @@ public final class UserManualIndex {
 		m.put("Newest text at top", CATEGORY_WINDOW);
 		m.put("Padding, notch, and the keyboard", CATEGORY_WINDOW);
 		m.put("Extra text windows", CATEGORY_WINDOW);
+		m.put("Split screen", CATEGORY_WINDOW);
 		m.put("Overlay gauges (`.widget` / `.gauge`)", CATEGORY_WINDOW);
 		m.put("On-screen buttons: swipe + accordion", CATEGORY_BUTTONS);
 		m.put("Super-buttons (buttons on top of the keyboard)", CATEGORY_BUTTONS);

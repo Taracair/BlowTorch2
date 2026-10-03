@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.service.function;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -119,6 +120,29 @@ public class HelpColumnTest {
 	@Test
 	public void missingConnectionUsesTheDefaultWidth() {
 		assertEquals(HelpColumn.DEFAULT_WIDTH, HelpCommand.wrapWidth(null));
+	}
+
+	@Test
+	public void bareAliasIsNotASecondHelpLine() {
+		assertFalse(HelpCommand.includeInIndex("kb", "keyboard"));
+		assertFalse(HelpCommand.includeInIndex("commands", "help"));
+		assertTrue(HelpCommand.includeInIndex("gauge", "widget"));
+		assertTrue(HelpCommand.includeInIndex("suggestions", "complete"));
+		assertTrue(HelpCommand.includeInIndex("layoutwizard", "layoutwizard"));
+		assertTrue(HelpCommand.includeInIndex("widget", "widget"));
+		assertNull(HelpCommand.rowName("kb", "keyboard", ""));
+		assertEquals("keyboard", HelpCommand.rowName("kb", "keyboard", "kb"));
+		assertNull(HelpCommand.rowName("kb", "keyboard", "k"));
+		assertEquals("help", HelpCommand.rowName("commands", "help", "commands"));
+	}
+
+	@Test
+	public void keyboardHelpDoesNotInventOptions() {
+		String kb = HelpCommand.subcommandHelp("kb");
+		assertTrue(kb.contains("stepu"));
+		assertTrue(kb.contains("lineu"));
+		assertFalse(kb.contains("options"));
+		assertFalse(HelpCommand.subcommandHelp("keyboard").contains("options"));
 	}
 
 	private static void assertLinesFit(final String row, final int width) {

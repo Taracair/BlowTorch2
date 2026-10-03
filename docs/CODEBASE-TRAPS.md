@@ -13,7 +13,8 @@ Five areas where reading the code confidently teaches you something false:
 4. [Settings serialisation](#4-settings-serialisation)
 5. [The Lua layer](#5-the-lua-layer)
 
-Then: [where errors go](#where-errors-go), [per world vs app-wide](#per-world-vs-app-wide),
+Then: [the input bar corner above Hide/Send](#the-input-bar-corner-above-hidesend),
+[where errors go](#where-errors-go), [per world vs app-wide](#per-world-vs-app-wide),
 [mistakes already made](#mistakes-already-made), [questions already answered](#questions-already-answered).
 
 For modules, packages and data flow, see `architecture.md`.
@@ -229,6 +230,37 @@ version is in ⋮ → About.
 
 ---
 
+## The input bar corner above Hide/Send
+
+The Hide/Send column sits on the bottom end of the input field. Every line
+keeps a right margin of that column. The corner above the buttons stays
+empty. Suggestions already stop short of the buttons (`caretListWidth`).
+
+Do not drop that margin when the text wraps. A multi-line field then draws
+the last line under the buttons (phone, 1 Oct 2026).
+
+Do not fill the corner by installing another layout. Commit `8a2b93ab` set
+the margin to 0 and wrote a `StaticLayout` with `setIndents` into
+`TextView.mLayout`. Maintainer, same day, option on: a ghostline suggestion
+makes the input bar jump. The field fills and the height keeps changing.
+In that commit the ghost-row padding and the indent each change the
+measured height. The jump was not pinned down past that. Do not tune the
+band. The attempt is that commit; leave it there.
+
+That commit's comments, not measured on the phone:
+
+- A `StaticLayout` does not reflow. Left in place, the next keystroke is
+  measured on it, and the comment says that throws once the caret passes
+  the line end.
+- A short line is a `BoringLayout`. The attempt kept a `DynamicLayout` so
+  the next keystroke was not measured on the `StaticLayout`.
+- `requestLayout` from `onScrollChanged` makes `EditText` bring the caret
+  back into view.
+- One line, or a password, stayed on Android's own layout. The comment says
+  the indented layout would wrap that line and draw the password in the clear.
+
+---
+
 ## Mistakes already made
 
 Each cost real time or real data.
@@ -249,6 +281,7 @@ Each cost real time or real data.
 | Four commits guessing Mode A IME height on `getWindowVisibleDisplayFrame` under `adjustNothing` (always 0); a fifth and sixth finally read the API | Second failed attempt means read the API. If that still fails, ask the maintainer whether the goal is what they want and what you understood |
 | Commit message claimed "loadPlugins already rebuilt the trigger tables"; true for the paths that reach `loadPlugins`, not for the two catch branches that fall through | A commit message is a claim. Go and look, and say how you know |
 | Several commits treated a 5-row flying mini-map becoming 4 as CSI, wrap, or CR. BTPROF 4 Sep 2026: parse `abort=0` `lost=0`, then `LINE_GONE` on a line that contained `--` | Probe gag vs parse before guessing the parser. An unanchored `--` in a regex gag matches those glyphs as map tiles |
+| Put input text in the corner above Hide/Send (`8a2b93ab`: margin 0, `StaticLayout` indents as `mLayout`). A ghostline suggestion made the bar jump (maintainer, 1 Oct 2026) | The right margin stays the button column. Do not revive that commit |
 
 ## Questions already answered
 

@@ -2,6 +2,16 @@
 
 Work on branch `staging`. The maintainer decides what ships.
 
+## One topic
+
+This chat does the work. One topic at a time. Do not launch implementation
+subagents unless the maintainer asks for several agents in that turn.
+
+When they do: one issue per agent (`generalPurpose`, model `grok-4.7-xhigh`,
+never fast, never the `bugbot` type). Each change gets its own reviewer
+before it lands. One install after that batch, then one summary. Detail:
+`.cursor/rules/subagent-review.mdc`.
+
 ## Six rules
 
 These are the ones that need judgment. Everything else that used to be on this

@@ -168,7 +168,9 @@ function parseChromeGestures(stored)
   end
   for line in string.gmatch(stored, "[^\n]+") do
     local key, cmd = string.match(line, "^%s*([%w_]+%.[%w_]+)%s*=%s*(.-)%s*$")
-    if key ~= nil and cmd ~= nil and cmd ~= "" then
+    if key == "overflow.hold" then
+      out[key] = cmd or ""
+    elseif key ~= nil and cmd ~= nil and cmd ~= "" then
       out[key] = cmd
     end
   end
@@ -825,7 +827,7 @@ function showDialog(initialValues)
   local chromeGroups = {
     { key = "edit",     label = "Edit button",   hold = true },
     { key = "send",     label = "Send button",   hold = true },
-    { key = "overflow", label = "Overflow  ⋮",   hold = false },
+    { key = "overflow", label = "Overflow  ⋮",   hold = true },
   }
   local chromeGestureRows = {
     { g = "up",    label = "↑" },
@@ -854,15 +856,13 @@ function showDialog(initialValues)
     if group.hold then
       local row = luajava.newInstance("android.widget.LinearLayout", context)
       row:setLayoutParams(fillparams)
-      local edit = addChromeField(row, "hold", chromeStored[group.key .. ".hold"])
+      local holdValue = chromeStored[group.key .. ".hold"]
+      if group.key == "overflow" and holdValue == nil then
+        holdValue = ".editbuttons"
+      end
+      local edit = addChromeField(row, "hold", holdValue)
       chromeFields[#chromeFields + 1] = { key = group.key .. ".hold", edit = edit }
       extraBox:addView(row)
-    else
-      local note = luajava.newInstance("android.widget.TextView", context)
-      note:setText("   hold stays as Edit buttons")
-      note:setTextSize(textSizeSmall)
-      note:setLayoutParams(fillparams)
-      extraBox:addView(note)
     end
   end
   makeDisclosureRow("Extra gestures…", extraBox)
@@ -1036,6 +1036,8 @@ serialiseChromeFields = function()
     cmd = string.gsub(cmd, "^%s*(.-)%s*$", "%1")
     if cmd ~= "" then
       parts[#parts + 1] = entry.key .. "=" .. cmd
+    elseif entry.key == "overflow.hold" then
+      parts[#parts + 1] = "overflow.hold="
     end
   end
   return table.concat(parts, "\n"), #parts

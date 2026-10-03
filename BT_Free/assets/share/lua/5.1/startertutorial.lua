@@ -79,6 +79,7 @@ local TOPIC_ORDER = {
 	"display",
 	"wrap",
 	"copy_text",
+	"global_gestures",
 	"search",
 	"chat",
 	"mapper",
@@ -355,6 +356,9 @@ Switching sets is a client command — perfect on a button:
 
   .loadset <name>     load that set (button_window plugin)
   .clearbuttons       clear on-screen buttons (BACK restores)
+  .heatmap            count taps, holds, swipes and accordion opens
+  .heatmap off        hide the heatmap; counting continues
+  .heatmap reset      forget this world's counts
 
 Try now:
   1. Tap LOAD          → switches to the compact "tutorial" set
@@ -515,6 +519,9 @@ Enable / disable:
     for confirmation first.
   • Group filter is the spinner under search (All / (default) / named),
     not the More menu.
+  • More → Clear group label (keeps triggers) takes that name off the
+    triggers in the current filter. The triggers stay. All and (default)
+    are not labels: nothing is cleared and nothing is deleted.
   • From the input bar: .trigger on|off|toggle <name|plugin:name>,
     .trigger group …, .trigger all on|off,
     .trigger plugin <plugin> all on|off (see .trigger for help).
@@ -535,6 +542,9 @@ Conditions (advanced, in the trigger editor):
     add Condition "Trigger enabled" and pick combat_mode.
 	• Variables: Set Variable responder (or Lua SetVariable) stores a session
 	string; condition "Variable equals/exists" can gate later triggers.
+	• Timer exists / is running / remaining below or above a number of
+	seconds. "This window is in front" is false while you are in the
+	recent-apps list.
 
 Match style (advanced, in the trigger editor, below the pattern):
   • Ignore / Require / Forbid each colour and SGR flag (bold, italic, …).
@@ -581,6 +591,9 @@ as 1m 30s.
 Conditions (in the timer editor):
   • Extra gate when the timer fires — same AND/OR types as triggers.
     Empty = always fire responders. Set Variable / session vars still apply.
+    A timer can also ask whether another timer exists, is running, or has
+    remaining below or above a number of seconds, and whether this window
+    is in front.
 
 Control from the input bar:
   .timer play <name>
@@ -588,18 +601,20 @@ Control from the input bar:
   .timer reset <name>
   .timer stop <name>
   .timer info <name>
-  .timer info <name> window
   .timer dump <name>
   .timer dump
   .timer duration <name>
   .timer duration <name> <seconds>
+  .timer duration <name> 50s
+  .timer duration <name> -50s
 
-.timer info is a toast: running or paused or stopped, how long it is set
-for, how long this run has lasted, how long is left, and whether it
-repeats. Add window (or use .timer dump) to write that into the game
-window instead. .timer dump with no name lists every timer. .timer
-duration <name> with no seconds is the same as info; with seconds it
-changes how long the timer runs.
+.timer info writes into the game window: running or paused or stopped,
+how long it is set for, how long this run has lasted, how long is left,
+and whether it repeats. .timer dump is the same. .timer dump with no
+name lists every timer. .timer duration <name> with no number is the
+same as info, and it includes time you added with 50s. A bare number
+sets the length and restarts from full. 50s, 2m or 1h adds to the time
+left and keeps the stored length. -50s or -2m subtracts (floor 0).
 
 To pause between commands on one line (north, then south two seconds
 later) use .wait / #wait, not a named timer. .wait 2s only delays the
@@ -610,11 +625,16 @@ Optional silent as a last word suppresses toasts on play/pause/reset/stop
 (not used with info/dump), e.g.
   .timer play mytick silent
 
-Changing the duration does not stop the timer: one that was running
-keeps running on the new length, one that was stopped stays stopped.
+A bare number restarts a running timer from full on the new length; a
+stopped one stays stopped. A unit suffix only changes the time left, and
+a running timer keeps running while some time remains.
 
 Name matches the timer list (not a numeric index). Useful for ticks,
 cooldowns, or reminder toasts while you play.
+
+More → Clear group label (keeps timers) takes that name off the timers
+in the current filter. The timers stay. All and (default) are not labels,
+so nothing is cleared and nothing is deleted.
 
 The ? button beside Done in the timer editor says all of this on the
 phone, including that Conditions are checked when the timer fires and not
@@ -651,14 +671,34 @@ watches the sensor while you do it and tells you whether the phone noticed.
 Worth doing before you build anything on a reading, because sensor hardware
 differs by model.
 
-Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
+Readings: wave, cover, facedown, faceup, shake, shakeleft, shakeright,
+shakeup, shakedown, pickup, moving, still,
 gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
 batterylow, batteryok, screenoff, screenon, landscape, portrait. The last
 ten need no sensor chip — Android tells every app — so a profile built on
 those works on any phone. landscape / portrait: the orientation the phone already has when
 you bind it is not a fire — turn it the other way, then back. The window
 rebuilds on rotate, so a command like .map open may run a moment after
-the new layout.
+the new layout. Left, right, up and down use the same hardness as shake,
+and only on a phone that has linear acceleration — otherwise only shake
+fires. A pattern is a literal trigger !pat:lr (two to eight of l r u d),
+or .sensor pat:lr <command>. Each letter is its own shake, a few seconds
+apart. A gyroscope twist is not a reading here.
+
+The power button at the top of Options -> Device -> Sensors silences every
+reading in this world only. .sensor all off does the same, and .sensor all on
+brings them back. Each row that already has a command has the same power
+button as a trigger, so you can turn Shake left off without opening it.
+
+My shakes, on that same list, lets you record a movement by repeating it.
+Each try is drawn as a line, including toward you and away, and a slider says
+how close a later shake has to be. Use my shakes (off until you turn it on)
+greys left, right, up and down and they stay quiet, and letter patterns stay
+quiet too. Shake the phone keeps its own button. The shape stays on this
+phone; the command is a normal trigger, so .sensor slash look works after
+you have named it slash. A name already used by a saved shake or a
+built-in reading is refused (That name is already used). The pattern
+box is grey: the shake fires it.
 
 Often better than a reading of its own: use the phone as a CONDITION.
 On any trigger or timer, Conditions → The phone gives you "Headphones are
@@ -824,7 +864,10 @@ actually said. All of it is off until you ask, under Options → Input or on
                           two mistakes may change the first letter
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
-                          drawn only, never sent
+                          drawn only, never sent. After a space, that ghost
+                          can be the word that last followed the one you
+                          just finished. A name you are still typing still
+                          offers the whole phrase
   .suggest caret on|off   follow the cursor into the middle of a line, not
                           only the end; taking one replaces the word there
   .suggest show N         at most N suggestions total (bar + ghost), 1-8
@@ -1004,6 +1047,9 @@ Two ways to build
   1) Record while you walk
      .map new mymap   (optional fresh file)
      Open the map → Nav → Record → walk → Record off → Map → Save
+     While Record is on, Nav → Name (or .map name) sets the room name
+     from recent lines. It does not run on every step.
+     Edit tile → Notes keeps line breaks.
      Outbound commands become exits. Compass moves (n/e/s/w, go west,
      go se, …) place neighbors on a grid; up/down change level while
      Recording; out/in become special exits beside the room.
@@ -1103,7 +1149,8 @@ chevron stays bottom-right.
 
 The ⋮ list is grouped (no action-bar icons for Aliases / Triggers / Timers):
 
-  EDITORS     Aliases, Triggers, Timers, Button Sets, Edit buttons
+  EDITORS     Aliases, Triggers, Timers, Button Sets, Edit buttons,
+              Edit global gestures, Gesture mode
   SESSION     Options, Speedwalk Directions, Map, Plugins
   CONNECTION  Reconnect, Disconnect, Quit
   TOOLS       Chat, Search scrollback, Session logs, Reload Settings
@@ -1198,6 +1245,7 @@ While the keyboard is up:
   .widget ime hp hide      gone until the keyboard closes
   .widget ime hp overlay   sit over the keyboard
                            (needs Display over other apps)
+  .widget ime hp pin       stay visible, and do not rise with the keyboard
 
 Turn the warn colour when it drops (25 is the usual threshold):
   .widget warn hp 25
@@ -1305,8 +1353,55 @@ TOPICS.copy_text = function()
   2. Second finger — tap to open the copy / selection widget.
 
 One-finger long-press alone does not open copy. Drag the cursors, then
-use the widget copy control. On-screen buttons may hide while selecting
-so the widget stays usable.]])
+use copy / swap ends / close around the magnifier (outside the circle).
+A slow drag follows the finger. A flick moves further across the text.
+Size and zoom: Options → Window → Copy loupe size / zoom, or .copy loupe
+size N / zoom N / default.
+If .width is over 100, drag the magnifier to the right edge to pan the
+rest into view.
+On-screen buttons may hide while selecting so the widget stays usable.
+That is Classic mode. .tutorial global_gestures covers the optional modes.]])
+end
+
+TOPICS.global_gestures = function()
+	noteBlock("Global gestures",
+[[Optional swipes on the game text. Classic is the default: one finger
+scrolls, two fingers copy. Change mode with ⋮ → Gesture mode, or:
+
+  .gesture mode classic
+  .gesture mode 1
+  .gesture mode 2
+  .gesture mode both
+
+One finger: Scrolling is also at the top of ⋮ → Gesture mode, and under
+Options → Input → Global gestures.
+  With two fingers — a one-finger swipe sends a command. Two fingers
+    scroll the text.
+  Hold, then gesture — a short move still scrolls. The gesture starts
+    after the hold (80–800 ms, 280 is the default).
+  Off — a one-finger swipe does not scroll.
+
+Two fingers: one finger scrolls. The scrolling choice is grey. A
+two-finger swipe can send a command, and a short tap can copy.
+
+Both: the same scrolling choice. With two fingers, two fingers scroll.
+The both-fingers switch is only while Scrolling is Hold or Off.
+
+A blank direction does nothing. Before the hold, a move still scrolls.
+After the hold, a blank direction does not scroll the text. Lifting
+without a direction sends nothing. A second finger cancels a one-finger
+gesture. A third cancels a two-finger gesture.
+
+.gesture              what is on now
+.gesture edit         the sixteen direction commands
+.gesture scroll two|hold|off   Scrolling. Refused in Classic and Two fingers
+.gesture show on|off  the mode label near the top-right
+.gesture preview on|off   arrow and command while you swipe
+.editbuttons          opens Edit buttons
+
+Long-press ⋮ still opens Edit buttons until you replace that hold
+in Edit buttons → gear → Extra gestures. Clearing the hold means
+the long-press does nothing. .options in that field opens Options.]])
 end
 
 TOPICS.options_cleanup = function()
@@ -1317,8 +1412,11 @@ TOPICS.options_cleanup = function()
   Window    font, buffer, word wrap, hyperlinks, ANSI,
             Extra text windows, Widgets (Manage widgets…)
   Input     history, keep last, Grow Input Bar (.wrap),
-            lowercase start of sent commands (\\Look keeps capital)
-  Service   encoding, logging, battery, reconnect, Wi-Fi;
+            Global gestures (.gesture),
+            lowercase start of sent commands (\\Look keeps capital),
+            strip accents when sending (.unaccent; usiądź → usiadz)
+  Service   encoding, logging, battery, reconnect, Wi-Fi,
+            Notification stack (One stack / Separate bars);
             nested Protocols / GMCP / MCP / Telnet
   Bell      bell reactions
   Miscellaneous   storage access and paths, Export / Import / Reset
@@ -1358,6 +1456,14 @@ into history, a small day/time sits to the left of ⋮, and a mark to
 the right of the date shows where you are in the buffer. .when on|off.
 .when opacity N. .search 14:32 or 18 Aug jumps to that moment.
 Options → Window → Newest text at top?: live output appears at the top.
+Options → Window → Text avoids on-screen buttons? (off by default): prose
+wraps around the grid pad and floating buttons instead of drawing under
+them. Maps may break. .avoidbuttons letters (default) moves one character
+at a time; .avoidbuttons words keeps whole words off the hole.
+.avoidbuttons on|off.
+Options → Window → Jump to the live edge when you send? (on by default):
+after you send a line, the window scrolls to the newest text. Incoming
+text near the live edge still snaps there. .jumpsend on|off.
 Options → Window → Android fling? (off by default): after you lift your
 finger the text coasts with the swipe, like a web page. Dragging stays
 1:1. Scroll sensitivity (50–500%) is off while this is on.
@@ -1469,7 +1575,8 @@ local function showHelp()
 Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
 buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
-tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
+tappable, keyboard, completion, coloring, display, wrap, copy_text,
+global_gestures, search,
 chat, mapper, gmcp, widgets, mcp, mxp, protocols, logging_export, stay_connected,
 disconnect_reconnect, overflow_menu, options_cleanup, plugins, finish]])
 end
@@ -1600,9 +1707,10 @@ local tipsShown = {}
 local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
 	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; Match style can require colour/SGR. .grabber inspects a glyph. Actions gag, colour, send, or run Lua.]],
-	timer = [[.timer info name. .timer dump writes that into the window; dump with no name lists all. .timer play|pause|stop name. .timer duration name seconds changes the length.]],
+	timer = [[.timer info name writes status in the window, including time added with 50s. .timer duration name 15 sets the length and restarts from full. .timer duration name 50s adds to the time left; -50s subtracts (floor 0). .timer dump writes that into the window. .timer play|pause|stop name.]],
 	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. .wait change 1 60s retargets that row from now. The game still prints.]],
-	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
+	suggest = [[.suggest on offers words the game just used. After a space, the ghost can be the word that last followed that one. A name you are still typing still offers the whole phrase. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
+	jumpsend = [[.jumpsend on (the default) scrolls to the newest text after you send a line. Incoming text near the live edge still snaps there. .jumpsend off leaves you where you scrolled. Options → Window → Jump to the live edge when you send?.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
@@ -1610,19 +1718,21 @@ local TIPS = {
 	light = [[.light on paints the game on light paper with dark ink. .light 1-5 picks the paper (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
-	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
+	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways. .avoidbuttons on wraps that text around the grid pad and floating buttons (maps may break).]],
+	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. Off by default — ASCII maps may break. Live while dragging a floating button. Options → Window → Text avoids on-screen buttons?.]],
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	kb = [[Same as .keyboard.]],
 	pick = [[.pick once: type .pick, put a prefix in the bar (fix  or fix $1 helmet), tap a word; the client sends fix helmet or fix iron helmet and the bar still holds the prefix. $1, $0 and $word are the picked word. .pick hold stays until .pick off. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button-double: hold a tile, tap a word with the other finger. .pick loupe size N / zoom N, or Options → Window.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
-	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. MCP: .widget source hp mcp hp maxhp. Regex on visible text: .widget source hp regex "HP: (\d+)/(\d+)". Long-press (~½s) edits (move/resize); tap leaves edit. .gauge is the same command.]],
+	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. MCP: .widget source hp mcp hp maxhp. Regex on visible text: .widget source hp regex "HP: (\d+)/(\d+)". .widget ime hp stay|hide|overlay|pin. pin stays visible and does not rise with the keyboard. Long-press (~½s) edits (move/resize); tap leaves edit. .gauge is the same command.]],
 	gauge = [[Same as .widget.]],
 	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → Protocols → Use MCP?.]],
 	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
 	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
+	split = [[.split 40 shows the same game text twice (left/top gets that percent). Each pane scrolls alone. .split horizontal or h is left/right; .split vertical or v is top/bottom. .split off is one pane. Buttons stay on the primary.]],
 	sensor = [[.sensor lists phone readings (shake, wave, landscape, …) as ordinary triggers. landscape/portrait: first orientation after you bind is not a fire. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
@@ -1639,9 +1749,10 @@ local TIPS = {
 	buttonopacity = [[.buttonopacity 100 forces every tile fully opaque until .buttonopacity restore. .loadset keeps that override.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],
+	heatmap = [[.heatmap counts taps, holds, each swipe direction, accordion opens and child taps on the buttons, and keeps them for this world. While it is on, every tile is the same white: brighter means used more. .heatmap off hides that. .heatmap reset forgets this world's counts.]],
 	editbutton = [[.editbutton on|off shows the Edit button on the input bar.]],
 	sendbutton = [[.sendbutton on|off shows the Send button.]],
-	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste).]],
+	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste). .editrows on uses two rows in landscape so the labels fit. Off keeps one full-width row.]],
 	tapmenu = [[.tapmenu opacity N — how solid the menu a tapped word opens is.]],
 	frame = [[.frame list / close / reopen. Drawn frames some worlds ask for; still terminal text, not a web page. .frame open is the same as reopen.]],
 	options = [[.options opens Options (⋮ → Options). Search at the bottom filters as you type.]],

@@ -313,7 +313,8 @@ public class ConditionLeafEditorDialog extends Dialog {
 		boolean needsValue = type.needsExpectedValue();
 		triggerRow.setVisibility(triggerType ? View.VISIBLE : View.GONE);
 		aliasRow.setVisibility(aliasType ? View.VISIBLE : View.GONE);
-		nameRow.setVisibility(variableType ? View.VISIBLE : View.GONE);
+		boolean timerType = type.isTimerGate();
+		nameRow.setVisibility(variableType || timerType ? View.VISIBLE : View.GONE);
 		if (phoneRow != null) {
 			phoneRow.setVisibility(variableType ? View.VISIBLE : View.GONE);
 			phoneNeeds.setVisibility(variableType ? View.VISIBLE : View.GONE);
@@ -325,12 +326,18 @@ public class ConditionLeafEditorDialog extends Dialog {
 					type == ConditionType.TRIGGER_MATCHED ? View.VISIBLE : View.GONE);
 		}
 		if (nameLabel != null) {
-			nameLabel.setText("Variable");
+			nameLabel.setText(timerType ? "Timer" : "Variable");
+		}
+		if (timerType) {
+			nameField.setHint("timer name");
+		} else if (variableType) {
+			nameField.setHint("variable name");
 		}
 		if (needsValue && type == ConditionType.ALIAS_EQUALS) {
 			valueField.setHint("alias With / replacement text");
 		} else if (type == ConditionType.VARIABLE_BELOW
-				|| type == ConditionType.VARIABLE_ABOVE) {
+				|| type == ConditionType.VARIABLE_ABOVE
+				|| type.isTimerGate()) {
 			valueField.setHint("number");
 		} else if (needsValue) {
 			valueField.setHint("expected value");
@@ -494,6 +501,24 @@ public class ConditionLeafEditorDialog extends Dialog {
 			applyQualifiedName(choice);
 			editing.setValue(type == ConditionType.ALIAS_EQUALS
 					? valueField.getText().toString() : "");
+		} else if (type.isTimerGate()) {
+			editing.setPlugin("");
+			editing.setName(nameField.getText().toString().trim());
+			if (editing.getName().length() == 0) {
+				toastPickRequired("Enter a timer name.");
+				return;
+			}
+			String seconds = type.needsExpectedValue()
+					? valueField.getText().toString().trim() : "";
+			if (type.needsExpectedValue() && seconds.length() == 0) {
+				toastPickRequired("Enter a number of seconds.");
+				return;
+			}
+			editing.setValue(seconds);
+		} else if (type.isForegroundGate()) {
+			editing.setPlugin("");
+			editing.setName("");
+			editing.setValue("");
 		} else {
 			editing.setPlugin("");
 			editing.setName(nameField.getText().toString().trim());

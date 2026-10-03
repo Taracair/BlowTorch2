@@ -18,6 +18,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.CallbackOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.EncodingOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
+import com.resurrection.blowtorch2.lib.window.GlobalGestures;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
@@ -144,12 +145,22 @@ public class ConnectionSettingsPlugin extends Plugin {
 		lowercase_command_start.setKey("lowercase_command_start");
 		lowercase_command_start.setValue(false);
 		input.addOption(lowercase_command_start);
-		
+
+		BooleanOption unaccent_send = new BooleanOption();
+		unaccent_send.setTitle("Strip accents when sending");
+		unaccent_send.setDescription(
+				"When sending to the game, fold Latin letters with marks so usiądź przy stole becomes usiadz przy stole. Local echo shows that folded form; the input bar still shows what you typed. Toggle with .unaccent on/off. Off by default. Passwords are never rewritten. Lua SendToServer is not rewritten.");
+		unaccent_send.setKey("unaccent_send");
+		unaccent_send.setValue(false);
+		input.addOption(unaccent_send);
+
 		BooleanOption compatilibility_mode = new BooleanOption();
 		compatilibility_mode.setTitle("Standard keyboard input (IME fix)");
-		compatilibility_mode.setDescription("Use Android's normal input connection. Turn on if backspace is wrong or typing appends instead of replacing selected text. Keep last command turns this on automatically.");
+		compatilibility_mode.setDescription("Use Android's normal input connection. On by default, so backspace and replacing a selected letter follow the keyboard. Turn off only if a world needs the old field. Keep last command also turns this on.");
 		compatilibility_mode.setKey("compatibility_mode");
-		compatilibility_mode.setValue(false);
+		// On by default. Parser comparison is != true. An omitted key used to
+		// mean off, so a profile that never stored this now loads as on.
+		compatilibility_mode.setValue(true);
 		input.addOption(compatilibility_mode);
 
 		// Suggestions is its own page (Input would be a wall). Section groups
@@ -229,6 +240,16 @@ public class ConnectionSettingsPlugin extends Plugin {
 		wholeNames.addOption(word_complete_short_first);
 		suggestions.addOption(wholeNames);
 
+		BooleanOption word_complete_next = new BooleanOption();
+		word_complete_next.setTitle("Suggest the next word");
+		word_complete_next.setDescription("After a finished word, offer the one word that followed it in the game. The game shows \"cave troll emerges\"; you type cave and a space, and it offers troll, then emerges. This is not whole names — those offer the phrase while you are still typing the first word. Off, a finished word offers nothing until you type the next one. On by default. .suggest next on/off");
+		word_complete_next.setKey("word_complete_next");
+		// On by default: this is what the client already does, and turning it
+		// off is the choice. Change this and ConnectionSetttingsParser's
+		// comparison together, or a saved off is dropped on the next load.
+		word_complete_next.setValue(true);
+		suggestions.addOption(word_complete_next);
+
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");
 		word_complete_where.setDescription("One place, so picking one puts the other away. Floating: over the game text, on the input bar, with a grip to drag or fold it. Below the game: a strip in the layout, which takes height, so the text jumps unless you also keep it in place. Nowhere: no bar at all — the ghost above still works. .suggest where floating|bar|off");
@@ -248,19 +269,19 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Ghost after the cursor");
-		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. The inline ghost only appears at the end of the line; in the middle (Complete at the cursor, or a nearby misspelling) the numbered list sits under the line instead. .suggest ghost on/off");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. At the end of the line it sits after the cursor. In the middle (Complete at the cursor, or a nearby misspelling) there is no inline ghost — it would cover the words after the cursor — and the numbered list starts on the rest of the current line, after the text already there. A new line under the text only when that line is full, and the bar grows so that line stays above the keyboard. .suggest ghost on/off");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 
 		BooleanOption word_complete_caret = new BooleanOption();
 		word_complete_caret.setTitle("Complete at the cursor");
-		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). Nearby misspellings already do this even when this is off. Off by default: moving the cursor into a command you already typed used to hide prefix chips. .suggest caret on/off");
+		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). The numbered list sits after the text already on the line, not over the words that follow the cursor, and wraps under the line only when that line is full. Nearby misspellings already do this even when this is off. Off by default. .suggest caret on/off");
 		word_complete_caret.setKey("word_complete_caret");
 		word_complete_caret.setValue(false);
 
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");
-		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it grows by nothing, and the others fill what is left of the line you are typing on, each numbered and tappable, with a +N counting any that did not fit. Above that they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setDescription("How many extra rows the input bar may grow by when suggestions do not fit on the current line, 1 to 6. At 1 it grows by nothing while the line still has room: the others fill what is left of that line, each numbered and tappable, and +N counts any that did not fit. A list that follows the cursor may still take one row under a full line, so the next word is not only a count. Above 1 they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
 		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
 		word_complete_ghost_lines.setValue(1);
 
@@ -352,7 +373,92 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input_history.setKey("input_history_size");
 		input_history.setValue(75);
 		input.addOption(input_history);
-		
+
+		SettingsGroup globalGestures = new SettingsGroup();
+		globalGestures.setTitle("Global gestures");
+		globalGestures.setKey("global_gestures_group");
+		globalGestures.setDescription("Screen-wide swipes on the game text. Classic keeps one-finger scrolling and two-finger copy as they are now. Rows that do not apply to the current mode are dimmed.");
+
+		ListOption gestureMode = new ListOption();
+		gestureMode.setTitle("Gesture mode");
+		gestureMode.setDescription("One at a time. .gesture mode classic|1|2|both");
+		gestureMode.setKey("global_gesture_mode");
+		gestureMode.setValue(Integer.valueOf(0));
+		gestureMode.addItem("Classic");
+		gestureMode.addItem("One finger");
+		gestureMode.addItem("Two fingers");
+		gestureMode.addItem("Both");
+
+		BooleanOption gestureShow = new BooleanOption();
+		gestureShow.setTitle("Show the current mode");
+		gestureShow.setDescription("A label near the top-right of the game text, inset from the corner. Off by default. .gesture show on|off");
+		gestureShow.setKey("global_gesture_show_mode");
+		gestureShow.setValue(false);
+
+		BooleanOption gestureArrow = new BooleanOption();
+		gestureArrow.setTitle("Show the direction marker");
+		gestureArrow.setDescription("Eight slices while a gesture is on the way, with the active one filled. A second finger cancels a one-finger gesture. A third cancels a two-finger gesture. Lifting without a direction sends nothing.");
+		gestureArrow.setKey("global_gesture_show_arrow");
+		gestureArrow.setValue(true);
+
+		BooleanOption gestureCommand = new BooleanOption();
+		gestureCommand.setTitle("Show the command");
+		gestureCommand.setDescription("The command that will send, drawn above the finger. .gesture preview on|off sets this and the marker together.");
+		gestureCommand.setKey("global_gesture_show_command");
+		gestureCommand.setValue(true);
+
+		ListOption gestureScroll = new ListOption();
+		gestureScroll.setTitle("Scrolling");
+		gestureScroll.setDescription("Used in One finger and Both. Grey in Classic and Two fingers, and .gesture scroll two|hold|off is refused there. With two fingers: a one-finger swipe sends a command and two fingers scroll the text. Hold, then gesture: a move before the hold still scrolls. Off: a one-finger swipe does not scroll.");
+		gestureScroll.setKey("global_gesture_scroll");
+		gestureScroll.setValue(Integer.valueOf(1));
+		gestureScroll.addItem(GlobalGestures.SCROLL_CHOICES[0]);
+		gestureScroll.addItem(GlobalGestures.SCROLL_CHOICES[1]);
+		gestureScroll.addItem(GlobalGestures.SCROLL_CHOICES[2]);
+
+		IntegerOption gestureHold = new IntegerOption();
+		gestureHold.setTitle("Hold before a one-finger gesture (ms)");
+		gestureHold.setDescription("How long the finger stays still before a one-finger gesture can start, when Hold, then gesture is selected. 80–800. 280 is the default.");
+		gestureHold.setKey("global_gesture_hold_ms");
+		gestureHold.setValue(Integer.valueOf(280));
+
+		BooleanOption gestureTwoDir = new BooleanOption();
+		gestureTwoDir.setTitle("One finger stays put, the other moves");
+		gestureTwoDir.setDescription("Runs the two-finger command for that direction. Used in Two fingers, and in Both unless Scrolling is With two fingers.");
+		gestureTwoDir.setKey("global_gesture_two_dir");
+		gestureTwoDir.setValue(true);
+
+		BooleanOption gestureTwoCopy = new BooleanOption();
+		gestureTwoCopy.setTitle("A short two-finger tap copies text");
+		gestureTwoCopy.setDescription("Used in Two fingers and Both. In One finger, only while Scrolling is With two fingers. Classic still copies as soon as the second finger lands.");
+		gestureTwoCopy.setKey("global_gesture_two_copy");
+		gestureTwoCopy.setValue(true);
+
+		BooleanOption gestureTwoScroll = new BooleanOption();
+		gestureTwoScroll.setTitle("Both fingers moving together scroll the text");
+		gestureTwoScroll.setDescription("Used in Both while Scrolling is Hold, then gesture or Off. Grey when Scrolling is With two fingers, because two fingers already scroll.");
+		gestureTwoScroll.setKey("global_gesture_two_scroll");
+		gestureTwoScroll.setValue(false);
+
+		CallbackOption editGlobalGestures = new CallbackOption();
+		editGlobalGestures.setTitle("Edit global gestures");
+		editGlobalGestures.setDescription("Eight directions for one finger, and eight for two fingers. A blank direction does nothing. .gesture edit");
+		editGlobalGestures.setKey("global_gesture_bindings");
+		editGlobalGestures.setValue("");
+
+		globalGestures.addOption(gestureMode);
+		globalGestures.addOption(gestureShow);
+		globalGestures.addOption(gestureArrow);
+		globalGestures.addOption(gestureCommand);
+		globalGestures.addOption(gestureScroll);
+		globalGestures.addOption(gestureHold);
+		globalGestures.addOption(gestureTwoDir);
+		globalGestures.addOption(gestureTwoCopy);
+		globalGestures.addOption(gestureTwoScroll);
+		globalGestures.addOption(editGlobalGestures);
+
+		input.addOptionAt(globalGestures, 0);
+
 		sg.addOption(input);
 
 		// The phone itself, as something triggers can read. Its own group
@@ -409,6 +515,22 @@ public class ConnectionSettingsPlugin extends Plugin {
 		sensor_background.setKey("sensor_background");
 		sensor_background.setValue(false);
 		device.addOption(sensor_background);
+
+		// Drawn on the Sensors list, hidden from this menu. The row is the
+		// storage: without it the switch has nowhere to write.
+		BooleanOption sensors_enabled = new BooleanOption();
+		sensors_enabled.setTitle("Sensors in this world");
+		sensors_enabled.setDescription("Off silences every reading on the Sensors list in this world. Other worlds keep their own. The switches on the rows stay as they were.");
+		sensors_enabled.setKey("sensors_enabled");
+		sensors_enabled.setValue(true);
+		device.addOption(sensors_enabled);
+
+		BooleanOption sensor_my_shakes = new BooleanOption();
+		sensor_my_shakes.setTitle("Use my shakes");
+		sensor_my_shakes.setDescription("On: shake left, right, up, down and letter patterns stay quiet in this world, and a shake you recorded may fire. Shake the phone keeps its own switch. The shape stays on this phone.");
+		sensor_my_shakes.setKey("sensor_my_shakes");
+		sensor_my_shakes.setValue(false);
+		device.addOption(sensor_my_shakes);
 
 		sg.addOption(device);
 
@@ -487,6 +609,16 @@ public class ConnectionSettingsPlugin extends Plugin {
 		keep_cpu_awake.setKey("keep_cpu_awake");
 		keep_cpu_awake.setValue(true);
 		servOptions.addOption(keep_cpu_awake);
+
+		ListOption notification_grouping = new ListOption();
+		notification_grouping.setTitle("Notification stack");
+		notification_grouping.setDescription("One shade stack for the connection, alerts and chat. Or a separate bar for each. With several worlds open, the one you are in decides. A trigger set to Spawn new stays on its own bar either way.");
+		notification_grouping.setKey("notification_grouping");
+		// Index 0 is the default and is what lands in the profile. Do not insert in the middle.
+		notification_grouping.addItem("One stack");
+		notification_grouping.addItem("Separate bars");
+		notification_grouping.setValue(0);
+		servOptions.addOption(notification_grouping);
 		
 		BooleanOption auto_reconnect = new BooleanOption();
 		auto_reconnect.setTitle("Auto Reconnect?");

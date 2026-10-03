@@ -118,6 +118,22 @@ public final class GestureCatalog {
 				"The phone is shaken. How hard that has to be is set by Calibrate"
 					+ " shake, in Options \u2192 Device.",
 				BY_LINEAR_ACCELERATION, BY_ACCELEROMETER));
+		all.add(new Gesture("shakeleft", GROUP_MOVEMENT, "Shake left",
+				"Same hardness as Shake the phone. Needs linear acceleration;"
+					+ " otherwise only Shake fires.",
+				BY_LINEAR_ACCELERATION));
+		all.add(new Gesture("shakeright", GROUP_MOVEMENT, "Shake right",
+				"Same hardness as Shake the phone. Needs linear acceleration;"
+					+ " otherwise only Shake fires.",
+				BY_LINEAR_ACCELERATION));
+		all.add(new Gesture("shakeup", GROUP_MOVEMENT, "Shake up",
+				"Same hardness as Shake the phone. Needs linear acceleration;"
+					+ " otherwise only Shake fires.",
+				BY_LINEAR_ACCELERATION));
+		all.add(new Gesture("shakedown", GROUP_MOVEMENT, "Shake down",
+				"Same hardness as Shake the phone. Needs linear acceleration;"
+					+ " otherwise only Shake fires.",
+				BY_LINEAR_ACCELERATION));
 		all.add(new Gesture("pickup", GROUP_MOVEMENT, "Pick the phone up",
 				"The phone is lifted off a surface.",
 				BY_PICKUP_SENSOR));
@@ -173,12 +189,38 @@ public final class GestureCatalog {
 		return ALL;
 	}
 
+	/**
+	 * Built-in readings, plus a recorded shake the pattern already names.
+	 * {@code !u:slash} is not in {@link #all()}, and the editor would otherwise
+	 * treat it as game text and clear it.
+	 */
+	public static List<Gesture> editorChoices(final String pattern, final boolean literal) {
+		List<Gesture> out = new ArrayList<Gesture>(ALL);
+		Gesture current = fromPattern(pattern, literal);
+		if (current == null) {
+			return out;
+		}
+		for (int i = 0; i < out.size(); i++) {
+			if (out.get(i).getId().equals(current.getId())) {
+				return out;
+			}
+		}
+		out.add(current);
+		return out;
+	}
+
 	/** The gesture with this id, or null. */
 	public static Gesture byId(final String id) {
 		if (id == null) {
 			return null;
 		}
 		String needle = id.trim().toLowerCase(Locale.US);
+		if (needle.startsWith("pat:")) {
+			return ShakePattern.gesture(needle.substring(4));
+		}
+		if (needle.startsWith(CustomShakeNames.PREFIX)) {
+			return CustomShakeNames.gesture(needle.substring(CustomShakeNames.PREFIX.length()));
+		}
 		for (Gesture g : ALL) {
 			if (g.getId().equals(needle)) {
 				return g;

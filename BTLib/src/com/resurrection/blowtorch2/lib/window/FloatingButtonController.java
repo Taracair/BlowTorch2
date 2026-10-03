@@ -96,6 +96,8 @@ public class FloatingButtonController {
 
 		void sendCommand(String text);
 
+		void noteButtonHeat(int index, String kind);
+
 		void loadButtonSet(String name);
 
 		/**
@@ -109,6 +111,9 @@ public class FloatingButtonController {
 		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridX, int gridY);
 
 		boolean isFloatingButtonsEnabled();
+
+		/** The Lua button pad view, or null. */
+		View getButtonWindowView();
 
 		boolean showGestureHints();
 
@@ -127,6 +132,104 @@ public class FloatingButtonController {
 		 * Returns the authoritative lift in px.
 		 */
 		int refreshImeLiftPx();
+	}
+
+	public interface LayoutListener {
+		void onFloatingButtonsMoved();
+	}
+
+	private LayoutListener layoutListener;
+
+	public void setLayoutListener(final LayoutListener listener) {
+		layoutListener = listener;
+	}
+
+	private void notifyLayoutChanged() {
+		obstacleCacheValid = false;
+		if (layoutListener != null) {
+			layoutListener.onFloatingButtonsMoved();
+		}
+	}
+
+	/**
+	 * Visible floating-button tiles plus grid-pad holes in {@code window}'s local
+	 * pixels (hint padding excluded). Overlay windows are screen-absolute;
+	 * in-layer views live in the floating layer. Grid rects arrive in
+	 * button_window pixels and are mapped the same way. {@code getLocationOnScreen}
+	 * so IME {@code translationY} matches what the player sees.
+	 */
+	public void collectWindowLocalRects(final Window window,
+			final List<ButtonTextFlow.RectPx> dest) {
+		if (dest == null || window == null) {
+			return;
+		}
+		int[] winLoc = new int[2];
+		window.getLocationOnScreen(winLoc);
+		if (obstacleCacheValid && winLoc[0] == obstacleCacheWinX
+				&& winLoc[1] == obstacleCacheWinY) {
+			dest.addAll(obstacleCache);
+			return;
+		}
+		obstacleCache.clear();
+		int[] loc = new int[2];
+		for (int i = 0; i < views.size(); i++) {
+			FloatingButtonView v = views.get(i);
+			if (!isVisibleObstacle(v)) {
+				continue;
+			}
+			int w = Math.max(1, v.buttonWidthPx());
+			int h = Math.max(1, v.buttonHeightPx());
+			int left;
+			int top;
+			OverlayWindows pair = overlays.get(v);
+			if (pair != null && pair.touchParams != null) {
+				left = pair.touchParams.x - winLoc[0];
+				top = pair.touchParams.y - winLoc[1];
+			} else {
+				v.getLocationOnScreen(loc);
+				left = loc[0] + v.hintPadLeftPx() - winLoc[0];
+				top = loc[1] + v.hintPadTopPx() - winLoc[1];
+			}
+			obstacleCache.add(new ButtonTextFlow.RectPx(left, top, left + w, top + h));
+		}
+		appendGridRects(window, obstacleCache, winLoc);
+		obstacleCacheWinX = winLoc[0];
+		obstacleCacheWinY = winLoc[1];
+		obstacleCacheValid = true;
+		dest.addAll(obstacleCache);
+	}
+
+	private void appendGridRects(final Window window, final List<ButtonTextFlow.RectPx> dest,
+			final int[] winLoc) {
+		if (lastGridRects.isEmpty() || host == null) {
+			return;
+		}
+		View pad = host.getButtonWindowView();
+		if (pad == null || pad.getVisibility() != View.VISIBLE) {
+			return;
+		}
+		int[] padLoc = new int[2];
+		pad.getLocationOnScreen(padLoc);
+		int dx = padLoc[0] - winLoc[0];
+		int dy = padLoc[1] - winLoc[1];
+		for (int i = 0; i < lastGridRects.size(); i++) {
+			ButtonTextFlow.RectPx r = lastGridRects.get(i);
+			dest.add(new ButtonTextFlow.RectPx(r.left + dx, r.top + dy, r.right + dx,
+					r.bottom + dy));
+		}
+	}
+
+	private static boolean isVisibleObstacle(final FloatingButtonView v) {
+		if (v == null) {
+			return false;
+		}
+		if (v.getVisibility() != View.VISIBLE) {
+			return false;
+		}
+		if (v.getAlpha() <= 0.01f) {
+			return false;
+		}
+		return v.buttonWidthPx() > 0 && v.buttonHeightPx() > 0;
 	}
 
 	private final Host host;
@@ -164,6 +267,15 @@ public class FloatingButtonController {
 	private boolean resumed = true;
 	/** Last payload from Lua, so an IME change can rebuild without asking again. */
 	private final List<FloatingButtonModel> lastModels = new ArrayList<FloatingButtonModel>();
+	private final List<ButtonTextFlow.RectPx> lastGridRects =
+			new ArrayList<ButtonTextFlow.RectPx>();
+	private final ArrayList<ButtonTextFlow.RectPx> obstacleCache =
+			new ArrayList<ButtonTextFlow.RectPx>();
+	private boolean obstacleCacheValid;
+	private int obstacleCacheWinX;
+	private int obstacleCacheWinY;
+	/** org.json dump of the last {@code buttons} array; skip floater rebuild when only the grid moved. */
+	private String lastButtonsKey = "";
 	/** Asked for the overlay grant once already this activity. */
 	private boolean overlayPromptShown;
 
@@ -171,6 +283,11 @@ public class FloatingButtonController {
 		@Override
 		public void sendCommand(String text) {
 			host.sendCommand(text);
+		}
+
+		@Override
+		public void noteButtonHeat(int index, String kind) {
+			host.noteButtonHeat(index, kind);
 		}
 
 		@Override
@@ -241,6 +358,7 @@ public class FloatingButtonController {
 			OverlayWindows pair = overlays.get(view);
 			if (pair != null) {
 				updateOverlayPairLayout(pair, x, y);
+				notifyLayoutChanged();
 				return;
 			}
 			int padLeft = view.hintPadLeftPx();
@@ -254,6 +372,7 @@ public class FloatingButtonController {
 			lp.width = view.getWidth();
 			lp.height = view.getHeight();
 			view.setLayoutParams(lp);
+			notifyLayoutChanged();
 		}
 
 		@Override
@@ -353,21 +472,28 @@ public class FloatingButtonController {
 	 * Called on the UI thread from {@link MainWindow#onFloatingButtonsChanged}.
 	 */
 	public void onButtonsChanged(String json) {
-		if (!host.isFloatingButtonsEnabled()) {
-			clearViews();
-			setLayerVisible(false);
-			return;
-		}
-		ensureLayer();
 		try {
 			JSONObject root = new JSONObject(json);
 			editingHidden = root.optBoolean("editing", false);
-			if (editingHidden) {
+			lastGridRects.clear();
+			if (!editingHidden) {
+				GridObstacleRects.addFromJson(root.optJSONArray("grid"), lastGridRects);
+			}
+			if (editingHidden || !host.isFloatingButtonsEnabled()) {
+				lastButtonsKey = "";
 				clearViews();
 				setLayerVisible(false);
+				notifyLayoutChanged();
 				return;
 			}
+			ensureLayer();
 			JSONArray arr = root.optJSONArray("buttons");
+			String buttonsKey = arr == null ? "" : arr.toString();
+			if (buttonsKey.equals(lastButtonsKey)
+					&& (lastModels.isEmpty() || !views.isEmpty())) {
+				notifyLayoutChanged();
+				return;
+			}
 			List<FloatingButtonModel> models = new ArrayList<FloatingButtonModel>();
 			if (arr != null) {
 				for (int i = 0; i < arr.length(); i++) {
@@ -378,6 +504,7 @@ public class FloatingButtonController {
 					models.add(new FloatingButtonModel(o, isLandscape()));
 				}
 			}
+			lastButtonsKey = buttonsKey;
 			rebuild(models);
 		} catch (JSONException e) {
 			BlowTorchLogger.logMinor(TAG + ".onButtonsChanged", e);
@@ -386,6 +513,7 @@ public class FloatingButtonController {
 
 	public void onMasterSwitchChanged(boolean enabled) {
 		if (!enabled) {
+			lastButtonsKey = "";
 			clearViews();
 			setLayerVisible(false);
 		} else {
@@ -413,6 +541,7 @@ public class FloatingButtonController {
 			imeHideRequest.request();
 		}
 		imeHideRequest.tick(lastImeLiftPx, density());
+		notifyLayoutChanged();
 		if (editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
@@ -488,6 +617,7 @@ public class FloatingButtonController {
 		if (overlayMode) {
 			syncLastModelsFromLiveOverlayPositions();
 			updateKeyboardModeOverlays(covering);
+			notifyLayoutChanged();
 			return;
 		}
 		if (layer == null) {
@@ -506,6 +636,7 @@ public class FloatingButtonController {
 			}
 		}
 		bringUnderChrome();
+		notifyLayoutChanged();
 	}
 
 	private void cancelPendingImeCovering() {
@@ -529,6 +660,7 @@ public class FloatingButtonController {
 	}
 
 	public void detach() {
+		lastButtonsKey = "";
 		clearViews();
 		if (layer != null) {
 			ViewGroup parent = (ViewGroup) layer.getParent();
@@ -792,6 +924,8 @@ public class FloatingButtonController {
 		resumed = false;
 		imeHideRequest.clear();
 		cancelPendingImeCovering();
+		lastButtonsKey = "";
+		obstacleCacheValid = false;
 		clearViews();
 	}
 
@@ -856,6 +990,7 @@ public class FloatingButtonController {
 		lastImeCovering = imeUp;
 		if (overlayMode) {
 			rebuildOverlay(models, imeUp);
+			notifyLayoutChanged();
 			return;
 		}
 		if (layer == null) {
@@ -878,6 +1013,7 @@ public class FloatingButtonController {
 		}
 		reclampWhenChromeIsMeasured();
 		bringUnderChrome();
+		notifyLayoutChanged();
 	}
 
 	/**
@@ -1092,6 +1228,7 @@ public class FloatingButtonController {
 		lp.leftMargin = x;
 		lp.topMargin = y;
 		v.setLayoutParams(lp);
+		notifyLayoutChanged();
 	}
 
 	/**
@@ -1388,6 +1525,7 @@ public class FloatingButtonController {
 		}
 		views.clear();
 		overlays.clear();
+		notifyLayoutChanged();
 	}
 
 	/** Take the in-app layer down when the buttons move to overlay windows. */

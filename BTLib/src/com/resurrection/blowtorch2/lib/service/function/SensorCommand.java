@@ -144,6 +144,9 @@ public class SensorCommand extends SpecialCommand {
 			c.sendDataToWindow(c.deviceStateReport());
 			return null;
 		}
+		if (head.equals("all")) {
+			return setAll(c, rest);
+		}
 		if (head.equals("fire") || head.equals("test")) {
 			if (rest.length() == 0) {
 				c.sendDataToWindow(getErrorMessage("Sensor usage",
@@ -156,6 +159,10 @@ public class SensorCommand extends SpecialCommand {
 		}
 
 		Gesture g = GestureCatalog.byId(head);
+		if (g == null) {
+			g = GestureCatalog.byId(
+					com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX + head);
+		}
 		if (g == null) {
 			c.sendDataToWindow(getErrorMessage("Sensor usage",
 					"There is no sensor reading called \"" + head + "\".\n" + usage()));
@@ -186,7 +193,7 @@ public class SensorCommand extends SpecialCommand {
 		// shows all of them.
 		if (countTriggers(c, g) > 1) {
 			c.sendDataToWindow("\n" + countTriggers(c, g) + " triggers answer "
-					+ g.getId() + ", and all of them run. Which one did you mean?\n"
+					+ spokenId(g) + ", and all of them run. Which one did you mean?\n"
 					+ "Open Options \u2192 Device \u2192 Sensors to see them.\n");
 			return null;
 		}
@@ -233,7 +240,7 @@ public class SensorCommand extends SpecialCommand {
 
 		StringBuilder out = new StringBuilder();
 		out.append('\n').append(Colorizer.getBrightCyanColor());
-		out.append('[').append(g.getId()).append(" => ").append(command).append(']');
+		out.append('[').append(spokenId(g)).append(" => ").append(command).append(']');
 		if (others > 0) {
 			out.append(" (").append(others)
 				.append(others == 1 ? " other action kept" : " other actions kept").append(')');
@@ -243,20 +250,49 @@ public class SensorCommand extends SpecialCommand {
 		return sendAndReturn(c, out.toString());
 	}
 
-	private Object setEnabled(final Connection c, final Gesture g, final boolean on) {
-		TriggerData existing = findTrigger(c, g);
-		if (existing == null) {
-			c.sendDataToWindow("\nNothing is set up for " + g.getId()
-					+ " yet. Give it something to do first:\n.sensor "
-					+ g.getId() + " <command>\n");
+	private Object setAll(final Connection c, final String rest) {
+		if (!rest.equalsIgnoreCase("on") && !rest.equalsIgnoreCase("off")) {
+			boolean on = c.sensorsEnabled();
+			c.sendDataToWindow("\nSensors are " + (on ? "on" : "off")
+					+ " in this world. .sensor all on|off\n"
+					+ "Other worlds are unchanged.\n");
 			return null;
 		}
-		TriggerData updated = existing.copy();
-		updated.setEnabled(on);
-		c.updateTrigger(existing, updated);
+		boolean on = rest.equalsIgnoreCase("on");
+		c.updateBooleanSetting(
+				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED, on);
 		c.saveMainSettings();
-		c.sendDataToWindow("\n" + g.getId() + " is " + (on ? "on" : "off") + ".\n");
+		c.sendDataToWindow("\nSensors are " + (on ? "on" : "off")
+				+ " in this world. The row switches are unchanged.\n"
+				+ "Other worlds are unchanged.\n");
 		return null;
+	}
+
+	private Object setEnabled(final Connection c, final Gesture g, final boolean on) {
+		List<TriggerData> all = findTriggers(c, g);
+		if (all.isEmpty()) {
+			c.sendDataToWindow("\nNothing is set up for " + spokenId(g)
+					+ " yet. Give it something to do first:\n.sensor "
+					+ spokenId(g) + " <command>\n");
+			return null;
+		}
+		for (int i = 0; i < all.size(); i++) {
+			c.setTriggerEnabled(on, all.get(i).getName());
+		}
+		c.saveMainSettings();
+		String extra = all.size() > 1 ? " (" + all.size() + " triggers)" : "";
+		c.sendDataToWindow("\n" + spokenId(g) + " is " + (on ? "on" : "off") + extra + ".\n");
+		return null;
+	}
+
+	/** What the player types: {@code slash}, not {@code u:slash}. */
+	private static String spokenId(final Gesture g) {
+		String id = g.getId();
+		String prefix = com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX;
+		if (id.startsWith(prefix)) {
+			return id.substring(prefix.length());
+		}
+		return id;
 	}
 
 	private String describe(final Connection c, final Gesture g) {
@@ -266,7 +302,7 @@ public class SensorCommand extends SpecialCommand {
 		out.append("  ").append(g.getHelp()).append('\n');
 		out.append(availabilityLine(c, g));
 		if (t == null) {
-			out.append("  nothing set up — .sensor ").append(g.getId())
+			out.append("  nothing set up — .sensor ").append(spokenId(g))
 				.append(" <command>\n");
 			return out.toString();
 		}
@@ -280,9 +316,35 @@ public class SensorCommand extends SpecialCommand {
 		return out.toString();
 	}
 
+	private void appendCustom(final Connection c, final StringBuilder out) {
+		com.resurrection.blowtorch2.lib.service.sensor.CustomShakeLibrary lib =
+				com.resurrection.blowtorch2.lib.service.sensor.CustomShakeStore.load(
+						c.getContext());
+		if (lib.entries().isEmpty()) {
+			return;
+		}
+		out.append("\n--- shakes recorded on this phone ---\n");
+		out.append(c.myShakesEnabled()
+				? "  use my shakes: on (directions and patterns stay quiet here)\n"
+				: "  use my shakes: off\n");
+		for (com.resurrection.blowtorch2.lib.service.sensor.CustomShakeLibrary.Entry entry
+				: lib.entries()) {
+			Gesture g = GestureCatalog.byId(
+					com.resurrection.blowtorch2.lib.service.sensor.CustomShakeNames.PREFIX
+							+ entry.getName());
+			TriggerData t = g == null ? null : findTrigger(c, g);
+			String state = t == null ? "unused" : (t.isEnabled() ? "on" : "off");
+			out.append(String.format(Locale.US, "  %-16s %-8s %d strokes, match %d%n",
+					entry.getName(), state, entry.getTraces().size(), entry.getTolerance()));
+		}
+	}
+
 	private String overview(final Connection c) {
 		StringBuilder out = new StringBuilder();
 		out.append("\n--- sensors on this phone ---\n");
+		if (!c.sensorsEnabled()) {
+			out.append("  silenced in this world — .sensor all on\n");
+		}
 		for (Gesture g : GestureCatalog.all()) {
 			GestureAvailability.Resolution r =
 					GestureAvailability.resolve(c.getContext(), g);
@@ -293,8 +355,10 @@ public class SensorCommand extends SpecialCommand {
 							: (t.isEnabled() ? "on" : "off")) : "unavailable",
 					t != null ? describeActions(t) : g.getLabel().toLowerCase(Locale.US)));
 		}
+		appendCustom(c, out);
 		out.append("\n.sensor wave look     point a reading at a command\n");
 		out.append(".sensor fire wave     try it without moving the phone\n");
+		out.append(".sensor all off       silence every reading in this world\n");
 		out.append(".sensor caps          which hardware does what on this phone\n");
 		out.append("\nEach reading is an ordinary trigger, so it can also run a script,\n");
 		out.append("play a sound, speak, or gate on a condition. The whole list with\n");
@@ -336,33 +400,28 @@ public class SensorCommand extends SpecialCommand {
 
 	/** How many triggers answer this gesture. More than one is allowed. */
 	private int countTriggers(final Connection c, final Gesture g) {
-		HashMap<String, TriggerData> triggers = c.getTriggers();
-		if (triggers == null) {
-			return 0;
-		}
-		int found = 0;
-		for (TriggerData t : triggers.values()) {
-			if (t != null && !t.isInterpretAsRegex()
-					&& g.getPattern().equals(t.getPattern())) {
-				found++;
-			}
-		}
-		return found;
+		return findTriggers(c, g).size();
 	}
 
 	/** The main-settings trigger for this gesture, or null. */
 	private TriggerData findTrigger(final Connection c, final Gesture g) {
+		List<TriggerData> all = findTriggers(c, g);
+		return all.isEmpty() ? null : all.get(0);
+	}
+
+	private List<TriggerData> findTriggers(final Connection c, final Gesture g) {
+		List<TriggerData> found = new java.util.ArrayList<TriggerData>();
 		HashMap<String, TriggerData> triggers = c.getTriggers();
 		if (triggers == null) {
-			return null;
+			return found;
 		}
 		for (TriggerData t : triggers.values()) {
 			if (t != null && !t.isInterpretAsRegex()
 					&& g.getPattern().equals(t.getPattern())) {
-				return t;
+				found.add(t);
 			}
 		}
-		return null;
+		return found;
 	}
 
 	private Object sendAndReturn(final Connection c, final String message) {
@@ -430,6 +489,8 @@ public class SensorCommand extends SpecialCommand {
 		out.append(".sensor wave look       make a reading send a command\n");
 		out.append(".sensor wave            what that reading does now\n");
 		out.append(".sensor wave on|off     without deleting it\n");
+		out.append(".sensor all on|off     every reading in this world, rows kept\n");
+		out.append(".sensor slash look     a shake you recorded, after My shakes\n");
 		out.append(".sensor fire wave       try it now, without moving the phone\n");
 		out.append(".sensor examples        what people actually use these for\n");
 		out.append(".sensor watch on|off    keep device.* up to date for conditions\n");

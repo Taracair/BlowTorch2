@@ -126,6 +126,8 @@ oneway interface IConnectionBinderCallback {
 	void doLineBreak(int i);
 	void reloadButtons(String setName);
 	void clearAllButtons();
+	/** mode: on, off, reset, or empty (on and print the counts). */
+	void buttonHeat(String mode);
 	void updateMaxVitals(int hp, int mana, int moves);
 	void updateVitals(int hp,int mana,int moves);
 	void updateEnemy(int hp);
@@ -187,4 +189,12 @@ oneway interface IConnectionBinderCallback {
 	void executeGrabber(int mode);
 	/** Prefix+screen-word pick. mode: 0=off, 1=once, 2=hold, 3=tap, 4=button, 5=button-double. Appended. */
 	void executePrefixPick(int mode);
+	/**
+	 * Main-buffer split layout. Session only.
+	 * {@code orientation}: 0=off, 1=left/right, 2=top/bottom.
+	 * {@code percent}: primary pane share when on (15–85). Appended.
+	 */
+	void applySplit(int orientation, int percent);
+	/** UI-only actions from a dot command: editbuttons, gesture-edit, gesture-mode. */
+	void runUiAction(String action);
 }

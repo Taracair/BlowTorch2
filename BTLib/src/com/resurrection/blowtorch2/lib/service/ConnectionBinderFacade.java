@@ -56,6 +56,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 					existing.purgeAllWindowCallbacks();
 				}
 				c.loadWindowSettings();
+				service.pushSplitState(c, existing);
 			}
 		}
 	}
@@ -1263,6 +1264,29 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		if (c != null) {
 			c.updateMainWindowIntegerOption(key, value);
 		}
+	}
+
+	@Override
+	public String getCustomShakeLibrary() {
+		return com.resurrection.blowtorch2.lib.service.sensor.CustomShakeStore
+				.load(service.getApplicationContext()).encode();
+	}
+
+	@Override
+	public void setCustomShakeLibrary(final String encoded) {
+		com.resurrection.blowtorch2.lib.service.sensor.CustomShakeStore
+				.save(service.getApplicationContext(), encoded);
+	}
+
+	@Override
+	public float getShakeThreshold() {
+		return com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+				.shakeThreshold(service.getApplicationContext());
+	}
+
+	@Override
+	public void setShakeRecording(final boolean on, final android.os.IBinder client) {
+		service.setShakeRecording(on, client);
 	}
 
 }

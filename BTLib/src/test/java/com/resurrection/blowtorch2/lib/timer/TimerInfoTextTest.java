@@ -47,6 +47,17 @@ public class TimerInfoTextTest {
 	}
 
 	@Test
+	public void remainingAboveTheStoredLengthIsShown() {
+		// .timer duration heal 50s on a 15s timer leaves about 60s. The status
+		// used to clamp that back to the stored length.
+		String text = TimerInfoText.describe("heal", 15, 60, true, true, 60);
+		assertTrue(text, text.contains("Set for: 15s"));
+		assertTrue(text, text.contains("Remaining: 1m"));
+		assertTrue(text, text.contains("Elapsed: 0s"));
+		assertFalse(text, text.contains("Remaining: 15s"));
+	}
+
+	@Test
 	public void describeIsStableEnoughToAssertWholeBlock() {
 		String expected = "Timer heal\n"
 				+ "  State: running — repeats when it fires\n"

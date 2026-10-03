@@ -9,6 +9,26 @@ Local checks first, always: `scripts/check.sh` (or `--tests` for the area
 touched). Fix failures before anything else. Most findings a reviewer would
 report are already in there and cost no tokens.
 
+## Several agents only when asked
+
+The default is this chat. It implements the change, then one reviewer on
+that diff, then it fixes real findings itself.
+
+Do not launch implementation subagents unless the maintainer asks for
+several agents in that turn. Then: one issue per agent, launched together.
+One agent does not take the whole list. Each writer:
+
+- `subagent_type`: `generalPurpose` (never `bugbot`)
+- `model`: `grok-4.7-xhigh` (required; never omit, never inherit, never
+  `composer-2.5`, never any `-fast` slug)
+
+Each writer gets one reviewer (`description`: `Bugbot`, same type and model)
+before that change is committed. If the review is not clean, resume the
+writer once with the findings. This chat does not patch that writer's diff
+and does not launch a third review. If that return is still wrong, report
+it and do not commit. Do not install between writers. One install after
+every writer in that batch is clean, then one summary.
+
 ## Default: one reviewer, after the change, before the commit
 
 Launch **one** Task. Do not set `subagent_type` to `bugbot`. Cursor pins that
@@ -19,7 +39,7 @@ do not rely on the hook as the plan.
 Use:
 
 - `subagent_type`: `generalPurpose`
-- `model`: `cursor-grok-4.6-xhigh` (required; never omit, never inherit, never
+- `model`: `grok-4.7-xhigh` (required; never omit, never inherit, never
   `composer-2.5`, never any `-fast` slug)
 - `description`: `Bugbot`
 - `prompt`: `Full Repository Path`, `Diff: uncommitted changes`, the trap
@@ -33,10 +53,11 @@ one-page bundle that fits is also printed inline. Do not Read a 4000-line
 class hunting for the hunk.
 
 Triage, fix real findings, re-run until clean or until you hit something to
-report. Then commit.
+report. Then commit. The "resume the writer, do not patch" path is only for
+a batch the maintainer asked for (see above).
 
 Review **before** the commit. After `scripts/deploy.sh` the working tree is
-leftovers, not what shipped. To re-review a committed step: 
+leftovers, not what shipped. To re-review a committed step:
 `scripts/review-diff.sh HEAD`, never `Diff: uncommitted changes`.
 
 One logical change per review and per commit. A colour-bleed fix and a
@@ -48,7 +69,7 @@ Docs and `.cursor/rules` edits: no subagent, self-check only.
 ## Advisors before implementing: rarely
 
 Two parallel advisors before writing code, only when **both** hold.
-Same launch as the reviewer: `generalPurpose` + `cursor-grok-4.6-xhigh`,
+Same launch as the reviewer: `generalPurpose` + `grok-4.7-xhigh`,
 never `bugbot`, never fast.
 
 - the change touches the binder, `static` state, settings serialisation, thread
@@ -73,6 +94,8 @@ each pulling the whole thing in is how a small change costs a large session.
 
 ## Reporting
 
-End a code task with: which subagent ran, findings fixed vs deferred, the result
+End a code task with: which reviewer ran, findings fixed vs deferred, the result
 of `scripts/deploy.sh`, and what you did **not** verify. "Tests pass", "review
 clean", "APK installed". Not "works". Whether it works is decided on the phone.
+A batch the maintainer asked for is one install after every writer is clean,
+then that same status once.

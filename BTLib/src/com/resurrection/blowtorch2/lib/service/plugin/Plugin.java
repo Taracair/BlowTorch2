@@ -1189,6 +1189,8 @@ Note("Example text!")
 
 		private String name;
 		private long startTime;
+		/** Countdown length for this run. Repeat period stays the stored seconds. */
+		private int displayFull;
 		public CustomTimerTask(String name) {
 			this.name = name;
 			startTime = SystemClock.elapsedRealtime();
@@ -1212,6 +1214,10 @@ Note("Example text!")
 					CustomTimerTask t = timerTasks.get(name);
 					if (t != null) {
 						t.setStartTime(SystemClock.elapsedRealtime());
+						TimerData again = getSettings().getTimers().get(name);
+						int stored = again != null && again.getSeconds() != null
+								? again.getSeconds().intValue() : 0;
+						t.setDisplayFull(TimerSchedule.normaliseSeconds(stored));
 					}
 				}
 			}
@@ -1224,6 +1230,14 @@ Note("Example text!")
 
 		public void setStartTime(long startTime) {
 			this.startTime = startTime;
+		}
+
+		public int getDisplayFull() {
+			return displayFull;
+		}
+
+		public void setDisplayFull(final int displayFull) {
+			this.displayFull = displayFull;
 		}
 		
 	}
@@ -1283,6 +1297,14 @@ Note("Example text!")
 	//}
 	
 	public void startTimer(String key) {
+		startTimer(key, false);
+	}
+
+	/**
+	 * @param honourAboveDuration true only for {@code .timer duration 50s} /
+	 *        {@code -50s}, where remaining may exceed the stored length.
+	 */
+	public void startTimer(final String key, final boolean honourAboveDuration) {
 		TimerData d = getSettings().getTimers().get(key);
 		if (d == null) {
 			return;
@@ -1304,7 +1326,9 @@ Note("Example text!")
 		// Integer.MAX_VALUE both reached Timer.schedule as a negative delay, which is an
 		// IllegalArgumentException on a synchronous binder thread: it killed the UI.
 		int seconds = d.getSeconds() == null ? 0 : d.getSeconds().intValue();
-		long delay = TimerSchedule.delayMillis(seconds, d.getRemainingTime());
+		int remaining = d.getRemainingTime();
+		long delay = TimerSchedule.firstDelayMillis(seconds, remaining, honourAboveDuration);
+		int runFull = TimerSchedule.runFullSeconds(seconds, remaining, honourAboveDuration);
 		CustomTimerTask task = new CustomTimerTask(d.getName());
 		// One stamp, written to both. There were two, and they disagreed on a resumed
 		// run: the task stamped itself with "now" while the TimerData was set back by
@@ -1312,10 +1336,13 @@ Note("Example text!")
 		// the .timer info command reads the TimerData's — so resuming a 10 s timer with
 		// 7 s left and pausing 2 s later stored 8 s remaining instead of 5, and repeated
 		// pause/resume ratcheted a timer back up until it could never complete.
-		long stamp = TimerSchedule.startStamp(SystemClock.elapsedRealtime(),
-				seconds, d.getRemainingTime());
+		long now = SystemClock.elapsedRealtime();
+		long stamp = remaining > TimerSchedule.normaliseSeconds(seconds) && honourAboveDuration
+				? now
+				: TimerSchedule.startStamp(now, seconds, remaining);
 		d.setStartTime(stamp);
 		task.setStartTime(stamp);
+		task.setDisplayFull(runFull);
 		if (d.isRepeat()) {
 			CONNECTION_TIMER.schedule(task, delay, TimerSchedule.periodMillis(seconds));
 		} else {
@@ -1338,6 +1365,18 @@ Note("Example text!")
 	 */
 	public boolean isTimerRunning(final String key) {
 		return timerTasks.containsKey(key);
+	}
+
+	/**
+	 * Countdown length of the live run, or 0 when the timer is not scheduled.
+	 * Longer than the stored seconds after {@code .timer duration 50s}.
+	 */
+	public int timerDisplayFull(final String key) {
+		CustomTimerTask task = timerTasks.get(key);
+		if (task == null) {
+			return 0;
+		}
+		return task.getDisplayFull();
 	}
 
 	/** Cancels the scheduler entry only; does not reset remaining time (for edits while paused). */
@@ -1403,7 +1442,8 @@ Note("Example text!")
 				// look hours overdue and the old subtraction stored a negative, which
 				// the next play handed to the scheduler.
 				d.setRemainingTime(TimerSchedule.remainingAfterPause(
-						d.getSeconds() == null ? 0 : d.getSeconds().intValue(),
+						task.getDisplayFull() > 0 ? task.getDisplayFull()
+								: (d.getSeconds() == null ? 0 : d.getSeconds().intValue()),
 						now - taskStartTime));
 				d.setPlaying(false);
 			}
@@ -1449,9 +1489,9 @@ Note("Example text!")
 			if (d != null) {
 				// Clamped for the same reason as pauseTimer: an overdue run must read
 				// as 0 left, not as a negative that the next play would schedule.
-				d.setRemainingTime(TimerSchedule.remainingWhileRunning(
-						d.getSeconds() == null ? 0 : d.getSeconds().intValue(),
-						now - t.getStartTime()));
+				int stored = d.getSeconds() == null ? 0 : d.getSeconds().intValue();
+				int full = t.getDisplayFull() > 0 ? t.getDisplayFull() : stored;
+				d.setRemainingTime(TimerSchedule.remainingWhileRunning(full, now - t.getStartTime()));
 			}
 		}
 	}

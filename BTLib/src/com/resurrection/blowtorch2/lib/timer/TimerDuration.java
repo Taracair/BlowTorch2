@@ -54,6 +54,33 @@ public final class TimerDuration {
 		}
 	}
 
+	/**
+	 * Remaining after a relative {@code .timer duration} adjust ({@code 50s}, {@code -2m}).
+	 * Floor is zero; no upper cap against the stored duration.
+	 */
+	public static int adjustRemaining(final int remaining, final int deltaSeconds) {
+		long next = (long) remaining + (long) deltaSeconds;
+		if (next < 0L) {
+			return 0;
+		}
+		if (next > Integer.MAX_VALUE) {
+			return Integer.MAX_VALUE;
+		}
+		return (int) next;
+	}
+
+	/**
+	 * Remaining to keep when the timer editor saves.
+	 * Same stored seconds → keep live remaining; otherwise start from the new duration.
+	 */
+	public static int remainingAfterEdit(final int previousSeconds, final int newSeconds,
+			final int liveRemaining) {
+		if (previousSeconds == newSeconds) {
+			return clamp(liveRemaining);
+		}
+		return clamp(newSeconds);
+	}
+
 	/** Short form for list rows: {@code 1h 30m}, {@code 2m 05s}, {@code 45s}. */
 	public static String format(int totalSeconds) {
 		int t = clamp(totalSeconds);

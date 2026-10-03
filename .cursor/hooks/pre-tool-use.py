@@ -8,7 +8,7 @@ All the actual rules live in the guard module, not here. This file only
 translates between Cursor's JSON protocol and that module.
 
 preToolUse: rewrite leftover `bugbot` / Composer 2.5 reviewer Tasks to
-generalPurpose + cursor-grok-4.6-xhigh.
+generalPurpose + grok-4.7-xhigh. Every other Task gets that same model.
 
 subagentStart: deny `bugbot` if a launch still arrives with that type (the
 type is pinned to Composer 2.5 and ignores `model`).

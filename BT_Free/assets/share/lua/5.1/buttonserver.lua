@@ -1,5 +1,6 @@
 require("button")
 require("serialize")
+local buttonHeatLib = require("buttonheat")
 local marshal = require("marshal")
 
 local props = require("config")
@@ -678,6 +679,21 @@ function OnXmlExport(out)
 	----Note("saved all buttons, took "..delta.." millis.")
 end
 
+function pushButtonHeat()
+	local world = connection_display or ""
+	local body = ""
+	local ok, loaded = pcall(function()
+		local Store = luajava.bindClass(
+			"com.resurrection.blowtorch2.lib.window.ButtonHeatStore")
+		return Store:load(context, world)
+	end)
+	-- luajava hands back a Java string, which is not type() == "string".
+	if ok and loaded ~= nil then
+		body = tostring(loaded)
+	end
+	WindowXCallS(buttonWindowName, "applyButtonHeat", buttonHeatLib.pack(world, body))
+end
+
 function buttonLayerReady()
 	local added = false
 	local okEnsure, result = pcall(ensureLayoutSettingsOptions)
@@ -686,6 +702,7 @@ function buttonLayerReady()
 	end
 	loadButtonSet(current_set)
 	loadOptions()
+	pushButtonHeat()
 	if added and SaveSettings ~= nil then
 		pcall(SaveSettings)
 	end

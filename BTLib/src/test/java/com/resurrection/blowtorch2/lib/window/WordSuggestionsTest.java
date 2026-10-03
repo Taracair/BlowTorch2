@@ -1357,4 +1357,18 @@ public class WordSuggestionsTest {
 		assertTrue(w.describeLearned(12, 6).contains("trophy"));
 		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
 	}
+
+	@Test
+	public void afterASpaceTheNextSeenWordIsOffered() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("a grizzled cave troll waits\n");
+		assertEquals("", WordSuggestions.completedWordBefore("grizzled", 8));
+		assertEquals("grizzled", WordSuggestions.completedWordBefore("grizzled ", 9));
+		assertEquals(java.util.Arrays.asList("cave"), w.suggestNext("grizzled", 5));
+		assertEquals(java.util.Arrays.asList("troll"), w.suggestNext("cave", 5));
+		w.setSuggestNext(false);
+		assertTrue(w.suggestNext("cave", 5).isEmpty());
+		w.setSuggestNext(true);
+		assertEquals(java.util.Arrays.asList("troll"), w.suggestNext("cave", 5));
+	}
 }

@@ -102,6 +102,18 @@ public final class ConditionEvaluator {
 		case VARIABLE_BELOW:
 		case VARIABLE_ABOVE:
 			return evaluateVariable(leaf, connection.getSessionVariables());
+		case TIMER_EXISTS:
+		case TIMER_RUNNING:
+		case TIMER_REMAINING_BELOW:
+		case TIMER_REMAINING_ABOVE:
+			return ConditionGates.timer(leaf.getType(),
+					connection.gateTimerExists(leaf.getPlugin(), leaf.getName()),
+					connection.gateTimerRunning(leaf.getPlugin(), leaf.getName()),
+					connection.gateTimerRemainingSeconds(leaf.getPlugin(), leaf.getName()),
+					leaf.getValue());
+		case UI_IN_FRONT:
+		case UI_IN_BACKGROUND:
+			return ConditionGates.foreground(leaf.getType(), connection.isUiInFrontNow());
 		default:
 			return true;
 		}

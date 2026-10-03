@@ -154,6 +154,9 @@ public class GaugeWidgetsStoreTest {
 		assertEquals(GaugeWidget.ImeMode.OVERLAY, parseOneIme("overlay"));
 		assertEquals(GaugeWidget.ImeMode.OVERLAY, parseOneIme("over"));
 		assertEquals(GaugeWidget.ImeMode.OVERLAY, parseOneIme("float"));
+		assertEquals(GaugeWidget.ImeMode.PIN, parseOneIme("pin"));
+		assertEquals(GaugeWidget.ImeMode.PIN, parseOneIme("still"));
+		assertEquals(GaugeWidget.ImeMode.PIN, parseOneIme("fixed"));
 		assertEquals(GaugeWidget.ImeMode.STAY, parseOneIme("unknown"));
 	}
 
