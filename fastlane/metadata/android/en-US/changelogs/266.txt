@@ -1,0 +1,3 @@
+BlowTorch 2 v2.4.6
+Button heatmap, shakes you record, and swipes on the game text that send a command. A long word in the input bar can show a hyphen the game never receives. The copy magnifier has its own size. Optional accent stripping, and game text that wraps around on-screen buttons. .split shows two panes. The shade can keep one notification stack or separate bars.
+Tapping a suggestion no longer crashes. A mapper note keeps its line breaks.
