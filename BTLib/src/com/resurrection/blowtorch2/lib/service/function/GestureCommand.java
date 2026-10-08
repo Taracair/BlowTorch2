@@ -88,7 +88,7 @@ public class GestureCommand extends SpecialCommand {
 			c.updateBooleanSetting(GlobalGestures.KEY_SHOW_COMMAND, on.booleanValue());
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "Gesture preview " + (on.booleanValue() ? "on" : "off") + ".\n"
-					+ "Options → Input → Global gestures can show the arrow and the command separately.\n");
+					+ "Options → Gestures can show the arrow and the command separately.\n");
 			return null;
 		}
 		usage(c);
@@ -103,7 +103,7 @@ public class GestureCommand extends SpecialCommand {
 						+ ".gesture edit\n"
 						+ ".gesture show on|off\n"
 						+ ".gesture preview on|off\n"
-						+ "Options → Input → Global gestures"));
+						+ "Options → Gestures"));
 	}
 
 	private static String status(final Connection c) {
@@ -141,7 +141,7 @@ public class GestureCommand extends SpecialCommand {
 		sb.append(".gesture mode classic|1|2|both\n");
 		sb.append(".gesture scroll two|hold|off\n");
 		sb.append(".gesture edit    .gesture show on|off    .gesture preview on|off\n");
-		sb.append("Options → Input → Global gestures\n");
+		sb.append("Options → Gestures\n");
 		return sb.toString();
 	}
 

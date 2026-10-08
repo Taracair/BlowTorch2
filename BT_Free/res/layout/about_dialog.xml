@@ -59,14 +59,6 @@
         android:text="@string/blowtorch_desc"
         android:textColor="@color/chrome_description"
         android:textSize="13dip"/>
-
-      <TextView
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent"
-        android:layout_marginTop="10dip"
-        android:text="@string/about_donate_blurb"
-        android:textColor="@color/chrome_description"
-        android:textSize="13dip"/>
     </LinearLayout>
   </ScrollView>
 
@@ -91,6 +83,14 @@
       android:layout_marginTop="6dip"
       android:minHeight="44dip"
       android:text="@string/about_donate"/>
+
+    <Button
+      android:id="@+id/blowtorch_about_close"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dip"
+      android:minHeight="44dip"
+      android:text="Close"/>
   </LinearLayout>
 
 </LinearLayout>

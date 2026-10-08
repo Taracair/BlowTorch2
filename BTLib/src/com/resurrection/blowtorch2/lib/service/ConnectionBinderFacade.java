@@ -57,6 +57,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 				}
 				c.loadWindowSettings();
 				service.pushSplitState(c, existing);
+				service.pushRendererDebug(c, existing);
 			}
 		}
 	}

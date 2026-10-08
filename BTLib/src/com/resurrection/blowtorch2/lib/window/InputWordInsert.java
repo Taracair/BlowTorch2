@@ -101,7 +101,7 @@ public final class InputWordInsert {
 	 * Space before the insert unless it is empty, already spaced, starts with a
 	 * closer / sentence mark, or sits right after an opener / quote.
 	 */
-	private static boolean needsLeadingSpace(final String before,
+	static boolean needsLeadingSpace(final String before,
 			final String insert) {
 		if (before.length() == 0 || endsWithSpace(before)) {
 			return false;

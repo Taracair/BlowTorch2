@@ -3,9 +3,8 @@ package com.resurrection.blowtorch2.lib.service.plugin.settings;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Color;
 import android.util.TypedValue;
 import android.view.View;
@@ -15,11 +14,11 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
@@ -64,15 +63,12 @@ public final class ExtraTextWindowsDialog {
 		final ArrayList<ExtraTextSlot> slots = ExtraTextSlotsStore.parse(host.getSlotsJson());
 		ExtraTextSlotsStore.validate(slots);
 
-		ScrollView scroll = new ScrollView(context);
-		final LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-		scroll.addView(root);
+		final Dialog dialog = OptionsSubdialog.open(context, "Manage Extra Text Windows");
+		final LinearLayout root = OptionsSubdialog.body(dialog);
 
 		if (!host.isGmcpEnabled()) {
 			TextView warn = new TextView(context);
-			warn.setText("GMCP is off — enable Options → Service → Protocols → "
+			warn.setText("GMCP is off — enable Options → Protocols → "
 					+ "Use GMCP? before module routes into these windows will receive data.");
 			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 			warn.setTextColor(Color.parseColor("#C62828"));
@@ -86,6 +82,7 @@ public final class ExtraTextWindowsDialog {
 				+ "Used by gag/replace retarget, AppendLineToWindow, GMCP routes, and .window.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
+		OptionsSubdialog.ink(intro);
 		root.addView(intro);
 
 		final LinearLayout list = new LinearLayout(context);
@@ -97,9 +94,10 @@ public final class ExtraTextWindowsDialog {
 			@Override
 			public void run() {
 				list.removeAllViews();
-				if (slots.isEmpty()) {
+					if (slots.isEmpty()) {
 					TextView empty = new TextView(context);
 					empty.setText("(no windows yet)");
+					OptionsSubdialog.muted(empty);
 					list.addView(empty);
 					return;
 				}
@@ -120,6 +118,7 @@ public final class ExtraTextWindowsDialog {
 							+ (slot.isVisible() ? "" : " (hidden)")
 							+ (gmcpHint.length() > 0 ? ("\nGMCP: " + gmcpHint) : ""));
 					title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+					OptionsSubdialog.ink(title);
 					row.addView(title);
 
 					LinearLayout buttons = new LinearLayout(context);
@@ -168,20 +167,28 @@ public final class ExtraTextWindowsDialog {
 		});
 		root.addView(add);
 
-		AlertDialog.Builder b = new AlertDialog.Builder(context);
-		b.setTitle("Manage Extra Text Windows");
-		b.setView(scroll);
-		b.setNegativeButton("Cancel", null);
-		b.setPositiveButton("Apply", new DialogInterface.OnClickListener() {
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onClick(DialogInterface dialog, int which) {
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button done = new Button(context);
+		done.setText("Done");
+		done.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
 				ExtraTextSlotsStore.validate(slots);
 				String json = ExtraTextSlotsStore.toJson(slots);
 				host.applySlotsJson(json, host.isEnabled());
 				host.onSlotsChanged();
+				dialog.dismiss();
 			}
 		});
-		b.show();
+		OptionsSubdialog.buttons(dialog, cancel, done);
+		OptionsSubdialog.show(dialog);
 	}
 
 	private static void editSlot(final Context context, final Host host,
@@ -189,11 +196,9 @@ public final class ExtraTextWindowsDialog {
 			final Runnable onDone) {
 		int pad = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 12,
 				context.getResources().getDisplayMetrics());
-		ScrollView scroll = new ScrollView(context);
-		LinearLayout form = new LinearLayout(context);
-		form.setOrientation(LinearLayout.VERTICAL);
-		form.setPadding(pad, pad, pad, pad);
-		scroll.addView(form);
+		final Dialog dialog = OptionsSubdialog.open(context,
+				existing == null ? "Add window" : "Edit window");
+		LinearLayout form = OptionsSubdialog.body(dialog);
 
 		final EditText name = new EditText(context);
 		name.setHint("name (chat, tells, …)");
@@ -202,6 +207,7 @@ public final class ExtraTextWindowsDialog {
 			name.setText(existing.getName());
 		}
 		form.addView(label(context, "Name"));
+		OptionsSubdialog.field(name);
 		form.addView(name);
 
 		final EditText title = new EditText(context);
@@ -211,13 +217,14 @@ public final class ExtraTextWindowsDialog {
 			title.setText(existing.getTitle());
 		}
 		form.addView(label(context, "Title"));
+		OptionsSubdialog.field(title);
 		form.addView(title);
 
 		final Spinner mode = new Spinner(context);
 		String[] modes = new String[] { "drawer_top", "float" };
 		ArrayAdapter<String> modeAdapter = new ArrayAdapter<String>(context,
-				android.R.layout.simple_spinner_item, modes);
-		modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				R.layout.spinner_item_dark, modes);
+		modeAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		mode.setAdapter(modeAdapter);
 		if (existing != null) {
 			String m = existing.getMode().toJsonValue();
@@ -239,6 +246,7 @@ public final class ExtraTextWindowsDialog {
 		height.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
 		height.setText(Integer.toString(existing != null ? existing.getHeightDp() : 160));
 		form.addView(label(context, "Drawer height (dp)"));
+		OptionsSubdialog.field(height);
 		form.addView(height);
 
 		final EditText opacity = new EditText(context);
@@ -247,6 +255,7 @@ public final class ExtraTextWindowsDialog {
 		opacity.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
 		opacity.setText(Integer.toString(existing != null ? existing.getOpacity() : 85));
 		form.addView(label(context, "Opacity % (40–100)"));
+		OptionsSubdialog.field(opacity);
 		form.addView(opacity);
 
 		final EditText fontSize = new EditText(context);
@@ -256,11 +265,13 @@ public final class ExtraTextWindowsDialog {
 		fontSize.setText(Integer.toString(existing != null
 				? existing.getFontSize() : ExtraTextSlot.FONT_SIZE_DEFAULT));
 		form.addView(label(context, "Font size (6–96)"));
+		OptionsSubdialog.field(fontSize);
 		form.addView(fontSize);
 		TextView fontHint = new TextView(context);
 		fontHint.setText("Also .window font <name> 18 or .window <name> font +1. This is this overlay only, not the main game window.");
 		fontHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 		fontHint.setPadding(0, 0, 0, pad / 2);
+		OptionsSubdialog.muted(fontHint);
 		form.addView(fontHint);
 
 		// Index 0 is inherit, so the main window's Scroll sensitivity setting doubles
@@ -271,8 +282,8 @@ public final class ExtraTextWindowsDialog {
 		scrollItems[0] = "Same as main window";
 		System.arraycopy(labels, 0, scrollItems, 1, labels.length);
 		ArrayAdapter<String> scrollAdapter = new ArrayAdapter<String>(context,
-				android.R.layout.simple_spinner_item, scrollItems);
-		scrollAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				R.layout.spinner_item_dark, scrollItems);
+		scrollAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		scrollSpeed.setAdapter(scrollAdapter);
 		scrollSpeed.setSelection(existing != null
 				? ScrollSensitivity.extraTextSpinnerIndex(existing.getScrollSpeed())
@@ -283,6 +294,7 @@ public final class ExtraTextWindowsDialog {
 		scrollHint.setText("Same as main window also follows Android fling when that is on. A specific % uses the old swipe gain.");
 		scrollHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 		scrollHint.setPadding(0, 0, 0, pad / 2);
+		OptionsSubdialog.muted(scrollHint);
 		form.addView(scrollHint);
 
 		// Floating windows only. A drawer has no title bar and is shown or hidden
@@ -290,16 +302,19 @@ public final class ExtraTextWindowsDialog {
 		final CheckBox showTitleBar = new CheckBox(context);
 		showTitleBar.setText("Show title bar (floating)");
 		showTitleBar.setChecked(existing == null || existing.isShowTitleBar());
+		OptionsSubdialog.check(showTitleBar);
 		form.addView(showTitleBar);
 
 		final CheckBox showResizeHandle = new CheckBox(context);
 		showResizeHandle.setText("Show resize grip ◢ (floating)");
 		showResizeHandle.setChecked(existing == null || existing.isShowResizeHandle());
+		OptionsSubdialog.check(showResizeHandle);
 		form.addView(showResizeHandle);
 
 		final CheckBox showClose = new CheckBox(context);
 		showClose.setText("Close button ✕ (floating)");
 		showClose.setChecked(existing == null || existing.isShowClose());
+		OptionsSubdialog.check(showClose);
 		form.addView(showClose);
 
 		TextView chromeHint = new TextView(context);
@@ -309,13 +324,14 @@ public final class ExtraTextWindowsDialog {
 				+ "resize by feel; only .window hide or this screen will close it.");
 		chromeHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 		chromeHint.setPadding(0, 0, 0, pad / 2);
+		OptionsSubdialog.muted(chromeHint);
 		form.addView(chromeHint);
 
 		final Spinner visible = new Spinner(context);
 		String[] visItems = new String[] { "Visible", "Hidden" };
 		ArrayAdapter<String> visAdapter = new ArrayAdapter<String>(context,
-				android.R.layout.simple_spinner_item, visItems);
-		visAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				R.layout.spinner_item_dark, visItems);
+		visAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		visible.setAdapter(visAdapter);
 		visible.setSelection(existing != null && !existing.isVisible() ? 1 : 0);
 		form.addView(label(context, "Show window (or use .window show/hide)"));
@@ -324,7 +340,7 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "GMCP modules to dump into this window"));
 		if (!host.isGmcpEnabled()) {
 			TextView warn = new TextView(context);
-			warn.setText("GMCP is disabled — turn on Use GMCP? under Service → Protocols.");
+			warn.setText("GMCP is disabled — turn on Use GMCP? under Options → Protocols.");
 			warn.setTextColor(Color.parseColor("#C62828"));
 			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 			warn.setPadding(0, 0, 0, pad / 2);
@@ -397,6 +413,7 @@ public final class ExtraTextWindowsDialog {
 				TextView tv = new TextView(context);
 				tv.setText("• " + customOnly.get(i));
 				tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+				OptionsSubdialog.muted(tv);
 				form.addView(tv);
 			}
 		}
@@ -404,6 +421,7 @@ public final class ExtraTextWindowsDialog {
 		final TextView advLabel = label(context, "Advanced patterns (CSV)");
 		advLabel.setVisibility(View.GONE);
 		gmcpAdvanced.setVisibility(View.GONE);
+		OptionsSubdialog.field(gmcpAdvanced);
 		form.addView(advLabel);
 		form.addView(gmcpAdvanced);
 
@@ -446,13 +464,19 @@ public final class ExtraTextWindowsDialog {
 			}
 		});
 
-		AlertDialog.Builder b = new AlertDialog.Builder(context);
-		b.setTitle(existing == null ? "Add window" : "Edit window");
-		b.setView(scroll);
-		b.setNegativeButton("Cancel", null);
-		b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onClick(DialogInterface dialog, int which) {
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button done = new Button(context);
+		done.setText("Done");
+		done.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
 				String rawName = name.getText() != null ? name.getText().toString() : "";
 				String normalized = ExtraTextSlotsStore.normalizeName(rawName);
 				if (normalized == null) {
@@ -515,9 +539,11 @@ public final class ExtraTextWindowsDialog {
 					slots.add(slot);
 				}
 				onDone.run();
+				dialog.dismiss();
 			}
 		});
-		b.show();
+		OptionsSubdialog.buttons(dialog, cancel, done);
+		OptionsSubdialog.show(dialog);
 	}
 
 	private static void addGmcpCheckSection(Context context, LinearLayout form, String title,
@@ -532,6 +558,7 @@ public final class ExtraTextWindowsDialog {
 		h.setTypeface(null, android.graphics.Typeface.BOLD);
 		h.setPadding(0, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8,
 				context.getResources().getDisplayMetrics()), 0, 2);
+		OptionsSubdialog.ink(h);
 		form.addView(h);
 
 		for (final GmcpModuleRegistry.ModuleInfo m : modules) {
@@ -539,6 +566,7 @@ public final class ExtraTextWindowsDialog {
 			cb.setText(m.id + (m.summary.length() > 0 ? (" — " + m.summary) : ""));
 			cb.setChecked(setContainsIgnoreCase(selected, m.id)
 					|| setContainsPrefixFamily(selected, m.id));
+			OptionsSubdialog.check(cb);
 			cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
 				@Override
 				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -631,6 +659,7 @@ public final class ExtraTextWindowsDialog {
 		TextView tv = new TextView(context);
 		tv.setText(text);
 		tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+		OptionsSubdialog.ink(tv);
 		return tv;
 	}
 }

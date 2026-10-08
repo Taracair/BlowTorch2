@@ -6,16 +6,15 @@ import android.app.Dialog;
 import android.content.Context;
 import android.graphics.*;
 import android.graphics.Path.Direction;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.RelativeLayout.LayoutParams;
 
 public class ColorPickerDialog extends Dialog {
 
@@ -30,16 +29,13 @@ public class ColorPickerDialog extends Dialog {
     private static class ColorPickerView extends View implements SeekBar.OnSeekBarChangeListener {
         private Paint mPaint;
         private Paint mCenterPaint;
-        private Paint mCenterIndicator;
         private int[] mColors;
-        private OnColorChangedListener mListener;
         //private ButtonEditorDialog.COLOR_FIELDS thefield;
         private Path circle_path;
         private Paint mCenterCircle;
 
-        ColorPickerView(Context c, OnColorChangedListener l, int color) {
+        ColorPickerView(Context c, int color) {
             super(c);
-            mListener = l;
            // thefield = usethisfield;
             int alphapart = (0xFF000000&color);
             mColors = new int[] {
@@ -68,12 +64,7 @@ public class ColorPickerDialog extends Dialog {
             mCenterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             mCenterPaint.setColor(color);
             mCenterPaint.setStrokeWidth(3*scale);
-            
-            mCenterIndicator = new Paint(Paint.ANTI_ALIAS_FLAG);
-            mCenterIndicator.setColor(0xFFAAAAAA);
-            mCenterIndicator.setStrokeWidth(2);
-            mCenterIndicator.setTextSize(10.0f * this.getContext().getResources().getDisplayMetrics().density);
-            
+
             mCenterCircle = new Paint(Paint.ANTI_ALIAS_FLAG);
             mCenterCircle.setColor(0xFFAAAAAA);
             mCenterCircle.setStrokeWidth(2);
@@ -109,7 +100,6 @@ public class ColorPickerDialog extends Dialog {
 
             canvas.translate(CENTER_X, CENTER_X);
 
-            canvas.drawTextOnPath("Select Inside To Confirm.", circle_path, 0, -3, mCenterIndicator);
             canvas.drawPath(circle_path, mCenterCircle);
             
             canvas.drawOval(new RectF(-r, -r, r, r), mPaint);            
@@ -206,15 +196,20 @@ public class ColorPickerDialog extends Dialog {
                     break;
                 case MotionEvent.ACTION_UP:
                     if (mTrackingCenter) {
-                        if (inCenter) {
-                            mListener.colorChanged(mCenterPaint.getColor());
-                        }
-                        mTrackingCenter = false;    // so we draw w/o halo
+                        mTrackingCenter = false;
                         invalidate();
                     }
                     break;
             }
             return true;
+        }
+
+        int currentColor() {
+            return mCenterPaint.getColor();
+        }
+
+        void showColor(int color) {
+            doUpdate((color >>> 24) & 0xFF, color);
         }
 
 		public void onProgressChanged(SeekBar arg0, int arg1, boolean arg2) {
@@ -295,97 +290,55 @@ public class ColorPickerDialog extends Dialog {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        OnColorChangedListener l = new OnColorChangedListener() {
-            public void colorChanged(int color) {
-                mListener.colorChanged(color);
-                dismiss();
-            }
-        };
-        
         float scale = this.getContext().getResources().getDisplayMetrics().density;
-        
-        this.getWindow().setBackgroundDrawableResource(com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
+
+        this.getWindow().setBackgroundDrawableResource(
+                com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
         this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-        //strip off the alpha part.
-        int alphapart = ((mInitialColor&0xFF000000)>>24)&0x000000FF;
-			//Log.e("COLORPICKER","AlphaPart is:"+alphapart);
-			
-	    RelativeLayout relay = new RelativeLayout(getContext());
-	    RelativeLayout.LayoutParams lparams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT);
-	    relay.setLayoutParams(lparams);
-	    //relay.setBackgroundResource(R.drawable.dialog_frame);
-	    setContentView(relay);
-	    
-	    
-		RelativeLayout.LayoutParams titlep = new RelativeLayout.LayoutParams((int) (166.66*scale),LayoutParams.WRAP_CONTENT);
-		titlep.addRule(RelativeLayout.ALIGN_PARENT_TOP, 1);
-		TextView title = new TextView(this.getContext());
-		title.setText("COLOR PICKER");
-		title.setBackgroundColor(0xFF1E2126);
-		title.setTextColor(0xFFF2F4F6);
-		title.setLayoutParams(titlep);
-		title.setId(0x01);
-		title.setGravity(Gravity.CENTER);
-		title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-		title.setTypeface(Typeface.DEFAULT_BOLD);
-		relay.addView(title);
-        
+        int alphapart = ((mInitialColor & 0xFF000000) >> 24) & 0x000000FF;
 
-        
-        ColorPickerView view = new ColorPickerView(getContext(), l, mInitialColor);
-        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT);
-        params.addRule(RelativeLayout.BELOW,0x01);
-        params.width = LayoutParams.WRAP_CONTENT;
-        params.height = LayoutParams.WRAP_CONTENT;
-        params.topMargin =  (int) (5 * this.getContext().getResources().getDisplayMetrics().density);
-        view.setLayoutParams(params);
-        view.setId(0x02);
-        relay.addView(view);
-        //params.addRule(RelativeLayout.ALIGN_PARENT_TOP, 1);
+        LinearLayout root = new LinearLayout(getContext());
+        root.setOrientation(LinearLayout.VERTICAL);
 
-       
-        
-        RelativeLayout.LayoutParams barparams = new RelativeLayout.LayoutParams((int) (166.66*scale),LayoutParams.WRAP_CONTENT);
-        //barparams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM,1);
-        barparams.addRule(RelativeLayout.BELOW,0x02);
-        barparams.addRule(RelativeLayout.ALIGN_LEFT,1);
-        barparams.topMargin = (int) (5 * this.getContext().getResources().getDisplayMetrics().density);
-        //barparams.leftMargin = barparams.topMargin;
-        //barparams.rightMargin = barparams.topMargin;
-        //barparams.bottomMargin = barparams.topMargin;
-        //barparams.width = LayoutParams.FILL_PARENT;
-        //barparams.height = LayoutParams.WRAP_CONTENT;
-        
-        SeekBar sb = new SeekBar(getContext());
-        sb.setMax(255);
-        sb.setProgress(alphapart);
-        sb.setId(0x03);
-       
-        sb.setOnSeekBarChangeListener(view);
-        
-        sb.setLayoutParams(barparams);
-        
-        
-        relay.addView(sb);
-        
+        TextView title = new TextView(getContext(), null, 0,
+                com.resurrection.blowtorch2.lib.R.style.BlowTorch_Chrome_Title);
+        title.setText("COLOR PICKER");
+        root.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * scale)));
+
+        final ColorPickerView view = new ColorPickerView(getContext(), mInitialColor);
+        LinearLayout.LayoutParams wheelLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        wheelLp.gravity = Gravity.CENTER_HORIZONTAL;
+        wheelLp.topMargin = (int) (5 * scale);
+        root.addView(view, wheelLp);
+
+        final SeekBar alphaBar = new SeekBar(getContext());
+        alphaBar.setMax(255);
+        alphaBar.setProgress(alphapart);
+        alphaBar.setOnSeekBarChangeListener(view);
+        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
+                (int) (166.66f * scale), LinearLayout.LayoutParams.WRAP_CONTENT);
+        barLp.gravity = Gravity.CENTER_HORIZONTAL;
+        barLp.topMargin = (int) (5 * scale);
+        root.addView(alphaBar, barLp);
+
         LinearLayout presets = new LinearLayout(getContext());
         presets.setOrientation(LinearLayout.HORIZONTAL);
-        RelativeLayout.LayoutParams presetParams = new RelativeLayout.LayoutParams(
-                (int) (166.66*scale), LayoutParams.WRAP_CONTENT);
-        presetParams.addRule(RelativeLayout.BELOW, 0x03);
-        presetParams.topMargin = (int) (5 * scale);
-        presetParams.bottomMargin = (int) (8 * scale);
-        presets.setLayoutParams(presetParams);
         presets.setGravity(Gravity.CENTER_VERTICAL);
         presets.setWeightSum(6f);
-        // Six equal cells: five greys (darker than the old four-white ramp) plus
-        // black. The previous 28dp tiles + margins were wider than the 167dp
-        // card, so the last swatch was clipped and the row looked lopsided.
+        LinearLayout.LayoutParams presetLp = new LinearLayout.LayoutParams(
+                (int) (166.66f * scale), LinearLayout.LayoutParams.WRAP_CONTENT);
+        presetLp.gravity = Gravity.CENTER_HORIZONTAL;
+        presetLp.topMargin = (int) (5 * scale);
+        presetLp.bottomMargin = (int) (8 * scale);
+        // Six equal cells: five greys plus black. Wider tiles used to clip the
+        // last swatch on the old 167dp card.
         int[] presetColors = new int[] {
                 0xFF3A3A3A, 0xFF666666, 0xFF999999, 0xFFCCCCCC, 0xFFFFFFFF, 0xFF000000};
         int swatchSize = (int) (22 * scale);
         int gap = (int) (3 * scale);
-        final SeekBar alphaBar = sb;
         for (int i = 0; i < presetColors.length; i++) {
             final int presetColor = presetColors[i];
             View presetSwatch = new View(getContext());
@@ -401,17 +354,50 @@ public class ColorPickerDialog extends Dialog {
             presetSwatch.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     int alpha = alphaBar.getProgress() << 24;
-                    l.colorChanged(alpha | (presetColor & 0x00FFFFFF));
+                    view.showColor(alpha | (presetColor & 0x00FFFFFF));
                 }
             });
             presets.addView(presetSwatch);
         }
-        relay.addView(presets);
-        
-        relay.forceLayout();
-        relay.invalidate();
-        
+        root.addView(presets, presetLp);
 
-        //setTitle("Color Picker:");
+        LinearLayout footer = new LinearLayout(getContext());
+        footer.setOrientation(LinearLayout.HORIZONTAL);
+        int minButton = (int) (44 * scale);
+        Button cancel = new Button(getContext());
+        cancel.setText("Cancel");
+        cancel.setMinHeight(minButton);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dismiss();
+            }
+        });
+        Button done = new Button(getContext());
+        done.setText("Done");
+        done.setMinHeight(minButton);
+        done.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mListener.colorChanged(view.currentColor());
+                }
+                dismiss();
+            }
+        });
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        footer.addView(cancel, half);
+        footer.addView(done, half);
+        root.addView(footer, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        setContentView(root);
+        Window window = getWindow();
+        if (window != null) {
+            int width = (int) (getContext().getResources().getDisplayMetrics().widthPixels
+                    * 0.92f);
+            window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+            window.setGravity(Gravity.CENTER);
+        }
     }
 }

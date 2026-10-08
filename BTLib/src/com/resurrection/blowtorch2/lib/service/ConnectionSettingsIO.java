@@ -1090,8 +1090,8 @@ final class ConnectionSettingsIO {
 	}
 	
 	/** Build settings page routine. This is used by the settings loading routine.
-	 * Inserts the main window's text/font settings (titled "Window") after the
-	 * Program Settings "Display" group so Options is not two menus both named Window.
+	 * Inserts the main window's settings (titled "Window") at the top of Options.
+	 * Extra text and widgets stay in the Panes group built by ConnectionSettingsPlugin.
 	 */
 	@SuppressWarnings("deprecation")
 	void buildSettingsPage() {
@@ -1121,96 +1121,75 @@ final class ConnectionSettingsIO {
 		
 		host.buildTriggerSystem();
 		host.mWindows.get(0).getSettings().setListener(host.new WindowSettingsChangedListener(host.mWindows.get(0).getName()));
-		nestExtraTextUnderWindow();
-		nestGaugeWidgetsUnderWindow();
-		int insertAt = indexAfterDisplayGroup(host.mSettings.getSettings().getOptions());
-		host.mSettings.getSettings().getOptions().addOptionAt(host.mWindows.get(0).getSettings(), insertAt);
+		host.mSettings.getSettings().getOptions().addOptionAt(host.mWindows.get(0).getSettings(), 0);
+		// After the window group is on the root, so these connection keys keep the
+		// connection listener. addOptionAt would retarget them at the window listener.
+		nestColourAndOverflowUnderWindow();
 	}
 
 	/**
-	 * Move Extra text options from Program Settings root into Options → Window
-	 * so they sit with font/buffer (UI only; keys stay connection-scoped).
+	 * Move colour and overflow-button options into Window's Text and Layout
+	 * groups. Keys stay connection-scoped; both savers already recurse.
+	 * Splices the list only, so the root options map still finds them.
 	 */
-	private void nestExtraTextUnderWindow() {
+	private void nestColourAndOverflowUnderWindow() {
 		SettingsGroup root = host.mSettings.getSettings().getOptions();
 		SettingsGroup win = host.mWindows.get(0).getSettings();
 		if (root == null || win == null) {
 			return;
 		}
-		SettingsGroup extra = null;
-		ArrayList<Option> rootOpts = root.getOptions();
-		for (int i = 0; i < rootOpts.size(); i++) {
-			Option o = rootOpts.get(i);
-			if (o != null && "extra_text_group".equals(o.getKey())) {
-				extra = (SettingsGroup) o;
-				rootOpts.remove(i);
-				break;
+		SettingsGroup text = childByKey(win, "window_text_group");
+		SettingsGroup layout = childByKey(win, "window_layout_group");
+		moveLeaf(root, "cull_extraneous_color", text);
+		moveLeaf(root, "sgr1_weight", text);
+		moveLeaf(root, "overflow_button_corner", layout);
+		moveLeaf(root, "overflow_button_opacity", layout);
+		moveLeaf(root, "overflow_button_background", layout);
+		moveLeaf(root, "overflow_button_border", layout);
+		moveLeaf(root, "tap_menu_opacity", layout);
+	}
+
+	private static SettingsGroup childByKey(SettingsGroup group, String key) {
+		if (group == null || key == null) {
+			return null;
+		}
+		for (Option o : group.getOptions()) {
+			if (o instanceof SettingsGroup && key.equals(o.getKey())) {
+				return (SettingsGroup) o;
 			}
 		}
-		if (extra == null) {
-			extra = host.mSettings.getExtraTextOptionsGroup();
-		}
-		if (extra == null) {
+		return null;
+	}
+
+	private static void moveLeaf(SettingsGroup from, String key, SettingsGroup dest) {
+		if (from == null || dest == null || key == null) {
 			return;
 		}
-		for (Option o : win.getOptions()) {
-			if (o != null && "extra_text_group".equals(o.getKey())) {
+		for (Option o : dest.getOptions()) {
+			if (o != null && key.equals(o.getKey())) {
 				return;
 			}
 		}
-		win.addOption(extra);
+		Option found = detachLeaf(from, key);
+		if (found != null) {
+			dest.addOption(found);
+		}
 	}
 
-	/**
-	 * Move Widgets options from Program Settings root into Options → Window
-	 * so they sit with font/buffer (UI only; keys stay connection-scoped).
-	 */
-	private void nestGaugeWidgetsUnderWindow() {
-		SettingsGroup root = host.mSettings.getSettings().getOptions();
-		SettingsGroup win = host.mWindows.get(0).getSettings();
-		if (root == null || win == null) {
-			return;
-		}
-		SettingsGroup gauges = null;
-		ArrayList<Option> rootOpts = root.getOptions();
-		for (int i = 0; i < rootOpts.size(); i++) {
-			Option o = rootOpts.get(i);
-			if (o != null && "gauge_widgets_group".equals(o.getKey())) {
-				gauges = (SettingsGroup) o;
-				rootOpts.remove(i);
-				break;
-			}
-		}
-		if (gauges == null) {
-			gauges = host.mSettings.getGaugeWidgetsOptionsGroup();
-		}
-		if (gauges == null) {
-			return;
-		}
-		for (Option o : win.getOptions()) {
-			if (o != null && "gauge_widgets_group".equals(o.getKey())) {
-				return;
-			}
-		}
-		win.addOption(gauges);
-	}
-
-	/** Place WindowToken settings right after Display (NAWS/orientation), else at index 0. */
-	private static int indexAfterDisplayGroup(final SettingsGroup root) {
-		if (root == null || root.getOptions() == null) {
-			return 0;
-		}
-		java.util.ArrayList<Option> opts = root.getOptions();
+	private static Option detachLeaf(SettingsGroup group, String key) {
+		ArrayList<Option> opts = group.getOptions();
 		for (int i = 0; i < opts.size(); i++) {
 			Option o = opts.get(i);
-			if (o == null) {
-				continue;
-			}
-			if ("display_group".equals(o.getKey()) || "Display".equals(o.getTitle())) {
-				return i + 1;
+			if (o instanceof SettingsGroup) {
+				Option nested = detachLeaf((SettingsGroup) o, key);
+				if (nested != null) {
+					return nested;
+				}
+			} else if (o != null && key.equals(o.getKey())) {
+				return opts.remove(i);
 			}
 		}
-		return 0;
+		return null;
 	}
 	/** Utility method that generates the font size necessary to fit 80 chars to the window width.
 	 * 

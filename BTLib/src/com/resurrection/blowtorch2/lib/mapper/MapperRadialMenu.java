@@ -88,6 +88,8 @@ public final class MapperRadialMenu {
 	public static final String ACTION_GMCP_GROW = "gmcpgrow";
 	public static final String ACTION_ARROW_LABELS = "arrowlabels";
 	public static final String ACTION_WINDOW_ECHO = "windowecho";
+	/** Hide the title bar and the resize handle. The window fill stays. */
+	public static final String ACTION_MINIMAL = "minimal";
 
 	/** @deprecated Close lives on the title-bar ✕ only. */
 	@Deprecated
@@ -199,8 +201,16 @@ public final class MapperRadialMenu {
 	 */
 	public static void showViewSync(ViewGroup parent, Listener listener, int opacity,
 			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho) {
+		showViewSync(parent, listener, opacity, gmcpOn, gmcpGrow, arrowLabels, windowEcho,
+				false);
+	}
+
+	public static void showViewSync(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho,
+			boolean minimal) {
 		Item[] items = {
 				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
+				new Item(ACTION_MINIMAL, "Minimal", minimal ? "on" : "off"),
 				new Item(ACTION_ARROW_LABELS, "Arrow labels", arrowLabels ? "on" : "off"),
 				new Item(ACTION_WINDOW_ECHO, "Window echo", windowEcho ? "on" : "off"),
 				new Item(ACTION_GMCP, "GMCP sync", gmcpOn ? "on" : "off"),

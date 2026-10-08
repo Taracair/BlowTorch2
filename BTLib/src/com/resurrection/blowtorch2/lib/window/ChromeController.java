@@ -370,6 +370,11 @@ public final class ChromeController {
 				child.setTranslationY(0f);
 				continue;
 			}
+			if (tagObj != null && (LastListPanel.LAYER_TAG.equals(tagObj.toString())
+					|| LastListPanel.SUGGEST_LAYER_TAG.equals(tagObj.toString()))) {
+				child.setTranslationY(0f);
+				continue;
+			}
 			if (tagObj != null && ChatPanelController.LAYER_TAG.equals(tagObj.toString())) {
 				child.setTranslationY(0f);
 				continue;
@@ -403,6 +408,17 @@ public final class ChromeController {
 		if (floatingChips != null) {
 			floatingChips.setTranslationY(activity.isSuggestionPanelPlaced()
 					? 0f : (inputbar != null ? inputbar.getTranslationY() : ty));
+		}
+		View lastFloat = activity.findViewById(R.id.input_last_float);
+		if (lastFloat != null) {
+			boolean ownPlace = activity.isLastFloatPlaced();
+			boolean stackedOnPlaced = !ownPlace
+					&& activity.isSuggestionPanelPlaced()
+					&& floatingChips != null
+					&& floatingChips.getVisibility() == View.VISIBLE;
+			lastFloat.setTranslationY(ownPlace || stackedOnPlaced
+					? 0f
+					: (inputbar != null ? inputbar.getTranslationY() : ty));
 		}
 	}
 

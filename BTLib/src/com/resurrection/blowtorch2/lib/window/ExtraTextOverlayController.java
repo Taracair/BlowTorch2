@@ -358,6 +358,9 @@ public class ExtraTextOverlayController {
 		if (activity.windowMap != null) {
 			activity.windowMap.put(token.getName(), win);
 		}
+		if (activity.rendererDebugOn()) {
+			win.setRendererDebug(true);
+		}
 		win.setSgr1Weight(activity.isSgr1Weight());
 		win.setVisibility(View.VISIBLE);
 		win.flushBuffer();

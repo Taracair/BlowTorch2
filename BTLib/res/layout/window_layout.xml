@@ -34,6 +34,8 @@
 
             <include layout="@layout/input_word_suggestions" />
 
+            <include layout="@layout/input_last_bar" />
+
             <include layout="@layout/input_edit_tools" />
 
             <FrameLayout
@@ -142,6 +144,7 @@
         <!-- Completion chips, when the player asks for them over the game text
              rather than inside the input chrome. See the layout's own comment. -->
         <include layout="@layout/input_word_suggestions_overlay" />
+        <include layout="@layout/input_last_float" />
 
     </FrameLayout>
 

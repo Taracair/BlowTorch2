@@ -26,15 +26,42 @@ public class ProtocolSurveyCommand extends SpecialCommand {
 		this.commandName = "protocols";
 	}
 
+	static final int SURVEY = 0;
+	static final int HELP = 1;
+	static final int ENABLE = 2;
+	static final int BAD = 3;
+
+	/** Blank is the survey. {@code enable} and its {@code on} synonym stay. */
+	static int classify(String raw) {
+		String arg = raw == null ? "" : raw.trim().toLowerCase(Locale.US);
+		if (arg.length() == 0) {
+			return SURVEY;
+		}
+		if (arg.equals("help") || arg.equals("?")) {
+			return HELP;
+		}
+		if (arg.equals("enable") || arg.equals("on")) {
+			return ENABLE;
+		}
+		return BAD;
+	}
+
 	@Override
 	public Object execute(Object o, Connection c) {
-		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
-		if (arg.equals("help") || arg.equals("?")) {
+		int kind = classify(o == null ? "" : o.toString());
+		if (kind == HELP) {
 			c.sendDataToWindow(help());
 			return null;
 		}
-		if (arg.equals("enable") || arg.equals("on")) {
+		if (kind == ENABLE) {
 			c.sendDataToWindow(enable(c));
+			return null;
+		}
+		if (kind == BAD) {
+			c.sendDataToWindow(getErrorMessage("Protocols command usage:",
+					".protocols          — what this world offered vs what is on\n"
+							+ ".protocols enable   — turn on offered-but-off switches\n"
+							+ ".protocols help"));
 			return null;
 		}
 		c.sendDataToWindow(report(c));
@@ -158,8 +185,8 @@ public class ProtocolSurveyCommand extends SpecialCommand {
 		return "\n" + Colorizer.getWhiteColor()
 				+ ".protocols          what this world offered vs what is on\n"
 				+ ".protocols enable   turn on offered-but-off switches\n"
-				+ "GMCP / MCP / MXP live under Options → Service → Protocols.\n"
-				+ "MTTS / MSDP / MSSP / MCCP live under Options → Service → Telnet.\n"
+				+ "GMCP / MCP / MXP live under Options → Protocols.\n"
+				+ "MTTS / MSDP / MSSP / MCCP live under Options → Protocols → Telnet.\n"
 				+ "Use OSC 8? is Options → Window. .msdp and .mssp dump caches.\n";
 	}
 

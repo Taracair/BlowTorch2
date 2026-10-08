@@ -42,6 +42,25 @@ public class PickCommandTest {
 	}
 
 	@Test
+	public void insertKeepsTheMode() {
+		assertEquals(PickCommand.MODE_ONCE, PickCommand.parseArgs("insert").mode);
+		assertTrue(PickCommand.parseArgs("insert").insert);
+		assertEquals(PickCommand.MODE_HOLD, PickCommand.parseArgs("hold insert").mode);
+		assertTrue(PickCommand.parseArgs("tap insert").insert);
+		assertTrue(PickCommand.parseArgs("insert button").insert);
+		assertEquals(PickCommand.MODE_BUTTON, PickCommand.parseArgs("insert button").mode);
+		assertEquals(PickCommand.MODE_BUTTON_DOUBLE,
+				PickCommand.parseArgs("button-double insert").mode);
+		assertTrue(PickCommand.parseArgs("button double insert").insert);
+		assertEquals(PickCommand.MODE_ONCE | PickCommand.INSERT_FLAG,
+				PickCommand.parseArgs("insert").packed());
+		assertFalse(PickCommand.parseArgs("hold").insert);
+		assertEquals(-1, PickCommand.parseArgs("off insert").mode);
+		assertEquals(-1, PickCommand.parseArgs("button hold").mode);
+		assertEquals(-1, PickCommand.parseArgs("button banana").mode);
+	}
+
+	@Test
 	public void loupeIsNotAPickMode() {
 		assertEquals(-1, PickCommand.parseMode("loupe"));
 		assertEquals(-1, PickCommand.parseMode("size"));

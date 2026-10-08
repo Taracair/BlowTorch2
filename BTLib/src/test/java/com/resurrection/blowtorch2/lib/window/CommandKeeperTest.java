@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.window;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
@@ -44,6 +45,31 @@ public class CommandKeeperTest {
 		assertEquals("list jewelry", k.getNext());
 		assertEquals("look", k.getNext());
 		assertEquals("north", k.getNext());
+	}
+
+	@Test
+	public void peekReadsBackFromTheNewestWithoutStepping() {
+		CommandKeeper k = new CommandKeeper(10);
+		k.addCommand("north");
+		k.addCommand("look");
+		k.addCommand("inventory");
+		assertEquals("inventory", k.peek(1));
+		assertEquals("look", k.peek(2));
+		assertEquals("north", k.peek(3));
+		assertNull(k.peek(4));
+		assertNull(k.peek(0));
+		assertEquals("inventory", k.getNext());
+	}
+
+	@Test
+	public void dropNewestRemovesOnlyTheFront() {
+		CommandKeeper k = new CommandKeeper(10);
+		k.addCommand("look");
+		k.addCommand("inventory");
+		k.dropNewest();
+		assertEquals("look", k.peekNewest());
+		assertEquals("look", k.peek(1));
+		assertNull(k.peek(2));
 	}
 
 	@Test

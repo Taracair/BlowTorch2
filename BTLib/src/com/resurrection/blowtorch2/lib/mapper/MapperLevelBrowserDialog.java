@@ -5,10 +5,14 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import android.app.AlertDialog;
+import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
+
+import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -16,6 +20,8 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Lists all {@link MapLevel}s: name, tile count, optional “via &lt;anchor&gt;”.
@@ -83,35 +89,38 @@ public final class MapperLevelBrowserDialog {
 			}
 		}
 
-		float density = context.getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
+		final Dialog dialog = openList(context);
+		((TextView) dialog.findViewById(R.id.titlebar)).setText("Floors");
+		LinearLayout body = (LinearLayout) dialog.findViewById(R.id.mapper_shell_body);
+		int pad = dip(context, 12);
 
 		TextView subtitleView = new TextView(context);
 		subtitleView.setText(editMode ? "Edit mode" : "Browse mode");
 		subtitleView.setTextSize(13f);
-		subtitleView.setTextColor(0xFFAAAAAA);
-		subtitleView.setPadding(0, 0, 0, pad / 2);
-		root.addView(subtitleView);
+		subtitleView.setTextColor(ContextCompat.getColor(context, R.color.chrome_description));
+		subtitleView.setPadding(pad, pad, pad, pad / 2);
+		body.addView(subtitleView);
 
 		final TextView hint = new TextView(context);
 		hint.setTextSize(12f);
-		hint.setTextColor(0xFFAAAAAA);
-		hint.setPadding(0, 0, 0, pad / 2);
-		root.addView(hint);
+		hint.setTextColor(ContextCompat.getColor(context, R.color.chrome_description));
+		hint.setPadding(pad, 0, pad, pad / 2);
+		body.addView(hint);
 
 		final ListView list = new ListView(context);
+		styleList(context, list);
 		final ArrayAdapter<String> adapter = new ArrayAdapter<String>(context,
-				android.R.layout.simple_list_item_1, labels);
+				android.R.layout.simple_list_item_1, labels) {
+			@Override
+			public View getView(int position, View convertView, ViewGroup parent) {
+				TextView tv = (TextView) super.getView(position, convertView, parent);
+				tv.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
+				return tv;
+			}
+		};
 		list.setAdapter(adapter);
-		LinearLayout.LayoutParams listLp = new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT,
-				(int) (320 * density));
-		list.setLayoutParams(listLp);
-		root.addView(list);
+		body.addView(list, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
 		final Button deleteBtn;
 		final Button renameBtn;
@@ -122,8 +131,10 @@ public final class MapperLevelBrowserDialog {
 					LinearLayout.LayoutParams.MATCH_PARENT,
 					LinearLayout.LayoutParams.WRAP_CONTENT);
 			renLp.topMargin = pad / 2;
+			renLp.leftMargin = pad;
+			renLp.rightMargin = pad;
 			renameBtn.setLayoutParams(renLp);
-			root.addView(renameBtn);
+			body.addView(renameBtn);
 
 			deleteBtn = new Button(context);
 			deleteBtn.setText("Delete…");
@@ -131,8 +142,10 @@ public final class MapperLevelBrowserDialog {
 					LinearLayout.LayoutParams.MATCH_PARENT,
 					LinearLayout.LayoutParams.WRAP_CONTENT);
 			delLp.topMargin = pad / 2;
+			delLp.leftMargin = pad;
+			delLp.rightMargin = pad;
 			deleteBtn.setLayoutParams(delLp);
-			root.addView(deleteBtn);
+			body.addView(deleteBtn);
 		} else {
 			deleteBtn = null;
 			renameBtn = null;
@@ -142,26 +155,35 @@ public final class MapperLevelBrowserDialog {
 		updateDeleteEnabled(deleteBtn, levels, selectedIndex[0]);
 		updateDeleteEnabled(renameBtn, levels, selectedIndex[0]);
 
-		AlertDialog.Builder builder = new AlertDialog.Builder(context)
-				.setTitle("Floors")
-				.setView(root)
-				.setNegativeButton("Close", null);
+		LinearLayout footer = (LinearLayout) dialog.findViewById(R.id.button_row);
 		if (editMode) {
-			builder.setNeutralButton("↑ nest", new DialogInterface.OnClickListener() {
+			Button nestUp = barButton(context, "↑ nest", false);
+			nestUp.setOnClickListener(new View.OnClickListener() {
 				@Override
-				public void onClick(DialogInterface d, int which) {
+				public void onClick(View v) {
 					host.floorUp();
+					dialog.dismiss();
 				}
 			});
-			builder.setPositiveButton("↓ nest", new DialogInterface.OnClickListener() {
+			Button nestDown = barButton(context, "↓ nest", true);
+			nestDown.setOnClickListener(new View.OnClickListener() {
 				@Override
-				public void onClick(DialogInterface d, int which) {
+				public void onClick(View v) {
 					host.floorDown();
+					dialog.dismiss();
 				}
 			});
+			footer.addView(nestUp);
+			footer.addView(nestDown);
 		}
-
-		final AlertDialog dialog = builder.create();
+		Button closeBtn = barButton(context, "Close", editMode);
+		closeBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		footer.addView(closeBtn);
 
 		list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 			@Override
@@ -247,7 +269,48 @@ public final class MapperLevelBrowserDialog {
 			});
 		}
 
+		EditorDialogChrome.applyFullScreen(dialog);
 		dialog.show();
+	}
+
+	private static Dialog openList(Context context) {
+		Dialog dialog = new Dialog(context, EditorDialogChrome.fullScreenTheme());
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		dialog.setCanceledOnTouchOutside(false);
+		Window window = dialog.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+		dialog.setContentView(R.layout.mapper_list_shell);
+		return dialog;
+	}
+
+	private static void styleList(Context context, ListView list) {
+		list.setBackgroundColor(ContextCompat.getColor(context, R.color.chrome_body));
+		list.setCacheColorHint(0x00000000);
+		list.setDivider(ContextCompat.getDrawable(context, R.drawable.editor_row_divider));
+		list.setDividerHeight(Math.max(1, dip(context, 1)));
+		list.setSelector(R.drawable.blue_frame_nomargin_nobackground);
+		list.setScrollbarFadingEnabled(false);
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 
 	private static void updateHint(TextView hint, boolean editMode,

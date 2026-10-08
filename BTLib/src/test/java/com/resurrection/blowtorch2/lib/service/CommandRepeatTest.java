@@ -141,4 +141,118 @@ public class CommandRepeatTest {
 		assertEquals(Arrays.asList("north", "north"),
 				CommandRepeat.expand(list("  #2 north")).segments());
 	}
+
+	@Test
+	public void pacedRepeatWaitsBetweenCopiesNotAfterTheLast() {
+		CommandRepeat.Result r = CommandRepeat.expand(list("#3/1s north"));
+		assertEquals(Arrays.asList(
+				"north", ".wait 1s", "north", ".wait 1s", "north"),
+				r.segments());
+		assertNull(r.warning());
+		CommandWait.Result wait = CommandWait.parseSegment(r.segments().get(1));
+		assertSame(CommandWait.Kind.DELAY, wait.kind);
+		assertEquals(1000L, wait.delayMs);
+	}
+
+	@Test
+	public void pacedRepeatKeepsTheRestOfTheBatchAfterTheLastCopy() {
+		CommandRepeat.Result r =
+				CommandRepeat.expand(list("stand", "#2/1s kick troll", "sit"));
+		assertEquals(Arrays.asList(
+				"stand", "kick troll", ".wait 1s", "kick troll", "sit"),
+				r.segments());
+		assertNull(r.warning());
+	}
+
+	@Test
+	public void oneCopyWithAGapSendsTheCommandOnce() {
+		assertEquals(Arrays.asList("look"),
+				CommandRepeat.expand(list("#1/2s look")).segments());
+	}
+
+	@Test
+	public void bareNumberGapIsSeconds() {
+		CommandRepeat.Result r = CommandRepeat.expand(list("#2/5 get all"));
+		assertEquals(Arrays.asList("get all", ".wait 5", "get all"), r.segments());
+		assertEquals(5000L, CommandWait.parseSegment(".wait 5").delayMs);
+	}
+
+	@Test
+	public void millisecondAndCombinedGapsKeepTheirText() {
+		assertEquals(Arrays.asList("kick troll", ".wait 500ms", "kick troll"),
+				CommandRepeat.expand(list("#2/500ms kick troll")).segments());
+		assertEquals(Arrays.asList("wave", ".wait 5m10s", "wave"),
+				CommandRepeat.expand(list("#2/5m10s wave")).segments());
+		assertEquals(Arrays.asList("look", ".wait 1.5s", "look"),
+				CommandRepeat.expand(list("#2/1.5s look")).segments());
+	}
+
+	@Test
+	public void anHourIsTheLongestGap() {
+		CommandRepeat.Result ok = CommandRepeat.expand(list("#2/1h wave"));
+		assertEquals(Arrays.asList("wave", ".wait 1h", "wave"), ok.segments());
+		assertNull(ok.warning());
+		CommandRepeat.Result over = CommandRepeat.expand(list("#2/2h wave"));
+		assertEquals(Arrays.asList("#2/2h wave"), over.segments());
+		assertTrue(over.warning().contains("longer than 1h"));
+		CommandRepeat.Result sum = CommandRepeat.expand(list("#2/1h1ms wave"));
+		assertEquals(Arrays.asList("#2/1h1ms wave"), sum.segments());
+		assertTrue(sum.warning().contains("longer than 1h"));
+	}
+
+	@Test
+	public void aZeroGapIsRefusedRatherThanCancellingWaits() {
+		CommandRepeat.Result r = CommandRepeat.expand(list("#3/0s north"));
+		assertEquals(Arrays.asList("#3/0s north"), r.segments());
+		assertTrue(r.warning().contains("more than zero"));
+		assertEquals(Arrays.asList("#2/0 north"),
+				CommandRepeat.expand(list("#2/0 north")).segments());
+		assertEquals(Arrays.asList("#2/stop north"),
+				CommandRepeat.expand(list("#2/stop north")).segments());
+	}
+
+	@Test
+	public void aGapThatIsNotADurationIsLeftAsTyped() {
+		CommandRepeat.Result r = CommandRepeat.expand(list("#2/abc north"));
+		assertEquals(Arrays.asList("#2/abc north"), r.segments());
+		assertTrue(r.warning().contains("not understood"));
+	}
+
+	@Test
+	public void pacedCountStillStopsAtOneHundred() {
+		CommandRepeat.Result over = CommandRepeat.expand(list("#500/1s north"));
+		assertEquals(Arrays.asList("#500/1s north"), over.segments());
+		assertTrue(over.warning().contains("allowed 1-100"));
+		CommandRepeat.Result ok = CommandRepeat.expand(list("#100/1s x"));
+		assertEquals(100 + 99, ok.segments().size());
+		assertEquals("x", ok.segments().get(0));
+		assertEquals(".wait 1s", ok.segments().get(1));
+		assertEquals("x", ok.segments().get(ok.segments().size() - 1));
+		assertNull(ok.warning());
+	}
+
+	@Test
+	public void doubledHashDoesNotPace() {
+		assertEquals(Arrays.asList("#5/1s north"),
+				CommandRepeat.expand(list("##5/1s north")).segments());
+	}
+
+	@Test
+	public void pacedHoldoverIsPassedThrough() {
+		assertEquals(Arrays.asList("#2/1s north~"),
+				CommandRepeat.expand(list("#2/1s north~")).segments());
+	}
+
+	@Test
+	public void pacedBodyKeepsItsSpacing() {
+		assertEquals(Arrays.asList(
+				"get all from   bag", ".wait 1s", "get all from   bag"),
+				CommandRepeat.expand(list("#2/1s get all from   bag")).segments());
+	}
+
+	@Test
+	public void aGapWithNoCommandIsNotARepeat() {
+		assertEquals(Arrays.asList("#5/1s"),
+				CommandRepeat.expand(list("#5/1s")).segments());
+	}
 }

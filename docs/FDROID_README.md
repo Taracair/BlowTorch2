@@ -95,7 +95,7 @@ Not used for:
 You do **not** have to grant it. You can play with network + notification/foreground-service permissions. Without it, files go under app-specific storage; **Pick file…** / **Choose location…** open the system picker without asking for All files access first.
 
 Grant only if you want the shared `/BlowTorch/` path.  
-**Options → Miscellaneous → Manage Storage Access**. Revoke anytime in system app settings.
+**Options → Files → Manage Storage Access**. Revoke anytime in system app settings.
 
 SAF (folder picker) is already used for many pickers and is more privacy-friendly. A SAF-only default later would avoid declaring All files access; for now the absolute `/BlowTorch/` path matches how a lot of players already work.
 

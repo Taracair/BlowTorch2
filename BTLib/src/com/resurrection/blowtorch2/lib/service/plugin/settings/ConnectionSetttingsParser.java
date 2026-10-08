@@ -77,6 +77,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_rank,
 		word_complete_pairs,
 		word_complete_where,
+		word_complete_order,
 		word_complete_opacity,
 		speak_quiet_typing,
 		prompt_bar,
@@ -703,6 +704,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						// input_history_size above did.
 						if((Integer)opt.getValue()
 								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_order:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_ORDER) {
 							dooutput = true;
 						}
 						break;

@@ -5,22 +5,27 @@ bottom of Options filters as you type; tap a result to jump there and flash the 
 
 | Group | Purpose |
 |-------|---------|
+| **Window** | Drill in: **Text** (font, colours, wrap, light theme, timestamps, loupes), **Layout** (padding, scrolling, the keyboard, the ⋮ button), **Links**, **Input bar** (Edit and Send) |
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: **Font** (curated faces + Load from storage; not a dump of `/system/fonts/`), buffer, word wrap, **Text width (% of screen)** (`.width`; over 100 drag sideways), **Text avoids on-screen buttons?** (`.avoidbuttons`; opt-in wrap around the grid pad and floating copies, maps may break), **Avoid-buttons break** (`.avoidbuttons letters|words`; default letters), **Light theme?** (`.light`; paper and dark ink), **Light paper shade (1–5)** (`.light 1–5`; 2 is the original warm grey), **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Line timestamps?** (`.timestamp`; arrival time on the right of each line), **Timestamps in session log?**, **Timestamp parts**, **Newest text at top?**, **Avoid camera cutout (portrait)?**, **Avoid camera cutout (landscape)?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Android fling?** (off; coast after lift using swipe speed, like a web page; turns off **Scroll sensitivity** while on), **Scroll sensitivity** (50–500%), **Pick loupe size (%)** / **Pick loupe zoom (%)** (`.pick` magnifier; also `.pick loupe size N` / `zoom N`), **Copy loupe size (%)** / **Copy loupe zoom (%)** (two-finger copy magnifier), **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
-| **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, **Strip accents when sending** / `.unaccent`, …) |
-| **Service** | Encoding, **Heavier MUD bold (SGR 1)?** (off; world's `[1m` also heavier), background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
+| **Typing** | The input bar: history, keep last, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation. Edit and Send are under Window → Input bar |
+| **Suggestions** | Words the game just used. Four section titles stay on that page |
+| **Gestures** | Screen-wide swipes on the game text (`.gesture`) |
+| **Panes** | Extra text windows, gauges, the prompt line, floating buttons |
 | **Chat** | Unread mark on ⋮, a line in the game window, Android notifications, keep-at-most-N messages |
-| **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button** (corner / opacity / background / ring) |
-| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
+| **Sound** | The bell, trigger sounds, and silence while you type |
+| **Connection** | Reconnect, Wi-Fi, encoding, echo, the session log, persistent connection |
+| **Protocols** | **Use GMCP? / Use MCP? / Use MXP?** and Debug Telnet on the page; **GMCP**, **MCP**, and **Telnet** drill in |
+| **Mapper** | Enable, follow, float, opacity, recording, path auto-send, Use GMCP Room Sync, **Configure Room Sync…**. Regex, toolbar, levels, and move effects sit at the bottom |
+| **Device** | Shake, light, battery, and the variables triggers can read |
+| **Files** | Import, export, reset, and where settings files go |
 
-Plugins add their own pages, which appear only while that plugin is loaded:
+Plugins add their own pages last, only while that plugin is loaded:
 **Button** (`button_window`) and **Starter Tutorial** (`starter_tutorial`) in the
 Free build — both below.
 
 ## Extra text windows
 
-Under **Options → Window → Extra text windows**:
+Under **Options → Panes → Extra text windows**:
 
 | Option | Notes |
 |--------|--------|
@@ -33,7 +38,7 @@ Slot **name** is the public id shared with gag/replace retarget, Lua
 and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
 
 **Scroll speed** is per window. The first choice, *Same as main window*, is the
-default and follows **Options → Window → Scroll sensitivity** (and **Android
+default and follows **Options → Window → Layout → Scroll sensitivity** (and **Android
 fling?** when that is on) — so that one setting still steers every extra window
 at once, and a slot only breaks away when you set it to something specific.
 Changing it applies immediately; you do not have to reopen the window.
@@ -46,7 +51,7 @@ custom formatting still uses a `%Module` literal trigger + `NoteToWindow`
 
 ## Widgets
 
-Under **Options → Window → Widgets**:
+Under **Options → Panes → Widgets**:
 
 | Option | Notes |
 |--------|--------|
@@ -59,7 +64,7 @@ GMCP sources need **Use GMCP?** on (off for new worlds). MXP `<GAUGE>` does not 
 
 ## Chat
 
-Under **Options → Chat** (before Bell). Own lines from Send are never announced.
+Under **Options → Chat**. Own lines from Send are never announced.
 
 | Option | Default | Notes |
 |--------|---------|--------|
@@ -87,13 +92,13 @@ Default for import/export, backups, launcher lists, session logs, maps, and app/
 and mixing it into `blowtorch2.log` used to push the crash history out of the
 file you actually want after a crash. Both rotate at 2 MB.
 
-On Android 11+ this needs **All files access** once: **Options → Miscellaneous → Manage Storage Access** (opens the system permission screen). Without it the app falls back to `Android/data/…/files/BlowTorch/` with the same subfolders.
+On Android 11+ this needs **All files access** once: **Options → Files → Manage Storage Access** (opens the system permission screen). Without it the app falls back to `Android/data/…/files/BlowTorch/` with the same subfolders.
 
 ## GMCP
 
 GMCP is an optional structured out-of-band channel (telnet option 201). **Use GMCP?**
 starts **off** for new worlds (existing profiles that never saved the key keep it on).
-Enable it under Options → Service → Protocols. Use **Manage modules…** (under Options → Service → GMCP) to pick what goes in
+Enable it under Options → Protocols. Use **Manage modules…** (under Options → Protocols → GMCP) to pick what goes in
 `Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
 from traffic. **Supports String (advanced)** is the raw list if you prefer editing
 it by hand. **Log GMCP?** writes the handshake and every packet to
@@ -120,7 +125,7 @@ persistent connection).
 ## MCP
 
 Mud Client Protocol — in-band `#$#` messages, used by a number of MOOs.
-**Not** the same as GMCP. **Use MCP?** under **Options → Service → Protocols**. Details under **Options → Service → MCP**. All advanced
+**Not** the same as GMCP. **Use MCP?** under **Options → Protocols**. Details under **Options → Protocols → MCP**. All advanced
 flags default off except omit-from-output (hides `#$#` even when Use is off) and auto-negotiate:
 
 | Option | Default | Notes |
@@ -140,9 +145,9 @@ Helpers: `.mcp ask`, `.mcp cord …`, `.mcp ping`, `.mcp client`, `.mcp send`.
 
 ## Protocols and Telnet
 
-**Use GMCP? / Use MCP? / Use MXP?** sit together under **Options → Service → Protocols**. `.protocols` reports what this world offered versus what is on; `.protocols enable` turns on offered-but-off switches.
+**Use GMCP? / Use MCP? / Use MXP?** sit together under **Options → Protocols**. `.protocols` reports what this world offered versus what is on; `.protocols enable` turns on offered-but-off switches.
 
-**MTTS, MSDP, MSSP and MCCP** sit under **Options → Service → Telnet**. **MTTS and MCCP
+**MTTS, MSDP, MSSP and MCCP** sit under **Options → Protocols → Telnet**. **MTTS and MCCP
 are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
 them. Reconnect after changing any of these:
 
@@ -168,12 +173,12 @@ echoing back, or on a disconnect. `.echo on` / `.echo off` is the manual
 override for a server that takes echo and never returns it, and the next change
 from the server wins over the command.
 
-Not the same as **Options → Service → Local Echo?**, which decides whether your
+Not the same as **Options → Connection → Local Echo?**, which decides whether your
 own commands are printed into the game window at all.
 
 ## Mapper
 
-Session group **Options → Mapper** (also overflow → **Map** / `.map`):
+Session group **Options → Mapper** (also overflow → **Map** / `.map`). Policy, match by room number, absolute coordinates, auto-grow, and create-exit neighbors are edited in **Configure Room Sync…**. They are not separate rows.
 
 | Option | Notes |
 |--------|--------|
@@ -204,13 +209,13 @@ full `.map` command list. Capture uses **Options → Mapper** regexes via
 `.map capture preview|apply`, or `.map capture` for a one-off edit of those
 patterns.
 
-## Service
+## Bold from the world
 
-**Heavier MUD bold (SGR 1)?** is off by default. When on, a world `[1m` still uses the bright palette and also redraws heavier (the same overlay as trigger Color Bold). Glyphs can spill; bold can look messy.
+**Options → Window → Text → Heavier MUD bold (SGR 1)?** is off by default. When on, a world `[1m` still uses the bright palette and also redraws heavier (the same overlay as trigger Color Bold). Glyphs can spill; bold can look messy.
 
 ## Session log
 
-- Enable: **Options → Service → Log Session to File?**
+- Enable: **Options → Connection → Log Session to File?**
 - Blank directory = `/BlowTorch/session_logs/`. Use **Browse…** for SAF or an absolute path.
 - Incremental plain text of **incoming game output** (ANSI stripped). Tick
   **Include Local Echo in Session Log?** to also append what Local Echo paints
@@ -235,9 +240,9 @@ patterns.
 
 ## Background connection / battery
 
-- **Keep Wifi Alive?** (Service) holds a Wi‑Fi lock while connected (`WIFI_MODE_FULL_HIGH_PERF`). Does nothing on mobile data.
-- **Keep CPU Awake?** (Service, default on) holds a partial CPU wake lock while this world is connected, handshaking, or waiting to reconnect. Off saves some battery, but `.wait`, triggers and timers may not fire on time with the screen off. Other worlds that still have it on keep the lock. The duration ticker does not drop that lock.
-- **Notification stack** (Service, default **One stack**) puts the connection, trigger alerts and chat in one shade group. **Separate bars** gives connection, alerts and chat each their own bar. With several worlds open, the world you are in decides. A trigger set to **Spawn new** stays on its own bar either way. The group header goes away when that stack is empty. The connection row is not the header, so its server buttons stay on the expanded notification.
+- **Keep Wifi Alive?** (Connection) holds a Wi‑Fi lock while connected (`WIFI_MODE_FULL_HIGH_PERF`). Does nothing on mobile data.
+- **Keep CPU Awake?** (Connection, default on) holds a partial CPU wake lock while this world is connected, handshaking, or waiting to reconnect. Off saves some battery, but `.wait`, triggers and timers may not fire on time with the screen off. Other worlds that still have it on keep the lock. The duration ticker does not drop that lock.
+- **Notification stack** (Connection, default **One stack**) puts the connection, trigger alerts and chat in one shade group. **Separate bars** gives connection, alerts and chat each their own bar. With several worlds open, the world you are in decides. A trigger set to **Spawn new** stays on its own bar either way. The group header goes away when that stack is empty. The connection row is not the header, so its server buttons stay on the expanded notification.
 - **Battery optimization…** opens the system exemption flow; a one-shot dialog
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.
@@ -282,9 +287,9 @@ open, so with two MUDs connected one shake sends its command twice.
 From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
 `fire <reading>`, `watch on|off`, `threshold …`) and `.probe sensors`.
 
-## Miscellaneous
+## Menu button, reconnect, and files
 
-- **Overflow button corner** — which corner the gameplay **⋮** sits in.
+- **Overflow button corner** (Options → Window → Layout) — which corner the gameplay **⋮** sits in.
   Bottom right is the default (above the input bar). Bottom left stays above
   the input bar on the other side. Top corners sit under the status bar and
   do not rise with the keyboard. The editor strip (Undo / Done) follows; the
@@ -295,11 +300,11 @@ From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
   or keep a ring with no fill. Opacity stops at 15% on purpose: the button
   keeps its whole 48dp tap area however faint it looks, and an invisible ⋮ is
   a corner of the screen that quietly eats taps.
-- **Persistent Connection?** — only with **Auto Reconnect** on: after a
+- **Persistent Connection?** (Options → Connection) — only with **Auto Reconnect** on: after a
   brief network loss wait for connectivity before retrying, and treat a
   peer close as a flap. Does not retry on its own, and does not change the
   **Auto Reconnect Tries** number.
-- **Export Settings** / **Import Settings** — setup and migration jobs rather
+- **Export Settings** / **Import Settings** (Options → Files) — setup and migration jobs rather
   than things you reach for mid-session; they sit beside the storage settings
   they depend on. **Reset Settings** is here too (throws away this world's
   settings after a confirm).
@@ -345,8 +350,8 @@ list but not deleted.
 ## Storage
 
 - **Manage Storage Access** grants All files access and creates the `/BlowTorch/` tree.
-- **Default Settings Directory** (Miscellaneous): blank = `/BlowTorch/settings/`.
-- **Export Settings** / **Import Settings** (Miscellaneous): SAF pickers plus default-directory actions.
+- **Default Settings Directory** (Files): blank = `/BlowTorch/settings/`.
+- **Export Settings** / **Import Settings** (Files): SAF pickers plus default-directory actions.
 - Launcher **Export Server List** / **Backup All Settings** use `/BlowTorch/launcher/` and `/BlowTorch/backups/`, with SAF **Choose location…** as an alternative.
 - `.settings` from the input bar is the no-cable route to the `.bak` copy kept beside this world's settings file in private app storage, refreshed on every save: `.settings` names the file and the date and size of the kept copy, `.settings backup` saves now and refreshes it, `.settings restore` puts it back and reloads. For a copy you can move off the phone, use Export or the launcher's **Backup All Settings** instead.
 
@@ -395,26 +400,26 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 ## Input bar growth
 
-- **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
+- **Options → Typing → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Hyphenate long words?** (default off) — with Grow on, a word that does not fit the space left on the line breaks with a drawn hyphen, including a second long word that would otherwise move down whole. Send, copy and suggestions still see the whole word. **Hyphenation language** chooses the break rules for that hyphen. English is the default. Phone language follows the phone when rules for it are built in, otherwise English. **Hyphenate more often?** allows 2 letters before the hyphen; off needs 5. `.hyphen on|off`, `.hyphen lang en|phone`, `.hyphen full on|off`. The break uses the width already left of Edit and Send. A password line does not break.
-- **Global gestures:** Options → Input → Global gestures. `.gesture` prints the mode. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off` (refused in Classic and Two fingers, the same as the grey row), `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`. `.editbuttons` opens Edit buttons. Classic (the default) is unchanged: one finger scrolls, two fingers copy.
-- **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **Light theme:** `.light on|off|toggle|1-5|shade N`. Five papers (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Game colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window.
+- **Global gestures:** Options → Gestures. `.gesture` prints the mode. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off` (refused in Classic and Two fingers, the same as the grey row), `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`. `.editbuttons` opens Edit buttons. Classic (the default) is unchanged: one finger scrolls, two fingers copy.
+- **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window → Text.
+- **Light theme:** `.light on|off|toggle|1-5|shade N`. Five papers (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Game colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Text.
 - **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). Hold where several tappable words sit close together (OSC 8, MXP, or a Tappable Word trigger) and a small loupe appears so you can slide to the one you meant. `.probe osc8` dumps a tappable sample without a MUD.
-- **Pick loupe:** `.pick loupe` prints size and zoom. `.pick loupe size N` (50–200, default 118) and `.pick loupe zoom N` (150–350, 200 = 2×). Also Options → Window. During `.pick hold`, a second finger cancels that pick so you can scroll (two fingers with pick off still copy). Bar prefix: `fix ` appends the word; `fix $1 helmet` plus pick `iron` sends `fix iron helmet` (`$1` / `$0` / `$word`).
-- **Copy loupe:** `.copy` / `.copy loupe` prints size and zoom. `.copy loupe size N` (50–200, default 118) and `.copy loupe zoom N` (150–350, 200 = 2×). Also Options → Window. Copy / swap / close sit outside the circle. With **Text width** over 100, dragging the magnifier to the right or left edge pans the canvas.
+- **Pick loupe:** `.pick loupe` prints size and zoom. `.pick loupe size N` (50–200, default 118) and `.pick loupe zoom N` (150–350, 200 = 2×). Also Options → Window → Text. During `.pick hold`, a second finger cancels that pick so you can scroll (two fingers with pick off still copy). Bar prefix: `fix ` appends the word; `fix $1 helmet` plus pick `iron` sends `fix iron helmet` (`$1` / `$0` / `$word`). `.pick insert` (also `hold insert`, `button insert`, `button-double insert`) puts that line in the bar and sends nothing.
+- **Copy loupe:** `.copy` / `.copy loupe` prints size and zoom. `.copy loupe size N` (50–200, default 118) and `.copy loupe zoom N` (150–350, 200 = 2×). Also Options → Window → Text. Copy, swap ends, close, and new trigger sit outside the circle. With **Text width** over 100, dragging the magnifier to the right or left edge pans the canvas.
 - **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
 - **`.options`** — opens the Options screen, same as ⋮. Put it on a button.
-- **`.widget` / `.gauge`** — overlay HP/mana/timer gauges. Options → Window → Widgets. See the user manual.
+- **`.widget` / `.gauge`** — overlay HP/mana/timer gauges. Options → Panes → Widgets. See the user manual.
 - **`.buttonopacity` / `.buttonsopacity`** — force every tile opaque until `restore`. Edit buttons pauses a 0% override so the pad is visible.
-- **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
+- **Edit / Send:** side-by-side when both are shown (Options → Window → Input bar → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`
 
 ## Lowercase start of sent commands
 
-- **Options → Input → Lowercase start of sent commands** (default off) — for
+- **Options → Typing → Lowercase start of sent commands** (default off) — for
   case-sensitive worlds: softens only the first letter of each outbound command
   (`Look` → `look`). Mid-line text is unchanged (`say Hello` stays `say Hello`).
   Passwords are never rewritten.
@@ -424,7 +429,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 ## Strip accents when sending
 
-- **Options → Input → Strip accents when sending** (default off) — folds Latin
+- **Options → Typing → Strip accents when sending** (default off) — folds Latin
   letters with marks on the way to the game (`usiądź przy stole` →
   `usiadz przy stole`). Local echo shows the folded form; the input bar
   still shows what you typed. Passwords are never rewritten. Lua
@@ -435,13 +440,12 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 ## Word completion
 
 Completes mob / player / item words the world just used, which the soft keyboard
-never learns. It lives under **Options → Input → Suggestions**; each switch
+never learns. It lives under **Options → Suggestions**; each switch
 has a dot form on `.suggest`. Nearby misspellings, skip-head, the next
 word, and order by place in the line are on by default. The rest wait until
 you ask.
 
-All of these live under **Options → Input → Suggestions** — one feature with
-seven switches was making the Input page a wall.
+All of these live under **Options → Suggestions**.
 
 - **Complete words the game used** — `.suggest on|off`. While off, incoming text
   is not even sent to the completer, so it costs nothing.
@@ -478,11 +482,12 @@ seven switches was making the Input page a wall.
   it** — the ghost is a target, not just a hint. Drawn only, never inserted, so
   what you send is exactly what you typed.
   - A continuation shows only the missing letters: `gri` with `zzled` behind it.
-  - A forgiven typo shows the whole word, dimmed, with no arrow and no gap:
+  - A forgiven typo shows the whole word, dimmed, with a space in front:
     `grzld` then `grizzled`. Tapping replaces what you typed.
-  - The first suggestion sits against the text, in the middle of a line and
-    at the end. `.suggest split on` draws a short mark between the dimmed
-    words. Off, a space is enough. The little numbers stay either way.
+  - The rest of the word you are typing stays glued. A different word has
+    one space in front (`kill` then `goblin`), and not a second if you
+    already typed one. Suggestions on the same line are separated by a
+    space. The little numbers stay.
   - If it does not fit the rest of the line, the bar grows by one row and the
     rest continues there, cut with `…` when even that row is short.
 - **Complete at the cursor** — `.suggest caret on|off` (also `.suggest cursor`).
@@ -500,6 +505,11 @@ seven switches was making the Input page a wall.
   nothing moves. Turn it off to get the in-layout strip back. Either way the
   panel now waits a moment before hiding, rather than blinking off on the first
   prefix that matches nothing.
+- **Bar of suggestions** — `.suggest where floating|bar|list|off`. `list` is a
+  window like recent commands: a tap puts that word in the bar and does not
+  send it. The gear sets opacity, font size, lines, wrap, tappable rows, a
+  minimal frame, and keeping the fill. `.suggest where next` steps floating,
+  bar, list, off.
 - **Keep the suggestion bar in place** — `.suggest persist on|off`. Leaves the
   floating bar up even with nothing to suggest, so the chips change inside
   something that does not move instead of appearing under your thumb. Empty it
@@ -519,7 +529,7 @@ seven switches was making the Input page a wall.
 
 ## Prompt bar
 
-- **Prompt on its own bar** — `.prompt on|off`, **Options → Input**, off by
+- **Prompt on its own bar** — `.prompt on|off`, **Options → Panes**, off by
   default. A MUD prompt is the line the world never finishes (your HP/EN line,
   resent after every command); on, it sits in one fixed place above the input bar
   instead of repeating down the game window.

@@ -98,9 +98,9 @@ truth) rather than relying on being told to clear it.**
 ## 4. Settings serialisation
 
 `ConnectionSettingsIO.buildSettingsPage` nests the main window's `SettingsGroup`
-into root options, and `nestExtraTextUnderWindow` nests the extra-text group into
-the window group. Good for the Options menu, confusing for serialisation,
-because both writers walk recursively:
+into root options. Extra text and widgets live under Panes; connection keys may
+still sit under Window (colour cull, SGR 1 weight, the overflow button,
+tap-menu opacity), and both writers walk recursively and skip foreign keys:
 
 - `WindowTokenParser` owns window keys, writes them inside `<window>`.
 - `ConnectionSetttingsParser` owns connection keys, writes them in `<options>`.

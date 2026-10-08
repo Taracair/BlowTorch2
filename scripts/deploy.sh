@@ -17,6 +17,15 @@ cd "$(dirname "$0")/.."
 # Gradle 8.2 / AGP 8.2. CachyOS default java is 26; jlink fails. Pin 17.
 . scripts/java-home.sh || exit 1
 
+# A linked worktree installing replaces the phone APK with that branch.
+main_tree=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
+this_tree=$(git rev-parse --show-toplevel)
+if [ "$this_tree" != "$main_tree" ]; then
+  echo "NOT installed: $this_tree is a linked worktree."
+  echo "Merge onto staging and install from $main_tree."
+  exit 1
+fi
+
 ADB="${ADB:-$HOME/Android/Sdk/platform-tools/adb}"
 APK="BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk"
 

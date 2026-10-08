@@ -1,0 +1,133 @@
+---
+description: Player-facing windows, dot commands, and Options stay on one set of shapes
+globs:
+  - "**/*Dialog.java"
+  - "**/EditorDialogChrome.java"
+  - "**/EditorHelp.java"
+  - "**/LastListPanel.java"
+  - "**/res/layout/*.xml"
+  - "**/function/*Command.java"
+  - "**/HelpCommand.java"
+  - "**/ConnectionSettingsPlugin.java"
+  - "**/ConnectionSettingsIO.java"
+  - "**/WindowToken.java"
+  - "**/OptionsDialog.java"
+  - "**/startertutorial.lua"
+  - "docs/user-manual.md"
+  - "docs/options-guide.md"
+---
+
+# Player-facing consistency
+
+A new screen, dot command, or Options row uses a shape that already exists.
+Pick one. Do not invent a parallel chrome, a second grammar, or a new menu
+style.
+
+If this rule did not attach and the player will see the change, follow it anyway.
+
+## Windows
+
+Seven kits. `EditorDialogChrome` only sets size and theme. The words below
+are still the caller's job. Title treatment is `BlowTorch.Chrome.Title`
+(42dip, dark bar). Do not paste a new hex colour.
+
+| Kit | When | Chrome |
+|---|---|---|
+| List | Pick or create a row, then leave | Full screen. Footer: one create verb, optional Refresh, `?`, More, **Close**. Search just above the footer, or none. |
+| Form | Write one thing | **Cancel** discards, optional `?`, **Done** writes and closes. Long form full screen. Short form wrap-height. |
+| Read | Read, not save | **Close**, plus only text navigation (Back, Older, Newer). Search under the title. Help and session logs are full screen. The small `?` card (`EditorHelp`) stays wrap-height. |
+| Overlay window | A window on the game | Sentence-case title, drag, optional gear, `ic_window_close`. No Done. Recent commands and the suggestion list are this. |
+| Chip strip | Chips over the game, or a strip in the layout | Grip and chips. No title. Suggestion float, recent-command float, and the recent-command bar are this. |
+| Confirm | One question | Themed `BlowTorch_Dialog`. **Cancel** and one verb. A message you only acknowledge uses **Close**. |
+| Measure | Wave the phone, read a number | One verb and **Close**. |
+
+**Done** means write. **Close** means leave. **Cancel** means discard.
+**Send** is only the MCP editor that transmits.
+
+`list`, `float`, and `bar` are places. `list` is the overlay window.
+`float` is chips over the game. `bar` is the strip in the layout.
+Suggestions: `.suggest where list|floating|bar|off`. The suggestion-list
+gear sets opacity, font, lines, wrap, tappable, minimal frame, and keep
+opacity. It does not set how many commands are kept. Recent commands:
+`.lastlist` (the window), `.lastlist float` or `.lastfloat` (chips; `off`
+hides them; the grip drags them on its own), `.lastlist bar`
+(the same bar as `.lastbar`). Do not invent a fourth place name.
+
+Mapper screens and Options sub-dialogs use these shells, not a platform
+`AlertDialog`. A second action (renegotiate, Save for host) stays its own
+button. Done does not start doing that action.
+
+Search stays at the bottom of a list and under the title of a document.
+
+## Dot commands
+
+The `.commands` one-liner says what the bare name does, in the first clause.
+
+- A saved on/off prints status and does not flip. The words are `on`, `off`,
+  and `toggle`. This includes `.editpanel`, `.fullscreen`, `.map record`,
+  `.map echo`, `.map oneway`, `.map gmcp`, and `.map gmcp grow`.
+- A summon runs: `.lastlist`, `.search`, `.options`. `.chat` toggles;
+  `.chat open` opens and stays open; `.chat close` closes and stays closed.
+- A one-shot runs: `.ping`, `.disconnect`. Extra words are usage. They do
+  not still run the action.
+- A language with many verbs (`.map`, `.window`, `.widget`, `.trigger`,
+  `.alias`, `.gmcp`, `.mcp`) prints a short status when one exists, otherwise
+  usage. Opening stays a verb (`.map open`, `.window show`). `help` is the
+  wall. `.trigger` has no `list`.
+
+An unknown word, including a trailing word after a valid `on`, is the red
+usage line. It is not sent, and it does not change state.
+
+`true` / `false` / `1` / `0` / `yes` / `no` / `enable` / `disable` stay
+working on commands that already accept them. Do not document them. Do not
+add them to a new command.
+
+`.pick` and `.grabber` stay modes. `on` means keep going, not a saved
+preference.
+
+A bare number keeps one meaning, and the one-liner states it. `.suggest 5`
+takes chip 5. `.suggest show 5` is how many are offered. `.lastbar 5` is
+how many chips, and it turns the bar on. `.lastfloat 5` is how many
+recent-command chips, and it shows them. `.lastfloat length 12` is how
+many characters of each (3–40). `.lastlist float 5` and `.lastlist float
+length 12` are the same.
+
+`.suggest where floating|bar|list|off` is where suggestions sit. `.suggest
+where next` steps floating, bar, list, off. The first step from floating
+is still the bar. `.lastlist frame` hides that one window's title, gear,
+and close. Do not add `frame` to a window that does not have that chrome.
+`.lastlist float off` and `.lastfloat off` hide the recent-command chips.
+`on` shows them. `toggle` flips. Dragging that grip moves the chips whether
+or not suggestions are floating.
+
+`.togglefullscreen` still flips on every call, so old buttons keep working.
+New fullscreen control is `.fullscreen`.
+
+## Options
+
+Pages are drill-ins. A group's description is the one-line preview of what
+is inside. Do not add an accordion.
+
+Do not rename a settings key. Do not reorder a `ListOption`'s entries. The
+saved value is the index.
+
+A window key (`WindowToken.OPTION_KEY`) stays inside the main window
+`SettingsGroup`. Moved out, neither saver writes it. A connection key may
+sit on a root page or nested under Window. Both savers recurse and skip
+foreign keys. Extra text and widgets live under Panes.
+
+Put a new row on the page it belongs to: Text, Layout, Links, Input bar,
+Typing, Suggestions, Gestures, Panes, Chat, Sound, Connection, Protocols,
+Mapper, Device, Files. Button and Starter Tutorial stay the plugin pages
+at the end.
+
+A description is one sentence: what changes on screen or on the wire. No
+paragraph. No dot-command tail.
+
+A row hidden from the menu stays in the tree (`HIDDEN_OPTION_KEYS`), or it
+stops being saved.
+
+When a path the player can read changes, update `docs/user-manual.md` and
+`BTLib/res/raw/user_manual.txt` together (they are the same file),
+`docs/options-guide.md`, the starter tutorial, and the help string, in the
+same change.

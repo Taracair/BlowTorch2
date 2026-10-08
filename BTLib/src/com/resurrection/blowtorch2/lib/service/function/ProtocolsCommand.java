@@ -22,22 +22,57 @@ public class ProtocolsCommand extends SpecialCommand {
 		this.commandName = msdp ? "msdp" : "mssp";
 	}
 
+	static final int DUMP = 0;
+	static final int HELP = 1;
+	static final int VERB = 2;
+	static final int BAD = 3;
+
+	/**
+	 * Blank dumps the cache. MSDP verbs stay. Any other word is usage, not a dump.
+	 */
+	static int classify(String raw, boolean msdp) {
+		String arg = raw == null ? "" : raw.trim();
+		String lower = arg.toLowerCase(Locale.US);
+		if (lower.equals("help") || lower.equals("?")) {
+			return HELP;
+		}
+		if (arg.length() == 0) {
+			return DUMP;
+		}
+		if (msdp) {
+			String sub = arg.split("\\s+", 2)[0].toLowerCase(Locale.US);
+			if (sub.equals("list") || sub.equals("send") || sub.equals("report")
+					|| sub.equals("unreport") || sub.equals("reset")) {
+				return VERB;
+			}
+		}
+		return BAD;
+	}
+
 	@Override
 	public Object execute(Object o, Connection c) {
 		String raw = o == null ? "" : ((String) o).trim();
-		String arg = raw.toLowerCase(Locale.US);
-		if (arg.equals("help") || arg.equals("?")) {
+		int kind = classify(raw, mMsdp);
+		if (kind == HELP) {
 			c.sendDataToWindow(help());
 			return null;
 		}
-		if (mMsdp && raw.length() > 0) {
+		if (kind == VERB) {
 			String[] parts = raw.split("\\s+", 2);
 			String sub = parts[0].toLowerCase(Locale.US);
 			String rest = parts.length > 1 ? parts[1].trim() : "";
-			if (sub.equals("list") || sub.equals("send") || sub.equals("report")
-					|| sub.equals("unreport") || sub.equals("reset")) {
-				return doMsdpCommand(c, sub, rest);
-			}
+			return doMsdpCommand(c, sub, rest);
+		}
+		if (kind == BAD) {
+			c.sendDataToWindow(getErrorMessage(
+					mMsdp ? "MSDP command usage:" : "MSSP command usage:",
+					mMsdp
+							? ".msdp                     — dump the cache\n"
+									+ ".msdp list|send|report|unreport|reset …\n"
+									+ ".msdp help"
+							: ".mssp               — dump the cache\n"
+									+ ".mssp help"));
+			return null;
 		}
 		if (mMsdp) {
 			return dumpMsdp(c);
@@ -57,7 +92,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		}
 		if (!boolOpt(c, "use_msdp", false)) {
 			c.sendDataToWindow("\nMSDP is off — enable Use MSDP? under"
-					+ " Options → Service → Telnet and reconnect.\n");
+					+ " Options → Protocols → Telnet and reconnect.\n");
 			return null;
 		}
 		String command = sub.toUpperCase(Locale.US);
@@ -85,7 +120,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("MSSP use=").append(on ? "on" : "off")
-				.append(" (Options → Service → Telnet)\n");
+				.append(" (Options → Protocols → Telnet)\n");
 		Processor p = c.getProcessor();
 		if (p == null) {
 			sb.append("Not connected.\n");
@@ -107,7 +142,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("MSDP use=").append(on ? "on" : "off")
-				.append(" (Options → Service → Telnet)\n");
+				.append(" (Options → Protocols → Telnet)\n");
 		Processor p = c.getProcessor();
 		if (p == null) {
 			sb.append("Not connected.\n");
@@ -134,7 +169,7 @@ public class ProtocolsCommand extends SpecialCommand {
 				+ "  .msdp report <var>        ask to be told whenever it changes\n"
 				+ "  .msdp unreport <var>      stop those updates\n"
 				+ "  .msdp reset <group>       reset a group of variables\n"
-				+ "Enable under Options → Service → Telnet, then reconnect.\n"
+				+ "Enable under Options → Protocols → Telnet, then reconnect.\n"
 				+ "MSSP is one-way (server announces); MSDP is two-way, so it needs\n"
 				+ "you to ask before most servers send anything.\n";
 	}

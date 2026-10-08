@@ -47,6 +47,7 @@ public class AboutDialog extends Dialog {
 
 		bindUrlButton("blowtorch_github", PROJECT_URL);
 		bindUrlButton("blowtorch_donate", DONATE_URL);
+		bindDismissButton("blowtorch_about_close");
 
 		Window window = getWindow();
 		if (window != null) {
@@ -71,6 +72,24 @@ public class AboutDialog extends Dialog {
 			public void onClick(View v) {
 				Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
 				AboutDialog.this.getContext().startActivity(web);
+			}
+		});
+	}
+
+	private void bindDismissButton(String idName) {
+		int id = getContext().getResources().getIdentifier(
+				idName, "id", getContext().getPackageName());
+		if (id == 0) {
+			return;
+		}
+		View button = findViewById(id);
+		if (button == null) {
+			return;
+		}
+		button.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dismiss();
 			}
 		});
 	}

@@ -52,8 +52,8 @@ public class HelpCommand extends SpecialCommand {
 	}
 
 	static {
-		cmd("help", "Other", "this list; .help word shows only matching commands");
-		cmd("echo", "Playing", "show or hide what you type when the server has "
+		cmd("help", "Other", "this list; .help word shows matches, and one close miss names that command");
+		cmd("echo", "Playing", "says whether what you type is shown when the server has "
 				+ "masked it");
 		cmd("run", "Playing", "walk a speedwalk string, like 4n2e");
 		cmd("rev", "Playing", "walk that speedwalk string backwards");
@@ -80,18 +80,27 @@ public class HelpCommand extends SpecialCommand {
 		cmd("ping", "The window", "one ICMP echo to this world's host; not sent to the world");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
-		cmd("togglefullscreen", "The window", "hide or show the status bar");
-		cmd("window", "The window", "extra text windows; .window show|hide|font|create");
-		cmd("widget", "The window", "HP/mana/timer gauges over the game (.widget add|source|set|…)");
+		cmd("togglefullscreen", "The window", "flips the status bar");
+		cmd("fullscreen", "The window", "says whether the status bar is hidden");
+		cmd("window", "The window", "prints help; .window show opens an extra text window");
+		cmd("widget", "The window", "prints help; .widget show shows a gauge");
 		cmd("gauge", "The window", "same as .widget");
 		cmd("closewindow", "The window", "leave the game window (dirty exit)");
 		cmd("search", "The window", "find text in the scrollback or old session logs");
-		cmd("chat", "The window", "left-hand chat drawer; .chat open|close|<name>");
+		cmd("chat", "The window", "toggles the chat drawer; .chat open stays open");
 		cmd("tapmenu", "The window", "how solid the menu a tapped word opens is");
 		cmd("frame", "The window", "frames a server opens; .frame list|close|reopen");
 
 		cmd("keyboard", "Input and suggestions",
-				"send a key, or step through command history (.kb for short)");
+				"prints usage; .kb insert and .kb add put text in the bar");
+		cmd("last", "Input and suggestions",
+				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
+		cmd("lastlist", "Input and suggestions",
+				"opens this world's recent commands; .lastlist float N|length N|off|bar|frame");
+		cmd("lastfloat", "Input and suggestions",
+				"recent commands as chips over the game; .lastfloat N|length N|off");
+		cmd("lastbar", "Input and suggestions",
+				"chips of recent commands; .lastbar N|on|off|length|order; a tap sends; not sent");
 		cmd("complete", "Input and suggestions",
 				"same as .suggest (older name); also .suggestions");
 		cmd("suggest", "Input and suggestions",
@@ -99,7 +108,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("suggestions", "Input and suggestions",
 				"same as .suggest (alias); also .complete");
 		cmd("prompt", "Input and suggestions", "pin the world's prompt above the input bar");
-		cmd("editpanel", "Input and suggestions", "show or hide the editing strip");
+		cmd("editpanel", "Input and suggestions", "says whether the editing strip is open");
 		cmd("editrows", "Input and suggestions",
 				"two rows for the editing strip in landscape");
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
@@ -107,7 +116,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("gesture", "The window", "screen swipes on the game text; .gesture mode classic|1|2|both");
 		cmd("sendbutton", "Input and suggestions", "show or hide the Send button");
 		cmd("pick", "Input and suggestions",
-				"prefix plus a word from the game text; .pick loupe size/zoom");
+				"prefix plus a word from the game text; insert leaves that line in the bar; .pick loupe size/zoom");
 		cmd("copy", "Input and suggestions",
 				"copy-widget magnifier; .copy loupe size/zoom");
 		cmd("unaccent", "Input and suggestions",
@@ -115,8 +124,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("hyphen", "Input and suggestions",
 				"break a long input word with a drawn hyphen; not sent");
 
-		cmd("trigger", "Triggers and scripts", "enable and disable triggers (.trigger status, not list)");
-		cmd("alias", "Triggers and scripts", "list, enable and disable aliases");
+		cmd("trigger", "Triggers and scripts", "says how many triggers are on; .trigger help for the rest");
+		cmd("alias", "Triggers and scripts", "says how many aliases are on; .alias list shows them");
 		cmd("timer", "Triggers and scripts", "play, pause, info, dump, duration");
 		cmd("wait", "Triggers and scripts",
 				"pause the rest of this line (.wait 5s / #wait 5m10s); stop cancels; show lists the queue");
@@ -125,29 +134,31 @@ public class HelpCommand extends SpecialCommand {
 		cmd("dobell", "Triggers and scripts",
 				"fire the bell reaction now; .dobell vibrate / .dobell alert ignore Options");
 		cmd("probe", "Triggers and scripts",
-				"list of probes; .probe connection dumps why a freeze looks frozen");
+				"prints the list of probes; .probe connection dumps a freeze");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
 		cmd("colordebug", "Triggers and scripts", "show the colour codes in a line");
+		cmd("debug", "The window",
+				"says whether the font-renderer label is on; .debug renderer show on|off");
 		cmd("grabber", "Triggers and scripts",
 				"inspect colour/style under a finger; copy layers or open a trigger");
 
-		cmd("gmcp", "The world and its protocols", "what the world is sending over GMCP");
-		cmd("mcp", "The world and its protocols", "MCP packages and negotiation");
-		cmd("msdp", "The world and its protocols", "MSDP variables");
-		cmd("mssp", "The world and its protocols", "what the world says about itself");
+		cmd("gmcp", "The world and its protocols", "says whether GMCP is on");
+		cmd("mcp", "The world and its protocols", "says whether MCP is on");
+		cmd("msdp", "The world and its protocols", "dumps the MSDP cache");
+		cmd("mssp", "The world and its protocols", "dumps what the world says about itself");
 		cmd("mxp", "The world and its protocols", "MXP SEND/colours/SOUND; .mxp on|off");
 		cmd("protocols", "The world and its protocols",
-				"what this world offered vs what is on; .protocols enable");
+				"prints what this world offered vs what is on; .protocols enable");
 
-		cmd("map", "The map", "the mapper: recording, walking, rooms and exits");
+		cmd("map", "The map", "prints help; .map open shows the map");
 
-		cmd("loadset", "Buttons", "load a button set");
+		cmd("loadset", "Buttons", "prints usage; .loadset name loads that set");
 		cmd("layoutwizard", "Buttons",
 				"open the button layout wizard (packs, set names, size)");
 		cmd("clearbuttons", "Buttons", "take the buttons away until the next set");
 		cmd("heatmap", "Buttons",
-				"count taps, holds, swipes and accordion opens; brighter tiles are used more");
+				"shows the button heatmap; brighter tiles are used more");
 		cmd("buttonopacity", "Buttons",
 				"force every tile's alpha (.buttonopacity 100) until .buttonopacity restore");
 		cmd("buttonsopacity", "Buttons", "same as .buttonopacity");
@@ -216,6 +227,10 @@ public class HelpCommand extends SpecialCommand {
 		}
 		if (shown == 0) {
 			out.append("No command matches \"").append(filter).append("\".\n");
+			String guess = HelpCommandGuess.didYouMean(HelpCommandGuess.pick(filter));
+			if (guess != null) {
+				out.append(guess);
+			}
 		} else if (filter.length() == 0) {
 			out.append("\nMost take their own arguments — type the command on its"
 					+ " own to see them. The manual has the long version.\n");
@@ -333,7 +348,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .avoidbuttons letters|words\n"
 					+ "Off by default. ASCII maps may break. Grid pad and floating copies; live while dragging.\n"
 					+ "letters (default) moves one character at a time; words keeps whole words off the hole.\n"
-					+ "Also: Options → Window → Text avoids on-screen buttons?\n";
+					+ "Also: Options → Window → Text → Text avoids on-screen buttons?\n";
 		}
 		if (filter.equals("jumpsend")) {
 			return "\n"
@@ -342,7 +357,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .jumpsend               — say whether a send jumps to the live edge\n"
 					+ "  .jumpsend on|off|toggle\n"
 					+ "On by default. Incoming text near the live edge still snaps there.\n"
-					+ "Also: Options → Window → Jump to the live edge when you send?\n";
+					+ "Also: Options → Window → Layout → Jump to the live edge when you send?\n";
 		}
 		if (filter.equals("dimrepeat")) {
 			return "\n"
@@ -360,7 +375,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .light              — on/off and shade 1–5\n"
 					+ "  .light on|off|toggle\n"
 					+ "  .light 1–5 | shade N  — 1 grey … 5 near-white; 2 is the original\n"
-					+ "Also: Options → Window → Light theme? / Light paper shade (1–5)\n"
+					+ "Also: Options → Window → Text → Light theme? / Light paper shade (1–5)\n"
 					+ "Game canvas only. Launcher, Options, mapper, chat and ⋮ stay dark.\n"
 					+ "Ink darkens as the paper lightens. Extra-text follows.\n";
 		}
@@ -425,7 +440,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "One finger: a one-finger swipe sends a command.\n"
 					+ "Two fingers: a two-finger swipe sends a command; a short tap can copy.\n"
 					+ "Both: one-finger and two-finger swipes send commands.\n"
-					+ "Options → Input → Global gestures\n";
+					+ "Options → Gestures\n";
 		}
 		if (filter.equals("editbuttons")) {
 			return "\n"
@@ -454,14 +469,23 @@ public class HelpCommand extends SpecialCommand {
 					+ "The hyphen is drawn. Send, copy and suggestions keep the whole word.\n"
 					+ "A word that fits on the next line still breaks if a piece fits here.\n"
 					+ "Needs .wrap on. A password line does not break. Off by default.\n"
-					+ "Options → Input → Hyphenate long words?\n";
+					+ "Options → Typing → Hyphenate long words?\n";
 		}
 		if (filter.equals("togglefullscreen")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor()
 					+ "Children of .togglefullscreen:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .togglefullscreen  — flip fullscreen (no arguments)\n";
+					+ "  .togglefullscreen  — flip fullscreen (every call, including off)\n";
+		}
+		if (filter.equals("fullscreen")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor()
+					+ "Children of .fullscreen:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .fullscreen        — say whether the status bar is hidden\n"
+					+ "  .fullscreen on|off|toggle\n"
+					+ "  .togglefullscreen  — flip it every time it is typed\n";
 		}
 		if (filter.equals("closewindow")) {
 			return "\n"
@@ -473,8 +497,8 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .editpanel:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .editpanel         — toggle the Edit tools strip\n"
-					+ "  .editpanel on|off\n"
+					+ "  .editpanel         — say whether the Edit tools strip is open\n"
+					+ "  .editpanel on|off|toggle\n"
 					+ "Two rows in landscape: .editrows on|off (off keeps one row).\n";
 		}
 		if (filter.equals("editrows")) {
@@ -484,7 +508,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .editrows          — say whether landscape uses two rows\n"
 					+ "  .editrows on|off|toggle\n"
 					+ "Off by default. Portrait stays one full-width row.\n"
-					+ "Also: Options → Window → Edit strip: two rows in landscape?\n";
+					+ "Also: Options → Window → Input bar → Edit strip: two rows in landscape?\n";
 		}
 		if (filter.equals("editbutton")) {
 			return "\n"
@@ -504,7 +528,7 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .dobell:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .dobell            — reactions currently on in Options → Bell\n"
+					+ "  .dobell            — reactions currently on in Options → Sound\n"
 					+ "  .dobell vibrate [short|long|strong|burst]\n"
 					+ "  .dobell alert      — on-screen bell icon now\n";
 		}
@@ -516,6 +540,20 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .colordebug 1      — colour on, codes shown\n"
 					+ "  .colordebug 2      — colour off, codes shown\n"
 					+ "  .colordebug 3      — colour off, codes hidden\n";
+		}
+		if (filter.equals("debug")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .debug:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .debug                       — whether the label is on\n"
+					+ "  .debug renderer              — same\n"
+					+ "  .debug renderer show on|off|toggle\n"
+					+ "Top-left of the text. typeset, tiles, and bake stay up, with a line count.\n"
+					+ "tiles — stored line bitmap (glyphs not redrawn this frame)\n"
+					+ "bake — glyphs drawn into a new line bitmap this frame\n"
+					+ "typeset — glyphs drawn on the window canvas\n"
+					+ "hw / sw — that window canvas\n"
+					+ "Off until you turn it on. Not saved.\n";
 		}
 		if (filter.equals("clearbuttons")) {
 			return "\n"
@@ -554,9 +592,11 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest on|off\n"
 					+ "  .suggest lines N\n"
 					+ "  .suggest show N\n"
-					+ "  .suggest where floating|bar|off|next\n"
+					+ "  .suggest where floating|bar|list|off|next\n"
+					+ "  .suggest order left|right — first chip on the left, or on the right\n"
+					+ "                         (the bar and the floating window; .suggest order prints it)\n"
 					+ "  .suggest ghost on|off\n"
-					+ "  .suggest split on|off    (a mark between dimmed suggestions)\n"
+					+ "  .suggest split on|off    (a space between dimmed suggestions)\n"
 					+ "  .suggest caret on|off     (prefix chips in the middle of a line)\n"
 					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
 					+ "  .suggest opacity N\n"
@@ -574,17 +614,110 @@ public class HelpCommand extends SpecialCommand {
 		}
 		if (filter.equals("alias")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .alias:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .alias:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .alias             — how many are on (same as status)\n"
+					+ "  .alias help        — the usage wall\n"
 					+ "  .alias list\n"
 					+ "  .alias status|state [name]\n"
 					+ "  .alias on|off|toggle <name|plugin:name>\n"
 					+ "  .alias all on|off\n";
 		}
+		if (filter.equals("last")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .last:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .last              — send the newest command again\n"
+					+ "  .2last / .3last    — 2nd / 3rd newest\n"
+					+ "  .Nlast             — Nth newest, N is 1 through history size (10–100)\n"
+					+ "  .last input        — put the newest command in the bar; do not send it\n"
+					+ "  .2last input       — the one before it, still only in the bar\n"
+					+ "  You sent north, then look, then inventory.\n"
+					+ "  .last sends inventory, .2last sends look, .3last sends north.\n"
+					+ "  .last is not kept, so the next .last sends inventory again.\n"
+					+ "  One space before input. .lastinput and last input are game lines.\n"
+					+ "  2last with no dot is a game line.\n"
+					+ "  .lastlist          — this world's list, in its own window\n"
+					+ "  .lastlist float    — those commands as chips over the game\n"
+					+ "  .lastfloat         — same as .lastlist float\n"
+					+ "  .lastfloat off     — hide those chips\n"
+					+ "  .lastfloat 5       — show the 5 newest (1–100)\n"
+					+ "  .lastfloat length 12 — 12 characters of each (3–40)\n"
+					+ "  .lastlist bar      — turn on the recent-command bar\n"
+					+ "  .lastbar           — chips of those commands above the input row\n"
+					+ "  .lastbar 5         — show the 5 newest and turn the bar on (1–100)\n"
+					+ "  .lastbar length 12 — characters of each command (3–40)\n"
+					+ "  .lastbar on|off    — show or hide that bar\n";
+		}
+		if (filter.equals("lastlist") || filter.equals("lastfloat")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .lastlist:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .lastlist          — recent commands, newest first\n"
+					+ "  .lastlist list     — that window\n"
+					+ "  .lastlist float    — chips over the game; a tap sends\n"
+					+ "  .lastlist float off — hide those chips\n"
+					+ "  .lastlist float on  — show them\n"
+					+ "  .lastlist float toggle — flip them\n"
+					+ "  .lastfloat         — same as .lastlist float\n"
+					+ "  .lastfloat off     — hide those chips\n"
+					+ "  .lastfloat 5       — show the 5 newest and turn the chips on\n"
+					+ "  .lastlist float 5  — same. Count is 1 through 100\n"
+					+ "  .lastfloat length 12 — characters of each command (3–40)\n"
+					+ "  .lastlist float length 12 — same\n"
+					+ "  Until you set them: 8 chips, 20 characters.\n"
+					+ "  Each world keeps its own count and length.\n"
+					+ "  Drag the grip to move the chips. A tap on the grip hides them.\n"
+					+ "  Dropped near where they started, they follow the input bar again.\n"
+					+ "  The backing is as see-through as floating suggestion chips.\n"
+					+ "  .lastlist bar      — turn on the recent-command bar\n"
+					+ "  .lastbar 5         — how many chips on that bar (1–100); turns it on\n"
+					+ "  .lastbar length 12 — characters of each command on that bar (3–40)\n"
+					+ "  .lastlist frame     — toggle the title, gear, and close\n"
+					+ "  .lastlist frame off — hide that chrome\n"
+					+ "  .lastlist frame on  — bring that chrome back\n"
+					+ "  1 is what .last sends, 2 is what .2last sends.\n"
+					+ "  Close hides it. The gear sets opacity, font size, lines between\n"
+					+ "  commands, one line per command, tappable rows, a minimal frame,\n"
+					+ "  keeping the window fill, and how many are kept.\n"
+					+ "  Tappable: a tap sends that line. The row lights up, then lifting sends it.\n"
+					+ "  Dragging up or down scrolls the list, the same as with Tappable off,\n"
+					+ "  and that drag does not send.\n"
+					+ "  A second finger outside the list cancels the tap.\n"
+					+ "  Minimal frame hides the title, gear, and close.\n"
+					+ "  Keep opacity leaves the fill and only hides that chrome.\n"
+					+ "  Hold a row and tap the list with a second finger to show the frame.\n"
+					+ "  The window stays where you left it for this world, including after\n"
+					+ "  the app is killed. Back does not close it. Close does.\n"
+					+ "  Options → Panes → Extra text windows → Recent commands…\n"
+					+ "  Not an extra-text slot: game lines are not written here.\n"
+					+ "  Each world has its own list.\n";
+		}
+		if (filter.equals("lastbar")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .lastbar:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .lastbar 5         — show the 5 newest and turn the bar on\n"
+					+ "  .lastbar 10        — show 10. Count is 1 through 100\n"
+					+ "  .lastbar on|off    — show or hide it. On uses the saved count\n"
+					+ "  .lastbar           — count, length, order, and whether it is on\n"
+					+ "  .lastbar length 12 — characters of each command (3–40)\n"
+					+ "  .lastbar order left  — First on the left (the default)\n"
+					+ "  .lastbar order right — First on the right, older numbers to its left\n"
+					+ "  You sent north, then look, then inventory.\n"
+					+ "  Left: 1 inventory, 2 look, 3 north.\n"
+					+ "  Right: 3 north, 2 look, 1 inventory.\n"
+					+ "  The number is the same as .Nlast. A tap sends that command.\n"
+					+ "  Fewer stored than the count: you see what is there.\n"
+					+ "  Each world keeps its own on/off, count, length, and order.\n"
+					+ "  Options → Typing → Recent command bar…\n"
+					+ "  Not sent to the world.\n";
+		}
 		if (filter.equals("kb") || filter.equals("keyboard")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .kb:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .kb:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .kb                — this usage; a word that is not an op does not change the bar\n"
 					+ "  .kb insert <text>      — at caret, spaced like a tap ($word)\n"
 					+ "  .kb insertliteral <text> — at caret, exactly as typed\n"
 					+ "  .kb insertword <text>  — same as insert\n"
@@ -596,8 +729,10 @@ public class HelpCommand extends SpecialCommand {
 		}
 		if (filter.equals("trigger")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .trigger:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .trigger:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .trigger           — how many are on (same as status)\n"
+					+ "  .trigger help      — the usage wall\n"
 					+ "  .trigger on|off|toggle <name|plugin:name>\n"
 					+ "  .trigger status [name]\n"
 					+ "  .trigger group on|off|toggle <group>\n"
@@ -626,13 +761,17 @@ public class HelpCommand extends SpecialCommand {
 					+ "  A bare number is seconds. Max 1h. .wait stop / #wait 0 cancels.\n"
 					+ "  .wait show / .wait info lists queued waits and when they fire.\n"
 					+ "  .wait change 1 60s retargets that row from now (max 1h).\n"
-					+ "  Only the rest of this line waits: north;.wait 2s;south\n";
+					+ "  Only the rest of this line waits: north;.wait 2s;south\n"
+					+ "  #5/1s north — north five times, one second apart\n"
+					+ "  The gap is one word (1s, 500ms, 5, 5m10s). Max 1h.\n"
+					+ "  #5 north is still all five at once. .wait stop cancels the rest.\n";
 		}
 		if (filter.equals("map")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .map:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .map:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .map open|close|toggle | record|rec on|off|toggle\n"
+					+ "  .map               — this help; .map open shows the map\n"
+					+ "  .map open|close|toggle | record|rec — record says on or off\n"
 					+ "  .map follow on|off|toggle | level list|prev|next|set …\n"
 					+ "  .map find|search|path|goto|go <query>\n"
 					+ "  .map title|note|locktitle|lockposition|relayout|tidy …\n"
@@ -640,16 +779,20 @@ public class HelpCommand extends SpecialCommand {
 		}
 		if (filter.equals("gmcp")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .gmcp:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .gmcp:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .gmcp              — status (same as .gmcp status)\n"
+					+ "  .gmcp help         — the usage wall\n"
 					+ "  .gmcp ask|handshake | modules | enable|disable\n"
 					+ "  .gmcp renegotiate | status | sniff [on|off|tail N]\n"
 					+ "  .gmcp feed [on|off] | version | supports | dump | send\n";
 		}
 		if (filter.equals("mcp")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .mcp:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .mcp:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .mcp               — status (same as .mcp status)\n"
+					+ "  .mcp help          — the usage wall\n"
 					+ "  .mcp ask|status|packages|vitals|cords\n"
 					+ "  .mcp enable|disable <pkg…> | renegotiate\n"
 					+ "  .mcp sniff|feed|dump|send|ping|client\n"
@@ -657,8 +800,9 @@ public class HelpCommand extends SpecialCommand {
 		}
 		if (filter.equals("window")) {
 			return "\n"
-					+ Colorizer.getBrightCyanColor() + "Children of .window:"
+					+ Colorizer.getBrightCyanColor() 					+ "Children of .window:"
 					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .window            — this help; .window show opens a slot\n"
 					+ "  .window list\n"
 					+ "  .window show|hide|clear <slot>\n"
 					+ "  .window create <slot> [title…]\n"
@@ -777,7 +921,8 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .loadset:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .loadset <name>    — argument is a button-set name\n";
+					+ "  .loadset           — usage; name a set to load it\n"
+					+ "  .loadset <name>    — load that button set\n";
 		}
 		if (filter.equals("osc8")) {
 			return "\n"
@@ -831,6 +976,11 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .pick tap            same as once\n"
 					+ "  .pick button         swipe a tile, keep holding, slide onto a word\n"
 					+ "  .pick button-double  hold a tile, tap a word with the other finger\n"
+					+ "  .pick insert         once, but the line goes in the bar\n"
+					+ "  .pick hold insert    each next word is added in the bar\n"
+					+ "  .pick button insert\n"
+					+ "  .pick button-double insert\n"
+					+ "  insert sends nothing. You send the line yourself.\n"
 					+ "  .pick loupe          print size and zoom; also size N / zoom N / default\n"
 					+ "  .pick loupe size N   magnifier size 50–200 (118 default)\n"
 					+ "  .pick loupe zoom N   magnifier zoom 150–350 (200 = 2×)\n"
@@ -843,7 +993,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "Pad stays on screen. .pick off, or the same sticky command again.\n"
 					+ "During hold, one finger picks; a second finger cancels that pick\n"
 					+ "so you can drag to scroll. Two fingers with pick off still copy.\n"
-					+ "Loupe: Options → Window → Pick loupe size / zoom, or .pick loupe.\n";
+					+ "Loupe: Options → Window → Text → Pick loupe size / zoom, or .pick loupe.\n";
 		}
 		if (filter.equals("copy")) {
 			return "\n"
@@ -853,7 +1003,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .copy loupe size N   magnifier size 50–200 (118 default)\n"
 					+ "  .copy loupe zoom N   magnifier zoom 150–350 (200 = 2×)\n"
 					+ "  .copy loupe default\n"
-					+ "Two-finger copy widget. Also Options → Window → Copy loupe size / zoom.\n";
+					+ "Two-finger copy widget: copy, swap ends, close, and new trigger.\n"
+					+ "New trigger opens the editor with the selection as a literal pattern.\n"
+					+ "Also Options → Window → Text → Copy loupe size / zoom.\n";
 		}
 		if (filter.equals("grabber")) {
 			return "\n"
@@ -885,7 +1037,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .search logs 0 goblin     — window plus every saved file for this world\n"
 					+ "  .search 'logs'            — find the word logs in the window\n"
 					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n"
-					+ "Logs live in the folder Options → Service → Session Log Directory\n"
+					+ "Logs live in the folder Options → Connection → Session Log Directory\n"
 					+ "(blank = /BlowTorch/session_logs/) as {world}_{yyyy-MM-dd}.txt\n"
 					+ "(one file per world per local day; older _date_time files still list).\n"
 					+ "⋮ → Session logs: pick dates and tap Load (large folders can take a while).\n"
@@ -899,8 +1051,9 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .chat:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .chat / .chat open     open the drawer (toggles if already open)\n"
-					+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
+					+ "  .chat                  toggle the drawer\n"
+					+ "  .chat open             open; already open stays open\n"
+					+ "  .chat close | hide     close; already closed stays closed\n"
 					+ "  .chat <name>           open that conversation (id or title)\n"
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
@@ -942,5 +1095,10 @@ public class HelpCommand extends SpecialCommand {
 			}
 		}
 		return HelpColumn.wrapWidth(reported);
+	}
+
+	/** Names passed to {@code cmd}, as stored. */
+	static List<String> registeredNames() {
+		return new ArrayList<String>(WHAT.keySet());
 	}
 }

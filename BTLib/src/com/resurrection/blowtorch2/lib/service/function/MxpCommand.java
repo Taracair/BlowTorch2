@@ -33,11 +33,11 @@ public class MxpCommand extends SpecialCommand {
 			c.sendDataToWindow(status(c));
 			return null;
 		}
-		Boolean desired = parseOnOff(arg.split("\\s+")[0]);
+		Boolean desired = parseArgument(raw);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Mxp command usage:",
 					".mxp on | .mxp off | .mxp status\n"
-							+ "Also: Options → Service → Protocols → Use MXP?\n"
+							+ "Also: Options → Protocols → Use MXP?\n"
 							+ "Sample without a MUD: .probe mxp\n"));
 			return null;
 		}
@@ -67,7 +67,7 @@ public class MxpCommand extends SpecialCommand {
 		}
 		sb.append("\n");
 		sb.append("Clickable SEND, colours, SOUND/MUSIC, custom elements, EXPIRE.\n");
-		sb.append("Options → Service → Protocols → Use MXP?\n");
+		sb.append("Options → Protocols → Use MXP?\n");
 		sb.append(".probe mxp dumps a tappable sample here.\n");
 		if (!on) {
 			sb.append("Enable and reconnect to answer IAC WILL MXP.\n");
@@ -84,6 +84,23 @@ public class MxpCommand extends SpecialCommand {
 			return def;
 		}
 		return ((Boolean) o.getValue()).booleanValue();
+	}
+
+	/** One word. A second word is not a setting. */
+	static Boolean parseArgument(String arg) {
+		if (arg == null) {
+			return null;
+		}
+		String token = arg.trim().toLowerCase(Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	private static Boolean parseOnOff(final String token) {

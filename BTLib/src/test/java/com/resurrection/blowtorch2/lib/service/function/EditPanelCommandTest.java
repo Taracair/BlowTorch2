@@ -10,26 +10,34 @@ import com.resurrection.blowtorch2.lib.service.StellarService;
 public class EditPanelCommandTest {
 
 	@Test
-	public void bareMeansToggle() {
-		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_TOGGLE),
+	public void bareMeansStatus() {
+		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_STATUS),
 				EditPanelCommand.parseMode(""));
-		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_TOGGLE),
+		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_STATUS),
 				EditPanelCommand.parseMode("   "));
 	}
 
 	@Test
-	public void onOffOnly() {
+	public void onOffAndToggle() {
 		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_ON),
 				EditPanelCommand.parseMode("on"));
 		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_OFF),
 				EditPanelCommand.parseMode("off"));
-		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_ON),
-				EditPanelCommand.parseMode("on please"));
+		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_TOGGLE),
+				EditPanelCommand.parseMode("toggle"));
+		assertEquals(Integer.valueOf(StellarService.INPUT_EDIT_TOOLS_TOGGLE),
+				EditPanelCommand.parseMode("Toggle"));
+	}
+
+	@Test
+	public void trailingWordIsNotAMode() {
+		assertNull(EditPanelCommand.parseMode("on please"));
+		assertNull(EditPanelCommand.parseMode("off now"));
+		assertNull(EditPanelCommand.parseMode("toggle please"));
 	}
 
 	@Test
 	public void synonymsRejected() {
-		assertNull(EditPanelCommand.parseMode("toggle"));
 		assertNull(EditPanelCommand.parseMode("show"));
 		assertNull(EditPanelCommand.parseMode("hide"));
 		assertNull(EditPanelCommand.parseMode("true"));

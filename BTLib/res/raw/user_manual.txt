@@ -93,7 +93,7 @@ In the app this guide is **Help**: ⋮ → **Help**, or **Help** on the launcher
 
 **Options, Help, Chat, and the rest** live behind the three dots (⋮)
 in a corner of the game window — bottom-right by default, just above
-the input bar. Options → Miscellaneous can move ⋮ to any corner.
+the input bar. Options → Window → Layout can move ⋮ to any corner.
 Tap ⋮ → **Options** for settings. Options has a search field at the bottom; type `font` (or any other word)
 and tap a hit to jump there and flash the matching row. ⋮ → **Help** is this guide. `.help`
 in the input bar is a short list of every `.command`, printed into the
@@ -167,7 +167,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when
-**Options → Service → Process System Commands?** is on (the default).
+**Options → Connection → Process System Commands?** is on (the default).
 Type `..` alone to toggle that processing on or off.
 Prefix a server command with `..` to send a leading `.` to the game without
 running a client command (e.g. `..look` sends `.look`).
@@ -183,7 +183,7 @@ Registrations live in `Connection` (built-ins) and Lua
 
 ## Several commands on one line (`;`)
 
-When **Options → Service → Process Semicolons?** is on (the default), a
+When **Options → Connection → Process Semicolons?** is on (the default), a
 `;` splits what you send into several commands. You type `look;score` and
 the game receives `look`, then `score`, the same as two Enter presses.
 
@@ -211,24 +211,39 @@ It works wherever a line is sent — typed, on a button, and in each segment of 
 
 The multiplier counts **what you typed**, not what it expanded into. With an
 alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+`#3/1s kk troll` does the same with one second between each `kill troll`.
 
 **It does not work inside an alias's replacement text.** An alias whose text is
 `#3 kick troll` sends that line to the game as it stands. The multiplier is read
 once, on the line you send, before aliases are expanded — so put the `#` in
 front of the alias (`#3 kk troll`), not inside it.
 
-**No pause between them.** All the copies go out at once, exactly as if you had
-typed `north;north;north;north;north`. This is not a way to pace commands — for
-that, use `.wait` (below) or a named timer.
+**A pause between copies.** `#5/1s north` sends `north`, waits one second, sends
+it again, and so on, five times. The last copy is not followed by a wait.
+`#5 north` is still all five at once, as if you had typed
+`north;north;north;north;north`.
+
+    #5/1s north         five steps north, one second apart
+    #3/500ms kick troll three kicks, half a second apart
+    #4/2 get all        four times, two seconds apart
+
+The gap is one word, the same units as `.wait`: `1s`, `500ms`, `5m10s`, or a
+bare number of seconds (`2`). No space inside the gap (`5m10s`, not `5m 10s`).
+Longer than one hour is refused. Zero is refused. `.wait stop` cancels the
+copies that have not been sent yet. Each gap prints `[wait 1s]` in the window,
+the same as if you had written the waits yourself.
 
 **Limit: 1 to 100.** Anything outside that is refused and the line is left
 exactly as you typed it, with a red note saying so. `#500 north` is nearly
-always a slip, and a world may read the flood as an attack.
+always a slip, and a world may read the flood as an attack. A gap the client
+does not understand (`#5/abc north`, `#5/0s north`, `#5/2h north`) is refused
+the same way.
 
 **Worlds that use `#` themselves.** Two hashes send one literal hash and skip
 the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
-as `#5 north`. A `#` that is not a number followed by a space is never touched,
-so `#help` and `say cost is #3 gold` go out unchanged.
+as `#5 north`, and `##5/1s north` reaches it as `#5/1s north`. A `#` that is not
+a number followed by a space or a gap is never touched, so `#help` and
+`say cost is #3 gold` go out unchanged.
 
 ## Waiting between commands (`.wait` / `#wait`)
 
@@ -249,6 +264,9 @@ Examples:
     #wait 5m10s
     .wait 1h
     .wait 1.5s
+
+The same command several times, with that kind of gap, is `#5/1s north`
+(see above).
 
 `.wait stop` or `#wait 0` cancels a wait that has not finished yet, so the
 commands after it are not sent. `.wait show` and `.wait info` list the queue
@@ -276,7 +294,7 @@ If a server takes echoing and never gives it back, `.echo on` unmasks the bar by
 hand (`.echo off` masks it again, `.echo` alone reports the state). The next
 change from the server wins over the command.
 
-This is separate from **Options → Service → Local Echo?**, which decides whether
+This is separate from **Options → Connection → Local Echo?**, which decides whether
 your own commands are printed into the game window at all.
 
 ## Plugin commands (when loaded)
@@ -339,20 +357,20 @@ and flash the matching row.
   manual)
 
 **Export Settings**, **Import Settings** and **Reset Settings** are **not** in
-this menu — they live under **Options → Miscellaneous**, beside the storage
+this menu — they live under **Options → Files**, beside the storage
 settings they depend on. Storage access is there too.
 
 Connection duration appears on the ongoing notification and launcher row.
 With more than one world connected, that notification expands: every live
 session is listed, and each name is a button that opens that world.
 
-**Options → Service → Notification stack** is **One stack** or **Separate
+**Options → Connection → Notification stack** is **One stack** or **Separate
 bars**. One stack puts the connection, alerts and chat in one shade group.
 Separate bars gives each its own. With several worlds open, the world you
 are in decides. A trigger set to **Spawn new?** stays on its own bar either
 way.
 
-**Persistent Connection?** (Options → Miscellaneous): only while **Auto
+**Persistent Connection?** (Options → Connection): only while **Auto
 Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for
 connectivity before retrying, and treat a peer close as a flap. It does not
 retry when Auto Reconnect is off, and it does not raise the try count — the
@@ -371,7 +389,8 @@ alive; without a stable address many worlds still drop the character.
 ## Suggestions (`.suggest on`)
 
     .suggest on | off | lines N | 1..8 | show N
-    .suggest where floating | bar | off | next
+    .suggest where floating | bar | list | off | next
+    .suggest order left | right
     .suggest opacity N | persist on | off
     .suggest next on | off
     .suggest phrases on | off | plain on | off | short on | off
@@ -421,7 +440,7 @@ to have typed at least two letters before anything is offered.
 **The word that follows.** After you finish a word and type a space, the client
 offers the one word that came next in the game. The game shows `cave troll
 emerges`; you type `cave` and a space, and it offers `troll`, then `emerges`.
-That is on by default. `.suggest next off` — **Options → Input → Suggestions →
+That is on by default. `.suggest next off` — **Options → Suggestions →
 Suggest the next word** — leaves a finished word alone until you start the next
 one. Whole names, below, are a different offer: the phrase while you are still
 typing the first word.
@@ -614,7 +633,7 @@ does not. It only runs after an exact prefix found nothing, so typing `hel`
 still only prefix-matches. Four-letter minimum. Works on the word at the
 cursor in the middle of a line (`look helmte now`) as well as at the end.
 `.suggest typos off` turns it off. A forgiven typo is drawn the same way,
-dimmed, as the whole word: `helmte` then `helmet`.
+dimmed, as the whole word with a space in front: `helmte` then `helmet`.
 
 **Skipped start of a long name.** `.suggest skiphead on` — **on by default**
 once suggestions and nearby misspellings are on. A long name can match from
@@ -645,11 +664,11 @@ What you send is always exactly what you typed, so there is nothing to strip off
 and nothing that can go out by accident.
 
 A forgiven typo gets a ghost too. Its letters have to change rather than
-grow, so the whole word is shown, dimmed, and tapping it replaces what you
-typed. There is no arrow and no gap before it:
+grow, so the whole word is shown, dimmed, with a space in front so it does
+not stick to what you typed. Tapping it still replaces those letters:
 
     You type:   k grzld
-    You see:    k grzld[grizzled]¹
+    You see:    k grzld [grizzled]¹
 
 Because the ghost is drawn, it is never part of the text you send. When it fits
 the rest of the line it sits there. When it does not, the bar grows by one row
@@ -666,7 +685,7 @@ Move the cursor back into `kill troll with the gnarled staff` to change
 `troll` by typing a prefix and the prefix chips go away — there is nowhere
 to draw the rest of a word without sitting on the text that follows.
 
-`.suggest caret on` — **Options → Input → Suggestions → Complete at the
+`.suggest caret on` — **Options → Suggestions → Complete at the
 cursor** — follows the cursor for prefixes too. Type two letters of the name
 you meant, or stand at the front of the word you want to replace, and the
 chips still offer. Taking one replaces that word and keeps what follows:
@@ -680,17 +699,17 @@ chips still offer. Taking one replaces that word and keeps what follows:
 The ghost itself still only draws at the end of the line (it would cover
 what follows). In the middle — Complete at the cursor, or a nearby
 misspelling — the numbered list starts on the rest of the current line,
-flush with the text already there, and takes a new line under it only when
-that line is full. The same at the end of the line: the first suggestion
-sits against the text, not after a gap. The input bar grows so that extra
-line stays above the keyboard. `.suggest split on` draws a short mark
-between those dimmed words. Off, they sit next to each other with a space.
-The little numbers stay either way.
+one space after the text already there unless that text already ends with
+a space, and takes a new line under it only when that line is full. The
+rest of the word you are typing stays glued on; a different word has one
+space in front. Suggestions on the same line are separated by a space. The
+little numbers stay. The input bar grows so that extra line stays above
+the keyboard.
 `.suggest 1` from a button still picks the first. Off again with
 `.suggest caret off`, or put `.suggest caret on` / `off` on a button if you
 only want prefix chips while rewriting a long command.
 
-**Where the chips sit.** One setting, `.suggest where`, with three answers. It
+**Where the chips sit.** One setting, `.suggest where`, with four answers. It
 is one setting and not two switches because "no bar, but floating" is not a
 thing — picking one place puts the other away.
 
@@ -703,9 +722,17 @@ thing — picking one place puts the other away.
   it — which is why floating is the default, and why `persist` below matters
   most here. The strip is still there for anyone who would rather have the chips
   out of the way of the game text.
-`.suggest where next` steps round the three in order, which is the one to put
-on a button: floating for a fight, the strip while you are reading, nothing at
-all when the ghost is doing the work — without spending three buttons on it.
+- `.suggest where list` opens a window like `.lastlist`: a title, drag, gear,
+  close, and one row per suggestion. `1` is what `.suggest 1` takes. A tap puts
+  that word in the bar and does not send it. The gear sets the same window as
+  recent commands: opacity, font size (10–32), a line between rows, one line
+  per row, tappable rows, a minimal frame, and keeping the window fill. It does
+  not set how many commands are kept. Close hides the window until you ask
+  for the list again. **Options → Suggestions → Bar of suggestions** is the
+  same choice.
+`.suggest where next` steps floating, then the bar, then the list, then off.
+The first step from floating is still the bar, so a button that already says
+`next` keeps that step.
 
 - `.suggest where off` shows no bar at all. **The suggestions still work**: the
   ghost still draws after the cursor and `.suggest 1`..`8` still picks, so
@@ -713,6 +740,8 @@ all when the ghost is doing the work — without spending three buttons on it.
   dimmed word you are typing.
 
 (`.suggest overlay on|off` is the old name for the first two and still works.)
+
+**Which end the first chip sits on.** `.suggest order left` is the default, and it is the order this has always used: the first suggestion is the leftmost chip. `.suggest order right` puts that first chip on the right. You type `gri` and the strip offers `grizzled`, then `grip`. Left, left to right: `1 grizzled`, `2 grip`. Right: `2 grip`, `1 grizzled`. The same order is used on the bar (`.suggest where bar`) and on the floating window (`.suggest where floating`). `.suggest where off` stays off. `.suggest order` with no side prints which one it is. Anything else is local usage and is not sent. Also **Options → Suggestions → Chip order**.
 
 **A bar that stays put.** `.suggest persist on` leaves the floating bar up even
 when there is nothing to suggest. The chips stop appearing and disappearing
@@ -746,7 +775,7 @@ because a suggestion you have to squint at is worse than none. Anything from 10
 to 100.
 
 Off by default, and while off the text is not sent to the completer at all, so it
-costs nothing. The switches live under **Options → Input → Suggestions**, and
+costs nothing. The switches live under **Options → Suggestions**, and
 are saved with the profile. Session vocabulary is forgotten when you connect
 (see pairings above).
 
@@ -790,13 +819,13 @@ The bar shows the world's text after ANSI codes are stripped and the ends are
 trimmed — not the raw bytes.
 
 Off by default, because it changes where text appears. Also under **Options →
-Input**, and saved with the profile.
+Panes**, and saved with the profile.
 
 ## Lowercase start of sent commands
 
 Phone keyboards auto-capitalise the first letter of a “message” field. On a
 case-sensitive MUD that treats `Look` as unknown while `look` works, turn on
-**Options → Input → Lowercase start of sent commands**. BlowTorch then softens
+**Options → Typing → Lowercase start of sent commands**. BlowTorch then softens
 only the first letter of each command you send (`Look` → `look`). Mid-line
 capitals stay put (`say Hello` stays `say Hello`). Off by default; passwords
 are never rewritten.
@@ -808,7 +837,7 @@ off, `\Look` is sent as typed (backslash included).
 ## Strip accents when sending
 
 Worlds that only accept ASCII still need `usiadz` when you type `usiądź`.
-Turn on **Options → Input → Strip accents when sending** (or `.unaccent on`).
+Turn on **Options → Typing → Strip accents when sending** (or `.unaccent on`).
 BlowTorch then folds Latin letters with marks on the way to the game
 (`usiądź przy stole` → `usiadz przy stole`). Local echo shows the folded
 form (`usiadz`); the input bar still shows what you typed. Off by default;
@@ -866,7 +895,7 @@ may break after it, and that hyphen is sent.
 .hyphen full on|off
 ```
 
-Also **Options → Input → Hyphenate long words?**, **Hyphenation language**,
+Also **Options → Typing → Hyphenate long words?**, **Hyphenation language**,
 and **Hyphenate more often?**.
 
 ## The input bar (`.keyboard` / `.kb`)
@@ -895,6 +924,8 @@ buttons beside the input bar.
 
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`, `.kb stepu`, `.kb lineu`.
 
+`.kb hello` and `.kb help` print that usage and do not put those words in the bar. Text goes in with `.kb insert` or `.kb add`.
+
 **`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
 puts it where the cursor is and works out the spaces (words get spaces;
 punctuation attaches), so the bar never ends up reading `ktroll` or `slowo ,`.
@@ -908,7 +939,27 @@ when you need a leading space or want two things run together on purpose.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as hardware up/down and `.kb stepu` / `.kb stepd`); they do not walk visual lines of a wrapped bar. `.kb lineu` / `.kb lined` move the caret one line. ←/→ move the caret one character.
 
-**Options → Window → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
+### `.last` / `.Nlast`
+
+`.last` sends the newest command again. `.2last` sends the one before it, `.3last` the one before that. You sent `north`, then `look`, then `inventory`: `.last` sends `inventory`, `.2last` sends `look`, `.3last` sends `north`. `.last` is not sent to the world and is not kept in command history, so the next `.last` sends `inventory` again. N is 1 through Input History Size (10–100). If that command is not there, the window says so and nothing goes out. `2last` with no dot is a game line. The resent line is the one ↑ would put back, so an alias on it runs again.
+
+`.last input` puts that command in the input bar and does not send it. `.2last input` is the one before it. One space, then `input`. The caret sits at the end, so the next keystroke adds to the line. `.lastinput` (no space) and `last input` (no dot) are game lines. If that command is not there, the window says so and the bar is left as it was.
+
+With **Keep last command after send** on, `.last` leaves the resent line in the bar, selected, the same as Send. With it off, the bar is cleared.
+
+Each world keeps its own list. `.switch` saves the list you were looking at and loads the one for the world you land on. Up and down, `.last`, `.last input`, `.lastlist`, and `.lastbar` all use that list.
+
+`.lastlist` opens a window of this world's recent commands, newest first. `.lastlist list` is the same window. `.lastlist float`, and `.lastfloat`, show the newest commands as chips over the game, the same shape as suggestion chips. A tap sends that command. Drag the grip to move the chips. A tap on the grip hides them, and so do `.lastlist float off` and `.lastfloat off`. `.lastlist float on` shows them. `.lastlist float toggle` flips them. `.lastfloat 5` shows the 5 newest and turns the chips on (1–100). `.lastfloat length 12` shows 12 characters of each (3–40). Until you set them, 8 chips and 20 characters, kept for this world. `.lastlist float 5` and `.lastlist float length 12` are the same. Dropped back near where they started, they follow the input bar again, on their own, whether or not suggestion chips are floating. The backing is as see-through as those suggestion chips (`.suggest opacity`). `.lastlist bar` turns on the recent-command bar (the same as `.lastbar on`) and puts the window and the float away. `.lastbar 5` is how many chips on that bar (1–100). `.lastbar length 12` is how many characters of each (3–40). `1` is what `.last` sends, `2` is what `.2last` sends. It shows only the commands kept (10–100, default 75). The window scrolls, resizes, and has a close button. The gear, and **Options → Panes → Extra text windows → Recent commands…**, set the same things: how see-through the frame is, how many commands to keep (Input History Size), the font size (10–32), a thin line between entries, **Don't wrap lines**, **Tappable**, **Minimal frame**, and **Keep opacity**. Don't wrap lines keeps each command on one line, so a narrow window cuts off the end. Tappable means a tap sends that line: the row lights up, and lifting sends it. Dragging up or down scrolls the list the same way as with Tappable off, and that drag does not send. A second finger outside the list cancels the tap. Minimal frame hides the title, the gear, and close. Keep opacity leaves the window fill at the opacity you set and only hides that chrome; without it the fill disappears too. Hold a row and tap the list with a second finger to bring the frame back. `.lastlist frame on` brings it back. `.lastlist frame off` hides it. Hold the list (when it is not tappable) or open **Recent commands…** for the rest of the options. Whether the window is open, and where you left it, is remembered for this world. Leave and come back, or kill the app and open that world again, and it is still there. Back does not close it. The close button does.  It is not an extra-text slot: game lines are not written into it.
+
+`.lastbar` is a strip of those same commands, between the suggestion chips and the edit strip, above the input row. It is off until you turn it on. `.lastbar 5` shows the 5 newest and turns it on. `.lastbar 10` shows 10. The count is 1 through 100. If fewer commands are stored, you see what is there. `.lastbar off` hides the strip and remembers that. `.lastbar on` shows it again with the saved count (5 if you never set one). `.lastbar` with no argument prints the count, how many characters, the order, and whether it is on. It does not toggle.
+
+`.lastbar length 12` shows 12 characters of each command. The range is 3 to 40. The default is 20. A shorter command is shown whole. A longer one is cut at that many characters.
+
+`.lastbar order left` (the default) puts First on the left and older numbers to its right. `.lastbar order right` puts First on the right. You sent `north`, then `look`, then `inventory`. Left, left to right: `1 inventory`, `2 look`, `3 north`. Right: `3 north`, `2 look`, `1 inventory`. The number is the same as `.Nlast`. A tap sends that command, so an alias on it runs again. The command itself is not sent to the world. Anything else is local usage and is not sent.
+
+Each world keeps its own on/off, count, length, and order. **Options → Typing → Recent command bar…** is the same controls.
+
+**Options → Window → Input bar → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
 
 ### `.editbutton`
 
@@ -917,16 +968,16 @@ when you need a leading space or want two things run together on purpose.
 .editbutton on | off
 ```
 
-Shows or hides the **Edit** button (same as Options → Window → Show Edit button?). No argument prints status.
+Shows or hides the **Edit** button (same as Options → Window → Input bar → Show Edit button?). No argument prints status.
 
 ### `.editpanel`
 
 ```
 .editpanel
-.editpanel on | off
+.editpanel on | off | toggle
 ```
 
-Toggles (or forces) the Edit tools strip above the input row. Same strip as the **Edit** button. No argument toggles.
+Says whether the Edit tools strip above the input row is open. Same strip as the **Edit** button. No argument prints that and the usage. `on` and `off` force it. `toggle` flips it.
 
 `.editrows on` puts that strip on two rows while the phone is landscape (Select, Cut, Copy, Paste, then the cursor pad). `.editrows off` (the default) keeps one full-width row in both orientations.
 
@@ -937,7 +988,7 @@ Toggles (or forces) the Edit tools strip above the input row. Same strip as the 
 .sendbutton on | off
 ```
 
-Shows or hides the **Send** button (same as Options → Window → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
+Shows or hides the **Send** button (same as Options → Window → Input bar → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
 
 </details>
 
@@ -998,13 +1049,13 @@ shortcut only works for simple `\w+` keys.
 
 **Local echo (per alias):** the alias editor has a **Local echo** spinner:
 
-- **Use client setting** — follow Options → Service → Local Echo? (default)
+- **Use client setting** — follow Options → Connection → Local Echo? (default)
 - **Always show** — echo this alias’s expanded text even when Local Echo is off;
   also shows `[name=>…]` when a trigger/command updates the alias via `.name …`
 - **Always hide** — suppress expansion echo and `.name` update echo even when
   Local Echo / Echo Alias Updates? are on
 
-For **Use client setting**, `.name` update echoes also need **Options → Service →
+For **Use client setting**, `.name` update echoes also need **Options → Connection →
 Echo Alias Updates?** (default on).
 
 Telnet password masking still wins: while the server holds ECHO, nothing is
@@ -1140,7 +1191,7 @@ The same line repeated within a second and a half is only said once.
 It speaks whether or not the game window is in front, which is the point of an
 alert.
 
-**Quiet while you type** (Options → Input) is **off** by default. Turn it on and
+**Quiet while you type** (Options → Sound) is **off** by default. Turn it on and
 a speaking trigger drops anything it would have said between the first letter of
 a command and sending it — dropped, not held back, because a backlog let loose
 the moment you press Send would read you a fight that has already moved on. It
@@ -1257,7 +1308,7 @@ word can be checked on a line you wrote yourself.
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
 GMCP below.
 
-Options → Service → **Regular Expression Warning?** controls the reminder
+Options → Connection → **Regular Expression Warning?** controls the reminder
 dialog when you turn Literal off.
 
 ### Aliases and Timers list filters
@@ -1296,7 +1347,7 @@ typed into the trigger pattern.
 Grouped by what they are for, printed into the game window. The list is built
 from the commands the app actually has, not from a list written by hand, so a
 command added later cannot go missing from its own help. Many commands print
-usage when typed with no arguments (e.g. `.sound`, `.trigger`); others act
+usage when typed with no arguments (e.g. `.sound`, `.map`); others act
 immediately (e.g. `.disconnect`).
 
 ### The menu a tapped word opens
@@ -1310,7 +1361,7 @@ about, it can be made see-through:
 
 Only the backing fades. The commands stay fully readable at every setting —
 same rule as the suggestion chips, because a menu you cannot read is worse than
-one that covers something. Also in **Options → Miscellaneous → Tapped-word menu opacity (%)**.
+one that covers something. Also in **Options → Window → Layout → Tapped-word menu opacity (%)**.
 
 ### Making a trigger make a noise
 
@@ -1369,7 +1420,7 @@ shared, so ten alerting triggers still produce one message, not ten.
 Two numbers on that editor:
 
 - **Volume %** — how loud, 0 to 100, on whichever stream **Trigger sounds play
-  on** is set to (Options → Bell, default **media**). A phone on silent still
+  on** is set to (Options → Sound, default **media**). A phone on silent still
   silences **notification**-stream triggers; **media** and **alarm** follow
   their own volume sliders.
 - **Gap (ms)** — the shortest time between two of *this* trigger's sounds,
@@ -1383,13 +1434,13 @@ Timers can play a sound too — same action, same editor.
 Good for something you need the words of — a tell, a name, a number. It runs in
 the connection service, so it is heard with the game in the background and the
 screen off. Speech is queued three deep and the newest wins, so a fight does not
-put you a minute behind. **Quiet while you type** (Options → Input, **off** by
+put you a minute behind. **Quiet while you type** (Options → Sound, **off** by
 default) drops new speech while you are composing a command; turn it **on** if
 chatty triggers should not talk over your typing.
 
 **Ring the bell.** Give the trigger an **Ack With** action of `.dobell` and it
 fires the bell reaction — whichever of vibrate, notification and the on-screen
-bell are turned on in **Options → Bell**. Better than speech in combat for one
+bell are turned on in **Options → Sound**. Better than speech in combat for one
 reason: a buzz is over in a moment and a sentence is not, and a MUD can print
 six lines a second.
 
@@ -1403,7 +1454,7 @@ silent mode, Do Not Disturb, or some OS profiles can still swallow
 the buzz.
 
 `.dobell vibrate` (optional `short`, `long`, `strong`, or `burst`; default `short`)
-buzzes **now**, even if Options → Bell → Vibrate is off. `burst` is three
+buzzes **now**, even if Options → Sound → Vibrate is off. `burst` is three
 quick taps — easier to feel in a pocket than short vs long. `.dobell alert`
 shows the on-screen bell icon **now**, even if Display Bell is off. Neither
 needs Notification or Display Bell. Use them to check the phone; they do not
@@ -1454,6 +1505,8 @@ the submenu are that chat only.
 ### `.alias` forms
 
 ```
+.alias                         how many are on (same as status)
+.alias help                    this list
 .alias list                    every alias and whether it is on
 .alias status [name]           counts, or one alias and what it expands to
 .alias on|off|toggle <name>    turn one on or off
@@ -1579,7 +1632,7 @@ command — `#` is read before aliases expand.
     end of line ($)      on
     With                 `get all;.wait 400ms;i`
 
-Needs **Options → Service → Process Semicolons?** on (the default). You type
+Needs **Options → Connection → Process Semicolons?** on (the default). You type
 `gc` → `get all`, wait 400 ms, then `i`. `.wait` pauses the rest of **that
 same line** (max 1 h). A semicolon the game should see is `;;`.
 
@@ -1909,7 +1962,7 @@ A **Literal** trigger whose pattern starts with `%` (default GMCP character)
 is a GMCP hook (`%Char.Vitals`), not a line wildcard. It is taken out of the
 text cascade. The hook registers a **Script** action (Lua function name) as
 a watcher — Ack / Color / Gag on that pattern will not paint game text.
-**Options → Service → Protocols → Use GMCP?** must be on. See **GMCP
+**Options → Protocols → Use GMCP?** must be on. See **GMCP
 (short)**.
 
 ### Ready examples — aliases, triggers, timers and conditions
@@ -2242,7 +2295,7 @@ For tells and channels with a reply box, use the **chat drawer** instead
 (⋮ → **Chat**, or `.chat` — see **Chat drawer** below). This recipe is an
 extra-text pane: the line *leaves* the main window.
 
-Options → Window → Extra text windows → **Manage windows…** → add a slot named
+Options → Panes → Extra text windows → **Manage windows…** → add a slot named
 `chat`. Then either:
 
 - **GMCP**: tick the modules to route into it, e.g. `Comm.*`.
@@ -2265,7 +2318,7 @@ On a trigger:
   overlay as Tappable Word Bold, so cells do not move. It does not send
   `[1m`. A Color on `fox` with Bold ticked makes `fox` heavier; a grey
   `fox` stays grey rather than turning white. The world's `[1m` is still
-  the bright palette unless you turn on Options → Service → Heavier MUD
+  the bright palette unless you turn on Options → Window → Text → Heavier MUD
   bold (SGR 1)?.
 - **Gag** action — hide it entirely (optional **retarget** sends the line to
   an extra text window instead of discarding it).
@@ -2483,8 +2536,8 @@ the block, which is what makes the box example above readable.
 2. Switch **Browse** → **Edit**
 3. **Nav → Record** on, then walk. Rooms appear as you go.
 
-If your MUD sends GMCP `Room.Info`, turn on **Options → Service →
-Protocols → Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
+If your MUD sends GMCP `Room.Info`, turn on **Options → Protocols →
+Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
 and **View & sync → GMCP sync** already default on — tapping that wedge
 turns sync *off*. Then just walk. `.map find <text>`
 locates a room. `.map goto <room>` prints a path; it walks only if
@@ -2603,6 +2656,7 @@ is enabled; `.alias list` shows every alias at once.
 ## Built-in commands
 
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
+    `.debug renderer show on|off|toggle`  Top-left label while text is drawn: `typeset`, `tiles`, or `bake`. Off until you turn it on. Not saved. See below
     `.grabber [once|hold|tap|off]`         Inspect colour/style under a finger; copy layers or open a trigger. See forms below
     `.pick [once|hold|tap|button|button-double|off|loupe …]`  Prefix plus a word from the game text (bar or a pad tile). See forms below
     `.copy [loupe …]`                   Copy-widget magnifier size/zoom. See forms below
@@ -2611,15 +2665,15 @@ is enabled; `.alias list` shows every alias at once.
     `.tips on|always|off`               Short reminders the first time you type a `.command` that session
     `.osc8 [on|off]`                    Words the game marks (OSC 8); tap to send / fill the prompt / open a link
     `.prompt [on|off]`                  Pin the world's prompt above the input bar
-    `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches
+    `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches. Any other word is an error and does not reprint the survey
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe`                            List available probes in this window. Type `.probe` for the list; `.probe connection` dumps why a freeze looks frozen
     `.probe connection on|off|report|reset`  When the game looks frozen: socket vs held UI vs silence. A one-shot `.probe connection` dump works without turning it on; `on` adds a 15s heartbeat. Also session log; logcat tag `BlowTorchNet`
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
     `.probe lines on|off|report|reset`  Optional chunk measurement (how text is cut up on the way in); see below. Not the default of `.probe`. Off by default, costs nothing when off
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
-    `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
-    `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
+    `.trigger …`                        No argument prints how many are on (same as `.trigger status`). `.trigger help` is the usage wall. `on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; see below
+    `.alias …`                          No argument prints how many are on (same as `.alias status`). `.alias help` is the usage wall. `list`/`status`/`state`/`on`/`off`/`toggle`/`all`; see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`, `dump`. `info` and `dump` write status into the game window. `silent` suppresses toasts on play/pause/reset/stop
     `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
     `.timer duration <name>`   Same as `.timer info <name>` (time left, including time added with `50s`)
@@ -2627,50 +2681,55 @@ is enabled; `.alias list` shows every alias at once.
     `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue. `.wait change 1 60s` retargets that row from now
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
-    `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins
-    `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. Built from the commands the app actually has, so nothing can go missing from it
+    `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. Any other word is an error and does not change it. The next change from the server wins
+    `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. A close miss names the one command you likely meant: `.help lastlst` and `.lastlst` both say `.lastlist`, and the mistyped command is not sent. Built from the commands the app actually has, so nothing can go missing from it
     `.sound …`                          Which volume a trigger's Play a Sound action uses (`stream media|notification|alarm`), and whether to say so when that volume is off (`warn on|off`). No argument prints the current setting
-    `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Miscellaneous
-    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. `.dobell vibrate [short|long|strong|burst]` buzzes now even if Vibrate is off (default `short`; `burst` is three quick taps); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
-    `.togglefullscreen`                 Toggle fullscreen preference
-    `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
-    `.unaccent [on|off]`                Strip accents when sending (`usiądź przy stole` → `usiadz przy stole`); local echo shows the folded form. Also Options → Input. Off by default. Passwords and Lua SendToServer are not rewritten.
-    `.hyphen [on|off|lang en|phone|full on|off]`  Draw a hyphen when a long input word does not fit the space left on the line. Not sent. Needs `.wrap`. Off by default. Also Options → Input → Hyphenate long words?
-    `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
+    `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Window → Layout
+    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Sound. `.dobell vibrate [short|long|strong|burst]` buzzes now even if Vibrate is off (default `short`; `burst` is three quick taps); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
+    `.togglefullscreen`                 Flip fullscreen every time it is typed, including `.togglefullscreen off` (old buttons keep working)
+    `.fullscreen [on|off|toggle]`       Say whether the status bar is hidden. No argument prints that. `on`, `off`, and `toggle` set it
+    `.wrap [on|off]`                    Input bar growth (default on); also Options → Typing → Grow Input Bar?
+    `.unaccent [on|off]`                Strip accents when sending (`usiądź przy stole` → `usiadz przy stole`); local echo shows the folded form. Also Options → Typing. Off by default. Passwords and Lua SendToServer are not rewritten.
+    `.hyphen [on|off|lang en|phone|full on|off]`  Draw a hyphen when a long input word does not fit the space left on the line. Not sent. Needs `.wrap`. Off by default. Also Options → Typing → Hyphenate long words?
+    `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Input bar → Show Edit button?
     `.editbuttons`                      Open Edit buttons (same as ⋮ → Edit buttons)
     `.gesture`                          Screen swipes on the game text. `.gesture mode classic|1|2|both`, `.gesture scroll two|hold|off`, `.gesture edit`, `.gesture show on|off`, `.gesture preview on|off`
-    `.editpanel [on|off]`               Toggle/show/hide the Edit tools strip (Sel/Cut/…)
-    `.editrows [on|off|toggle]`         Landscape Edit strip on two rows (Select/Cut/… on one, cursor pad on the next). Off by default: one full-width row, including in landscape. Also Options → Window → Edit strip: two rows in landscape?
-    `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Show Send button?
-    `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Font size
-    `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
-    `.avoidbuttons [on|off|toggle|letters|words]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text avoids on-screen buttons? / Avoid-buttons break
-    `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Jump to the live edge when you send?
-    `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
-    `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
-    `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
-    `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Line timestamps?
+    `.editpanel [on|off|toggle]`        Say whether the Edit tools strip is open. No argument prints that. `toggle` flips it
+    `.editrows [on|off|toggle]`         Landscape Edit strip on two rows (Select/Cut/… on one, cursor pad on the next). Off by default: one full-width row, including in landscape. Also Options → Window → Input bar → Edit strip: two rows in landscape?
+    `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Input bar → Show Send button?
+    `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Text → Font size
+    `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text → Text width (% of screen)
+    `.avoidbuttons [on|off|toggle|letters|words]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text → Text avoids on-screen buttons? / Avoid-buttons break
+    `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Layout → Jump to the live edge when you send?
+    `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window → Text
+    `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Text → Light theme?
+    `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Layout → Scroll dates?
+    `.timestamp [on|off|toggle|log on|off|hour|minute|second|month|year]`  When each line arrived, on the right. Does not change wrapping, triggers or copy. `log` prefixes the session log. Also Options → Window → Text → Line timestamps?
     `.split [on|off|horizontal|h|vertical|v|left|right|top|bottom|15-85]`  Two views of the same game text; each pane scrolls on its own. `horizontal`/`h` (or `left`/`right`) is left/right; `vertical`/`v` (or `top`/`bottom`) is top/bottom. Primary (left or top) gets the percent (default 50). Buttons, mapper, chat and NAWS stay on the primary. `.split off` is one pane again.
     `.ping`                             One ICMP echo to this world's host. Not sent to the world. A world that drops ICMP can still answer on the game port.
-    `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
+    `.gmcp …`                           GMCP status with no argument (same as `.gmcp status`). `.gmcp help` is the usage wall. sniff / version / supports / dump / send; see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`, `reopen`/`open <id>`); see below. Not the same as `.window`
-    `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
-    `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
-    `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.mcp …`                            MCP status with no argument (same as `.mcp status`). `.mcp help` is the usage wall. See below
+    `.mssp`                             Dump the cached MSSP server listing. No argument dumps it. Any other word is an error and does not dump
+    `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`. No argument dumps the cache. An unknown word is an error and does not dump
     `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
-    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`next`/`loose`/`typos`/`skiphead`/`firstletter`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|list|off|next`, `order left|right` (first chip on the left, or on the right; the bar and the floating window), `phrases`/`next`/`loose`/`typos`/`skiphead`/`firstletter`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
-    `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
-    `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
+    `.last` / `.Nlast`                  Resend a recent command. `.last` is the newest, `.2last` the one before it. `.last input` puts that line in the bar and does not send it. Not sent to the world. `2last` with no dot is a game line. See the input bar section
+    `.lastlist`                         This world's recent commands, newest first. `.lastlist list` is that window. `.lastlist float` (or `.lastfloat`) shows them as chips over the game; a tap sends. Drag the grip to move them. `.lastlist float off` (or `.lastfloat off`) hides them. `.lastlist bar` turns on the recent-command bar (`.lastbar 5` is how many chips, `.lastbar length 12` is characters) and puts the window and the float away. `.lastlist frame` toggles the title, gear, and close. `.lastlist frame on` shows them. `.lastlist frame off` hides them (`Frame off` works). Same window as Options → Panes → Extra text windows → Recent commands…. Not a game-text pane
+    `.lastfloat`                       Same as `.lastlist float`. `.lastfloat off` hides the chips. `.lastfloat 5` is how many (1–100). `.lastfloat length 12` is characters of each (3–40). Not sent to the world
+    `.lastbar [N|on|off|length N|order left|right]`  Chips of this world's recent commands above the input row. `N` is 1–100 and turns the bar on. No argument prints count, length, order, and whether it is on. `length` is 3–40 characters (default 20). `order left` puts First on the left; `order right` puts First on the right. A tap sends that command. Same controls as Options → Typing → Recent command bar…. Not sent to the world
+    `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**). An extra word is an error and does not disconnect
+    `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**). An extra word is an error and does not reconnect
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.rev <directions>`                 Same letters as `.run`, walked backwards. Reverse per letter in Speedwalk Directions; compass n↔s / in↔out if Reverse is blank; door/cave need Reverse filled. Comma text stays (not close door)
-    `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
+    `.loadset <setname>`                Load that button set. No name prints usage and does not look up a set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
-    `.heatmap`                          Count taps, holds, swipes and accordion opens on the buttons, kept for this world. While it is on, every tile is the same white and brighter means used more. `.heatmap off` hides that and the numbers; counting continues. `.heatmap reset` forgets this world's counts.
+    `.heatmap`                          Show the heatmap and list the counts. Taps, holds, swipes and accordion opens are kept for this world. While it is on, every tile is the same white and brighter means used more. `.heatmap off` hides that and the numbers; counting continues. `.heatmap reset` forgets this world's counts. Any other word is an error and does not show the overlay.
     `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback and old session logs; see forms below
-    `.chat …`                           Left-hand chat drawer (threads and reply templates); see forms below
+    `.chat …`                           Toggle the left-hand chat drawer. `.chat open` stays open; `.chat close` stays closed; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
     `.window …`                         Extra text windows (list/show/hide/font/create/destroy); see below
     `.widget …` / `.gauge …`            Overlay gauges (HP/mana/timer bars). `.gauge` is the same command; see below
@@ -2678,7 +2737,8 @@ is enabled; `.alias list` shows every alias at once.
 ### `.trigger` forms
 
 ```
-.trigger
+.trigger                        how many are on (same as status)
+.trigger help                  this usage
 .trigger on <name|plugin:name>
 .trigger off <name|plugin:name>
 .trigger toggle <name|plugin:name>
@@ -2693,11 +2753,34 @@ is enabled; `.alias list` shows every alias at once.
 
 Unqualified names resolve **main settings** first, then a unique plugin
 match; use `plugin:name` when names collide. Names and groups may contain
-spaces (rest of line after the action). `status` with no name prints
-main + plugin counts. Empty group name matches the default group (exact
+spaces (rest of line after the action). `.trigger` with no argument, and
+`status` with no name, print main + plugin counts. `.trigger help` prints
+the usage wall. Empty group name matches the default group (exact
 string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 **main + all plugins**. `.trigger all` affects main only; use
 `.trigger plugin <plugin> all on|off` for one plugin.
+
+### `.debug renderer`
+
+```
+.debug
+.debug renderer
+.debug renderer show on|off|toggle
+```
+
+No argument says whether the label is on. It stays off until you turn it on,
+and it is not saved.
+
+The label sits at the top-left of the game text. All three names stay up.
+The number is how many lines took that path this frame. Zero means none.
+
+- `typeset` — the font is drawn on the window canvas (a still screen, or a line the tile path will not take)
+- `tiles` — that line is a stored bitmap; the font is not drawn again this frame
+- `bake` — the font is drawn into a new line bitmap this frame
+- `hw` / `sw` — the window canvas is hardware or software
+
+A still screen: `typeset 40 · tiles 0 · bake 0 · hw`. A scroll can mix them:
+`typeset 0 · tiles 30 · bake 4 · hw`.
 
 ### `.grabber` forms
 
@@ -2758,6 +2841,10 @@ A Color action you painted is not the world's style; the grabber skips it.
 .pick tap
 .pick button
 .pick button-double
+.pick insert
+.pick hold insert
+.pick button insert
+.pick button-double insert
 .pick loupe
 .pick loupe size 118
 .pick loupe zoom 200
@@ -2774,6 +2861,15 @@ appended as before. Empty bar, or a client `.` command left in the bar (Keep Las
 after `.pick`), is not a game prefix: that send is refused and pick stays
 on. Put `.pick hold` on a button and leave `fix ` (or `fix $1 helmet`) in
 the bar.
+
+**insert** does the same gesture and puts the line in the bar instead of
+sending it. `.pick insert` with `get ` in the bar and a tap on `iron`
+leaves `get iron ` and turns off. `.pick hold insert` stays on, so the
+next tap adds the next word (`get iron ` then `helmet` becomes
+`get iron helmet `). `.pick button insert` and `.pick button-double insert`
+use the button's command as the prefix and replace the bar with that
+line; the next swipe uses the button again. Nothing is sent until you
+press Send. An empty bar still does nothing, same as a normal pick.
 
 No argument is **once**: one word, then off. **hold** / **on** stays until
 `.pick off` (or a second `.pick hold`). **tap** is the same as once.
@@ -2796,7 +2892,7 @@ The loupe is a round magnifier of the **game text** around the finger
 (not only the chosen word), with that word highlighted. The phrase
 (`fix helmet`, or `fix iron helmet` from `fix $1 helmet`) sits **above**
 the circle. Dragging to the screen edge
-scrolls a frozen buffer. Size and zoom: Options → Window → **Pick loupe
+scrolls a frozen buffer. Size and zoom: Options → Window → Text → **Pick loupe
 size (%)** / **Pick loupe zoom (%)**, or `.pick loupe size 118` /
 `.pick loupe zoom 200` (size 50–200, default 118; zoom 150–350, 200 is
 2×). `.pick loupe` prints the current values.
@@ -2817,7 +2913,7 @@ wins over existing tappable-word triggers for that pick.
 Size and zoom for the two-finger copy widget (not `.pick`). Same ranges
 as pick (size 50–200, default 118; zoom 150–350, 200 is 2×). `.copy` and
 `.copy loupe` print the current values; `.copy loupe default` restores
-both. Also Options → Window → **Copy loupe size (%)** / **Copy loupe
+both. Also Options → Window → Text → **Copy loupe size (%)** / **Copy loupe
 zoom (%)**.
 
 ### `.probe`
@@ -2831,9 +2927,10 @@ Type `.probe` to see the list. Each name is one or two lines of what question it
 answers. `.probe connection` dumps why a freeze looks frozen (socket waiting vs
 text sitting in a hidden UI). A one-shot dump works without `on`.
 
-`.probe on` / `.probe report` / `.probe reset` without a name do not start a
-measurement — they show the list. The chunk measurement is `.probe lines`, not
-the default of `.probe`.
+`.probe on` / `.probe report` / `.probe reset` without a name are an error.
+They do not start a measurement and they do not print the list. A bad
+`.probe lines` argument is the same error. The chunk measurement is
+`.probe lines`, not the default of `.probe`.
 
 ### `.probe lines`
 
@@ -3301,7 +3398,7 @@ With **Scroll dates?** on (`.when on`), `.search 14:32` or `.search 18 Aug` jump
 to text that arrived then.
 
 `.search logs` (no phrase) opens the in-app session-log browser for this world
-(⋮ → **Session logs**). It reads the folder **Options → Service → Session Log
+(⋮ → **Session logs**). It reads the folder **Options → Connection → Session Log
 Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
 All) and tap **Load** — a folder that still holds older per-session files can
 take a while; new logs are one file per world per day. The dialog says so
@@ -3322,7 +3419,7 @@ read it; large files page with **Older** / **Newer**.
 
 `.search logs 7 goblin` searches the live window first, then session log files
 from the **last 7 days** (including today's file) in `/BlowTorch/session_logs/`
-— or the folder in Options → Service → Log Session directory. A file you are
+— or the folder in Options → Connection → Log Session directory. A file you are
 still writing to is included. To search every saved file as well as the window,
 use `.search logs 0 goblin`. Quote the word if you mean it: `.search 'logs'`
 finds “logs” in the window.
@@ -3350,11 +3447,15 @@ touched in the last 7 days.
   `.pick hold` (or another sticky pick), that second finger **cancels the
   pick** so you can drag to scroll. Copy is unchanged when pick is off.
 - One-finger long-press alone does not open copy.
-- Drag the cursors, then use **copy** / **swap ends** / **close** around
-  the magnifier (outside the circle, not on the text). A slow drag follows
+- Drag the cursors, then use **copy** / **swap ends** / **close** /
+  **new trigger** around the magnifier (outside the circle, not on the text).
+  **New trigger** opens the trigger editor with that selection already in
+  the pattern, and **Literal** on, so `$` and `.` stay characters. The
+  action list is empty — you pick gag, colour, sound, or whatever else.
+  Nothing is saved until Done. A blank selection does nothing. A slow drag follows
   the finger. A flick moves further across the text. On-screen buttons
   may hide while selecting so the widget stays usable.
-  Size and zoom: Options → Window → **Copy loupe size (%)** /
+  Size and zoom: Options → Window → Text → **Copy loupe size (%)** /
   **Copy loupe zoom (%)**, or `.copy loupe size 118` / `.copy loupe zoom
   200`. `.copy` prints the current values; `.copy loupe default` restores
   both.
@@ -3370,28 +3471,30 @@ Optional swipes on the main game text. **Classic** is the default: one finger
 scrolls, two fingers copy. One mode at a time, saved with that world.
 
 - **⋮ → Gesture mode** sets the mode and the scrolling choice. The same scrolling
-  choice is under Options → Input → Global gestures. `.gesture mode classic|1|2|both`.
+  choice is under Options → Gestures. `.gesture mode classic|1|2|both`.
   `.gesture scroll two|hold|off` sets that choice. Classic and Two fingers
   refuse it, the same as the grey row.
 - **One finger** — Scrolling is **With two fingers**, **Hold, then gesture**
   (80–800 ms, 280 is the default), or **Off**. A stationary long-press on a
   word still opens that word's menu. With two fingers, a one-finger swipe sends
-  a command and two fingers scroll the text.
+  a command and two fingers scroll the text. One finger may move faster than
+  the other.
 - **Two fingers** — one finger scrolls. The scrolling choice is grey. A
   two-finger swipe can send a command, and a short tap can copy.
 - **Both** — Scrolling is the same choice as One finger. **With two fingers**
   scrolls with two fingers. The both-fingers switch is only for Hold or Off,
-  and it is grey in the other modes.
-- A blank direction sends nothing. Before the hold, a move still scrolls. After
-  the hold, a blank direction does not scroll the text. Lift without a direction
+  and it is grey in the other modes. While it is on, fingers moving the same
+  way scroll even when one is faster. A finger that stays put can still draw
+  a gesture.
+- A blank direction sends no command. Before the hold, a move still scrolls. After
+  the hold, a blank direction scrolls the text. Lift without a direction
   and nothing is sent. A second finger cancels a one-finger gesture, including
   one you have already drawn and not released, and that tap does not open the
   copy widget. On a two-finger swipe, lifting the finger that is not drawing
   the line cancels it. Lifting the finger that is drawing the line sends the
   command. A third finger cancels a two-finger gesture.
 - `.gesture` prints the current setup. `.gesture edit` opens the direction
-  commands (also ⋮ → **Edit global gestures** and Options → Input → Global
-  gestures → **Edit global gestures**).
+  commands (also ⋮ → **Edit global gestures** and Options → Gestures → **Edit global gestures**).
 - `.gesture show on|off` is the label near the top-right, inset from the
   corner. It shows the gesture mode, and in One finger and Both the scrolling
   choice as well. Off by default.
@@ -3404,25 +3507,25 @@ scrolls, two fingers copy. One mode at a time, saved with that world.
 ## Font size
 
 New profiles start at font size **20** (readable on phones). Change under
-Options → Window → Font Size (6–96; a tablet often wants 40–60). The value
+Options → Window → Text → Font Size (6–96; a tablet often wants 40–60). The value
 is kept when you close the world.
 
 ## Pick loupe
 
 The round magnifier during `.pick` shows the **game text** around the
 finger, with the chosen word highlighted and the phrase (`fix helmet`)
-above the circle. Options → Window → **Pick loupe size (%)** (50–200,
+above the circle. Options → Window → Text → **Pick loupe size (%)** (50–200,
 default 118) and **Pick loupe zoom (%)** (150–350, default 200 = 2×), or
 `.pick loupe size 118` / `.pick loupe zoom 200`. `.pick loupe` prints the
 current values; `.pick loupe default` restores both.
 
 The two-finger copy widget has its own size and zoom (Options → Window →
-**Copy loupe size (%)** / **Copy loupe zoom (%)**, or `.copy loupe`); copy
-/ swap / close sit outside the circle.
+**Copy loupe size (%)** / **Copy loupe zoom (%)**, or `.copy loupe`); copy,
+swap ends, close, and new trigger sit outside the circle.
 
 ## Font (typeface)
 
-Options → Window → Font. The list is a handful of faces that actually look
+Options → Window → Text → Font. The list is a handful of faces that actually look
 different, not every file under `/system/fonts/`.
 
 - **DejaVu Sans Mono** — default; box drawing and Block Elements.
@@ -3444,7 +3547,7 @@ in the list because it is the same design as DejaVu.
 
 ## Text avoids on-screen buttons
 
-**Options → Window → Text avoids on-screen buttons?** (off by default), or
+**Options → Window → Text → Text avoids on-screen buttons?** (off by default), or
 `.avoidbuttons on|off`. With it on, an on-screen button is a hole: game text
 wraps in the columns left of it (and continues on the right if there is
 room) instead of drawing underneath. Leftover on that row is clipped; it
@@ -3478,7 +3581,7 @@ the 16-color set. xterm 256 and truecolor ignore that bright step. You see
 that grew wider would bend the column grid (maps, prompts). The window Font
 option can still pick a bold face for the whole window.
 
-**Options → Service → Heavier MUD bold (SGR 1)?** is off by default. Turn
+**Options → Window → Text → Heavier MUD bold (SGR 1)?** is off by default. Turn
 it on and `[1m` also redraws heavier — the same second-draw overlay as
 trigger Color Bold and Tappable Word Bold, so cells do not move — *in
 addition* to the bright palette, not instead of it. Glyphs can spill into
@@ -3487,7 +3590,7 @@ the next cell; bold can look messy.
 Trigger Color **Bold** is a different tick: it always paints heavier glyphs
 and never sends `[1m`. A Color on `fox` with Bold ticked makes `fox`
 heavier; the world's `[1m` on the rest of the line is still bright unless
-that Service box is on.
+that switch is on.
 
 Italic (3),
 underline (4), strike (9), reverse (7) and faint (2) are painted: a world that
@@ -3509,7 +3612,7 @@ the spaces inside the tiles.
 
 ## Dim repeated lines
 
-**Options → Window → Dim repeated lines?** (off by default). When a long line
+**Options → Window → Text → Dim repeated lines?** (off by default). When a long line
 comes back identical — you typed `look` and the room description is the same —
 it is painted dimmer so the new bits (a mob that walked in, a door that opened)
 stand out. Very short lines (`Ok.`, `>`) stay bright so they do not fill
@@ -3534,7 +3637,7 @@ Dot command (same three knobs):
 
 ## Light theme
 
-**Options → Window → Light theme?** (off by default). The game canvas uses a
+**Options → Window → Text → Light theme?** (off by default). The game canvas uses a
 warm grey paper and dark ink. Colours the world sends (red *You bleed*, cyan
 names, yellow highlights) stay; whites, default grey, and other light greys
 are darkened so they stay readable. Extra-text windows follow the main
@@ -3559,7 +3662,7 @@ theme is off.
 
 ## Scroll dates
 
-**Options → Window → Scroll dates?** (off by default). While you are scrolled
+**Options → Window → Layout → Scroll dates?** (off by default). While you are scrolled
 into history, a small day and time sits to the left of ⋮ (same
 calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark to the
 right of the date shows where you are in the buffer (thumb at the bottom =
@@ -3580,7 +3683,7 @@ the session log is the archive for that.
 
 ## Line timestamps
 
-**Options → Window → Line timestamps?** (off by default). Each line shows
+**Options → Window → Text → Line timestamps?** (off by default). Each line shows
 when it arrived, on the **right** of its first row. The game text itself is
 unchanged: wrapping, triggers, maps and copy stay as they were. Extra-text
 windows stay off unless that window's option is on (those tokens are not
@@ -3622,7 +3725,7 @@ and not an extra-text window.
 ## Newest text at top
 
 By default, fresh game output sits at the **bottom** of the window (classic
-terminal). Enable **Options → Window → Newest text at top?** to put live lines
+terminal). Enable **Options → Window → Text → Newest text at top?** to put live lines
 at the **top** and older scrollback below — handy when on-screen buttons cover
 the bottom edge. Drag **up** to dig into history; the home chevron stays in the
 **bottom-right** and points **up** toward live output.
@@ -3634,7 +3737,7 @@ without flipping text, see **Padding, notch, and the keyboard**.
 
 ## Padding, notch, and the keyboard
 
-**Options → Window → Avoid camera cutout (portrait)?** and **Avoid camera
+**Options → Window → Layout → Avoid camera cutout (portrait)?** and **Avoid camera
 cutout (landscape)?** keep chrome out of the camera hole in that orientation.
 Both default on. Landscape uses the left or right edge (where the hole sits
 when the phone is on its side). Portrait only adds space if the hole sticks
@@ -3646,24 +3749,24 @@ The on-screen **keyboard is a separate system window**. Gboard (and the
 AOSP keyboard from Android 15) leave a gap the width of the camera hole
 so keys are not under the lens. BlowTorch cannot stretch those keys.
 
-**Options → Window → Top padding (px)** is extra empty space above game text
+**Options → Window → Layout → Top padding (px)** is extra empty space above game text
 on top of **Avoid camera cutout** (on-screen buttons are unaffected). Try
 values like `40`–`80` if the automatic inset is not enough.
 
-**Options → Window → Bottom padding (px)** does the same at the bottom edge, all
+**Options → Window → Layout → Bottom padding (px)** does the same at the bottom edge, all
 the time — use it to keep the newest line clear of the input bar or a gesture bar.
 
-**Options → Window → Bottom padding with keyboard (px)** adds further space below
+**Options → Window → Layout → Bottom padding with keyboard (px)** adds further space below
 game text only while the soft keyboard is open. The two are independent: set
 either on its own, or both, in which case they add up while the keyboard is out.
 The gap is measured from the bottom of the text area, which rises with the
 keyboard unless **Keep text still with keyboard?** is on.
 
-**Options → Window → Keep text still with keyboard?** — when on, opening the soft
+**Options → Window → Layout → Keep text still with keyboard?** — when on, opening the soft
 keyboard lifts only the input bar; game text stays put (may sit under the IME).
 Works with either text direction. Off = classic lift (text rises with the keyboard).
 
-**Options → Window → Android fling?** (off by default). After you lift your
+**Options → Window → Layout → Android fling?** (off by default). After you lift your
 finger, the text coasts with the speed of the swipe, like a web page or
 gallery. Dragging still follows your finger 1:1. While this is on,
 **Scroll sensitivity** (50–500%) is greyed out. Extra-text windows set to
@@ -3679,8 +3782,15 @@ Optional top-drawer or floating panes beside the main game
 output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
 slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
 
-Configure under **Options → Window → Extra text windows** (**Enable**, **Manage windows…**,
-or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hide via
+Configure under **Options → Panes → Extra text windows** (**Enable**, **Manage windows…**,
+**Recent commands…**, or advanced JSON). **Recent commands…** is this world's command
+history (`.lastlist`): it scrolls, resizes, and closes. `.lastlist float` (or `.lastfloat`) is those commands as chips over the game. Drag the grip to move them. `.lastfloat off` hides them. `.lastfloat 5` is how many chips. `.lastfloat length 12` is how many characters of each. `.lastlist bar` turns the bar on. `.lastbar 5` is how many chips. `.lastbar length 12` is how many characters of each. The gear and this row set
+opacity, font size, lines between entries, one line per command, tappable rows,
+a minimal frame, keeping the window fill, and how many commands are kept.
+`.lastlist frame on` shows the title. `.lastlist frame off` hides it. Open or
+closed, and where you left it, is remembered for this world. Back does not close it.
+It is not a slot. Game lines are not written into it.
+Modes: **`drawer_top`** (top strip, no title bar — show/hide via
 `.window show|hide` or Manage → Show window) or **`float`** (titled, draggable panes).
 Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
 the UI; buffers are named `WindowToken`s.
@@ -3701,7 +3811,7 @@ by its top strip and resizable from its bottom-right corner if you know they are
 there, and closed only by `.window hide` or Options.
 
 **Scroll speed** is per slot, in Manage windows. The default, *Same as main
-window*, follows **Options → Window → Scroll sensitivity** (and **Android
+window*, follows **Options → Window → Layout → Scroll sensitivity** (and **Android
 fling?** when that is on), so that one control still steers every extra window
 at once and a slot only breaks away when you set it to a specific speed.
 Changes apply straight away, with the window open.
@@ -3713,7 +3823,7 @@ when the window process re-registers after a UI restart — then only the newest
 128 KB of held history is replayed.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
-like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** on.
+like `Comm.*`). Routes need **Options → Protocols → Use GMCP?** on.
 
 ### `.window` forms
 
@@ -3759,7 +3869,7 @@ AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
 
 ### GMCP → window
 
-**Options → Window → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
+**Options → Panes → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
 advanced CSV). Matching inbound GMCP packets are written into that slot as
 `[GMCP] ModuleName {json…}` (passwords redacted). Patterns: exact (`Char.Vitals`),
 family (`Char.` / `Char.*`), or `Comm.*`.
@@ -3787,9 +3897,9 @@ the line also stays in the game window.
 .chat help
 ```
 
-Empty argument and `open` slide the chat drawer in from the left (toggles if
-it is already open — there is no separate close binder). `close` and `hide`
-are the same toggle. ✕, the dim area, or Back also close it. Overflow
+No argument toggles the drawer. `.chat open` opens it, and if it is already
+open it stays open. `.chat close` and `.chat hide` close it, and if it is
+already closed it stays closed. ✕, the dim area, or Back also close it. Overflow
 **Chat** always opens it.
 
 `.chat <name>` opens that conversation. The name matches the thread id or
@@ -3859,8 +3969,8 @@ variables (see [MXP](#mxp-clickable-send)).
 `.gauge` is the same command as `.widget`. Ids are lowercase `a-z`, `0-9`, `_`,
 length 1–24, not `main` / `mainDisplay` / `button_window`. At most **12**.
 
-Configure under **Options → Window → Widgets** (**Manage widgets…**), or type
-the commands. GMCP sources need **Options → Service → Protocols → Use GMCP?**
+Configure under **Options → Panes → Widgets** (**Manage widgets…**), or type
+the commands. GMCP sources need **Options → Protocols → Use GMCP?**
 on, and the world actually sending those keys.
 
 Typical first pair:
@@ -3989,7 +4099,7 @@ moves with the tiles rather than leaving them to overlap, and nothing is
 re-flowed into rows. **Layout template** next to it only chooses which pack the
 wizard offers first; it installs nothing on its own.
 
-**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Miscellaneous.
+**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Window → Layout.
 
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.
@@ -4084,7 +4194,10 @@ Built-in room map (not the legacy ForgeMap plugin). Open from overflow **Map**,
 or `.map open` / `.map close` / `.map toggle`. Bare `.map` prints help.
 Prefer floating or
 fullscreen with `.map mode float|fullscreen` (also **Options → Mapper**).
-Floating windows can be dragged and resized; opacity is in Options. The overlay
+Floating windows can be dragged and resized; opacity is in Options. **View →
+Minimal** hides the title bar, the tools bar, and the resize handle, and
+leaves the window fill at the opacity you already set. A two-finger tap on
+the map brings that chrome back. The overlay
 stays under the ⋮ chrome so overflow remains reachable.
 
 ### Concepts
@@ -4138,7 +4251,13 @@ show their current state under the label (e.g. Follow **on**).
 
     **View**
         What it is for: Standing preferences
-        Actions: Opacity…, Arrow labels, Window echo, GMCP sync, GMCP grow
+        Actions: Opacity…, Minimal, Arrow labels, Window echo, GMCP sync, GMCP grow
+        **Minimal** hides the title bar, the tools bar, and the corner
+        handle. The map keeps the opacity you set. A two-finger tap on
+        the map turns it off and brings that chrome back. The View chip is
+        on the tools bar, so it is not there while Minimal is on. Each world
+        remembers Minimal. `.map close` still closes the map while the bars
+        are hidden.
 
 **Close** is only the title **✕** (not in the pie menus).
 
@@ -4230,11 +4349,11 @@ Print the summary with `.map dirs`.
 
 ### Commands
 
-    `.map`                                                                  Help / status
+    `.map`                                                                  Prints help. `.map open` shows the map
     `.map open|close|toggle`                                                Show or hide the map UI
     `.map mode fullscreen|float`                                            Presentation mode
     `.map mode browse|edit|toggle`                                          Map interaction mode (Browse default; Edit for nests/Draw/Links/delete)
-    `.map record on|off|toggle`                                             Record movement into tiles/exits (`rec` alias)
+    `.map record`                                                           Say whether recording is on. `on` and `off` set it. `toggle` flips it (`rec` alias)
     `.map name`                                                             While recording, set the current room's name from recent lines (Nav → Name). Does not run on every step.
     `.map follow on|off|toggle`                                             Keep the view centered on you
     `.map level list|prev|next|set <name>`                                  List / nest down (prev) / nest up (next) / jump by name
@@ -4332,9 +4451,9 @@ can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`).
 type that command to the game; `prompt:` fills the input bar. `javascript:`,
 `data:`, `vbscript:`, `file:`, and `preset:` are ignored.
 
-**Options → Window → Use OSC 8?** (on by default). This is
+**Options → Window → Links → Use OSC 8?** (on by default). This is
 independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
-`www.` / bare domains). Not inside Hyperlink Settings — OSC 8 is not a typical
+`www.` / bare domains). Both sit under Links. OSC 8 is words the game marks, not a typical
 web hyperlink.
 
 ```
@@ -4346,8 +4465,8 @@ web hyperlink.
 ## MXP (clickable SEND)
 
 Some worlds mark exits and items with [MXP](https://www.zuggsoft.com/zmud/mxp.htm)
-so a tap sends a command. Handshake is telnet option 91. **Options → Service →
-Protocols → Use MXP?** (on by default). Reconnect after changing.
+so a tap sends a command. Handshake is telnet option 91. **Options → Protocols →
+Use MXP?** (on by default). Reconnect after changing.
 
 ```
 .mxp
@@ -4411,7 +4530,7 @@ Without a live SEND: `.probe mxp`.
 
 ## GMCP (short)
 
-Enable under **Options → Service → Protocols**. Starts **off** for new worlds;
+Enable under **Options → Protocols**. Starts **off** for new worlds;
 existing profiles that never saved the key keep it on. Prefer **Manage modules…**
 over editing the raw Supports String.
 
@@ -4423,7 +4542,8 @@ not evidence of what was on the wire — a lesson learned the expensive way.
 Helpers:
 
 ```
-.gmcp                 — help
+.gmcp                 — status (same as .gmcp status)
+.gmcp help            — this list
 .gmcp ask|handshake   — Hello / enabled / native / seen (honest)
 .gmcp modules         — enabled vs seen this session
 .gmcp enable|disable  — toggle modules (+ live Add/Remove)
@@ -4442,10 +4562,10 @@ Helpers:
 
 Some servers can ask the client to open a window of their own — a stats panel, a
 map image — through the `mudstd.frame` GMCP package. It is **off by default**:
-Options → Manage modules….
+Options → Protocols → GMCP → Manage modules….
 
 **Pictures are drawn.** When a server sends an image frame you get the picture
-itself, and where it goes is your choice: Options → GMCP → **Pictures the server
+itself, and where it goes is your choice: Options → Protocols → GMCP → **Pictures the server
 sends**.
 
 * **In a floating separate window** (the default) — a small window over the game text.
@@ -4486,7 +4606,7 @@ windows — those are yours, frames are the server's.
 ## MCP (short)
 
 Mud Client Protocol ([MCP 2.1](https://www.moo.mud.org/mcp/)) — in-band `#$#…`
-(not GMCP). Off by default. **Options → Service → Protocols → Use MCP?**. Prefer **Manage packages…** under **MCP**.
+(not GMCP). Off by default. **Options → Protocols → Use MCP?**. Prefer **Manage packages…** under **Options → Protocols → MCP**.
 **Omit MCP lines from output?** (on by default) still hides `#$#` when Use MCP?
 is off; turning Omit off is what shows the raw lines in the scrollback.
 **Log MCP?** writes `--- HH:mm:ss MCP IN … ---` into the day's session log
@@ -4496,7 +4616,8 @@ Native packages (when enabled): hellmoo-status vitals, simpleedit editor,
 displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 
 ```
-.mcp                  — help
+.mcp                  — status (same as .mcp status)
+.mcp help             — this list
 .mcp ask|status       — handshake / flags
 .mcp packages         — enabled vs seen
 .mcp enable|disable   — toggle packages
@@ -4508,7 +4629,7 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols. **Use GMCP? / Use MCP? / Use MXP?** under Options → Service → **Protocols**. **MTTS, MCCP** (and MSDP / MSSP) under **Telnet**. **MTTS, MCCP and MXP are
+Optional protocols. **Use GMCP? / Use MCP? / Use MXP?** under Options → **Protocols**. **MTTS, MCCP** (and MSDP / MSSP) under **Protocols → Telnet**. **MTTS, MCCP and MXP are
 on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 
 ```

@@ -10,7 +10,9 @@ import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -20,6 +22,8 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Search tiles by title/notes; Path / Go actions on a selected hit.
@@ -45,7 +49,7 @@ public class MapperSearchDialog extends Dialog {
 	}
 
 	public MapperSearchDialog(Context context, MudMap map, Callback callback) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		this.map = map;
 		this.callback = callback;
 	}
@@ -54,41 +58,18 @@ public class MapperSearchDialog extends Dialog {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setCanceledOnTouchOutside(false);
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		setContentView(R.layout.mapper_list_shell);
 
-		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		LinearLayout root = new LinearLayout(getContext());
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-
-		TextView heading = new TextView(getContext());
-		heading.setText("Find on map");
-		heading.setTextSize(18f);
-		heading.setTextColor(0xFFEEEEEE);
-		root.addView(heading);
-
-		queryEdit = new EditText(getContext());
-		queryEdit.setHint("Title or notes");
-		queryEdit.setSingleLine(true);
-		root.addView(queryEdit);
-
-		Button searchBtn = new Button(getContext());
-		searchBtn.setText("Search");
-		searchBtn.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				doSearch();
-			}
-		});
-		root.addView(searchBtn);
+		((TextView) findViewById(R.id.titlebar)).setText("Find on map");
+		LinearLayout body = (LinearLayout) findViewById(R.id.mapper_shell_body);
 
 		resultsList = new ListView(getContext());
-		LinearLayout.LayoutParams listLp = new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-		resultsList.setLayoutParams(listLp);
-		root.addView(resultsList);
+		resultsList.setLayoutParams(new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+		styleList(resultsList);
+		body.addView(resultsList);
 		resultsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 			@Override
 			public void onItemClick(AdapterView<?> parent, View view, int position,
@@ -99,11 +80,40 @@ public class MapperSearchDialog extends Dialog {
 			}
 		});
 
-		LinearLayout actions = new LinearLayout(getContext());
-		actions.setOrientation(LinearLayout.HORIZONTAL);
+		LinearLayout searchStrip = new LinearLayout(getContext());
+		searchStrip.setOrientation(LinearLayout.VERTICAL);
+		searchStrip.setBackgroundResource(R.drawable.editor_bottom_bar_bg);
+		int stripPad = dip(getContext(), 6);
+		searchStrip.setPadding(stripPad, stripPad, stripPad, dip(getContext(), 2));
 
-		Button pathBtn = new Button(getContext());
-		pathBtn.setText("Show path");
+		queryEdit = new EditText(getContext());
+		queryEdit.setHint("Title or notes");
+		queryEdit.setSingleLine(true);
+		queryEdit.setMinHeight(dip(getContext(), 42));
+		queryEdit.setBackgroundResource(R.drawable.editor_search_field_bg);
+		queryEdit.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
+		queryEdit.setHintTextColor(ContextCompat.getColor(getContext(), R.color.chrome_hint));
+		int fieldPadH = dip(getContext(), 10);
+		int fieldPadV = dip(getContext(), 8);
+		queryEdit.setPadding(fieldPadH, fieldPadV, fieldPadH, fieldPadV);
+		queryEdit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+		searchStrip.addView(queryEdit, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
+		body.addView(searchStrip);
+
+		LinearLayout footer = (LinearLayout) findViewById(R.id.button_row);
+
+		Button searchBtn = barButton(getContext(), "Search", false);
+		searchBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				doSearch();
+			}
+		});
+		footer.addView(searchBtn);
+
+		Button pathBtn = barButton(getContext(), "Show path", true);
 		pathBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -117,10 +127,9 @@ public class MapperSearchDialog extends Dialog {
 				}
 			}
 		});
-		actions.addView(pathBtn);
+		footer.addView(pathBtn);
 
-		Button goBtn = new Button(getContext());
-		goBtn.setText("Go there");
+		Button goBtn = barButton(getContext(), "Go there", true);
 		goBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -135,21 +144,18 @@ public class MapperSearchDialog extends Dialog {
 				dismiss();
 			}
 		});
-		actions.addView(goBtn);
+		footer.addView(goBtn);
 
-		Button closeBtn = new Button(getContext());
-		closeBtn.setText("Close");
+		Button closeBtn = barButton(getContext(), "Close", true);
 		closeBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				dismiss();
 			}
 		});
-		actions.addView(closeBtn);
-		root.addView(actions);
+		footer.addView(closeBtn);
 
-		setContentView(root);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	private List<String> pathTo(MapTile tile) {
@@ -175,7 +181,15 @@ public class MapperSearchDialog extends Dialog {
 			labels.add(title + (notes.length() > 0 ? " — " + notes : ""));
 		}
 		resultsList.setAdapter(new ArrayAdapter<String>(
-				getContext(), android.R.layout.simple_list_item_1, labels));
+				getContext(), android.R.layout.simple_list_item_1, labels) {
+			@Override
+			public View getView(int position, View convertView, ViewGroup parent) {
+				TextView tv = (TextView) super.getView(position, convertView, parent);
+				tv.setTextColor(ContextCompat.getColor(getContext(),
+						R.color.chrome_title_text));
+				return tv;
+			}
+		});
 		if (results.isEmpty()) {
 			Toast.makeText(getContext(),
 					map == null ? "No map loaded" : "No matches",
@@ -211,5 +225,33 @@ public class MapperSearchDialog extends Dialog {
 			return selected;
 		}
 		return results.isEmpty() ? null : results.get(0);
+	}
+
+	private void styleList(ListView list) {
+		list.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.chrome_body));
+		list.setCacheColorHint(0x00000000);
+		list.setDivider(ContextCompat.getDrawable(getContext(), R.drawable.editor_row_divider));
+		list.setDividerHeight(Math.max(1, dip(getContext(), 1)));
+		list.setSelector(R.drawable.blue_frame_nomargin_nobackground);
+		list.setScrollbarFadingEnabled(false);
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 }

@@ -29,17 +29,16 @@ public class WrapCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "Input bar growth (.wrap) is currently " + state + ".\n"
 					+ "Usage: .wrap on | .wrap off\n"
-					+ "Also: Options → Input → Grow Input Bar?\n");
+					+ "Also: Options → Typing → Grow Input Bar?\n");
 			return null;
 		}
 
-		String token = arg.toLowerCase().split("\\s+")[0];
-		Boolean desired = parseOnOff(token);
+		Boolean desired = parseArgument(arg);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Wrap command usage:",
 					".wrap on | .wrap off\n"
 							+ "Controls whether the input bar grows with multiline text.\n"
-							+ "Also available under Options → Input → Grow Input Bar?"));
+							+ "Also available under Options → Typing → Grow Input Bar?"));
 			return null;
 		}
 
@@ -64,6 +63,23 @@ public class WrapCommand extends SpecialCommand {
 			return (BooleanOption) o;
 		}
 		return null;
+	}
+
+	/** One word. {@code on}/{@code off} and the synonyms this command already takes. */
+	static Boolean parseArgument(String arg) {
+		if (arg == null) {
+			return null;
+		}
+		String token = arg.trim().toLowerCase(java.util.Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	private static Boolean parseOnOff(String token) {

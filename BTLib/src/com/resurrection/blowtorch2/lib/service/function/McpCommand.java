@@ -42,7 +42,11 @@ public class McpCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
-		if (arg.length() == 0 || arg.equalsIgnoreCase("help") || arg.equals("?")) {
+		int route = route(arg);
+		if (route == ROUTE_STATUS) {
+			return doStatus(c);
+		}
+		if (route == ROUTE_HELP) {
 			c.sendDataToWindow(helpText());
 			return null;
 		}
@@ -117,7 +121,7 @@ public class McpCommand extends SpecialCommand {
 			sb.append("  Engine: (not ready)\n");
 		}
 		sb.append("  Note: MCP is in-band #$# lines (not telnet GMCP).\n");
-		sb.append("  Manage: Options → Service → MCP.\n");
+		sb.append("  Manage: Options → Protocols → MCP.\n");
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -197,7 +201,7 @@ public class McpCommand extends SpecialCommand {
 		}
 		sb.append("Packages: ").append(stringOpt(c, OPT_PACKAGES,
 				McpPackageRegistry.DEFAULT_PACKAGES)).append("\n");
-		sb.append("Options → Service → MCP.  ").append(sniffHint(c));
+		sb.append("Options → Protocols → MCP.  ").append(sniffHint(c));
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -285,7 +289,7 @@ public class McpCommand extends SpecialCommand {
 					+ "Usage: .mcp feed on | off\n");
 			return null;
 		}
-		Boolean desired = parseOnOff(rest.split("\\s+")[0]);
+		Boolean desired = parseFeedArgument(rest);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("MCP feed", ".mcp feed on | off"));
 			return null;
@@ -340,7 +344,7 @@ public class McpCommand extends SpecialCommand {
 			c.sendDataToWindow(out.toString() + sniffHint(c));
 			return null;
 		}
-		Boolean desired = parseOnOff(first);
+		Boolean desired = parseSniffArgument(rest);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("MCP sniff", ".mcp sniff on | off | tail [N]"));
 			return null;
@@ -453,13 +457,31 @@ public class McpCommand extends SpecialCommand {
 				+ "MCP (Mud Client Protocol) 2.1 — in-band #$# messages (not GMCP).\n"
 				+ "Spec: https://www.moo.mud.org/mcp/\n"
 				+ shortUsage()
-				+ "Enable: Options → Service → Protocols → Use MCP?\n"
+				+ "Enable: Options → Protocols → Use MCP?\n"
 				+ "Lua: Send_MCP_Packet(s)  Get_MCP_Status()  triggers @message-name\n"
 				+ "Native: hellmoo-status, simpleedit, displayurl, ping, cord, vmoo-client.\n";
 	}
 
+	static final int ROUTE_STATUS = 0;
+	static final int ROUTE_HELP = 1;
+	static final int ROUTE_VERB = 2;
+
+	/** Blank is {@code status}. {@code help} is the usage wall. */
+	static int route(String arg) {
+		if (arg == null || arg.trim().length() == 0) {
+			return ROUTE_STATUS;
+		}
+		String a = arg.trim();
+		if (a.equalsIgnoreCase("help") || a.equals("?")) {
+			return ROUTE_HELP;
+		}
+		return ROUTE_VERB;
+	}
+
 	private static String shortUsage() {
-		return "  .mcp ask|status|packages|vitals|cords\n"
+		return "  .mcp                       — status (same as .mcp status)\n"
+				+ "  .mcp help                  — this list\n"
+				+ "  .mcp ask|status|packages|vitals|cords\n"
 				+ "  .mcp enable|disable <pkg…>   .mcp renegotiate\n"
 				+ "  .mcp sniff|feed|dump|send|ping|client\n"
 				+ "  .mcp cord open|close|send …\n";
@@ -476,6 +498,32 @@ public class McpCommand extends SpecialCommand {
 		return loc.length() > 0
 				? ("Session log: " + loc + "\n")
 				: "Session log is on.\n";
+	}
+
+	/** One word. A second word is not a setting. */
+	static Boolean parseFeedArgument(String rest) {
+		return soleOnOff(rest);
+	}
+
+	/** One word. {@code tail} is handled before this. A second word is not a setting. */
+	static Boolean parseSniffArgument(String rest) {
+		return soleOnOff(rest);
+	}
+
+	private static Boolean soleOnOff(String rest) {
+		if (rest == null) {
+			return null;
+		}
+		String token = rest.trim().toLowerCase(Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	private static Boolean parseOnOff(String s) {

@@ -1,6 +1,8 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -34,6 +36,31 @@ public class CommandKeeper {
 
 	public int getMax() {
 		return max;
+	}
+
+	/** Newest first. A copy, so a later {@link #replace} cannot change it. */
+	public List<String> copyCommands() {
+		return new ArrayList<String>(commands);
+	}
+
+	/**
+	 * Install {@code newestFirst} as the live list. Empty, or null, is an
+	 * empty list. Does not change {@link #getMax}.
+	 */
+	public void replace(final List<String> newestFirst) {
+		ArrayList<String> incoming = new ArrayList<String>();
+		if (newestFirst != null) {
+			incoming.addAll(newestFirst);
+		}
+		commands.clear();
+		for (int i = 0; i < incoming.size() && commands.size() < max; i++) {
+			String cmd = incoming.get(i);
+			if (cmd != null && cmd.length() > 0) {
+				commands.addLast(cmd);
+			}
+		}
+		selected = 0;
+		direction = STATE.NONE;
 	}
 	
 	public void addCommand(String cmd) {
@@ -77,6 +104,27 @@ public class CommandKeeper {
 			return "";
 		}
 		return commands.getFirst();
+	}
+
+	/**
+	 * Command {@code oneBased} steps from the newest, without moving the browse
+	 * cursor. {@code 1} is {@link #peekNewest}. Null when that slot is empty.
+	 */
+	public String peek(int oneBased) {
+		if (oneBased < 1 || oneBased > commands.size()) {
+			return null;
+		}
+		return commands.get(oneBased - 1);
+	}
+
+	/** Remove the newest entry and leave browsing at the start of the list. */
+	public void dropNewest() {
+		if (commands.size() == 0) {
+			return;
+		}
+		commands.removeFirst();
+		selected = 0;
+		direction = STATE.NONE;
 	}
 
 	public String getNext() {
@@ -167,7 +215,7 @@ public class CommandKeeper {
 			edit.putString("c" + i, cmd);
 			i++;
 		}
-		edit.apply();
+		edit.commit();
 	}
 
 	public void load(Context context, String profile) {
@@ -178,15 +226,11 @@ public class CommandKeeper {
 		int count = prefs.getInt("count", 0);
 		int storedMax = prefs.getInt("max", max);
 		setMax(storedMax);
-		commands.clear();
+		ArrayList<String> stored = new ArrayList<String>();
 		for (int i = 0; i < count && i < max; i++) {
-			String cmd = prefs.getString("c" + i, null);
-			if (cmd != null && cmd.length() > 0) {
-				commands.addLast(cmd);
-			}
+			stored.add(prefs.getString("c" + i, null));
 		}
-		selected = 0;
-		direction = STATE.NONE;
+		replace(stored);
 	}
 
 	private static String prefsName(String profile) {

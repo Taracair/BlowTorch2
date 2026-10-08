@@ -152,6 +152,19 @@ if ! grep -Fq '.scratch/review-diff' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc must tell the reviewer to Read .scratch/review-diff pages"
   reviewer_ok=0
 fi
+if ! grep -Fq 'scripts/review-diff.sh HEAD' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc must name scripts/review-diff.sh HEAD for a committed re-review"
+  reviewer_ok=0
+fi
+if grep -q '(uncommitted) or' .cursor/rules/subagent-review.mdc scripts/guards/task_model.py; then
+  echo "review instructions still offer both review-diff commands in one sentence"
+  reviewer_ok=0
+fi
+if grep -q 'rm -rf "\$ROOT/.scratch/review-diff"' scripts/review-diff.sh \
+  || grep -q 'rm -rf "\$OUTDIR"' scripts/review-diff.sh; then
+  echo "scripts/review-diff.sh must not delete the shared review directory"
+  reviewer_ok=0
+fi
 if grep -qE 'tell it to run `git diff` in that repo' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc still tells the reviewer to dump git diff"
   reviewer_ok=0
@@ -161,16 +174,21 @@ if [ ! -x scripts/review-diff.sh ]; then
   reviewer_ok=0
 else
   rd_out="$(mktemp)"
-  if ! scripts/review-diff.sh >"$rd_out"; then
+  rd_dir="$(mktemp -d)"
+  if ! REVIEW_DIFF_OUT="$rd_dir" scripts/review-diff.sh >"$rd_out"; then
     echo "scripts/review-diff.sh failed on the current tree"
     reviewer_ok=0
-  elif ! grep -Fq '.scratch/review-diff' "$rd_out"; then
-    echo "scripts/review-diff.sh stdout must name .scratch/review-diff"
+  elif ! grep -Fq "$rd_dir" "$rd_out"; then
+    echo "scripts/review-diff.sh stdout must name its run directory"
     reviewer_ok=0
   elif grep -q '^diff --git' "$rd_out" && ! grep -q '=== page-01 (inline' "$rd_out"; then
     echo "scripts/review-diff.sh dumped hunks onto stdout instead of pages"
     reviewer_ok=0
+  elif ! bash scripts/guards/review-diff-test.sh; then
+    echo "scripts/guards/review-diff-test.sh failed"
+    reviewer_ok=0
   fi
+  rm -rf "$rd_dir"
   rm -f "$rd_out"
 fi
 if [ "$reviewer_ok" -eq 1 ]; then

@@ -24,6 +24,7 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 /**
  * Draws map tiles on a pan/zoomable grid with exit arrows/labels and
@@ -52,6 +53,8 @@ public class MapperView extends View {
 		 * {@code dest} is the exit destination on another level.
 		 */
 		void onInterLevelExitTap(MapTile from, MapExit exit, MapTile dest);
+		/** Both fingers down and up, without a pinch. */
+		void onTwoFingerTap();
 	}
 
 	private static final float BASE_TILE = 56f;
@@ -200,6 +203,17 @@ public class MapperView extends View {
 	 * menus / drag so pinch-zoom is not interrupted.
 	 */
 	private boolean multiTouchActive;
+	private final TwoFingerTap twoFingerTap = new TwoFingerTap();
+	private final int touchSlop;
+	private float downX;
+	private float downY;
+	private float offsetAtDownX;
+	private float offsetAtDownY;
+	private boolean followAtDown;
+	private float fingerX0;
+	private float fingerY0;
+	private float fingerX1;
+	private float fingerY1;
 	private final Handler handler = new Handler(Looper.getMainLooper());
 
 	public MapperView(Context context) {
@@ -212,6 +226,7 @@ public class MapperView extends View {
 
 	public MapperView(Context context, AttributeSet attrs, int defStyleAttr) {
 		super(context, attrs, defStyleAttr);
+		touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
 		tileFill.setColor(0xFF2A3A4A);
 		tileFill.setStyle(Paint.Style.FILL);
 		tileStroke.setColor(0xFF8AA0B8);
@@ -1534,8 +1549,8 @@ public class MapperView extends View {
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		scaleDetector.onTouchEvent(event);
 		final int action = event.getActionMasked();
+		scaleDetector.onTouchEvent(event);
 		if (action == MotionEvent.ACTION_DOWN) {
 			multiTouchActive = false;
 		} else if (action == MotionEvent.ACTION_POINTER_DOWN
@@ -1552,6 +1567,14 @@ public class MapperView extends View {
 		case MotionEvent.ACTION_DOWN:
 			lastPanX = event.getX();
 			lastPanY = event.getY();
+			downX = lastPanX;
+			downY = lastPanY;
+			offsetAtDownX = offsetX;
+			offsetAtDownY = offsetY;
+			followAtDown = followMode;
+			fingerX0 = lastPanX;
+			fingerY0 = lastPanY;
+			twoFingerTap.primaryDown();
 			panning = !tileDragging;
 			scaling = false;
 			break;
@@ -1559,8 +1582,23 @@ public class MapperView extends View {
 			// Second finger: stop one-finger pan so pinch does not jump.
 			panning = false;
 			scaling = true;
+			if (event.getPointerCount() == 2) {
+				boolean priorPastSlop = Math.abs(event.getX(0) - downX) > touchSlop
+						|| Math.abs(event.getY(0) - downY) > touchSlop;
+				fingerX0 = event.getX(0);
+				fingerY0 = event.getY(0);
+				fingerX1 = event.getX(1);
+				fingerY1 = event.getY(1);
+				twoFingerTap.secondDown(event.getEventTime(), priorPastSlop);
+			} else {
+				twoFingerTap.extraFinger();
+			}
 			break;
 		case MotionEvent.ACTION_MOVE:
+			if (event.getPointerCount() >= 2) {
+				twoFingerTap.move(fingerX0, fingerY0, event.getX(0), event.getY(0), touchSlop);
+				twoFingerTap.move(fingerX1, fingerY1, event.getX(1), event.getY(1), touchSlop);
+			}
 			if (tileDragging) {
 				int[] g = screenToGrid(event.getX(), event.getY());
 				if (g[0] != dragGridX || g[1] != dragGridY) {
@@ -1600,7 +1638,13 @@ public class MapperView extends View {
 			break;
 		}
 		case MotionEvent.ACTION_UP:
-		case MotionEvent.ACTION_CANCEL:
+		case MotionEvent.ACTION_CANCEL: {
+			boolean twoTap = false;
+			if (action == MotionEvent.ACTION_UP) {
+				twoTap = twoFingerTap.lift(0, event.getEventTime());
+			} else {
+				twoFingerTap.cancel();
+			}
 			if (tileDragging) {
 				MapTile moved = draggingTile;
 				int gx = dragGridX;
@@ -1615,7 +1659,17 @@ public class MapperView extends View {
 			panning = false;
 			scaling = false;
 			multiTouchActive = false;
+			if (twoTap) {
+				offsetX = offsetAtDownX;
+				offsetY = offsetAtDownY;
+				followMode = followAtDown;
+				invalidate();
+				if (listener != null) {
+					listener.onTwoFingerTap();
+				}
+			}
 			break;
+		}
 		default:
 			break;
 		}

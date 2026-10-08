@@ -44,6 +44,7 @@ import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ButtonHeatCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
+import com.resurrection.blowtorch2.lib.service.function.DebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProbeCommand;
 import com.resurrection.blowtorch2.lib.service.function.AliasCommand;
@@ -64,11 +65,14 @@ import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolSurveyCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
+import com.resurrection.blowtorch2.lib.service.function.LastCommand;
+import com.resurrection.blowtorch2.lib.service.function.LastRecall;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.MapCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.service.function.HelpCommandGuess;
 import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.service.function.CopyCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
@@ -572,6 +576,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Session {@code .split}: two views of the main buffer. Not persisted. */
 	private boolean mSplitEnabled;
+	/** Session {@code .debug renderer show}. Not written to settings. */
+	private boolean mRendererDebugLabel;
 	private int mSplitOrientation = com.resurrection.blowtorch2.lib.window.SplitLayout.ORIENTATION_HORIZONTAL;
 	private int mSplitPercent = com.resurrection.blowtorch2.lib.window.SplitLayout.DEFAULT_PERCENT;
 
@@ -597,10 +603,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			final boolean useTls, final StellarService service) {
 		
 		ColorDebugCommand colordebug = new ColorDebugCommand();
+		DebugCommand debugcmd = new DebugCommand();
 		DirtyExitCommand dirtyexit = new DirtyExitCommand();
 		TimerCommand timercmd = new TimerCommand();
 		BellCommand bellcmd = new BellCommand();
 		FullScreenCommand fscmd = new FullScreenCommand();
+		FullScreenCommand fullscreenCmd = new FullScreenCommand(false);
 		mKeyboardCommand = new KeyboardCommand();
 		DisconnectCommand dccmd = new DisconnectCommand();
 		ReconnectCommand rccmd = new ReconnectCommand();
@@ -621,14 +629,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(gesturecmd.commandName, gesturecmd);
 		mSpecialCommands.put(editbuttonscmd.commandName, editbuttonscmd);
 		mSpecialCommands.put(colordebug.commandName, colordebug);
+		mSpecialCommands.put(debugcmd.commandName, debugcmd);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
 		mSpecialCommands.put(timercmd.commandName, timercmd);
 		WaitCommand waitcmd = new WaitCommand();
 		mSpecialCommands.put(waitcmd.commandName, waitcmd);
 		mSpecialCommands.put(bellcmd.commandName, bellcmd);
 		mSpecialCommands.put(fscmd.commandName, fscmd);
+		mSpecialCommands.put(fullscreenCmd.commandName, fullscreenCmd);
 		mSpecialCommands.put(mKeyboardCommand.commandName, mKeyboardCommand);
 		mSpecialCommands.put("kb", mKeyboardCommand);
+		LastCommand lastcmd = new LastCommand();
+		mSpecialCommands.put(lastcmd.commandName, lastcmd);
+		com.resurrection.blowtorch2.lib.service.function.LastListCommand lastlistcmd =
+				new com.resurrection.blowtorch2.lib.service.function.LastListCommand();
+		mSpecialCommands.put(lastlistcmd.commandName, lastlistcmd);
+		mSpecialCommands.put("lastfloat",
+				new com.resurrection.blowtorch2.lib.service.function.LastListCommand("lastfloat"));
+		com.resurrection.blowtorch2.lib.service.function.LastBarCommand lastbarcmd =
+				new com.resurrection.blowtorch2.lib.service.function.LastBarCommand();
+		mSpecialCommands.put(lastbarcmd.commandName, lastbarcmd);
 		mSpecialCommands.put(dccmd.commandName, dccmd);
 		mSpecialCommands.put(rccmd.commandName, rccmd);
 		mSpecialCommands.put(mSpeedwalkCommand.commandName, mSpeedwalkCommand);
@@ -4504,8 +4524,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				data.mVisString = cmd.replace("..", ".");
 				return data;
 			}
-			
-			
+
+			// `.3last` is one token. The map key is `last`, so numbered forms
+			// are matched here, before alias lookup.
+			int recallMax = Math.max(10, Math.min(100, readIntOption("input_history_size", 75)));
+			int recall = LastRecall.parse(cmd, recallMax);
+			int fill = LastRecall.parseFill(cmd, recallMax);
+			if (recall != LastRecall.NOT_RECALL || fill != LastRecall.NOT_RECALL
+					|| LastRecall.isMisused(cmd)) {
+				if (fill >= 1) {
+					mSpecialCommands.get("last").execute(new LastRecall.Fill(fill), this);
+				} else {
+					int n = recall >= 1 ? recall : LastRecall.BAD_INDEX;
+					if (fill == LastRecall.BAD_INDEX) {
+						n = LastRecall.BAD_INDEX;
+					}
+					mSpecialCommands.get("last").execute(Integer.valueOf(n), this);
+				}
+				offerTutorialTip("last");
+				return null;
+			}
+
 			mCommandMatcher.reset(cmd);
 			if (mCommandMatcher.find()) {
 				synchronized (mSettings) {
@@ -4563,6 +4602,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							
 							String error = Colorizer.getRedColor() + "[*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*][*]\n";
 							error += "  \"" + alias + "\" is not a recognized alias or command.\n";
+							String guess = HelpCommandGuess.didYouMean(HelpCommandGuess.pick(alias));
+							if (guess != null) {
+								error += "   " + guess;
+							}
 							error += "   No data has been sent to the server. If you intended\n";
 							error += "   this to be done, please type \".." + alias + "\"\n";
 							error += "   To toggle command processing, input \"..\" with no arguments\n";
@@ -6042,6 +6085,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_rank:
 			case word_complete_pairs:
 			case word_complete_where:
+			case word_complete_order:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
 				// strip; ask the UI to re-read rather than adding a binder call per
@@ -7463,7 +7507,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		sensor_my_shakes,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
-		/** A short mark between dimmed suggestions on the same line. */
+		/** Kept so old profiles parse. Suggestions on one line are separated by a space. */
 		word_complete_split,
 		/** Suggestions follow the caret into the middle of the line. */
 		word_complete_caret,
@@ -7487,6 +7531,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		sgr1_weight,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
+		/** First suggestion chip on the left (0) or the right (1). */
+		word_complete_order,
 		/** Triggers that speak keep quiet while a command is being composed. */
 		speak_quiet_typing,
 		/** How solid those chips are. */
@@ -8890,6 +8936,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	public final boolean isSplitEnabled() {
 		return mSplitEnabled;
+	}
+
+	public final boolean rendererDebugLabel() {
+		return mRendererDebugLabel;
+	}
+
+	/** Tell the UI. Windows rebuilt later are pushed again from the service. */
+	public final void setRendererDebugLabel(final boolean on) {
+		mRendererDebugLabel = on;
+		if (mService != null) {
+			mService.doRunUiAction(on ? "renderer-debug:on" : "renderer-debug:off");
+		}
 	}
 
 	public final int getSplitOrientation() {

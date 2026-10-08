@@ -78,6 +78,7 @@ public final class GlobalGestureSession {
 	private float tipX, tipY;
 	private int activeFinger;
 	private boolean seenTwo;
+	private boolean ownedScroll;
 	private String lockedDir;
 	private String lockedCmd;
 
@@ -91,6 +92,7 @@ public final class GlobalGestureSession {
 		phase = Phase.IDLE;
 		bypass = false;
 		seenTwo = false;
+		ownedScroll = false;
 		lockedDir = null;
 		lockedCmd = null;
 	}
@@ -133,7 +135,12 @@ public final class GlobalGestureSession {
 			return cancelGesture();
 		}
 		if (phase == Phase.SCROLL1) {
+			float sdx = x0 - lx0;
+			float sdy = y0 - ly0;
 			note(pointerCount, x0, y0, x1, y1);
+			if (ownedScroll && !seenTwo) {
+				return Decision.scroll(sdx, sdy);
+			}
 			return seenTwo ? Decision.eat() : Decision.ignore();
 		}
 		float pdx0 = x0 - lx0;
@@ -196,6 +203,7 @@ public final class GlobalGestureSession {
 		activeFinger = 1;
 		phase = Phase.TRACK2;
 		seenTwo = true;
+		ownedScroll = false;
 		lockedDir = null;
 		lockedCmd = null;
 	}
@@ -224,6 +232,10 @@ public final class GlobalGestureSession {
 			phase = Phase.LIFTED;
 			return Decision.eat();
 		}
+		if (phase == Phase.SCROLL1 && ownedScroll) {
+			phase = Phase.LIFTED;
+			return Decision.eat();
+		}
 		if (phase == Phase.SCROLL1 && !seenTwo) {
 			return Decision.ignore();
 		}
@@ -231,6 +243,10 @@ public final class GlobalGestureSession {
 	}
 
 	public Decision onUp(final long time, final float x, final float y) {
+		if (ownedScroll && phase == Phase.SCROLL1) {
+			reset();
+			return Decision.eat();
+		}
 		if (bypass || phase == Phase.SCROLL1 || phase == Phase.TRACK1 || phase == Phase.ARMED1
 				|| phase == Phase.IDLE) {
 			reset();
@@ -262,6 +278,10 @@ public final class GlobalGestureSession {
 	}
 
 	public Decision onCancel() {
+		if (ownedScroll && phase == Phase.SCROLL1) {
+			reset();
+			return Decision.eat();
+		}
 		if (bypass || phase == Phase.IDLE || phase == Phase.SCROLL1 || phase == Phase.TRACK1) {
 			reset();
 			return Decision.ignore();
@@ -299,6 +319,9 @@ public final class GlobalGestureSession {
 		}
 		String cmd = config.binding(1, dir);
 		if (cmd == null) {
+			if (blankOneFingerScrolls()) {
+				return beginOwnedScroll(x - ox0, y - oy0);
+			}
 			return dropPreview(Phase.DEAD1);
 		}
 		return lockAim(dir, cmd, x, y, 1);
@@ -328,6 +351,9 @@ public final class GlobalGestureSession {
 		}
 		String cmd = config.binding(fingers, dir);
 		if (cmd == null) {
+			if (fingers == 1 && blankOneFingerScrolls()) {
+				return beginOwnedScroll(x - tipX, y - tipY);
+			}
 			rebase(x, y, fingers);
 			return dropPreview(fingers == 1 ? Phase.DEAD1 : Phase.TRACK2);
 		}
@@ -400,28 +426,25 @@ public final class GlobalGestureSession {
 		float d1 = hypot(x1 - ox1, y1 - oy1);
 		float lead = Math.max(d0, d1);
 		float trail = Math.min(d0, d1);
+		// Once a two-finger pan has started, a paused finger does not turn it
+		// back into a gesture.
+		if (phase == Phase.SCROLL2) {
+			return scrollFingers(pdx0, pdy0, pdx1, pdy1);
+		}
 		// With two fingers, in One finger or Both: two fingers are the scroll.
 		if (config.scroll() == GlobalGestures.SCROLL_TWO
 				&& (config.mode() == GlobalGestures.MODE_ONE
 						|| config.mode() == GlobalGestures.MODE_BOTH)) {
-			if (phase == Phase.SCROLL2 || lead > slop) {
+			if (lead > slop) {
 				phase = Phase.SCROLL2;
-				return Decision.scroll((pdx0 + pdx1) * 0.5f, (pdy0 + pdy1) * 0.5f);
+				return scrollFingers(pdx0, pdy0, pdx1, pdy1);
 			}
 			return Decision.eat();
 		}
-		// A held finger reports almost no delta. Drift from the landing point
-		// is not a two-finger drag, and it must not stick for the rest of the swipe.
-		boolean moving0 = hypot(pdx0, pdy0) > 2f;
-		boolean moving1 = hypot(pdx1, pdy1) > 2f;
-		boolean together = twoScrollOn() && moving0 && moving1
-				&& d0 >= travel && d1 >= travel && trail > lead * 0.45f;
-		if (together) {
+		// Same direction, not the same speed. A finger inside two slops stays the anchor.
+		if (twoScrollOn() && fingersAgree(x0, y0, x1, y1, lead, trail)) {
 			phase = Phase.SCROLL2;
-			return Decision.scroll((pdx0 + pdx1) * 0.5f, (pdy0 + pdy1) * 0.5f);
-		}
-		if (phase == Phase.SCROLL2) {
-			phase = Phase.TRACK2;
+			return scrollFingers(pdx0, pdy0, pdx1, pdy1);
 		}
 		if (!twoDirOn()) {
 			return Decision.eat();
@@ -447,6 +470,46 @@ public final class GlobalGestureSession {
 		return lockAim(dir, cmd, finger == 0 ? x0 : x1, finger == 0 ? y0 : y1, 2);
 	}
 
+	/** 0.35 is about 70 degrees. The slower finger may lag past two slops; inside that it stays an anchor. */
+	private boolean fingersAgree(final float x0, final float y0, final float x1, final float y1,
+			final float lead, final float trail) {
+		if (lead < travel || trail < slop * 2f) {
+			return false;
+		}
+		float vx0 = x0 - ox0;
+		float vy0 = y0 - oy0;
+		float vx1 = x1 - ox1;
+		float vy1 = y1 - oy1;
+		float a = hypot(vx0, vy0);
+		float b = hypot(vx1, vy1);
+		if (a < 1f || b < 1f) {
+			return false;
+		}
+		return (vx0 * vx1 + vy0 * vy1) / (a * b) > 0.35f;
+	}
+
+	/** Same-direction motion uses the midpoint. A finger that did not move this frame does not halve it. */
+	private Decision scrollFingers(final float pdx0, final float pdy0,
+			final float pdx1, final float pdy1) {
+		float m0 = hypot(pdx0, pdy0);
+		float m1 = hypot(pdx1, pdy1);
+		if (m0 < 1f) {
+			return Decision.scroll(pdx1, pdy1);
+		}
+		if (m1 < 1f) {
+			return Decision.scroll(pdx0, pdy0);
+		}
+		return Decision.scroll((pdx0 + pdx1) * 0.5f, (pdy0 + pdy1) * 0.5f);
+	}
+
+	/** 1 pans sideways, 2 scrolls the backlog. No sideways room stays on the backlog. */
+	static int scrollAxis(final float dx, final float dy, final boolean canPanX) {
+		if (canPanX && Math.abs(dx) > Math.abs(dy)) {
+			return 1;
+		}
+		return 2;
+	}
+
 	private Decision fireLocked() {
 		String cmd = lockedCmd;
 		phase = Phase.CANCELLED;
@@ -458,9 +521,23 @@ public final class GlobalGestureSession {
 		return Decision.fire(cmd);
 	}
 
+	private Decision beginOwnedScroll(final float dx, final float dy) {
+		ownedScroll = true;
+		phase = Phase.SCROLL1;
+		lockedDir = null;
+		lockedCmd = null;
+		return Decision.scroll(dx, dy);
+	}
+
+	/** Hold, then gesture: a direction with no command scrolls. Off does not. */
+	private boolean blankOneFingerScrolls() {
+		return config.scroll() == GlobalGestures.SCROLL_HOLD && config.oneFingerGestures();
+	}
+
 	private Decision cancelGesture() {
 		boolean preview = phase == Phase.PREVIEW1 || phase == Phase.PREVIEW2;
 		phase = Phase.CANCELLED;
+		ownedScroll = false;
 		lockedDir = null;
 		lockedCmd = null;
 		return preview ? Decision.clear() : Decision.eat();

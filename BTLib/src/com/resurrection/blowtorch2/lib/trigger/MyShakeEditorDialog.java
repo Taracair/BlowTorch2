@@ -195,15 +195,6 @@ public class MyShakeEditorDialog extends Dialog {
 		});
 		body.addView(slider);
 
-		scroll.addView(body);
-		root.addView(scroll, new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-
-		LinearLayout footer = new LinearLayout(getContext());
-		footer.setOrientation(LinearLayout.HORIZONTAL);
-		footer.setBackgroundColor(0xFF1E2126);
-		footer.setPadding(pad / 2, pad / 2, pad / 2, pad / 2);
-
 		Button undo = footerButton("Undo");
 		undo.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -212,13 +203,6 @@ public class MyShakeEditorDialog extends Dialog {
 					traces.remove(traces.size() - 1);
 					redraw();
 				}
-			}
-		});
-		save = footerButton("Save");
-		save.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(final View v) {
-				saveShape();
 			}
 		});
 		Button command = footerButton("Command");
@@ -232,17 +216,38 @@ public class MyShakeEditorDialog extends Dialog {
 				openCommand();
 			}
 		});
-		Button close = footerButton("Close");
-		close.setOnClickListener(new View.OnClickListener() {
+		LinearLayout tools = new LinearLayout(getContext());
+		tools.setOrientation(LinearLayout.HORIZONTAL);
+		tools.setPadding(0, pad / 2, 0, 0);
+		tools.addView(undo, weight());
+		tools.addView(command, weight());
+		body.addView(tools);
+
+		scroll.addView(body);
+		root.addView(scroll, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+		LinearLayout footer = new LinearLayout(getContext());
+		footer.setOrientation(LinearLayout.HORIZONTAL);
+		footer.setBackgroundColor(0xFF1E2126);
+		footer.setPadding(pad / 2, pad / 2, pad / 2, pad / 2);
+
+		Button cancel = footerButton("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				dismiss();
 			}
 		});
-		footer.addView(undo, weight());
+		save = footerButton("Done");
+		save.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				saveShape();
+			}
+		});
+		footer.addView(cancel, weight());
 		footer.addView(save, weight());
-		footer.addView(command, weight());
-		footer.addView(close, weight());
 		root.addView(footer);
 
 		setContentView(root);
@@ -375,7 +380,7 @@ public class MyShakeEditorDialog extends Dialog {
 			int n = traces.size();
 			String need = n < CustomShakeLibrary.MIN_TRACES
 					? " Shake the same way again. " + CustomShakeLibrary.MIN_TRACES
-							+ " before Save."
+							+ " before Done."
 					: " More lines cover more of how you actually shake.";
 			count.setText(n + (n == 1 ? " line." : " lines.") + need);
 		}

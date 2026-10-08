@@ -470,7 +470,7 @@ public class BetterEditText extends EditText {
 	 * as corruption.
 	 */
 	private boolean ghostAtCaret = false;
-	/** A short mark between suggestions on the same line. Off sits them with a space. */
+	/** Profile flag still loads. Suggestions are separated by a space either way. */
 	private boolean ghostSplit = false;
 
 	/**
@@ -742,13 +742,23 @@ public class BetterEditText extends EditText {
 		return w > 0f ? w : 0f;
 	}
 
-	/** Space between two suggestions. The first one sits against the text. */
+	/** One space between suggestions on the same line. */
 	private float ghostGap() {
 		android.text.TextPaint p = ghostPaint != null ? ghostPaint : getPaint();
-		if (ghostSplit) {
-			return p.getTextSize() * 0.45f;
-		}
 		return p.measureText(" ");
+	}
+
+	/**
+	 * Pixels before the first extra. After the inline ghost that is one space.
+	 * With no inline ghost, one space unless the typed text already ends on one.
+	 */
+	private float extrasLeadIn(final boolean afterInline) {
+		if (afterInline) {
+			return ghostGap();
+		}
+		CharSequence typed = getText();
+		String text = typed == null ? "" : typed.toString();
+		return GhostSpacing.gapBeforeNewWord(text) ? ghostGap() : 0f;
 	}
 
 	/**
@@ -823,12 +833,9 @@ public class BetterEditText extends EditText {
 				float startX = listAtTextEnd()
 						? lastLineEndAt(textInnerWidthForMargin(marginEnd))
 						: ghostEndAfter(inlineFit);
-				if (inlineFit != null) {
-					startX += ghostGap();
-				}
+				startX += extrasLeadIn(inlineFit != null);
 				topRows = packGhostExtras(null, avail, startX,
-						ghostBaseline, contentTop, contentBottom, lineHeight, 0f, 0f,
-						false);
+						ghostBaseline, contentTop, contentBottom, lineHeight, 0f, 0f);
 				if (listAtTextEnd()) {
 					belowField = GhostExtraLayout.caretListRowsBelow(ghostPackedMaxRow);
 					topRows = 0;
@@ -1866,15 +1873,13 @@ public class BetterEditText extends EditText {
 			// After the typed text, on the last line. x=0 on that line, or the
 			// caret's x, paints the list in the background of the sentence.
 			float extrasStartX = drawInline ? endX : textEndX();
-			if (drawInline) {
-				extrasStartX += ghostGap();
-			}
+			extrasStartX += extrasLeadIn(drawInline);
 			float rowAvail = lineWidth;
 			float contentTop = layout.getLineTop(0);
 			float contentBottom = layout.getLineBottom(layout.getLineCount() - 1);
 			packGhostExtras(canvas, rowAvail, extrasStartX, endBaseline,
 					contentTop, contentBottom, ghostPaint.getFontSpacing(),
-					originX, originY, ghostSplit && drawInline);
+					originX, originY);
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;
@@ -1901,17 +1906,6 @@ public class BetterEditText extends EditText {
 					inlineNumberX, endBaseline);
 		}
 		canvas.restore();
-	}
-
-	/** A short stroke between two suggestions on the same line. */
-	private void drawGhostDivider(final android.graphics.Canvas canvas,
-			final android.text.TextPaint base, final float x, final float baseline) {
-		float h = base.getTextSize() * 0.55f;
-		android.graphics.Paint line = new android.graphics.Paint(base);
-		line.setStyle(android.graphics.Paint.Style.STROKE);
-		line.setStrokeWidth(Math.max(1f, base.getTextSize() * 0.06f));
-		float mid = baseline - base.getTextSize() * 0.28f;
-		canvas.drawLine(x, mid - h * 0.5f, x, mid + h * 0.5f, line);
 	}
 
 	/** A micro digit above the baseline, matching the inline ghost marker. */
@@ -2035,14 +2029,12 @@ public class BetterEditText extends EditText {
 	 * @param lineHeight one line of ghost type.
 	 * @param originX left of the content, for hit rectangles.
 	 * @param originY top of the content, for hit rectangles.
-	 * @param splitAfterGhost a mark belongs in the gap reserved before the first
-	 *        extra, and only if that extra stayed on the ghost's line.
 	 * @return top-padding rows the bar must reserve above the typed block.
 	 */
 	private int packGhostExtras(final android.graphics.Canvas canvas, final float avail,
 			final float startX, final float ghostBaseline, final float contentTop,
 			final float contentBottom, final float lineHeight, final float originX,
-			final float originY, final boolean splitAfterGhost) {
+			final float originY) {
 		ghostHiddenCount = 0;
 		if (canvas != null) {
 			ghostLastDrawnX = -1;
@@ -2072,7 +2064,6 @@ public class BetterEditText extends EditText {
 			// Text bottom, not the view bottom: a taller Hide/Send band stays
 			// under the list instead of opening a gap above it.
 			float firstBelow = contentBottom;
-			int prev = -1;
 			for (int i = 0; i < ghostExtras.length; i++) {
 				int row = pack.rows[i];
 				if (row < 0) {
@@ -2101,12 +2092,6 @@ public class BetterEditText extends EditText {
 					baseline = GhostExtraLayout.rowBaseline(row, ghostBaseline,
 							contentTop, lineHeight, descent);
 				}
-				if (ghostSplit && prev >= 0 && pack.rows[prev] == row) {
-					drawGhostDivider(canvas, p, pack.xs[i] - gap * 0.5f, baseline);
-				} else if (splitAfterGhost && prev < 0 && row == 0) {
-					drawGhostDivider(canvas, p, pack.xs[i] - gap * 0.5f, baseline);
-				}
-				prev = i;
 				if (number > 0) {
 					drawGhostIndex(canvas, p, String.valueOf(number), itemX, baseline);
 					itemX += indexW;

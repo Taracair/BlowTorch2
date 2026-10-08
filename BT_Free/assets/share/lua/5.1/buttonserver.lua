@@ -58,6 +58,10 @@ function loadButtonSet(args)
 		Note("\nNo button set was named, so nothing was loaded.\n")
 		return
 	end
+	if type(args) ~= "string" or string.match(args, "^%s*$") then
+		Note("\nUsage: .loadset <name>\n")
+		return
+	end
 
 	debugString("Button Server sending button set, "..args)
 

@@ -764,12 +764,20 @@ function BUTTON:draw(state,canvas)
 		local badge = buttonHeatLabel(self)
 		if badge ~= nil and badge ~= "" then
 			local previousStyle = p:getStyle()
-			p:setStyle(PaintStyle.FILL)
-			p:setColor(Color:argb(255, 255, 220, 80))
+			local previousWidth = p:getStrokeWidth()
+			local previousColor = p:getColor()
 			p:setTextSize(math.max(10 * self.density, 12))
 			local bx = rectRight(rect) - p:measureText(badge) - 3 * self.density
 			local by = rectTop(rect) + p:getTextSize()
+			p:setStyle(PaintStyle.STROKE)
+			p:setStrokeWidth(math.max(1, self.density * 0.35))
+			p:setColor(Color:argb(255, 0, 0, 0))
 			canvas:drawText(badge, bx, by, p)
+			p:setStyle(PaintStyle.FILL)
+			p:setColor(Color:argb(255, 255, 220, 80))
+			canvas:drawText(badge, bx, by, p)
+			p:setStrokeWidth(previousWidth)
+			p:setColor(previousColor)
 			p:setStyle(previousStyle)
 		end
 	end

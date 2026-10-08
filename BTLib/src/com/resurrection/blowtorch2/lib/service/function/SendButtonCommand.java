@@ -29,7 +29,7 @@ public class SendButtonCommand extends SpecialCommand {
 			return null;
 		}
 
-		Boolean desired = EditButtonCommand.parseOnOff(arg.toLowerCase().split("\\s+")[0]);
+		Boolean desired = EditButtonCommand.parseArgument(arg);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Sendbutton command usage:",
 					".sendbutton on | .sendbutton off\n"

@@ -14,6 +14,14 @@ public class EditButtonCommandTest {
 	}
 
 	@Test
+	public void trailingWordIsNotOn() {
+		assertNull(EditButtonCommand.parseArgument("on please"));
+		assertNull(EditButtonCommand.parseArgument("off now"));
+		assertEquals(Boolean.TRUE, EditButtonCommand.parseArgument("on"));
+		assertEquals(Boolean.FALSE, EditButtonCommand.parseArgument("  OFF "));
+	}
+
+	@Test
 	public void synonymsRejected() {
 		assertNull(EditButtonCommand.parseOnOff("yes"));
 		assertNull(EditButtonCommand.parseOnOff("1"));

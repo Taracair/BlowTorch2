@@ -86,6 +86,7 @@ public class SettingsOptionKeyOwnershipTest {
 	@Test
 	public void theSuggestionBarPlaceIsWrittenAndTheOldSwitchIsNot() {
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_where"));
+		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_order"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_caret"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_next"));
 		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_typos"));

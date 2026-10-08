@@ -65,7 +65,7 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 			if (reverse != null && oldData.getReverse() != null) {
 				reverse.setText(oldData.getReverse());
 			}
-			((Button)findViewById(R.id.new_sw_done_button)).setText("Save Changes");
+			((Button)findViewById(R.id.new_sw_done_button)).setText("Done");
 			findViewById(R.id.new_sw_done_button).setOnClickListener(new View.OnClickListener() {
 				
 				

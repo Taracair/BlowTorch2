@@ -97,13 +97,43 @@ public class GlobalGestureSessionTest {
 	}
 
 	@Test
-	public void holdPolicyUnboundDirectionDoesNotScrollAfterTheHold() {
+	public void holdPolicyUnboundDirectionScrollsAfterTheHold() {
 		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
 				GlobalGestures.SCROLL_HOLD, true, true, false, "1.n=north"));
 		s.onDown(0, 0f, 0f);
-		assertEquals(Decision.Kind.EAT, s.onMove(250, 1, 80f, 0f, 0f, 0f).kind);
-		assertEquals(Decision.Kind.EAT, s.onMove(300, 1, 120f, 0f, 0f, 0f).kind);
-		assertEquals(Decision.Kind.EAT, s.onUp(320, 120f, 0f).kind);
+		Decision started = s.onMove(250, 1, 80f, 0f, 0f, 0f);
+		assertEquals(Decision.Kind.SCROLL, started.kind);
+		assertEquals(80f, started.dx, 0.01f);
+		assertEquals(0f, started.dy, 0.01f);
+		Decision kept = s.onMove(300, 1, 120f, 0f, 0f, 0f);
+		assertEquals(Decision.Kind.SCROLL, kept.kind);
+		assertEquals(40f, kept.dx, 0.01f);
+		Decision up = s.onUp(320, 120f, 0f);
+		assertEquals(Decision.Kind.EAT, up.kind);
+		assertNull(up.command);
+	}
+
+	@Test
+	public void holdPolicyUnboundDirectionStillScrollsBeforeTheHold() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "1.n=north"));
+		s.onDown(0, 0f, 0f);
+		assertEquals(Decision.Kind.IGNORE, s.onMove(50, 1, 80f, 0f, 0f, 0f).kind);
+	}
+
+	@Test
+	public void leavingABoundDirectionForABlankOneScrolls() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "1.n=north"));
+		s.onDown(0, 0f, 0f);
+		assertEquals("north", s.onMove(250, 1, 0f, -80f, 0f, 0f).command);
+		Decision turned = s.onMove(280, 1, 40f, -80f, 0f, 0f);
+		assertEquals(Decision.Kind.SCROLL, turned.kind);
+		assertEquals(40f, turned.dx, 0.01f);
+		assertEquals(0f, turned.dy, 0.01f);
+		Decision up = s.onUp(300, 40f, -80f);
+		assertEquals(Decision.Kind.EAT, up.kind);
+		assertNull(up.command);
 	}
 
 	@Test
@@ -335,5 +365,118 @@ public class GlobalGestureSessionTest {
 		Decision started = s.onMove(40, 2, 0f, -15f, 30f, -15f);
 		assertEquals(Decision.Kind.SCROLL, started.kind);
 		assertNull(started.command);
+	}
+
+	@Test
+	public void twoFingerScrollUsesTheMidpointWhenBothMove() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_TWO, true, true, false, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 30f, 0f);
+		Decision moved = s.onMove(40, 2, 0f, -12f, 30f, -48f);
+		assertEquals(Decision.Kind.SCROLL, moved.kind);
+		assertEquals(0f, moved.dx, 0.01f);
+		assertEquals(-30f, moved.dy, 0.01f);
+	}
+
+	@Test
+	public void twoFingerScrollAveragesAPinchThatAlsoTravels() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_TWO, true, true, false, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 30f, 0f);
+		Decision pinch = s.onMove(40, 2, -30f, -40f, 60f, -50f);
+		assertEquals(Decision.Kind.SCROLL, pinch.kind);
+		assertEquals(0f, pinch.dx, 0.01f);
+		assertEquals(-45f, pinch.dy, 0.01f);
+	}
+
+	@Test
+	public void twoFingerScrollAveragesOppositeDirections() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_TWO, true, true, false, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 30f, 0f);
+		Decision pinch = s.onMove(40, 2, 0f, -40f, 30f, 40f);
+		assertEquals(Decision.Kind.SCROLL, pinch.kind);
+		assertEquals(0f, pinch.dy, 0.01f);
+	}
+
+	@Test
+	public void slowerFingerStillScrollsWhenBothMoveTheSameWay() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision moved = s.onMove(40, 2, 0f, -80f, 40f, -20f);
+		assertEquals(Decision.Kind.SCROLL, moved.kind);
+		assertNull(moved.command);
+		assertEquals(-50f, moved.dy, 0.01f);
+	}
+
+	@Test
+	public void aStillFingerKeepsLookingForATwoFingerGesture() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision swipe = s.onMove(40, 2, 0f, 4f, 40f, -80f);
+		assertEquals(Decision.Kind.PREVIEW, swipe.kind);
+		assertEquals("look", swipe.command);
+	}
+
+	@Test
+	public void aFingerInsideTwoSlopsStillDrawsTheGesture() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision swipe = s.onMove(40, 2, 0f, -15f, 40f, -80f);
+		assertEquals(Decision.Kind.PREVIEW, swipe.kind);
+		assertEquals("look", swipe.command);
+	}
+
+	@Test
+	public void fingersAboutSeventyDegreesApartDoNotScroll() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		// 80° from straight up: dot about 0.17, outside the 0.35 gate.
+		Decision apart = s.onMove(40, 2, 0f, -80f, 40f + 39.4f, -6.9f);
+		assertEquals(Decision.Kind.PREVIEW, apart.kind);
+		assertEquals("look", apart.command);
+	}
+
+	@Test
+	public void fingersInsideSeventyDegreesScroll() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		// 60° from straight up: dot 0.5.
+		Decision moved = s.onMove(40, 2, 0f, -80f, 40f + 34.6f, -20f);
+		assertEquals(Decision.Kind.SCROLL, moved.kind);
+		assertNull(moved.command);
+	}
+
+	@Test
+	public void sidewaysScrollStaysOnTheBacklogWhenTheLineIsNotWider() {
+		assertEquals(2, GlobalGestureSession.scrollAxis(80f, 5f, false));
+		assertEquals(1, GlobalGestureSession.scrollAxis(80f, 5f, true));
+		assertEquals(2, GlobalGestureSession.scrollAxis(5f, 80f, true));
+		assertEquals(2, GlobalGestureSession.scrollAxis(5f, 80f, false));
+	}
+	@Test
+	public void aTwoFingerScrollKeepsGoingWhenOneFingerPauses() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		assertEquals(Decision.Kind.SCROLL, s.onMove(40, 2, 0f, -50f, 40f, -50f).kind);
+		Decision back = s.onMove(60, 2, 0f, -5f, 40f, -50f);
+		assertEquals(Decision.Kind.SCROLL, back.kind);
+		assertNull(back.command);
+		assertEquals(45f, back.dy, 0.01f);
 	}
 }

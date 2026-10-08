@@ -97,7 +97,7 @@
 		android:layout_height="wrap_content"
 		android:minHeight="44dip"
 		android:layout_width="120dip"
-		android:text="Done"/>
+		android:text="Close"/>
 
 	<Button
 		android:id="@+id/refresh"

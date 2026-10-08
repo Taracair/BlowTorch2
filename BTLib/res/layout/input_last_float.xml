@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recent commands as chips over the game, the same shape as the suggestion
+     float. A tap sends that command. Drag the grip to move the strip. A tap
+     on the grip hides it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/input_last_float"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom|left"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:visibility="gone"
+    android:background="@drawable/suggestion_panel_bg">
+
+    <ImageView
+        android:id="@+id/input_last_float_grip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingLeft="6dip"
+        android:paddingRight="4dip"
+        android:paddingTop="4dip"
+        android:paddingBottom="4dip"
+        android:src="@drawable/ic_suggestion_grip"
+        android:contentDescription="Move or hide recent commands" />
+
+    <HorizontalScrollView
+        android:id="@+id/input_last_float_scroll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:fillViewport="false">
+
+        <LinearLayout
+            android:id="@+id/input_last_float_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingLeft="2dip"
+            android:paddingRight="4dip"
+            android:paddingTop="2dip"
+            android:paddingBottom="2dip" />
+
+    </HorizontalScrollView>
+
+</LinearLayout>

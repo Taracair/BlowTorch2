@@ -59,14 +59,11 @@ public final class WordSuggestions {
 	public static final int MIN_OPACITY = 10;
 
 	/**
-	 * Where the chips are drawn: floating over the game text, resting on the
-	 * input bar.
+	 * Where suggestions are drawn.
 	 *
-	 * <p>One place, three values, rather than two switches. Two booleans could
-	 * say "no bar but float it", which is not a thing, and the player had to work
-	 * out that one of them silently turned the other off. The order matters: this
-	 * is the index into the option's item list, so items are added in this order
-	 * and nothing is inserted in the middle.
+	 * <p>One place, not two switches. The order is the saved list index:
+	 * items are added in this order and nothing is inserted in the middle.
+	 * {@code WHERE_LIST} is appended.
 	 */
 	public static final int WHERE_FLOATING = 0;
 
@@ -79,11 +76,64 @@ public final class WordSuggestions {
 	 */
 	public static final int WHERE_NONE = 2;
 
+	/** A draggable list over the game, the same window as recent commands. */
+	public static final int WHERE_LIST = 3;
+
 	/**
 	 * Floating, because the strip below the game window takes height while it
 	 * shows: the game text jumps under the thumb on every letter.
 	 */
 	public static final int DEFAULT_WHERE = WHERE_FLOATING;
+
+	/**
+	 * {@code .suggest where next}: floating, then the bar, then the list, then off.
+	 * The first step from the default stays the bar.
+	 */
+	public static int cycleWhere(final int now) {
+		if (now == WHERE_FLOATING) {
+			return WHERE_BAR;
+		}
+		if (now == WHERE_BAR) {
+			return WHERE_LIST;
+		}
+		if (now == WHERE_LIST) {
+			return WHERE_NONE;
+		}
+		return WHERE_FLOATING;
+	}
+
+	/**
+	 * A place word, or null. {@code next} is not a place.
+	 */
+	public static Integer place(final String word) {
+		if (word == null) {
+			return null;
+		}
+		if (word.equals("floating") || word.equals("float") || word.equals("over")) {
+			return Integer.valueOf(WHERE_FLOATING);
+		}
+		if (word.equals("bar") || word.equals("strip") || word.equals("below")) {
+			return Integer.valueOf(WHERE_BAR);
+		}
+		if (word.equals("list")) {
+			return Integer.valueOf(WHERE_LIST);
+		}
+		if (word.equals("off") || word.equals("none") || word.equals("nowhere")) {
+			return Integer.valueOf(WHERE_NONE);
+		}
+		return null;
+	}
+
+	/**
+	 * Chip order list index. 0 is left (first chip on the left). Inserting a
+	 * value in the middle renames every saved choice after it.
+	 */
+	public static final int ORDER_LEFT = 0;
+
+	/** First chip on the right. */
+	public static final int ORDER_RIGHT = 1;
+
+	public static final int DEFAULT_ORDER = ORDER_LEFT;
 
 	/**
 	 * Below this a loose match is noise: two or three letters are a subsequence
@@ -1352,7 +1402,7 @@ public final class WordSuggestions {
 	}
 
 	/** Do the letters of {@code needle} appear in {@code word}, in order? */
-	private static boolean isSubsequence(final String needle, final String word) {
+	static boolean isSubsequence(final String needle, final String word) {
 		if (word.length() <= needle.length()) {
 			return false;
 		}

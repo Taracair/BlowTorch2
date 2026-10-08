@@ -395,24 +395,38 @@ public class WindowToken implements Parcelable {
 	private void initSettings() {
 		SettingsGroup window = new SettingsGroup();
 		window.setTitle("Window");
-		window.setDescription("Options involved with the display of text or interaction with the window.");
+		window.setDescription("Font, colours, wrap, padding, links, and the menu button.");
 		window.setKey("window_group");
-		
+
+		SettingsGroup text = new SettingsGroup();
+		text.setTitle("Text");
+		text.setDescription("Font, colours, wrap, and how lines are drawn.");
+		text.setKey("window_text_group");
+
+		SettingsGroup layout = new SettingsGroup();
+		layout.setTitle("Layout");
+		layout.setDescription("Padding, scrolling, the keyboard, and the menu button.");
+		layout.setKey("window_layout_group");
+
 		SettingsGroup hyperlinks = new SettingsGroup();
-		hyperlinks.setTitle("Hyperlink Settings");
-		hyperlinks.setDescription("Options for highlighting web page URLs.");
+		hyperlinks.setTitle("Links");
+		hyperlinks.setDescription("Web addresses in the text, and words the game marks tappable.");
 		hyperlinks.setKey("hyperlinks_options");
+
+		SettingsGroup inputBar = new SettingsGroup();
+		inputBar.setTitle("Input bar");
+		inputBar.setDescription("The Edit and Send buttons on the input bar.");
+		inputBar.setKey("window_input_bar_group");
 		
 		BooleanOption hyperlinksEnabled = new BooleanOption();
 		hyperlinksEnabled.setTitle("Enable Hyperlinks?");
 		hyperlinksEnabled.setDescription("Make http(s)://, www., and (when enabled below) bare domain URLs clickable.");
 		hyperlinksEnabled.setKey("hyperlinks_enabled");
 		hyperlinksEnabled.setValue(true);
-		hyperlinks.addOption(hyperlinksEnabled);
 
 		ListOption hyperlinkMode = new ListOption();
 		hyperlinkMode.setTitle("Hyperlink Mode");
-		hyperlinkMode.setDescription("How hyperlinks are presented.");
+		hyperlinkMode.setDescription("Underline a web address, colour it, or both.");
 		hyperlinkMode.setKey("hyperlink_mode");
 		hyperlinkMode.addItem("None");
 		hyperlinkMode.addItem("Underline");
@@ -420,320 +434,263 @@ public class WindowToken implements Parcelable {
 		hyperlinkMode.addItem("Underline and Colorize, only if no ANSI color is specified");
 		hyperlinkMode.addItem("Background highlight with specified color");
 		hyperlinkMode.setValue(Integer.valueOf(DEFAULT_HYPERLINK_MODE));
-		hyperlinks.addOption(hyperlinkMode);
 		
 		ColorOption hyperlinkColor = new ColorOption();
 		hyperlinkColor.setTitle("Hyperlink Color");
 		hyperlinkColor.setDescription("The color the hyperlink will be colorized with.");
 		hyperlinkColor.setKey("hyperlink_color");
 		hyperlinkColor.setValue(Integer.valueOf(DEFAULT_HYPERLINK_COLOR));
-		hyperlinks.addOption(hyperlinkColor);
 
 		BooleanOption hyperlinkBare = new BooleanOption();
 		hyperlinkBare.setTitle("Link bare domains?");
-		hyperlinkBare.setDescription("Also match hostnames like example.com / mud.org without http. Short TLDs (to, ch, ai, …) are off by default to avoid false links in game text.");
+		hyperlinkBare.setDescription("Also match hostnames like example.com without http; short endings such as to, ch, and ai stay off so ordinary text is not full of false links.");
 		hyperlinkBare.setKey("hyperlink_bare_domains");
 		hyperlinkBare.setValue(true);
-		hyperlinks.addOption(hyperlinkBare);
 
 		StringOption hyperlinkExtraTlds = new StringOption();
 		hyperlinkExtraTlds.setTitle("Extra TLDs (CSV)");
-		hyperlinkExtraTlds.setDescription("Add bare-domain endings not in the built-in list. Example: ai,to,ch — no dots. Built-in already covers com, org, net, io, …");
+		hyperlinkExtraTlds.setDescription("Extra bare-domain endings, comma-separated and without dots, added to the built-in list.");
 		hyperlinkExtraTlds.setKey("hyperlink_extra_tlds");
 		hyperlinkExtraTlds.setValue("");
-		hyperlinks.addOption(hyperlinkExtraTlds);
 
 		BooleanOption osc8Links = new BooleanOption();
 		osc8Links.setTitle("Use OSC 8?");
-		osc8Links.setDescription("Make words the game marks tappable (OSC 8). A tap can send a command, fill the input bar, or open a web page. Not the same as Enable Hyperlinks? below (those are URLs found in the text). .osc8 on|off");
+		osc8Links.setDescription("Make words the game marks tappable, so a tap can send a command, fill the input bar, or open a web page.");
 		osc8Links.setKey("osc8_links");
 		osc8Links.setValue(true);
-		window.addOption(osc8Links);
 		
-		window.addOption(hyperlinks);
 		
 		BooleanOption wordWrap = new BooleanOption();
 		wordWrap.setTitle("Word Wrap?");
-		wordWrap.setDescription("Broken text will be wrapped at the nearest whitespace.");
+		wordWrap.setDescription("Break a long line at a space; off, the line runs off the side of the screen.");
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
-		window.addOption(wordWrap);
 
 		BooleanOption dimRepeatedLines = new BooleanOption();
 		dimRepeatedLines.setTitle("Dim repeated lines?");
-		dimRepeatedLines.setDescription("When a long line comes back identical (look, the same room), paint it dimmer so what changed stands out. Off by default. .dimrepeat on|off");
+		dimRepeatedLines.setDescription("When a long line comes back identical, paint it dimmer so what changed stands out.");
 		dimRepeatedLines.setKey("dim_repeated_lines");
 		dimRepeatedLines.setValue(false);
-		window.addOption(dimRepeatedLines);
 
 		IntegerOption dimRepeatedWindow = new IntegerOption();
 		dimRepeatedWindow.setTitle("Remember how many lines?");
-		dimRepeatedWindow.setDescription("How many recent long lines stay in memory. After that many other long lines, an old room is bright again. 12 is about a screen of combat. .dimrepeat lines N");
+		dimRepeatedWindow.setDescription("How many recent long lines stay in memory before an old repeated line is bright again.");
 		dimRepeatedWindow.setKey("dim_repeated_window");
 		dimRepeatedWindow.setValue(RepeatedLineDimmer.DEFAULT_WINDOW);
-		window.addOption(dimRepeatedWindow);
 
 		IntegerOption dimRepeatedStrength = new IntegerOption();
 		dimRepeatedStrength.setTitle("Dim strength (%)");
-		dimRepeatedStrength.setDescription("How hard to dim a repeated line. 50 is half as bright (default). Higher is darker (10–90). .dimrepeat strength N");
+		dimRepeatedStrength.setDescription("How hard to dim a repeated line, from 10 to 90, where 50 is half as bright.");
 		dimRepeatedStrength.setKey("dim_repeated_strength");
 		dimRepeatedStrength.setValue(RepeatedLineDimmer.DEFAULT_STRENGTH);
-		window.addOption(dimRepeatedStrength);
 
 		BooleanOption lightPaper = new BooleanOption();
 		lightPaper.setTitle("Light theme?");
-		lightPaper.setDescription("Light paper and dark ink. Colours the game sends (red, cyan, …) stay; whites and light greys are darkened so they stay readable. Extra-text windows follow this window. Off by default. .light on|off|1–5");
+		lightPaper.setDescription("Light paper and dark ink, while colours the game sends stay readable.");
 		lightPaper.setKey("light_paper");
 		lightPaper.setValue(false);
-		window.addOption(lightPaper);
 
 		IntegerOption lightPaperShade = new IntegerOption();
 		lightPaperShade.setTitle("Light paper shade (1–5)");
-		lightPaperShade.setDescription("Only while Light theme? is on. 1 grey, 2 warm (the original), 3 ivory, 4 off-white, 5 near-white. Ink darkens as the paper lightens. Extra-text follows. .light 1–5 or .light shade N");
+		lightPaperShade.setDescription("How light the paper is while Light theme is on, from 1 grey to 5 near-white.");
 		lightPaperShade.setKey("light_paper_shade");
 		lightPaperShade.setValue(Integer.valueOf(LightPaper.SHADE_DEFAULT));
-		window.addOption(lightPaperShade);
 
 		BooleanOption scrollDates = new BooleanOption();
 		scrollDates.setTitle("Scroll dates?");
-		scrollDates.setDescription("While scrolled into history, show when the text on screen arrived (day and time) to the left of ⋮, plus a small mark for where you are in the buffer. .search 14:32 / 18 Aug jumps there. Off by default. .when on|off");
+		scrollDates.setDescription("While scrolled into history, show when the text on screen arrived, and a mark for where you are in the buffer.");
 		scrollDates.setKey("scroll_dates");
 		scrollDates.setValue(false);
-		window.addOption(scrollDates);
 
 		IntegerOption scrollDatesOpacity = new IntegerOption();
 		scrollDatesOpacity.setTitle("Scroll date opacity (%)");
-		scrollDatesOpacity.setDescription("How solid the day/time and position mark are while scrolled into history. "
-				+ SCROLL_DATES_OPACITY_MIN + "–100. The jump-to-live arrow is unchanged. .when opacity N");
+		scrollDatesOpacity.setDescription("How solid the day, time, and position mark are while scrolled into history ("
+				+ SCROLL_DATES_OPACITY_MIN + "–100).");
 		scrollDatesOpacity.setKey("scroll_dates_opacity");
 		scrollDatesOpacity.setValue(DEFAULT_SCROLL_DATES_OPACITY);
-		window.addOption(scrollDatesOpacity);
 
 		BooleanOption lineStamps = new BooleanOption();
 		lineStamps.setTitle("Line timestamps?");
-		lineStamps.setDescription("Show when each line arrived, on the right. Maps stay left-aligned. Does not change wrapping, triggers or copy. Off by default. .timestamp on|off");
+		lineStamps.setDescription("Show when each line arrived, on the right, without changing wrap, triggers, or copy.");
 		lineStamps.setKey("line_stamps");
 		lineStamps.setValue(false);
-		window.addOption(lineStamps);
 
 		BooleanOption lineStampsLog = new BooleanOption();
 		lineStampsLog.setTitle("Timestamps in session log?");
-		lineStampsLog.setDescription("Prefix the same stamp on the left of each logged incoming line. Off by default. .timestamp log on|off");
+		lineStampsLog.setDescription("Prefix the same stamp on the left of each logged incoming line.");
 		lineStampsLog.setKey("line_stamps_log");
 		lineStampsLog.setValue(false);
-		window.addOption(lineStampsLog);
 
 		IntegerOption lineStampsFields = new IntegerOption();
 		lineStampsFields.setTitle("Timestamp parts");
-		lineStampsFields.setDescription("Changed with .timestamp hour | minute | second | month | year. Default hour and minute. Stored as bits: hour 1, minute 2, second 4, month 8, year 16.");
+		lineStampsFields.setDescription("Which parts of the date and time each stamp shows.");
 		lineStampsFields.setKey("line_stamps_fields");
 		lineStampsFields.setValue(Integer.valueOf(TimestampFormat.DEFAULT));
-		window.addOption(lineStampsFields);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");
-		canvasWidth.setDescription("Give the text more room than the screen has, then drag it sideways with one finger to read the rest. 100 = off (text fits the screen, as before), 200 = twice the screen. Lets you use a bigger font without lines breaking, and keeps ASCII maps in one piece.");
+		canvasWidth.setDescription("Give the text more room than the screen, then drag sideways to read the rest; 100 fits the screen.");
 		canvasWidth.setKey("text_canvas_width");
 		canvasWidth.setValue(100);
-		window.addOption(canvasWidth);
 
 		BooleanOption avoidButtons = new BooleanOption();
 		avoidButtons.setTitle("Text avoids on-screen buttons?");
-		avoidButtons.setDescription("Opt-in: game text wraps around on-screen buttons (the grid pad and floating copies) instead of drawing under them. ASCII maps and cell graphics may break. .avoidbuttons on|off. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Off by default.");
+		avoidButtons.setDescription("Game text wraps around on-screen buttons instead of drawing under them.");
 		avoidButtons.setKey("text_avoid_buttons");
 		avoidButtons.setValue(false);
-		window.addOption(avoidButtons);
 
 		ListOption avoidButtonsBreak = new ListOption();
 		avoidButtonsBreak.setTitle("Avoid-buttons break");
-		avoidButtonsBreak.setDescription("While text avoids buttons: Letters moves one character at a time past the hole (default, today's behaviour). Words keeps whole words on one side of the hole. Only used while Text avoids on-screen buttons? is on. .avoidbuttons letters|words");
+		avoidButtonsBreak.setDescription("While text avoids buttons, move one character at a time past the hole, or keep whole words on one side.");
 		avoidButtonsBreak.setKey("text_avoid_buttons_break");
 		avoidButtonsBreak.addItem("Letters");
 		avoidButtonsBreak.addItem("Words");
 		avoidButtonsBreak.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_BREAK));
-		window.addOption(avoidButtonsBreak);
 
 		BooleanOption jumpOnSend = new BooleanOption();
 		jumpOnSend.setTitle("Jump to the live edge when you send?");
-		jumpOnSend.setDescription("After you send a line, scroll to the newest text. Incoming text near the live edge still snaps there. On by default. .jumpsend on|off");
+		jumpOnSend.setDescription("After you send a line, scroll to the newest text.");
 		jumpOnSend.setKey("jump_on_send");
 		jumpOnSend.setValue(true);
-		window.addOption(jumpOnSend);
 
-		// Tappable words used to live here as a world-wide word list. They are a
-		// trigger action now (responder/tap): the trigger pattern decides what is
-		// tappable, so the words follow the same groups, conditions and enable
-		// switch as everything else the player configures per line. Old worlds may
-		// still carry the tappable_* keys in their XML; nothing registers them any
-		// more, and the loader drops keys it does not know.
+		// Tappable words are a trigger action; old tappable_* keys in XML are dropped.
 		BooleanOption newestAtTop = new BooleanOption();
 		newestAtTop.setTitle("Newest text at top?");
-		newestAtTop.setDescription("Put fresh game output at the top (older lines below). Handy with buttons along the bottom. Warning: reverses line order, so built-in MUD maps and ASCII art/graphics will appear upside down — leave off for those games.");
+		newestAtTop.setDescription("Put fresh output at the top, which reverses line order so maps and ASCII art appear upside down.");
 		newestAtTop.setKey("newest_at_top");
 		newestAtTop.setValue(false);
-		window.addOption(newestAtTop);
 
 		IntegerOption topPadding = new IntegerOption();
 		topPadding.setTitle("Top padding (px)");
-		topPadding.setDescription("Extra empty space above game text (pixels), on top of Avoid camera cutout. Use it if the automatic inset is not enough. On-screen buttons are unaffected.");
+		topPadding.setDescription("Extra empty space, in pixels, above the game text, on top of the camera-cutout inset.");
 		topPadding.setKey("top_padding");
 		topPadding.setValue(DEFAULT_TOP_PADDING);
-		window.addOption(topPadding);
 
 		IntegerOption bottomPadding = new IntegerOption();
 		bottomPadding.setTitle("Bottom padding (px)");
-		bottomPadding.setDescription("Extra empty space below game text (pixels), always. "
-				+ "Use it to keep the last line clear of the input bar or a gesture bar. "
-				+ "On-screen buttons are unaffected.");
+		bottomPadding.setDescription("Extra empty space, in pixels, below the game text, so the last line stays clear of the input bar.");
 		bottomPadding.setKey("bottom_padding");
 		bottomPadding.setValue(DEFAULT_BOTTOM_PADDING);
-		window.addOption(bottomPadding);
 
 		IntegerOption bottomPaddingKeyboard = new IntegerOption();
 		bottomPaddingKeyboard.setTitle("Bottom padding with keyboard (px)");
-		bottomPaddingKeyboard.setDescription("Further empty space below game text while the "
-				+ "soft keyboard is open (pixels). Independent of Bottom padding: set either "
-				+ "on its own, or both, in which case they add up while the keyboard is out. "
-				+ "Measured from the bottom of the text area, which rises with the keyboard "
-				+ "unless Keep text still with keyboard? is on.");
+		bottomPaddingKeyboard.setDescription("Further empty space, in pixels, below the game text while the soft keyboard is open.");
 		bottomPaddingKeyboard.setKey("bottom_padding_keyboard");
 		bottomPaddingKeyboard.setValue(DEFAULT_BOTTOM_PADDING_KEYBOARD);
-		window.addOption(bottomPaddingKeyboard);
 
 		BooleanOption imeKeepText = new BooleanOption();
 		imeKeepText.setTitle("Keep text still with keyboard?");
-		imeKeepText.setDescription("When on, opening the soft keyboard lifts only the input bar — game text stays put (may sit under the keyboard). When off, text rises with the keyboard.");
+		imeKeepText.setDescription("Opening the soft keyboard lifts only the input bar, and the game text stays put.");
 		imeKeepText.setKey("ime_keep_text");
 		imeKeepText.setValue(false);
-		window.addOption(imeKeepText);
 
 		BooleanOption cutoutPortrait = new BooleanOption();
 		cutoutPortrait.setTitle("Avoid camera cutout (portrait)?");
-		cutoutPortrait.setDescription("Keep game text and chrome out of the camera hole / notch while the phone is upright. On by default. Turn off to use the pixels under the hole (text may sit under the camera).");
+		cutoutPortrait.setDescription("Keep game text out of the camera hole while the phone is upright.");
 		cutoutPortrait.setKey("cutout_portrait");
 		cutoutPortrait.setValue(true);
-		window.addOption(cutoutPortrait);
 
 		BooleanOption cutoutLandscape = new BooleanOption();
 		cutoutLandscape.setTitle("Avoid camera cutout (landscape)?");
-		cutoutLandscape.setDescription("Same as portrait, for landscape. On by default. The hole is usually on the left or right edge.");
+		cutoutLandscape.setDescription("Keep game text out of the camera hole while the phone is landscape.");
 		cutoutLandscape.setKey("cutout_landscape");
 		cutoutLandscape.setValue(true);
-		window.addOption(cutoutLandscape);
 
 		BooleanOption showInputEdit = new BooleanOption();
 		showInputEdit.setTitle("Show Edit button?");
-		showInputEdit.setDescription("On-screen Edit button. .editbutton on|off · tools strip: .editpanel on|off");
+		showInputEdit.setDescription("Puts an Edit button on the input bar.");
 		showInputEdit.setKey("input_bar_show_edit");
 		showInputEdit.setValue(true);
-		window.addOption(showInputEdit);
 
 		BooleanOption showInputSend = new BooleanOption();
 		showInputSend.setTitle("Show Send button?");
-		showInputSend.setDescription("On-screen Send button. .sendbutton on|off · or keyboard Send / .kb flush");
+		showInputSend.setDescription("Puts a Send button on the input bar.");
 		showInputSend.setKey("input_bar_show_send");
 		showInputSend.setValue(true);
-		window.addOption(showInputSend);
 
 		BooleanOption editToolsTwoRows = new BooleanOption();
 		editToolsTwoRows.setTitle("Edit strip: two rows in landscape?");
-		editToolsTwoRows.setDescription("When on, the Edit tools (Select/Cut/Copy/Paste and the cursor pad) sit on two rows while the phone is landscape, with room for the labels. Portrait and the default stay one full-width row. .editrows on|off");
+		editToolsTwoRows.setDescription("The Edit tools sit on two rows while the phone is landscape.");
 		editToolsTwoRows.setKey("input_edit_tools_two_rows");
 		editToolsTwoRows.setValue(false);
-		window.addOption(editToolsTwoRows);
 
 		BooleanOption androidFling = new BooleanOption();
 		androidFling.setTitle("Android fling?");
-		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, like a web page or gallery. Dragging still follows your finger 1:1. Scroll sensitivity is off while this is on.");
+		androidFling.setDescription("After you lift your finger, the text coasts with the speed of the swipe, and scroll sensitivity is off while this is on.");
 		androidFling.setKey("android_fling");
 		androidFling.setValue(false);
-		window.addOption(androidFling);
 
 		ListOption scrollSensitivity = new ListOption();
 		scrollSensitivity.setTitle("Scroll sensitivity");
-		scrollSensitivity.setDescription("How far the text moves for a given swipe. 100% means the text follows your finger exactly; higher values cover more scrollback per swipe. Flings scale to match. Off while Android fling is on.");
+		scrollSensitivity.setDescription("How far the text moves for a given swipe; 100% follows your finger, and this is off while Android fling is on.");
 		scrollSensitivity.setKey("scroll_sensitivity");
 		scrollSensitivity.setValue(Integer.valueOf(DEFAULT_SCROLL_SENSITIVITY));
 		String[] scrollLabels = ScrollSensitivity.labels();
 		for (int i = 0; i < scrollLabels.length; i++) {
 			scrollSensitivity.addItem(scrollLabels[i]);
 		}
-		window.addOption(scrollSensitivity);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");
 		tapDismiss.setDescription("A loose tap on the game text (not a button) dismisses the soft keyboard.");
 		tapDismiss.setKey("tap_dismiss_keyboard");
 		tapDismiss.setValue(true);
-		window.addOption(tapDismiss);
 		
 		ListOption colorOption = new ListOption();
 		colorOption.setTitle("ANSI Color");
-		colorOption.setDescription("Options for handling or disabling ANSI Color");
+		colorOption.setDescription("Use the colours the game sends, turn them off, or show the raw codes in the text.");
 		colorOption.setKey("color_option");
 		colorOption.setValue(0);
 		colorOption.addItem("Enabled");
 		colorOption.addItem("Disabled");
 		colorOption.addItem("Show and colorize codes");
 		colorOption.addItem("Show codes, do not colorize");
-		window.addOption(colorOption);
 		
 		IntegerOption fontSize = new IntegerOption();
 		fontSize.setTitle("Font Size");
 		fontSize.setDescription("The height of a drawn character, in pixels (6–96).");
 		fontSize.setKey("font_size");
 		fontSize.setValue(DEFAULT_FONT_SIZE);
-		window.addOption(fontSize);
 		
 		IntegerOption lineExtra = new IntegerOption();
 		lineExtra.setTitle("Line Spacing");
 		lineExtra.setDescription("The extra space in between lines (in pixels)");
 		lineExtra.setKey("line_extra");
 		lineExtra.setValue(2);
-		window.addOption(lineExtra);
 
 		IntegerOption pickLoupeSize = new IntegerOption();
 		pickLoupeSize.setTitle("Pick loupe size (%)");
-		pickLoupeSize.setDescription("How big the .pick magnifier is (50–200). 100 is the original circle; 118 is the default (~18% larger). Also .pick loupe size N.");
+		pickLoupeSize.setDescription("How big the pick magnifier is, from 50 to 200 percent.");
 		pickLoupeSize.setKey("pick_loupe_size");
 		pickLoupeSize.setValue(DEFAULT_PICK_LOUPE_SIZE);
-		window.addOption(pickLoupeSize);
 
 		IntegerOption pickLoupeZoom = new IntegerOption();
 		pickLoupeZoom.setTitle("Pick loupe zoom (%)");
-		pickLoupeZoom.setDescription("How much the .pick magnifier enlarges the game text (150–350; 200 is 2×). Also .pick loupe zoom N.");
+		pickLoupeZoom.setDescription("How much the pick magnifier enlarges the game text, from 150 to 350 percent.");
 		pickLoupeZoom.setKey("pick_loupe_zoom");
 		pickLoupeZoom.setValue(DEFAULT_PICK_LOUPE_ZOOM);
-		window.addOption(pickLoupeZoom);
 
 		IntegerOption copyLoupeSize = new IntegerOption();
 		copyLoupeSize.setTitle("Copy loupe size (%)");
-		copyLoupeSize.setDescription("How big the two-finger copy magnifier is (50–200). 100 is the original circle; 118 is the default. Separate from Pick loupe size. Also .copy loupe size N.");
+		copyLoupeSize.setDescription("How big the two-finger copy magnifier is, from 50 to 200 percent.");
 		copyLoupeSize.setKey("copy_loupe_size");
 		copyLoupeSize.setValue(DEFAULT_COPY_LOUPE_SIZE);
-		window.addOption(copyLoupeSize);
 
 		IntegerOption copyLoupeZoom = new IntegerOption();
 		copyLoupeZoom.setTitle("Copy loupe zoom (%)");
-		copyLoupeZoom.setDescription("How much the two-finger copy magnifier enlarges the game text (150–350; 200 is 2×). Separate from Pick loupe zoom. Also .copy loupe zoom N.");
+		copyLoupeZoom.setDescription("How much the two-finger copy magnifier enlarges the game text, from 150 to 350 percent.");
 		copyLoupeZoom.setKey("copy_loupe_zoom");
 		copyLoupeZoom.setValue(DEFAULT_COPY_LOUPE_ZOOM);
-		window.addOption(copyLoupeZoom);
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");
-		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000; "
-				+ "a larger number in the settings file is stored as 20000). "
-				+ "A second cap of about 512 KB of text usually wins first — "
-				+ "roughly 6500 ordinary lines, fewer when they are long. "
-				+ "Prefer session log for weeks of history.");
+		bufferSize.setDescription("Lines kept on screen for scrollback (100–20000), usually capped first by about 512 KB of text, so use the session log for weeks of history.");
 		bufferSize.setKey("buffer_size");
 		bufferSize.setValue(DEFAULT_BUFFER_SIZE);
-		window.addOption(bufferSize);
 		
 		FileOption fontPath = new FileOption();
 		fontPath.setTitle("Font");
-		fontPath.setDescription("The typeface for the game window. Distinct bundled faces, then a few system monospace files if the phone has them, then any .ttf/.otf in /BlowTorch/ or /BlowTorch/fonts/. Load from storage copies a file into the app so it stays.");
+		fontPath.setDescription("The typeface for the game window, from the bundled faces, a few system monospace files, or a font file you load.");
 		fontPath.setKey("font_path");
 		fontPath.setValue(DEFAULT_FONT_PATH);
 		java.util.List<FontCatalog.Face> bundled = FontCatalog.bundledPickerFaces();
@@ -744,8 +701,59 @@ public class WindowToken implements Parcelable {
 		fontPath.addPath("BlowTorch/fonts/");
 		fontPath.addExtension(".ttf");
 		fontPath.addExtension(".otf");
-		window.addOption(fontPath);
 		
+		hyperlinks.addOption(osc8Links);
+		hyperlinks.addOption(hyperlinksEnabled);
+		hyperlinks.addOption(hyperlinkMode);
+		hyperlinks.addOption(hyperlinkColor);
+		hyperlinks.addOption(hyperlinkBare);
+		hyperlinks.addOption(hyperlinkExtraTlds);
+
+		text.addOption(fontPath);
+		text.addOption(fontSize);
+		text.addOption(lineExtra);
+		text.addOption(colorOption);
+		text.addOption(wordWrap);
+		text.addOption(bufferSize);
+		text.addOption(lightPaper);
+		text.addOption(lightPaperShade);
+		text.addOption(dimRepeatedLines);
+		text.addOption(dimRepeatedWindow);
+		text.addOption(dimRepeatedStrength);
+		text.addOption(lineStamps);
+		text.addOption(lineStampsLog);
+		text.addOption(lineStampsFields);
+		text.addOption(canvasWidth);
+		text.addOption(newestAtTop);
+		text.addOption(avoidButtons);
+		text.addOption(avoidButtonsBreak);
+		text.addOption(pickLoupeSize);
+		text.addOption(pickLoupeZoom);
+		text.addOption(copyLoupeSize);
+		text.addOption(copyLoupeZoom);
+
+		layout.addOption(topPadding);
+		layout.addOption(bottomPadding);
+		layout.addOption(bottomPaddingKeyboard);
+		layout.addOption(imeKeepText);
+		layout.addOption(cutoutPortrait);
+		layout.addOption(cutoutLandscape);
+		layout.addOption(androidFling);
+		layout.addOption(scrollSensitivity);
+		layout.addOption(jumpOnSend);
+		layout.addOption(tapDismiss);
+		layout.addOption(scrollDates);
+		layout.addOption(scrollDatesOpacity);
+
+		inputBar.addOption(showInputEdit);
+		inputBar.addOption(showInputSend);
+		inputBar.addOption(editToolsTwoRows);
+
+		window.addOption(text);
+		window.addOption(layout);
+		window.addOption(hyperlinks);
+		window.addOption(inputBar);
+
 		setSettings(window);
 	}
 	

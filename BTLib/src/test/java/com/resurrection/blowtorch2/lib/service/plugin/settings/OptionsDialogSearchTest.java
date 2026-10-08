@@ -40,8 +40,9 @@ public class OptionsDialogSearchTest {
 		assertEquals(1, hits.size());
 		assertEquals("Use GMCP?", hits.get(0).title);
 		assertEquals("Service › Protocols", hits.get(0).breadcrumb);
-		assertEquals(1, hits.get(0).path.size());
+		assertEquals(2, hits.get(0).path.size());
 		assertSame(service, hits.get(0).path.get(0));
+		assertSame(protocols, hits.get(0).path.get(1));
 		assertSame(gmcp, hits.get(0).option);
 	}
 
@@ -144,7 +145,7 @@ public class OptionsDialogSearchTest {
 		SettingsGroup service = new SettingsGroup();
 		service.setTitle("Service");
 		SettingsGroup protocols = new SettingsGroup();
-		protocols.setTitle("Protocols");
+		protocols.setTitle("Where they appear");
 		BooleanOption gmcp = new BooleanOption();
 		gmcp.setTitle("Use GMCP?");
 		gmcp.setKey("use_gmcp");

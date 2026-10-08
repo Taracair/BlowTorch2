@@ -12,12 +12,12 @@ import com.resurrection.blowtorch2.lib.window.ChatPanelController;
 public class ChatCommandTest {
 
 	@Test
-	public void bareAndOpenAreOpen() {
-		assertEquals(ChatCommand.ACTION_OPEN, ChatCommand.parse("").action);
-		assertEquals(ChatCommand.ACTION_OPEN, ChatCommand.parse("   ").action);
+	public void bareTogglesAndOpenStaysDistinct() {
+		assertEquals(ChatCommand.ACTION_TOGGLE, ChatCommand.parse("").action);
+		assertEquals(ChatCommand.ACTION_TOGGLE, ChatCommand.parse("   ").action);
+		assertEquals(ChatCommand.ACTION_TOGGLE, ChatCommand.parse("toggle").action);
 		assertEquals(ChatCommand.ACTION_OPEN, ChatCommand.parse("open").action);
 		assertEquals(ChatCommand.ACTION_OPEN, ChatCommand.parse("Open").action);
-		assertEquals(ChatCommand.ACTION_OPEN, ChatCommand.parse("toggle").action);
 		assertNull(ChatCommand.parse("open").threadId);
 	}
 

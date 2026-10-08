@@ -29,18 +29,17 @@ public class UnaccentCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "Strip accents when sending (.unaccent) is currently " + state + ".\n"
 					+ "Usage: .unaccent on | .unaccent off\n"
-					+ "Also: Options → Input → Strip accents when sending\n");
+					+ "Also: Options → Typing → Strip accents when sending\n");
 			return null;
 		}
 
-		String token = arg.toLowerCase().split("\\s+")[0];
-		Boolean desired = parseOnOff(token);
+		Boolean desired = parseArgument(arg);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Unaccent command usage:",
 					".unaccent on | .unaccent off\n"
 							+ "Strips accents on the way to the game (usiądź przy stole → usiadz przy stole).\n"
 							+ "Local echo shows the folded form; the input bar still shows what you typed. Off by default.\n"
-							+ "Also available under Options → Input → Strip accents when sending"));
+							+ "Also available under Options → Typing → Strip accents when sending"));
 			return null;
 		}
 
@@ -65,6 +64,23 @@ public class UnaccentCommand extends SpecialCommand {
 			return (BooleanOption) o;
 		}
 		return null;
+	}
+
+	/** One word. A second word is not a setting. */
+	static Boolean parseArgument(String arg) {
+		if (arg == null) {
+			return null;
+		}
+		String token = arg.trim().toLowerCase(java.util.Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	private static Boolean parseOnOff(String token) {

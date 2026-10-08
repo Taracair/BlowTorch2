@@ -34,7 +34,11 @@ public class TriggerCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
-		if (arg.length() == 0 || arg.equalsIgnoreCase("help") || arg.equals("?")) {
+		int route = route(arg);
+		if (route == ROUTE_STATUS) {
+			return doStatus(c, "");
+		}
+		if (route == ROUTE_HELP) {
 			c.sendDataToWindow(helpText());
 			return null;
 		}
@@ -362,9 +366,26 @@ public class TriggerCommand extends SpecialCommand {
 				+ shortUsage();
 	}
 
+	static final int ROUTE_STATUS = 0;
+	static final int ROUTE_HELP = 1;
+	static final int ROUTE_VERB = 2;
+
+	/** Blank is the count line. {@code help} is the usage wall. */
+	static int route(String arg) {
+		if (arg == null || arg.trim().length() == 0) {
+			return ROUTE_STATUS;
+		}
+		String a = arg.trim();
+		if (a.equalsIgnoreCase("help") || a.equals("?")) {
+			return ROUTE_HELP;
+		}
+		return ROUTE_VERB;
+	}
+
 	private static String shortUsage() {
 		return "Usage:\n"
-				+ "  .trigger                           - this help\n"
+				+ "  .trigger                           - how many are on (same as status)\n"
+				+ "  .trigger help                      - this help\n"
 				+ "  .trigger on <name|plugin:name>     - enable trigger\n"
 				+ "  .trigger off <name|plugin:name>    - disable trigger\n"
 				+ "  .trigger toggle <name|plugin:name> - toggle trigger\n"

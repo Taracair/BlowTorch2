@@ -117,6 +117,13 @@ public class OptionsDialog extends Dialog {
 				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.ENABLED);
 		HIDDEN_OPTION_KEYS.add(
 				com.resurrection.blowtorch2.lib.service.sensor.SensorWorldFlags.MY_SHAKES);
+		// Room-sync detail. The rows stay in the mapper group so they still save.
+		// Configure Room Sync is the visible editor.
+		HIDDEN_OPTION_KEYS.add("mapper_gmcp_policy");
+		HIDDEN_OPTION_KEYS.add("mapper_gmcp_use_num");
+		HIDDEN_OPTION_KEYS.add("mapper_gmcp_use_coords");
+		HIDDEN_OPTION_KEYS.add("mapper_gmcp_grow");
+		HIDDEN_OPTION_KEYS.add("mapper_gmcp_create_exits");
 	}
 
 	HashMap<Integer,String> pluginSettingsMap = new HashMap<Integer,String>();
@@ -160,17 +167,11 @@ public class OptionsDialog extends Dialog {
 	 * ConnectionSetttingsParser skip foreign keys; nesting is load-bearing).
 	 *
 	 * Titles are the ones WindowToken / ConnectionSettingsPlugin already use.
-		 * Font and Suggestions still drill in; sections inside Suggestions
-		 * flatten on that page.
+	 * Suggestions drills in; its four section titles flatten on that page.
+	 * Links, Extra text windows, Protocols, GMCP, MCP, and Telnet drill in.
 	 */
 	static final java.util.HashSet<String> INLINE_GROUP_TITLES =
 			new java.util.HashSet<String>(java.util.Arrays.asList(
-					"Hyperlink Settings",
-					"Extra text windows",
-					"Protocols",
-					"GMCP",
-					"MCP",
-					"Telnet",
 					"When spelling is inexact",
 					"Whole names",
 					"Where they appear",
@@ -1032,6 +1033,22 @@ public class OptionsDialog extends Dialog {
 			}
 			if ("manage_extra_text_windows".equals(key)) {
 				openExtraTextWindowsDialog();
+				return;
+			}
+			if ("show_last_list".equals(key)) {
+				dismiss();
+				MainWindow lastListHost = findMainWindowHost();
+				if (lastListHost != null) {
+					lastListHost.showLastListOptions();
+				}
+				return;
+			}
+			if ("show_last_bar".equals(key)) {
+				dismiss();
+				MainWindow lastBarHost = findMainWindowHost();
+				if (lastBarHost != null) {
+					lastBarHost.showLastBarOptions();
+				}
 				return;
 			}
 			if ("manage_gauge_widgets".equals(key)) {

@@ -97,8 +97,11 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.SpinnerAdapter;
@@ -141,7 +144,10 @@ import com.resurrection.blowtorch2.lib.launcher.PinLaunch;
 import com.resurrection.blowtorch2.lib.launcher.WorldLaunch;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
+import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.function.GrabberCommand;
+import com.resurrection.blowtorch2.lib.service.function.LastBarRequest;
+import com.resurrection.blowtorch2.lib.service.function.LastRecall;
 import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
@@ -192,6 +198,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_COLORDEBUG = 675;
 	protected static final int MESSAGE_GRABBER = 676;
 	public static final int MESSAGE_OPEN_STYLE_TRIGGER = 677;
+	public static final int MESSAGE_OPEN_PHRASE_TRIGGER = 680;
 	protected static final int MESSAGE_PREFIX_PICK_WORD = 678;
 	protected static final int MESSAGE_PREFIX_PICK = 679;
 	protected static final int MESSAGE_DIRTYEXITNOW = 943;
@@ -211,6 +218,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_OPEN_LOG_HISTORY = 8764;
 	protected static final int MESSAGE_CHAT_INBOX_UPDATED = 8765;
 	protected static final int MESSAGE_OPEN_CHAT_THREAD = 8766;
+	protected static final int MESSAGE_SHOW_CHAT_PANEL = 8767;
+	protected static final int MESSAGE_CLOSE_CHAT_PANEL = 8768;
 	protected static final int MESSAGE_DOSCREENMODE = 877;
 	protected static final int MESSAGE_KEYBOARD = 878;
 	protected static final int MESSAGE_DODISCONNECT = 879;
@@ -342,6 +351,38 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean mHideIcons = true;
 	
 	private BetterEditText mInputBox = null;
+	/** Unsent text per open world. On this activity, not a static. */
+	private final InputDrafts mInputDrafts = new InputDrafts();
+	private final HistoryWorld mHistoryWorld = new HistoryWorld();
+	/** Display name the live {@link CommandKeeper} was loaded for. */
+	private String mHistoryLoadedFor;
+	private LastListPanel mLastList;
+	private LastListPanel mSuggestList;
+	/** Close on the suggestion list stays closed until {@code .suggest where list} again. */
+	private boolean mSuggestListClosed;
+	/** The player just asked for the list, so ignore a saved closed window once. */
+	private boolean mSuggestListForceOpen;
+	/** False until settings have been read once. The first read is not a place change. */
+	private boolean mSuggestWhereKnown;
+	/** A world change is about to load settings. Do not treat that as asking for the list. */
+	private boolean mSuggestIgnoreNextListEntry;
+	private Runnable mSuggestListHide;
+	private boolean mLastFloatGripBound;
+	private boolean mLastFloatGripMoved;
+	private boolean mLastFloatDragging;
+	private float mLastFloatDownRawX;
+	private float mLastFloatDownRawY;
+	private int mLastFloatDragStartLeft;
+	private int mLastFloatDragStartBottom;
+	/** True once the player has dragged the recent-command chips. */
+	private boolean mLastFloatPlaced;
+	private int mLastFloatLeft;
+	private int mLastFloatBottom;
+	/** World and orientation the in-memory placement was loaded for. */
+	private String mLastFloatPosLoadedFor;
+	/** Caret to put back after the switch's settings load restarts the IME. -1 = none. */
+	private int mInputDraftSelStart = -1;
+	private int mInputDraftSelEnd = -1;
 
 	private View mScrollbackSearchBar = null;
 	private EditText mScrollbackSearchQuery = null;
@@ -372,6 +413,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mGrabberHidesButtons;
 	private final PrefixPickMode mPrefixPick = new PrefixPickMode();
 	private int mPrefixPickCommandMode = PickCommand.MODE_OFF;
+	private boolean mPrefixPickInsert;
 	private ChatPanelController chatPanel;
 	/** Notification {@link ChatAnnounce#EXTRA_THREAD}; stripped after consume. */
 	private String mPendingChatThread;
@@ -396,6 +438,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int mSplitOrientation = SplitLayout.ORIENTATION_HORIZONTAL;
 	private int mSplitPercent = SplitLayout.DEFAULT_PERCENT;
 	private boolean mSplitOn;
+	/** {@code .debug renderer show}. Not a setting. Reapplied when a window is built. */
+	private boolean mRendererDebug;
 	/** Last split the service asked for. 0 is off. Cleanup clears it so the next broadcast wins. */
 	private int mPendingSplitOrientation;
 	private int mPendingSplitPercent = SplitLayout.DEFAULT_PERCENT;
@@ -436,6 +480,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String keepLastPendingReplace = null;
 	/** True while this watcher is the one editing the text. */
 	private boolean keepLastSuppress = false;
+	/** Bar before the send reset of {@code .last input}. A missing slot puts it back. */
+	private MissedFillBar.State mFillBarBeforeSend;
 	/** Was the kept line still selected when this edit started? Read in
 	 * beforeTextChanged, where the selection is the one from before the edit. */
 	private boolean keepLastWasSelected = false;
@@ -668,7 +714,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		});
 
 		history = new CommandKeeper(75);
-		history.load(this, getConnectionDisplay());
+		String historyWorld = getConnectionDisplay();
+		history.load(this, historyWorld);
+		mHistoryLoadedFor = historyWorld;
+		mHistoryWorld.adopt(historyWorld);
+		restoreLastList();
+		refreshLastBar();
 
 
 
@@ -982,10 +1033,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// resets. The prompt bar goes blank until the new world
 						// next flushes a holdover — honest, and there is no
 						// "resend current prompt" path in the service.
+						// Drafts pin from DISPLAY. History does not: onNewIntent may
+						// already have stored the destination there.
+						String onScreen = getConnectionDisplay();
+						mInputDrafts.pinShowing(onScreen);
+						alignHistory(next);
+						syncLastListWorld();
+						refreshLastBar();
 						saveCommandKnowledge();
 						MainWindow.this.rememberForegroundConnection(next);
 						mWordSuggestions.clear();
 						loadCommandKnowledge();
+						applyInputDraftSwitch(next);
 						refreshWordSuggestions();
 						showPromptBar("");
 						// The Edit strip is activity chrome, not a window token, so
@@ -1269,6 +1328,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 					}
 					break;
+				case MESSAGE_SHOW_CHAT_PANEL:
+					ensureChatPanel();
+					if (chatPanel != null) {
+						boolean opening = !chatPanel.isVisible();
+						chatPanel.show();
+						if (opening) {
+							refreshChatUnreadDot();
+						}
+					}
+					break;
+				case MESSAGE_CLOSE_CHAT_PANEL:
+					if (chatPanel != null) {
+						chatPanel.hide();
+					}
+					break;
 				case MESSAGE_APPLY_SPLIT:
 					applySplitLayout(msg.arg1, msg.arg2);
 					break;
@@ -1374,6 +1448,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							(StyleMatchSpec) msg.obj,
 							msg.getData() == null ? "" : msg.getData().getString("pattern"));
 					break;
+				case MESSAGE_OPEN_PHRASE_TRIGGER:
+					openPhraseTrigger(msg.obj instanceof String
+							? (String) msg.obj : null);
+					break;
 				case MESSAGE_XMLERROR:
 					//got an xml error, need to display it.
 					String xmlerror = com.resurrection.blowtorch2.lib.util.BlowTorchLogger.humanizeError((String)msg.obj);
@@ -1472,8 +1550,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// A masked line is a password. The history is written to disk and
 					// comes back on ↑ after a restart, so it must not go in at all.
 					if (!mLocalEchoOff) {
+						if (alignHistory(foregroundHistoryWorld())) {
+							syncLastListWorld();
+						}
 						history.addCommand(pdata);
-						history.save(MainWindow.this, getConnectionDisplay());
+						saveHistory();
+						afterHistoryMutation();
 						// Same gate, same reason: the first word of a masked line
 						// would become a verb on the suggestion strip. This adds
 						// nothing to what can be completed, only to what is known
@@ -1499,6 +1581,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							maybeSaveCommandKnowledge();
 						}
 					}
+					String sentLine = pdata;
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
 					String crlf = cr.toString() + lf.toString();
@@ -1538,6 +1621,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					} catch (RemoteException e) {
 						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					}
+					rememberFillBar(sentLine);
 					myhandler.sendEmptyMessage(MainWindow.MESSAGE_RESETINPUTWINDOW);
 					break;
 				case MESSAGE_RESETINPUTWINDOW:
@@ -2078,6 +2162,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			public void onClick(DialogInterface dialog, int which) {
 				try {
 					//if(service.getConnections().size() > 1) {
+						mInputDrafts.drop(str);
 						service.closeConnection(str);
 						//switch to the next one. service will do this for us.
 						
@@ -2991,6 +3076,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev) {
+		if (ev != null && mLastList != null) {
+			mLastList.onWindowPointer(ev);
+		}
+		if (ev != null && mSuggestList != null) {
+			mSuggestList.onWindowPointer(ev);
+		}
 		boolean handled = super.dispatchTouchEvent(ev);
 		// System edge-back often delivers CANCEL after a button already drew pressed.
 		if (ev != null && ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
@@ -3013,10 +3104,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private final java.util.List<String> mWordSuggestionList =
 			new java.util.ArrayList<String>();
 	/**
-	 * Where the chips go: {@link WordSuggestions#WHERE_FLOATING},
-	 * {@code WHERE_BAR} or {@code WHERE_NONE}.
+	 * Where suggestions sit: floating chips, the layout bar, a list window, or off.
 	 */
 	private int mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
+	/** First suggestion chip on the right. Default is left. */
+	private boolean mSuggestOrderRight = false;
 	/**
 	 * Draw the chips over the game text instead of inside the input chrome.
 	 *
@@ -3072,6 +3164,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// the kind of thing that works until the first configuration change.
 		View inline = findViewById(R.id.input_word_suggestions);
 		View floating = findViewById(R.id.input_word_suggestions_float);
+		if (mWordSuggestionsWhere == WordSuggestions.WHERE_LIST) {
+			cancelWordSuggestionHide();
+			if (inline != null) {
+				inline.setVisibility(View.GONE);
+			}
+			if (floating != null) {
+				floating.setVisibility(View.GONE);
+			}
+			refreshSuggestList(recomputeSuggestions());
+			positionLastFloat();
+			return;
+		}
+		hideSuggestListQuiet();
 		if (mWordSuggestionsWhere == WordSuggestions.WHERE_NONE) {
 			// No bar in either place. The suggestions themselves are still worked
 			// out, because they are what the ghost draws and what .suggest N picks
@@ -3086,6 +3191,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				floating.setVisibility(View.GONE);
 			}
 			recomputeSuggestions();
+			positionLastFloat();
 			return;
 		}
 		View strip = mWordSuggestionsOverlay ? floating : inline;
@@ -3116,6 +3222,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!mWordSuggestionsOn || mInputBox == null) {
 			cancelWordSuggestionHide();
 			strip.setVisibility(View.GONE);
+			positionLastFloat();
 			return;
 		}
 		// Collapsed is about the chips, not about completion. The suggestions are
@@ -3132,6 +3239,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			strip.setMinimumWidth(0);
 			applyStripOpacity(strip);
 			strip.setVisibility(View.VISIBLE);
+			positionLastFloat();
 			return;
 		}
 		if (words.isEmpty()) {
@@ -3154,9 +3262,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 				applyStripOpacity(strip);
 				strip.setVisibility(View.VISIBLE);
+				positionLastFloat();
 				return;
 			}
 			hideWordSuggestionsSoon(strip, row);
+			positionLastFloat();
 			return;
 		}
 		cancelWordSuggestionHide();
@@ -3167,27 +3277,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mWordSuggestionsOverlay) {
 			strip.setMinimumWidth(0);
 		}
-		for (int i = 0; i < words.size(); i++) {
-			final String word = words.get(i);
-			TextView chip = chipAt(row, i);
-			chip.setText(numberedChipLabel(i + 1, word));
+		int[] visual = LastBarChips.numbersLeftToRight(words.size(), mSuggestOrderRight);
+		for (int slot = 0; slot < visual.length; slot++) {
+			int number = visual[slot];
+			final String word = words.get(number - 1);
+			TextView chip = chipAt(row, slot);
+			chip.setText(numberedChipLabel(number, word));
 			chip.setTag(word);
 			chip.setVisibility(View.VISIBLE);
 		}
 		// Spare chips are hidden, not removed: the next keystroke almost always
 		// wants them back, and removing and re-inflating on every letter is what
 		// made the strip flicker.
-		for (int i = words.size(); i < row.getChildCount(); i++) {
+		for (int i = visual.length; i < row.getChildCount(); i++) {
 			row.getChildAt(i).setVisibility(View.GONE);
 		}
 		applyStripOpacity(strip);
 		strip.setVisibility(View.VISIBLE);
-		View scroller = findViewById(R.id.input_word_suggestions_float_scroll);
-		if (mWordSuggestionsOverlay && scroller != null) {
-			scroller.scrollTo(0, 0);
-		} else if (!mWordSuggestionsOverlay) {
-			strip.scrollTo(0, 0);
+		View scroller = mWordSuggestionsOverlay
+				? findViewById(R.id.input_word_suggestions_float_scroll)
+				: strip;
+		if (scroller != null) {
+			packStrip(scroller, row, mSuggestOrderRight);
 		}
+		positionLastFloat();
 	}
 
 	/**
@@ -3326,6 +3439,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	/** Same chip for suggestions and the last-command bar. The drawable is the shade. */
+	private void styleCommandChip(final TextView chip, final int background) {
+		float d = getResources().getDisplayMetrics().density;
+		chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+		chip.setIncludeFontPadding(false);
+		chip.setTextColor(0xFFE6EAEE);
+		chip.setSingleLine(true);
+		chip.setGravity(Gravity.CENTER_VERTICAL);
+		chip.setBackgroundResource(background);
+		int h = (int) (6 * d);
+		int v = (int) (3 * d);
+		chip.setPadding(h, v, h, v);
+		chip.setMinHeight(0);
+		chip.setMinimumHeight(0);
+		chip.setClickable(true);
+		chip.setFocusable(false);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		lp.leftMargin = (int) (3 * d);
+		lp.gravity = Gravity.CENTER_VERTICAL;
+		chip.setLayoutParams(lp);
+	}
+
 	/**
 	 * The i-th chip, made once and kept.
 	 *
@@ -3337,24 +3474,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (i < row.getChildCount()) {
 			return (TextView) row.getChildAt(i);
 		}
-		float d = getResources().getDisplayMetrics().density;
 		// A TextView, not a Button. Button carries a minimum touch size and an
 		// inset background of its own, which is why the strip was taller than the
 		// words in it and the chips sat far apart. The row is still finger-sized
 		// because the panel sits on the input bar, not in the middle of the text.
 		TextView chip = new TextView(this);
-		chip.setTextSize(13);
-		chip.setTextColor(0xFFE6EAEE);
-		chip.setSingleLine(true);
-		chip.setBackgroundResource(R.drawable.suggestion_chip_bg);
-		chip.setPadding((int) (10 * d), (int) (5 * d), (int) (10 * d), (int) (5 * d));
-		chip.setClickable(true);
-		chip.setFocusable(false);
-		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.WRAP_CONTENT,
-				LinearLayout.LayoutParams.WRAP_CONTENT);
-		lp.leftMargin = (int) (3 * d);
-		chip.setLayoutParams(lp);
+		styleCommandChip(chip, R.drawable.suggestion_chip_bg);
 		chip.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -3515,6 +3640,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		flp.leftMargin = Math.max(0, Math.min(left, maxLeft));
 		flp.bottomMargin = Math.max(0, Math.min(bottom, maxBottom));
 		panel.setLayoutParams(flp);
+		positionLastFloat();
 	}
 
 	private void endSuggestionPanelDrag(final View panel) {
@@ -3552,6 +3678,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mSuggestionPanelPlaced = false;
 			saveSuggestionPanelPosition();
 			positionWordSuggestionOverlay();
+			positionLastFloat();
 			return;
 		}
 		mSuggestionPanelPlaced = true;
@@ -3559,6 +3686,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mSuggestionPanelBottom = flp.bottomMargin;
 		panel.setLayoutParams(flp);
 		saveSuggestionPanelPosition();
+		positionLastFloat();
 	}
 
 	/**
@@ -3659,6 +3787,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				for (int i = 0; i < row.getChildCount(); i++) {
 					row.getChildAt(i).setVisibility(View.GONE);
 				}
+				positionLastFloat();
 			}
 		};
 		strip.postDelayed(mWordSuggestionHide, WORD_SUGGESTION_HIDE_DELAY_MS);
@@ -3696,10 +3825,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/**
 	 * Put the top suggestion after the caret, in dimmed type.
 	 *
-	 * <p>A continuation is the rest of the word ({@code gri} then {@code zzled}).
-	 * A correction is the whole word, dimmed, with no mark in front of it.
-	 * Both replace the half-typed word: {@link #acceptWordSuggestion} goes
-	 * through {@link WordSuggestions#complete}.
+	 * <p>{@code gri}+{@code zzled} stays one word. A different word
+	 * ({@code kill} then {@code goblin}) is drawn with one space, unless one
+	 * is already there. Accepting inserts that space for real. A near-miss
+	 * replaces the typed token.
 	 *
 	 * @param prefix what the player has typed of this word.
 	 * @param words the suggestions, best first.
@@ -3716,6 +3845,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		final int at = 0;
 		String top = words.get(at);
+		String beforeCaret = textBeforeCaret();
 		boolean atEnd = caretAtEndOfInput();
 		boolean inline = atEnd || !suggestionsFollowCaret();
 		if (prefix.length() == 0) {
@@ -3724,7 +3854,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				showGhostExtras(words, -1);
 				return;
 			}
-			mInputBox.setGhostCompletion(top, top, at + 1);
+			mInputBox.setGhostCompletion(
+					GhostSpacing.draw(beforeCaret, top, false), top, at + 1);
 			showGhostExtras(words, at);
 			return;
 		}
@@ -3741,21 +3872,37 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			showGhostExtras(words, -1);
 			return;
 		}
-		boolean continues = top.length() > prefix.length()
-				&& top.toLowerCase(java.util.Locale.US)
-						.startsWith(prefix.toLowerCase(java.util.Locale.US));
+		boolean continues = GhostSpacing.continues(prefix, top);
 		if (!inline) {
 			mInputBox.setGhostCompletion(null, null, 0);
 			showGhostExtras(words, -1);
 			return;
 		}
 		if (continues) {
-			mInputBox.setGhostCompletion(top.substring(prefix.length()), top, at + 1);
+			mInputBox.setGhostCompletion(GhostSpacing.draw(beforeCaret,
+					top.substring(prefix.length()), true), top, at + 1);
 			showGhostExtras(words, at);
 			return;
 		}
-		mInputBox.setGhostCompletion(top, top, at + 1);
+		mInputBox.setGhostCompletion(
+				GhostSpacing.draw(beforeCaret, top, false), top, at + 1);
 		showGhostExtras(words, at);
+	}
+
+	/** Input text before the caret, hyphen marks included. */
+	private String textBeforeCaret() {
+		if (mInputBox == null || mInputBox.getText() == null) {
+			return "";
+		}
+		String raw = mInputBox.getText().toString();
+		int at = mInputBox.getSelectionStart();
+		if (at <= 0) {
+			return "";
+		}
+		if (at > raw.length()) {
+			at = raw.length();
+		}
+		return raw.substring(0, at);
 	}
 
 	private boolean caretAtEndOfInput() {
@@ -4191,9 +4338,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			public void onLayoutChange(View v, int l, int t, int r, int b,
 					int ol, int ot, int or, int ob) {
 				positionWordSuggestionOverlay();
+				positionLastFloat();
 			}
 		});
 		positionWordSuggestionOverlay();
+		positionLastFloat();
 	}
 
 	/**
@@ -4263,6 +4412,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void applyChipOpacity(final View view) {
+		applyPlateAlpha(view, opacityToAlpha());
+	}
+
+	private void applyPlateAlpha(final View view, final int alpha) {
 		android.graphics.drawable.Drawable bg = view.getBackground();
 		if (bg == null) {
 			return;
@@ -4270,7 +4423,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// mutate(), or every Button sharing the cached default background would be
 		// dimmed with it — including Send, which is in the same activity.
 		android.graphics.drawable.Drawable own = bg.mutate();
-		own.setAlpha(opacityToAlpha());
+		own.setAlpha(alpha);
 		if (own != bg) {
 			view.setBackground(own);
 		}
@@ -4283,6 +4436,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!mWordSuggestionsOverlay) {
 			return 255;
 		}
+		return floatingPlateAlpha();
+	}
+
+	/** Same backing alpha as floating suggestion chips, including when those are off. */
+	private int floatingPlateAlpha() {
 		int pct = mWordSuggestionsOpacity;
 		if (pct < WordSuggestions.MIN_OPACITY) {
 			pct = WordSuggestions.MIN_OPACITY;
@@ -4298,8 +4456,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 *
 	 * <p>The number is what makes {@code .complete 3} usable — and with it, a
 	 * super button over the keyboard, which is the only way to take a completion
-	 * without moving your thumb off the keys. Drawn smaller and dimmer than the
-	 * word so it reads as a label on the chip rather than part of the word.
+	 * without moving your thumb off the keys. Drawn at 0.55 of the word, the
+	 * same scale as the ghost index, and dimmer, so it reads as a label.
 	 *
 	 * @param n which chip this is, counting from 1.
 	 * @param word the completion itself.
@@ -4309,7 +4467,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String label = n + " " + word;
 		android.text.SpannableString out = new android.text.SpannableString(label);
 		int end = String.valueOf(n).length();
-		out.setSpan(new android.text.style.RelativeSizeSpan(0.7f), 0, end,
+		out.setSpan(new android.text.style.RelativeSizeSpan(0.55f), 0, end,
 				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 		out.setSpan(new android.text.style.ForegroundColorSpan(0xFF888888), 0, end,
 				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -4330,17 +4488,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		acceptWordSuggestion(mWordSuggestionList.get(index - 1));
 	}
 
-	/** Put the chosen completion in place of what was half-typed. */
+	/** Finish the typed word, or insert a different one with one real space. */
 	private void acceptWordSuggestion(final String word) {
 		if (mInputBox == null) {
 			return;
 		}
 		String raw = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = InputHyphenBreaks.logicalIndex(raw, Math.max(mInputBox.getSelectionStart(), 0));
-		WordSuggestions.Completion c = WordSuggestions.complete(
+		GhostSpacing.Accepted taken = GhostSpacing.accept(
 				InputHyphenBreaks.strip(raw), caret, word);
-		mInputBox.setText(c.text());
-		mInputBox.setLogicalSelection(c.caret());
+		mInputBox.setText(taken.text());
+		mInputBox.setLogicalSelection(taken.caret());
 		mInputBox.requestFocus();
 		mWordSuggestions.touch(word);
 		refreshWordSuggestions();
@@ -5160,6 +5318,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// Before the early return: a pause with no service is still a pause, and
 		// this is the last reliable moment to write what the session taught.
 		saveCommandKnowledge();
+		saveHistory();
+		if (mLastList != null) {
+			mLastList.flush();
+		}
+		if (mSuggestList != null) {
+			mSuggestList.flush();
+		}
 		windowCall("button_window", "flushButtonHeat", "");
 		if(service == null) { super.onPause(); return; };
 		cancelTouchOnPause();
@@ -5606,15 +5771,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setSuggestNext(suggestNext);
 			BaseOption whereOpt =
 					(BaseOption) group.findOptionByKey("word_complete_where");
+			boolean whereKnown = mSuggestWhereKnown;
+			int previousWhere = mWordSuggestionsWhere;
 			mWordSuggestionsWhere = whereOpt != null
 					&& whereOpt.getValue() instanceof Integer
 					? (Integer) whereOpt.getValue() : WordSuggestions.DEFAULT_WHERE;
 			if (mWordSuggestionsWhere < WordSuggestions.WHERE_FLOATING
-					|| mWordSuggestionsWhere > WordSuggestions.WHERE_NONE) {
+					|| mWordSuggestionsWhere > WordSuggestions.WHERE_LIST) {
 				mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
 			}
+			mSuggestWhereKnown = true;
+			if (whereKnown && mWordSuggestionsWhere == WordSuggestions.WHERE_LIST
+					&& previousWhere != WordSuggestions.WHERE_LIST
+					&& !mSuggestIgnoreNextListEntry) {
+				mSuggestListClosed = false;
+				mSuggestListForceOpen = true;
+			}
+			mSuggestIgnoreNextListEntry = false;
 			mWordSuggestionsOverlay =
 					mWordSuggestionsWhere == WordSuggestions.WHERE_FLOATING;
+			BaseOption orderOpt =
+					(BaseOption) group.findOptionByKey("word_complete_order");
+			int suggestOrder = orderOpt != null && orderOpt.getValue() instanceof Integer
+					? (Integer) orderOpt.getValue() : WordSuggestions.DEFAULT_ORDER;
+			mSuggestOrderRight = suggestOrder == WordSuggestions.ORDER_RIGHT;
 			// A folded bar is a floating-bar state. Leaving it set while the bar
 			// is elsewhere or gone means the grip comes back folded when the
 			// player floats it again, with nothing having been tapped.
@@ -5641,6 +5821,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			BaseOption histOpt = (BaseOption) group.findOptionByKey("input_history_size");
 			if (histOpt != null && histOpt.getValue() instanceof Integer) {
 				history.setMax((Integer) histOpt.getValue());
+				afterHistoryMutation();
 			}
 			// Session log enable/directory are owned by :stellar
 			// (Connection → ConnectionSessionLog). Do not mirror them into the
@@ -5686,6 +5867,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 				}
 			}
+			reapplyInputDraftSelection();
 			
 		} catch (RemoteException e1) {
 			throw new RuntimeException(e1);
@@ -6103,6 +6285,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void openChatThread(String threadId) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(
 					MESSAGE_OPEN_CHAT_THREAD, threadId));
+		}
+
+		public void showChatPanel() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_SHOW_CHAT_PANEL);
+		}
+
+		public void closeChatPanel() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_CLOSE_CHAT_PANEL);
 		}
 
 		public void setScreenMode(boolean fullscreen) throws RemoteException {
@@ -6646,6 +6836,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// later loadSettings → applyGrowInputBar refresh cannot leave the
 		// previous world's strip open (or close this world's .editpanel).
 		scheduleInputActionLayoutRefresh();
+		if (mLastList != null) {
+			mLastList.raiseIfOpen();
+		}
+		if (mSuggestList != null) {
+			mSuggestList.raiseIfOpen();
+		}
 		if (mPendingSplitOrientation != 0) {
 			applySplitLayout(mPendingSplitOrientation, mPendingSplitPercent);
 		}
@@ -7718,6 +7914,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			rl.addView(tmp);
 			
 			windowMap.put(w.getName(), tmp);
+			if (mRendererDebug && !"button_window".equals(w.getName())) {
+				tmp.setRendererDebug(true);
+			}
 			
 			//RelativeLayout holder = new AnimatedRelativeLayout(mContext,tmp,this);
 			//RelativeLayout.LayoutParams holderParams = new RelativeLayout.LayoutParams(w.getX()+w.getWidth(),w.getY()+w.getHeight());
@@ -7784,6 +7983,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	
 	public void cleanupWindows() {
+		mRendererDebug = false;
 		mPendingSplitOrientation = 0;
 		clearSplitLayout();
 		if (chatPanel != null) {
@@ -7927,6 +8127,75 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		saveConnectionExtras(next);
 	}
 
+	/**
+	 * The input bar is one widget. Park what it holds under the world on
+	 * screen, then show {@code next}'s draft (empty if that world has none).
+	 */
+	private void applyInputDraftSwitch(String next) {
+		if (mInputBox == null) {
+			return;
+		}
+		CharSequence raw = mInputBox.getText();
+		String live = raw == null ? "" : raw.toString();
+		InputDrafts.Draft parked = mInputDrafts.switchTo(next, live,
+				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd());
+		if (parked == null) {
+			return;
+		}
+		keepLastSuppress = true;
+		try {
+			mInputBox.setText(parked.text());
+			CharSequence shown = mInputBox.getText();
+			int len = shown == null ? 0 : shown.length();
+			int start = parked.selectionStart();
+			int end = parked.selectionEnd();
+			if (start < 0) {
+				start = 0;
+			} else if (start > len) {
+				start = len;
+			}
+			if (end < 0) {
+				end = 0;
+			} else if (end > len) {
+				end = len;
+			}
+			mInputBox.setSelection(start, end);
+			mInputDraftSelStart = start;
+			mInputDraftSelEnd = end;
+		} finally {
+			keepLastSuppress = false;
+		}
+		keepLastReplaceLength = 0;
+		keepLastPendingReplace = null;
+	}
+
+	/** restartInput on the switch's settings load moves the caret to 0. */
+	private void reapplyInputDraftSelection() {
+		if (mInputDraftSelStart < 0 || mInputBox == null) {
+			return;
+		}
+		CharSequence shown = mInputBox.getText();
+		int len = shown == null ? 0 : shown.length();
+		int start = mInputDraftSelStart;
+		int end = mInputDraftSelEnd;
+		mInputDraftSelStart = -1;
+		mInputDraftSelEnd = -1;
+		if (start < 0) {
+			start = 0;
+		} else if (start > len) {
+			start = len;
+		}
+		if (end < 0) {
+			end = 0;
+		} else if (end > len) {
+			end = len;
+		}
+		if (mInputBox.getSelectionStart() == start && mInputBox.getSelectionEnd() == end) {
+			return;
+		}
+		mInputBox.setSelection(start, end);
+	}
+
 	private String getConnectionDisplay() {
 		Intent intent = getIntent();
 		if (intent != null) {
@@ -8053,6 +8322,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		View v = findViewById(R.id.textinput);
 		mInputBox = (BetterEditText) v;
+		mInputDrafts.pinShowing(getConnectionDisplay());
+		mHistoryWorld.pinShowing(getConnectionDisplay());
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
 		bindGhostTap();
 		// The same reason the post below exists, and the same trap: loadSettings
@@ -8128,6 +8399,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		View suggestions = findViewById(R.id.input_word_suggestions);
 		if (suggestions != null) {
 			suggestions.setBackgroundColor(light ? nest : 0xFF141414);
+		}
+		View lastBar = findViewById(R.id.input_last_bar);
+		if (lastBar != null) {
+			lastBar.setBackgroundColor(light ? nest : 0xFF141414);
 		}
 		View prompt = findViewById(R.id.input_prompt_bar);
 		if (prompt instanceof TextView) {
@@ -8265,7 +8540,1338 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	private SharedPreferences lastBarPreferences() {
+		return getSharedPreferences(LastBarChips.prefsName(historyWorldName()),
+				Context.MODE_PRIVATE);
+	}
+
+	private void refreshLastBar() {
+		SharedPreferences prefs = lastBarPreferences();
+		showLastBar(
+				prefs.getBoolean("on", false),
+				LastBarChips.clampCount(prefs.getInt("count", LastBarChips.DEFAULT_COUNT)),
+				LastBarChips.clampLength(prefs.getInt("length", LastBarChips.DEFAULT_LENGTH)),
+				prefs.getBoolean("right", false));
+	}
+
+	private void writeLastBar(final boolean on, final int count, final int length,
+			final boolean right) {
+		lastBarPreferences().edit()
+				.putBoolean("on", on)
+				.putInt("count", count)
+				.putInt("length", length)
+				.putBoolean("right", right)
+				.apply();
+		showLastBar(on, count, length, right);
+	}
+
+	private void applyLastBarCommand(final String argument) {
+		LastBarRequest req = LastBarRequest.parse(argument);
+		if (req.kind == LastBarRequest.MISUSE) {
+			return;
+		}
+		SharedPreferences prefs = lastBarPreferences();
+		boolean on = prefs.getBoolean("on", false);
+		int count = LastBarChips.clampCount(prefs.getInt("count", LastBarChips.DEFAULT_COUNT));
+		int length = LastBarChips.clampLength(prefs.getInt("length", LastBarChips.DEFAULT_LENGTH));
+		boolean right = prefs.getBoolean("right", false);
+		boolean write = true;
+		String msg;
+		if (req.kind == LastBarRequest.STATUS) {
+			write = false;
+			msg = lastBarStatus(on, count, length, right);
+		} else if (req.kind == LastBarRequest.ON) {
+			on = true;
+			msg = "Last command bar on. Showing " + count + ".";
+		} else if (req.kind == LastBarRequest.OFF) {
+			on = false;
+			msg = "Last command bar off.";
+		} else if (req.kind == LastBarRequest.COUNT) {
+			on = true;
+			count = req.number;
+			msg = "Last command bar on. Showing " + count + ".";
+		} else if (req.kind == LastBarRequest.LENGTH) {
+			length = req.number;
+			msg = "Each command shows " + length + " characters.";
+		} else if (req.kind == LastBarRequest.ORDER) {
+			right = req.right;
+			msg = right
+					? "Order is right: First sits on the right."
+					: "Order is left: First sits on the left.";
+		} else if (req.kind == LastBarRequest.ORDER_STATUS) {
+			write = false;
+			msg = right
+					? "Order is right: First sits on the right."
+					: "Order is left: First sits on the left.";
+		} else {
+			return;
+		}
+		if (write) {
+			writeLastBar(on, count, length, right);
+		}
+		dispatchLuaText("\n" + Colorizer.getBrightCyanColor() + msg
+				+ Colorizer.getWhiteColor() + "\n");
+	}
+
+	private static String lastBarStatus(final boolean on, final int count, final int length,
+			final boolean right) {
+		return "Last command bar is " + (on ? "on" : "off")
+				+ ". Count " + count + ", " + length + " characters, order "
+				+ (right ? "right" : "left") + ".";
+	}
+
+	private void showLastBar(final boolean on, final int count, final int length,
+			final boolean right) {
+		HorizontalScrollView strip =
+				(HorizontalScrollView) findViewById(R.id.input_last_bar);
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_bar_row);
+		if (strip == null || row == null) {
+			return;
+		}
+		if (!on) {
+			strip.setVisibility(View.GONE);
+			return;
+		}
+		ArrayList<String> cmds = recentCommands(count);
+		int[] visual = LastBarChips.numbersLeftToRight(cmds.size(), right);
+		for (int slot = 0; slot < visual.length; slot++) {
+			int number = visual[slot];
+			TextView chip = lastBarChipAt(row, slot);
+			chip.setText(numberedChipLabel(number,
+					LastBarChips.clip(cmds.get(number - 1), length)));
+			chip.setTag(Integer.valueOf(number));
+			chip.setVisibility(View.VISIBLE);
+		}
+		for (int i = visual.length; i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
+		}
+		strip.setVisibility(View.VISIBLE);
+		packStrip(strip, row, right);
+	}
+
+	private ArrayList<String> recentCommands(final int count) {
+		ArrayList<String> lines = new ArrayList<String>();
+		if (history == null || count < 1) {
+			return lines;
+		}
+		int max = history.getMax();
+		int seen = 0;
+		for (int i = 1; i <= max && seen < count; i++) {
+			String cmd = history.peek(i);
+			if (cmd == null) {
+				break;
+			}
+			if (LastRecall.embeds(cmd, max)) {
+				continue;
+			}
+			lines.add(cmd);
+			seen++;
+		}
+		return lines;
+	}
+
+	private TextView lastBarChipAt(final LinearLayout row, final int i) {
+		if (i < row.getChildCount()) {
+			return (TextView) row.getChildAt(i);
+		}
+		TextView chip = new TextView(this);
+		styleCommandChip(chip, R.drawable.lastbar_chip_bg);
+		chip.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Object tag = v.getTag();
+				if (tag instanceof Integer) {
+					resendHistoryCommand(Integer.toString(((Integer) tag).intValue()));
+				}
+			}
+		});
+		row.addView(chip);
+		return chip;
+	}
+
+	private void packStrip(final View scroller, final LinearLayout row,
+			final boolean firstOnRight) {
+		row.setGravity(Gravity.CENTER_VERTICAL | (firstOnRight ? Gravity.RIGHT : Gravity.LEFT));
+		if (scroller instanceof HorizontalScrollView) {
+			((HorizontalScrollView) scroller).setFillViewport(true);
+		}
+		scroller.post(new Runnable() {
+			@Override
+			public void run() {
+				if (row.getWidth() == 0 || scroller.getWidth() == 0) {
+					scroller.post(new Runnable() {
+						@Override
+						public void run() {
+							scrollStrip(scroller, row, firstOnRight);
+						}
+					});
+					return;
+				}
+				scrollStrip(scroller, row, firstOnRight);
+			}
+		});
+	}
+
+	private static void scrollStrip(final View scroller, final View row,
+			final boolean firstOnRight) {
+		int extra = row.getWidth() - scroller.getWidth();
+		scroller.scrollTo(firstOnRight && extra > 0 ? extra : 0, 0);
+	}
+
+	/** Options → Input → Recent command bar… */
+	public void showLastBarOptions() {
+		SharedPreferences prefs = lastBarPreferences();
+		final boolean wasOn = prefs.getBoolean("on", false);
+		final int wasCount = LastBarChips.clampCount(
+				prefs.getInt("count", LastBarChips.DEFAULT_COUNT));
+		final int wasLength = LastBarChips.clampLength(
+				prefs.getInt("length", LastBarChips.DEFAULT_LENGTH));
+		final boolean wasRight = prefs.getBoolean("right", false);
+		LinearLayout root = new LinearLayout(this);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (16 * getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+		final CheckBox onBox = new CheckBox(this);
+		onBox.setText("Show the bar");
+		onBox.setChecked(wasOn);
+		root.addView(onBox);
+		TextView countLabel = new TextView(this);
+		countLabel.setText("How many (1–100)");
+		root.addView(countLabel);
+		final EditText countField = new EditText(this);
+		countField.setInputType(InputType.TYPE_CLASS_NUMBER);
+		countField.setSingleLine(true);
+		countField.setText(Integer.toString(wasCount));
+		root.addView(countField);
+		TextView lengthLabel = new TextView(this);
+		lengthLabel.setText("Characters (3–40)");
+		root.addView(lengthLabel);
+		final EditText lengthField = new EditText(this);
+		lengthField.setInputType(InputType.TYPE_CLASS_NUMBER);
+		lengthField.setSingleLine(true);
+		lengthField.setText(Integer.toString(wasLength));
+		root.addView(lengthField);
+		TextView orderLabel = new TextView(this);
+		orderLabel.setText("Order");
+		root.addView(orderLabel);
+		final RadioGroup order = new RadioGroup(this);
+		final RadioButton left = new RadioButton(this);
+		left.setText("First on the left");
+		left.setId(View.generateViewId());
+		final RadioButton right = new RadioButton(this);
+		right.setText("First on the right");
+		right.setId(View.generateViewId());
+		order.addView(left);
+		order.addView(right);
+		order.check(wasRight ? right.getId() : left.getId());
+		root.addView(order);
+		final AlertDialog dialog = new AlertDialog.Builder(this)
+				.setTitle("Recent command bar")
+				.setView(root)
+				.setPositiveButton("Save", null)
+				.setNegativeButton("Cancel", null)
+				.create();
+		dialog.show();
+		dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				int count = parseLastBarField(countField);
+				int length = parseLastBarField(lengthField);
+				if (count < LastBarChips.MIN_COUNT || count > LastBarChips.MAX_COUNT
+						|| length < LastBarChips.MIN_LENGTH || length > LastBarChips.MAX_LENGTH) {
+					Toast.makeText(MainWindow.this,
+							"Count is 1–100. Characters are 3–40.",
+							Toast.LENGTH_SHORT).show();
+					return;
+				}
+				writeLastBar(onBox.isChecked(), count, length,
+						order.getCheckedRadioButtonId() == right.getId());
+				dialog.dismiss();
+			}
+		});
+	}
+
+	private static int parseLastBarField(final EditText field) {
+		try {
+			return Integer.parseInt(field.getText().toString().trim());
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/**
+	 * {@code .last} / {@code .Nlast} asked the UI, which owns command history,
+	 * to submit that stored line. The stored text is what was typed, so aliases
+	 * run again, the same as ↑ then Send.
+	 */
+	private void resendHistoryCommand(final String indexText) {
+		int n;
+		try {
+			n = Integer.parseInt(indexText);
+		} catch (NumberFormatException e) {
+			return;
+		}
+		boolean fromBar = barShowsRecall();
+		dropNewestIfRecall();
+		if (n < 1) {
+			if (fromBar) {
+				clearRecallBar();
+			}
+			return;
+		}
+		String cmd = nthSentCommand(n);
+		if (cmd == null) {
+			if (fromBar) {
+				clearRecallBar();
+			}
+			tellNoLast();
+			return;
+		}
+		boolean sent = transmitRecall(cmd);
+		if (!sent) {
+			cancelQueuedInputReset();
+			return;
+		}
+		matchBarToSentLine(cmd);
+	}
+
+	/**
+	 * Same bar as Send: Keep Last selects the recalled line; off clears it.
+	 * A reset already queued for the literal {@code .last} is dropped first.
+	 */
+	private void matchBarToSentLine(final String cmd) {
+		cancelQueuedInputReset();
+		if (mInputBox == null) {
+			return;
+		}
+		keepLastSuppress = true;
+		try {
+			if (isKeepLast && !mLocalEchoOff && cmd != null && cmd.length() > 0) {
+				mInputBox.setText(cmd);
+			} else {
+				mInputBox.setText("");
+			}
+		} finally {
+			keepLastSuppress = false;
+		}
+		if (myhandler != null) {
+			myhandler.sendEmptyMessage(MESSAGE_RESETINPUTWINDOW);
+		}
+	}
+
+	/** {@code .last input}: the history line, caret at the end, nothing sent. */
+	private void fillHistoryCommand(final String indexText) {
+		cancelQueuedInputReset();
+		int n;
+		try {
+			n = Integer.parseInt(indexText);
+		} catch (NumberFormatException e) {
+			mFillBarBeforeSend = null;
+			return;
+		}
+		boolean fromBar = barShowsRecall();
+		dropNewestIfRecall();
+		if (n < 1) {
+			mFillBarBeforeSend = null;
+			if (fromBar) {
+				clearRecallBar();
+			}
+			return;
+		}
+		String cmd = nthSentCommand(n);
+		if (cmd == null) {
+			tellNoLast();
+			restoreMissedFillBar();
+			return;
+		}
+		mFillBarBeforeSend = null;
+		if (mInputBox == null) {
+			return;
+		}
+		keepLastSuppress = true;
+		try {
+			mInputBox.setText(cmd);
+			mInputBox.setSelection(cmd.length());
+		} finally {
+			keepLastSuppress = false;
+		}
+		keepLastReplaceLength = 0;
+		historyWidgetKept = false;
+		mInputBox.requestFocus();
+		final int end = cmd.length();
+		mInputBox.post(new Runnable() {
+			@Override
+			public void run() {
+				if (mInputBox == null) {
+					return;
+				}
+				int len = mInputBox.getText() == null ? 0 : mInputBox.getText().length();
+				if (len <= 0) {
+					return;
+				}
+				mInputBox.setSelection(Math.min(end, len));
+			}
+		});
+	}
+
+	private void cancelQueuedInputReset() {
+		if (myhandler != null) {
+			myhandler.removeMessages(MESSAGE_RESETINPUTWINDOW);
+		}
+		keepLastReplaceLength = 0;
+		historyWidgetKept = false;
+	}
+
+	/** Before the send reset. Only a fill form; a later miss puts this back. */
+	private void rememberFillBar(final String sentLine) {
+		mFillBarBeforeSend = null;
+		if (history == null || mInputBox == null || sentLine == null) {
+			return;
+		}
+		if (LastRecall.parseFill(sentLine, history.getMax()) < 1) {
+			return;
+		}
+		CharSequence raw = mInputBox.getText();
+		String text = raw == null ? "" : raw.toString();
+		mFillBarBeforeSend = new MissedFillBar.State(text,
+				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(),
+				keepLastReplaceLength, historyWidgetKept);
+	}
+
+	/** Send reset already ran. Keep-last length stays 0 until after its posted select. */
+	private void restoreMissedFillBar() {
+		final MissedFillBar.State before = mFillBarBeforeSend;
+		mFillBarBeforeSend = null;
+		if (before == null || mInputBox == null) {
+			return;
+		}
+		final MissedFillBar.State back = MissedFillBar.afterMissingSlot(before);
+		keepLastSuppress = true;
+		try {
+			mInputBox.setText(back.text());
+			placeFillSelection(back.selectionStart(), back.selectionEnd());
+		} finally {
+			keepLastSuppress = false;
+		}
+		final int keepLen = back.keepLastReplaceLength();
+		final boolean kept = back.historyWidgetKept();
+		final int start = back.selectionStart();
+		final int end = back.selectionEnd();
+		mInputBox.post(new Runnable() {
+			@Override
+			public void run() {
+				if (mInputBox == null) {
+					return;
+				}
+				placeFillSelection(start, end);
+				keepLastReplaceLength = keepLen;
+				historyWidgetKept = kept;
+			}
+		});
+	}
+
+	private void placeFillSelection(final int start, final int end) {
+		if (mInputBox == null || mInputBox.getText() == null) {
+			return;
+		}
+		int len = mInputBox.getText().length();
+		int a = start < 0 ? 0 : Math.min(start, len);
+		int b = end < 0 ? 0 : Math.min(end, len);
+		mInputBox.setSelection(a, b);
+	}
+
+	private String historyWorldName() {
+		if (mHistoryLoadedFor != null && mHistoryLoadedFor.length() > 0) {
+			return mHistoryLoadedFor;
+		}
+		String world = mHistoryWorld.showing();
+		if (world == null || world.length() == 0) {
+			world = getConnectionDisplay();
+		}
+		return world;
+	}
+
+	/** Clutch display, else the intent. A sent line is stored on that world. */
+	private String foregroundHistoryWorld() {
+		if (service != null) {
+			try {
+				String connected = service.getConnectedTo();
+				if (connected != null && connected.length() > 0) {
+					return connected;
+				}
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"MainWindow.history", e);
+			}
+		}
+		return getConnectionDisplay();
+	}
+
+	/** @return true when the live list moved from one world to another */
+	private boolean alignHistory(final String next) {
+		if (history == null || next == null || next.length() == 0) {
+			return false;
+		}
+		String leaving = HistoryWorld.parkedName(mHistoryLoadedFor, next);
+		if (leaving != null) {
+			history.save(this, leaving);
+			history.load(this, next);
+		} else if (mHistoryLoadedFor == null) {
+			history.load(this, next);
+		}
+		mHistoryLoadedFor = next;
+		mHistoryWorld.adopt(next);
+		return leaving != null;
+	}
+
+	private void saveHistory() {
+		if (history == null) {
+			return;
+		}
+		history.save(this, historyWorldName());
+	}
+
+	private void afterHistoryMutation() {
+		if (mLastList != null && mLastList.isShowing()) {
+			mLastList.refresh();
+		}
+		refreshLastBar();
+		refreshLastFloat();
+	}
+
+	/** Numbered newest-first. 1 is what {@code .last} sends. */
+	private List<String> historyLines() {
+		ArrayList<String> lines = new ArrayList<String>();
+		if (history == null) {
+			return lines;
+		}
+		int max = history.getMax();
+		int shown = 0;
+		for (int i = 1; i <= max; i++) {
+			String cmd = history.peek(i);
+			if (cmd == null) {
+				break;
+			}
+			if (LastRecall.embeds(cmd, max)) {
+				continue;
+			}
+			shown++;
+			lines.add(shown + "  " + cmd);
+		}
+		return lines;
+	}
+
+	private void setHistoryMaxFromList(final int max) {
+		if (history == null) {
+			return;
+		}
+		history.setMax(max);
+		saveHistory();
+		afterHistoryMutation();
+		try {
+			if (service != null) {
+				service.updateIntegerSetting("input_history_size", history.getMax());
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.lastlist", e);
+		}
+	}
+
+	/** Gear for {@code .lastlist}, also Options → Extra text windows. */
+	public void showLastListOptions() {
+		if (!ensureLastList()) {
+			return;
+		}
+		mLastList.ensureBound();
+		mLastList.showOptions();
+	}
+
+	/** Same window as {@code .lastlist}. */
+	public void showLastList() {
+		hideLastFloat();
+		if (!ensureLastList()) {
+			return;
+		}
+		mLastList.show();
+	}
+
+	/** {@code .lastlist frame on} shows the title. {@code frame off} hides it. */
+	public void setLastListChrome(final boolean showChrome) {
+		hideLastFloat();
+		if (!ensureLastList()) {
+			return;
+		}
+		mLastList.setChrome(showChrome);
+	}
+
+	/** {@code .lastlist frame} flips the title, gear, and close. */
+	public void toggleLastListChrome() {
+		hideLastFloat();
+		if (!ensureLastList()) {
+			return;
+		}
+		mLastList.toggleChrome();
+	}
+
+	private void restoreLastList() {
+		syncLastListWorld();
+	}
+
+	private void syncLastListWorld() {
+		if (!ensureLastList()) {
+			return;
+		}
+		mLastList.onWorldChanged();
+		mSuggestIgnoreNextListEntry = true;
+		if (mSuggestList != null) {
+			mSuggestListClosed = false;
+			mSuggestListForceOpen = false;
+			mSuggestList.onWorldChanged();
+			if (mWordSuggestionsWhere != WordSuggestions.WHERE_LIST) {
+				hideSuggestListQuiet();
+			}
+		}
+		restoreLastFloat();
+		if (mWordSuggestionsWhere == WordSuggestions.WHERE_LIST) {
+			refreshWordSuggestions();
+		}
+	}
+
+	private boolean ensureLastList() {
+		RelativeLayout parent = (RelativeLayout) findViewById(R.id.window_container);
+		if (parent == null) {
+			return false;
+		}
+		if (mLastList == null) {
+			mLastList = new LastListPanel(this, new LastListPanel.Host() {
+				@Override
+				public List<String> lines() {
+					return historyLines();
+				}
+
+				@Override
+				public int historyMax() {
+					return history == null ? 75 : history.getMax();
+				}
+
+				@Override
+				public void setHistoryMax(final int max) {
+					setHistoryMaxFromList(max);
+				}
+
+				@Override
+				public String world() {
+					return historyWorldName();
+				}
+
+				@Override
+				public void resend(final int index) {
+					resendHistoryCommand(Integer.toString(index));
+				}
+
+				@Override
+				public void closed() {
+				}
+
+				@Override
+				public void shown() {
+					hideLastFloat();
+				}
+			});
+			mLastList.attach(parent);
+		}
+		return true;
+	}
+
+	private void refreshSuggestList(final java.util.List<String> words) {
+		if (!mWordSuggestionsOn || mInputBox == null || mSuggestListClosed) {
+			if (!mSuggestListClosed) {
+				hideSuggestListQuiet();
+			}
+			return;
+		}
+		boolean empty = words == null || words.isEmpty();
+		if (empty && !mWordSuggestionsPersist) {
+			concealSuggestListSoon();
+			return;
+		}
+		cancelSuggestListHide();
+		if (!ensureSuggestList()) {
+			return;
+		}
+		if (mSuggestList.isShowing()) {
+			mSuggestList.refresh();
+			return;
+		}
+		if (!mSuggestListForceOpen && !mSuggestList.leftOpen()) {
+			return;
+		}
+		mSuggestListForceOpen = false;
+		mSuggestList.show();
+	}
+
+	private void hideSuggestListQuiet() {
+		cancelSuggestListHide();
+		if (mSuggestList != null && mSuggestList.isShowing()) {
+			mSuggestList.conceal();
+		}
+	}
+
+	/** Same pause as the chips, so one unmatched letter does not blink the window. */
+	private void concealSuggestListSoon() {
+		if (mSuggestList == null || !mSuggestList.isShowing() || mSuggestListHide != null) {
+			return;
+		}
+		final View host = findViewById(R.id.window_container);
+		if (host == null) {
+			hideSuggestListQuiet();
+			return;
+		}
+		mSuggestListHide = new Runnable() {
+			@Override
+			public void run() {
+				mSuggestListHide = null;
+				if (mWordSuggestionList.isEmpty() && !mWordSuggestionsPersist
+						&& mWordSuggestionsWhere == WordSuggestions.WHERE_LIST) {
+					if (mSuggestList != null && mSuggestList.isShowing()) {
+						mSuggestList.conceal();
+					}
+				}
+			}
+		};
+		host.postDelayed(mSuggestListHide, WORD_SUGGESTION_HIDE_DELAY_MS);
+	}
+
+	private void cancelSuggestListHide() {
+		if (mSuggestListHide == null) {
+			return;
+		}
+		View host = findViewById(R.id.window_container);
+		if (host != null) {
+			host.removeCallbacks(mSuggestListHide);
+		}
+		mSuggestListHide = null;
+	}
+
+	private boolean ensureSuggestList() {
+		RelativeLayout parent = (RelativeLayout) findViewById(R.id.window_container);
+		if (parent == null) {
+			return false;
+		}
+		if (mSuggestList == null) {
+			mSuggestList = new LastListPanel(this, new LastListPanel.Host() {
+				@Override
+				public List<String> lines() {
+					ArrayList<String> lines = new ArrayList<String>();
+					for (int i = 0; i < mWordSuggestionList.size(); i++) {
+						lines.add((i + 1) + "  " + mWordSuggestionList.get(i));
+					}
+					return lines;
+				}
+
+				@Override
+				public int historyMax() {
+					return 10;
+				}
+
+				@Override
+				public void setHistoryMax(final int max) {
+				}
+
+				@Override
+				public String world() {
+					return historyWorldName();
+				}
+
+				@Override
+				public void resend(final int index) {
+					pickWordSuggestion(index);
+				}
+
+				@Override
+				public void closed() {
+					mSuggestListClosed = true;
+				}
+
+				@Override
+				public void shown() {
+				}
+			}, "Suggestions", "No suggestions.", "SUGGESTLIST_",
+					LastListPanel.SUGGEST_LAYER_TAG, true, true, 180, false);
+			mSuggestList.attach(parent);
+		}
+		return true;
+	}
+
+	private SharedPreferences lastFloatPreferences() {
+		String world = historyWorldName();
+		String safe = world == null ? "" : world.replaceAll("[^A-Za-z0-9._-]+", "_");
+		return getSharedPreferences("LASTFLOAT_" + safe, Context.MODE_PRIVATE);
+	}
+
+	private void restoreLastFloat() {
+		if (lastFloatPreferences().getBoolean("on", false)) {
+			showLastFloat();
+		} else {
+			View strip = findViewById(R.id.input_last_float);
+			if (strip != null) {
+				strip.setVisibility(View.GONE);
+			}
+		}
+	}
+
+	private void showLastFloat() {
+		if (mLastList != null && mLastList.isShowing()) {
+			mLastList.hide();
+		}
+		View strip = findViewById(R.id.input_last_float);
+		if (strip == null) {
+			return;
+		}
+		lastFloatPreferences().edit().putBoolean("on", true).apply();
+		fillLastFloat();
+		strip.setVisibility(View.VISIBLE);
+		bindLastFloatGrip();
+		trackInputBarForOverlay();
+		positionLastFloat();
+	}
+
+	private void hideLastFloat() {
+		View strip = findViewById(R.id.input_last_float);
+		if (strip != null) {
+			strip.setVisibility(View.GONE);
+		}
+		lastFloatPreferences().edit().putBoolean("on", false).apply();
+	}
+
+	private void tellLastFloat(final boolean on) {
+		tellLastFloat(on ? "Recent command chips are on." : "Recent command chips are off.");
+	}
+
+	private void tellLastFloat(final String msg) {
+		if (service == null || msg == null) {
+			return;
+		}
+		try {
+			service.dispatchLuaText("\n" + Colorizer.getBrightCyanColor()
+					+ msg + Colorizer.getWhiteColor() + "\n");
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.lastfloat", e);
+		}
+	}
+
+	private static int lastFloatActionNumber(final String action, final String prefix) {
+		try {
+			return Integer.parseInt(action.substring(prefix.length()));
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/** 8 until {@code .lastfloat N} is saved. That is what the strip showed before. */
+	private int lastFloatChipCount() {
+		return LastBarChips.clampCount(lastFloatPreferences().getInt(
+				"count", WordSuggestions.MAX_ON_STRIP));
+	}
+
+	private int lastFloatChipLength() {
+		return LastBarChips.clampLength(lastFloatPreferences().getInt(
+				"length", LastBarChips.DEFAULT_LENGTH));
+	}
+
+	private void refreshLastFloat() {
+		View strip = findViewById(R.id.input_last_float);
+		if (strip == null || strip.getVisibility() != View.VISIBLE) {
+			return;
+		}
+		fillLastFloat();
+	}
+
+	private void fillLastFloat() {
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_float_row);
+		if (row == null) {
+			return;
+		}
+		ArrayList<String> cmds = recentCommands(lastFloatChipCount());
+		int length = lastFloatChipLength();
+		for (int i = 0; i < cmds.size(); i++) {
+			int number = i + 1;
+			TextView chip = lastBarChipAt(row, i);
+			chip.setBackgroundResource(R.drawable.suggestion_chip_bg);
+			chip.setText(numberedChipLabel(number,
+					LastBarChips.clip(cmds.get(i), length)));
+			chip.setTag(Integer.valueOf(number));
+			chip.setVisibility(View.VISIBLE);
+		}
+		for (int i = cmds.size(); i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
+		}
+		View scroller = findViewById(R.id.input_last_float_scroll);
+		if (scroller != null) {
+			packStrip(scroller, row, false);
+		}
+	}
+
+	private void bindLastFloatGrip() {
+		if (mLastFloatGripBound) {
+			return;
+		}
+		final View grip = findViewById(R.id.input_last_float_grip);
+		final View panel = findViewById(R.id.input_last_float);
+		if (grip == null || panel == null) {
+			return;
+		}
+		mLastFloatGripBound = true;
+		final int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+		grip.setOnTouchListener(new View.OnTouchListener() {
+			@Override
+			public boolean onTouch(View v, MotionEvent e) {
+				switch (e.getActionMasked()) {
+				case MotionEvent.ACTION_DOWN:
+					mLastFloatDownRawX = e.getRawX();
+					mLastFloatDownRawY = e.getRawY();
+					mLastFloatGripMoved = false;
+					return true;
+				case MotionEvent.ACTION_MOVE: {
+					float dx = e.getRawX() - mLastFloatDownRawX;
+					float dy = e.getRawY() - mLastFloatDownRawY;
+					if (!mLastFloatDragging) {
+						if (Math.abs(dx) < slop && Math.abs(dy) < slop) {
+							return true;
+						}
+						mLastFloatGripMoved = true;
+						if (!beginLastFloatDrag(panel)) {
+							return true;
+						}
+					}
+					moveLastFloatTo(panel, dx, dy);
+					return true;
+				}
+				case MotionEvent.ACTION_UP:
+					if (mLastFloatDragging) {
+						endLastFloatDrag(panel);
+					} else if (!mLastFloatGripMoved) {
+						v.playSoundEffect(android.view.SoundEffectConstants.CLICK);
+						hideLastFloat();
+					}
+					return true;
+				case MotionEvent.ACTION_CANCEL:
+					if (mLastFloatDragging) {
+						endLastFloatDrag(panel);
+					}
+					return true;
+				default:
+					return false;
+				}
+			}
+		});
+	}
+
+	private boolean beginLastFloatDrag(final View panel) {
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return false;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		mLastFloatDragStartLeft = flp.leftMargin;
+		mLastFloatDragStartBottom = flp.bottomMargin;
+		mLastFloatDragging = true;
+		panel.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+		panel.setAlpha(0.85f);
+		return true;
+	}
+
+	private void moveLastFloatTo(final View panel, final float dx, final float dy) {
+		ViewGroup parent = (ViewGroup) panel.getParent();
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (parent == null || !(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		int maxLeft = Math.max(0, parent.getWidth() - panel.getWidth());
+		int maxBottom = Math.max(0, parent.getHeight() - panel.getHeight());
+		flp.leftMargin = LastFloatLayout.clamp(
+				mLastFloatDragStartLeft + (int) dx, maxLeft);
+		flp.bottomMargin = LastFloatLayout.clamp(
+				mLastFloatDragStartBottom - (int) dy, maxBottom);
+		panel.setLayoutParams(flp);
+	}
+
+	private void endLastFloatDrag(final View panel) {
+		mLastFloatDragging = false;
+		panel.setAlpha(1f);
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		// A placed strip keeps translationY at 0 and stores the keyboard in
+		// the margin, so its own translation is not the lift to snap against.
+		int ownLift = Math.round(-panel.getTranslationY());
+		if (ownLift != 0) {
+			flp.bottomMargin = LastFloatLayout.withLift(flp.bottomMargin, ownLift);
+			panel.setTranslationY(0f);
+			panel.setLayoutParams(flp);
+		}
+		float d = getResources().getDisplayMetrics().density;
+		int snap = (int) (SUGGESTION_SNAP_BACK_DIP * d);
+		int[] home = unplacedLastFloatMargins();
+		boolean followsBar = lastFloatFollowsBar();
+		int barLift = followsBar ? inputBarLiftPx() : 0;
+		if (LastFloatLayout.near(flp.leftMargin, flp.bottomMargin,
+				home[0], LastFloatLayout.snapBottom(home[1], followsBar, barLift), snap)) {
+			mLastFloatPlaced = false;
+			saveLastFloatPosition();
+			positionLastFloat();
+			return;
+		}
+		mLastFloatPlaced = true;
+		mLastFloatLeft = flp.leftMargin;
+		mLastFloatBottom = flp.bottomMargin;
+		saveLastFloatPosition();
+		positionLastFloat();
+	}
+
+	/** Unplaced chips follow the input bar, unless they are stacked on a placed suggestion strip. */
+	private boolean lastFloatFollowsBar() {
+		View sugg = findViewById(R.id.input_word_suggestions_float);
+		boolean stackedOnPlaced = sugg != null
+				&& sugg.getVisibility() == View.VISIBLE
+				&& mSuggestionPanelPlaced;
+		return !stackedOnPlaced;
+	}
+
+	private int inputBarLiftPx() {
+		View bar = findInputBar();
+		if (bar == null) {
+			return 0;
+		}
+		return Math.round(-bar.getTranslationY());
+	}
+
+	/** Has the player dragged the recent-command chips to a place of their own? */
+	boolean isLastFloatPlaced() {
+		ensureLastFloatPosition();
+		return mLastFloatPlaced;
+	}
+
+	private String lastFloatOrient() {
+		boolean land = getResources().getConfiguration().orientation
+				== Configuration.ORIENTATION_LANDSCAPE;
+		return land ? "land" : "port";
+	}
+
+	private void ensureLastFloatPosition() {
+		String key = historyWorldName() + "|" + lastFloatOrient();
+		if (key.equals(mLastFloatPosLoadedFor)) {
+			return;
+		}
+		mLastFloatPosLoadedFor = key;
+		SharedPreferences p = lastFloatPreferences();
+		String o = lastFloatOrient();
+		if (!p.contains(o + "|left") || !p.contains(o + "|bottom")) {
+			mLastFloatPlaced = false;
+			return;
+		}
+		mLastFloatLeft = p.getInt(o + "|left", 0);
+		mLastFloatBottom = p.getInt(o + "|bottom", 0);
+		mLastFloatPlaced = true;
+	}
+
+	private void saveLastFloatPosition() {
+		String o = lastFloatOrient();
+		SharedPreferences.Editor e = lastFloatPreferences().edit();
+		if (!mLastFloatPlaced) {
+			e.remove(o + "|left").remove(o + "|bottom");
+		} else {
+			e.putInt(o + "|left", mLastFloatLeft);
+			e.putInt(o + "|bottom", mLastFloatBottom);
+		}
+		e.apply();
+	}
+
+	/**
+	 * Where the chips sit before anyone drags them. Above the suggestion
+	 * strip when that strip is showing, otherwise on the input bar.
+	 * A placed strip does not use this.
+	 */
+	private int[] unplacedLastFloatMargins() {
+		float density = getResources().getDisplayMetrics().density;
+		int gap = (int) (8 * density);
+		int fallback = (int) (36 * density);
+		int barBottom = defaultSuggestionBottomMargin();
+		int defaultLeft = defaultSuggestionLeftMargin();
+		View sugg = findViewById(R.id.input_word_suggestions_float);
+		boolean showing = sugg != null && sugg.getVisibility() == View.VISIBLE;
+		int suggBottom = barBottom;
+		int suggLeft = defaultLeft;
+		int suggHeight = 0;
+		if (showing) {
+			ViewGroup.LayoutParams slp = sugg.getLayoutParams();
+			if (slp instanceof android.widget.FrameLayout.LayoutParams) {
+				android.widget.FrameLayout.LayoutParams sflp =
+						(android.widget.FrameLayout.LayoutParams) slp;
+				suggBottom = sflp.bottomMargin;
+				suggLeft = sflp.leftMargin;
+			}
+			suggHeight = sugg.getHeight();
+		}
+		int wantedBottom = LastFloatLayout.unplacedBottom(
+				showing, suggBottom, suggHeight, fallback, barBottom, gap);
+		int wantedLeft = LastFloatLayout.unplacedLeft(showing, suggLeft, defaultLeft);
+		View floating = findViewById(R.id.input_last_float);
+		View parent = floating != null && floating.getParent() instanceof View
+				? (View) floating.getParent() : null;
+		if (parent != null && parent.getHeight() > 0 && floating != null) {
+			int floatH = floating.getHeight();
+			if (floatH < 1) {
+				floatH = fallback;
+			}
+			int maxBottom = Math.max(gap, parent.getHeight() - floatH);
+			if (wantedBottom > maxBottom) {
+				wantedBottom = maxBottom;
+			}
+		}
+		return new int[] { wantedLeft, wantedBottom };
+	}
+
+	private void applyLastFloatOpacity(final View floating) {
+		applyPlateAlpha(floating, floatingPlateAlpha());
+	}
+
+	private void positionLastFloat() {
+		if (mLastFloatDragging) {
+			return;
+		}
+		View bar = findInputBar();
+		View floating = findViewById(R.id.input_last_float);
+		if (bar == null || floating == null) {
+			return;
+		}
+		ViewGroup.LayoutParams lp = floating.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		ensureLastFloatPosition();
+		applyLastFloatOpacity(floating);
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		int[] home = unplacedLastFloatMargins();
+		int wantedLeft = mLastFloatPlaced ? mLastFloatLeft : home[0];
+		int wantedBottom = mLastFloatPlaced ? mLastFloatBottom : home[1];
+		if (flp.bottomMargin != wantedBottom || flp.leftMargin != wantedLeft) {
+			flp.bottomMargin = wantedBottom;
+			flp.leftMargin = wantedLeft;
+			floating.setLayoutParams(flp);
+		}
+		floating.setTranslationY(
+				!mLastFloatPlaced && lastFloatFollowsBar()
+						? bar.getTranslationY() : 0f);
+	}
+
+	private boolean barShowsRecall() {
+		if (mInputBox == null || history == null) {
+			return false;
+		}
+		String shown = InputHyphenBreaks.strip(mInputBox.getText().toString());
+		return LastRecall.embeds(shown, history.getMax());
+	}
+
+	private void clearRecallBar() {
+		if (mInputBox != null) {
+			mInputBox.setText("");
+		}
+	}
+
+	/** The literal {@code .last} was recorded before the service saw it. */
+	private void dropNewestIfRecall() {
+		if (history == null) {
+			return;
+		}
+		String newest = history.peekNewest();
+		if (newest == null || newest.length() == 0) {
+			return;
+		}
+		if (!LastRecall.embeds(newest, history.getMax())) {
+			return;
+		}
+		history.dropNewest();
+		saveHistory();
+		afterHistoryMutation();
+	}
+
+	private String nthSentCommand(final int n) {
+		if (history == null || n < 1) {
+			return null;
+		}
+		int max = history.getMax();
+		int seen = 0;
+		for (int i = 1; i <= max; i++) {
+			String cmd = history.peek(i);
+			if (cmd == null) {
+				break;
+			}
+			if (LastRecall.embeds(cmd, max)) {
+				continue;
+			}
+			seen++;
+			if (seen == n) {
+				return cmd;
+			}
+		}
+		return null;
+	}
+
+	private void tellNoLast() {
+		if (service == null) {
+			return;
+		}
+		try {
+			service.dispatchLuaText("\n" + Colorizer.getRedColor()
+					+ "No command that far back."
+					+ Colorizer.getWhiteColor() + "\n");
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.last", e);
+		}
+	}
+
+	private boolean transmitRecall(final String line) {
+		if (line == null || line.length() == 0 || service == null) {
+			return false;
+		}
+		if (history != null && LastRecall.embeds(line, history.getMax())) {
+			tellNoLast();
+			return false;
+		}
+		try {
+			if (!mLocalEchoOff && history != null) {
+				if (alignHistory(foregroundHistoryWorld())) {
+					syncLastListWorld();
+				}
+				history.addCommand(line);
+				saveHistory();
+				afterHistoryMutation();
+				if (isSuggestForgetCommand(line)) {
+					forgetCommandKnowledgeHere();
+				} else if (applySuggestBagEditHere(line)) {
+					// Same as a typed line: the edit is already saved here.
+				} else if (!line.trim().startsWith(".")) {
+					loadCommandKnowledge();
+					mWordSuggestions.learnCommand(line);
+					mCommandKnowledgeDirty = true;
+					maybeSaveCommandKnowledge();
+				}
+			}
+			String enc = service.getEncoding();
+			if (enc == null || enc.length() == 0) {
+				enc = "UTF-8";
+			}
+			service.sendData((line + "\r\n").getBytes(enc));
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.last", e);
+			return false;
+		}
+		com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
+		if (w != null && w.jumpsOnSend()) {
+			w.jumpToStart();
+		}
+		return true;
+	}
+
 	private void runUiAction(final String action) {
+		if ("suggest:list".equals(action)) {
+			mSuggestListClosed = false;
+			mSuggestListForceOpen = true;
+			refreshWordSuggestions();
+			return;
+		}
+		if ("lastlist:float".equals(action)) {
+			showLastFloat();
+			return;
+		}
+		if ("lastlist:float:off".equals(action)) {
+			hideLastFloat();
+			tellLastFloat(false);
+			return;
+		}
+		if ("lastlist:float:toggle".equals(action)) {
+			View strip = findViewById(R.id.input_last_float);
+			boolean showing = strip != null && strip.getVisibility() == View.VISIBLE;
+			if (showing) {
+				hideLastFloat();
+			} else {
+				showLastFloat();
+			}
+			tellLastFloat(!showing);
+			return;
+		}
+		if (action != null && action.startsWith("lastlist:float:count:")) {
+			int n = lastFloatActionNumber(action, "lastlist:float:count:");
+			if (n < LastBarChips.MIN_COUNT || n > LastBarChips.MAX_COUNT) {
+				return;
+			}
+			lastFloatPreferences().edit().putInt("count", n).apply();
+			showLastFloat();
+			tellLastFloat("Recent command chips on. Showing " + n + ".");
+			return;
+		}
+		if (action != null && action.startsWith("lastlist:float:length:")) {
+			int n = lastFloatActionNumber(action, "lastlist:float:length:");
+			if (n < LastBarChips.MIN_LENGTH || n > LastBarChips.MAX_LENGTH) {
+				return;
+			}
+			lastFloatPreferences().edit().putInt("length", n).apply();
+			View strip = findViewById(R.id.input_last_float);
+			if (strip != null && strip.getVisibility() == View.VISIBLE) {
+				fillLastFloat();
+			}
+			tellLastFloat("Each command shows " + n + " characters.");
+			return;
+		}
+		if ("lastlist:bar".equals(action)) {
+			hideLastFloat();
+			if (mLastList != null && mLastList.isShowing()) {
+				mLastList.hide();
+			}
+			applyLastBarCommand("on");
+			return;
+		}
+		if (action != null && (action.equals("lastbar") || action.startsWith("lastbar:"))) {
+			String arg = action.equals("lastbar") ? "" : action.substring("lastbar:".length());
+			applyLastBarCommand(arg);
+			return;
+		}
+		if (action != null && action.startsWith("lastfill:")) {
+			fillHistoryCommand(action.substring("lastfill:".length()));
+			return;
+		}
+		if ("lastlist".equals(action)) {
+			showLastList();
+			return;
+		}
+		if ("lastlist:frame:on".equals(action)) {
+			setLastListChrome(true);
+			return;
+		}
+		if ("lastlist:frame:off".equals(action)) {
+			setLastListChrome(false);
+			return;
+		}
+		if ("lastlist:frame:toggle".equals(action)) {
+			toggleLastListChrome();
+			return;
+		}
+		if (action != null && action.startsWith("last:")) {
+			resendHistoryCommand(action.substring(5));
+			return;
+		}
 		if ("editbuttons".equals(action)) {
 			windowCall("button_window", "doEdit", "");
 			return;
@@ -8276,7 +9882,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if ("gesture-mode".equals(action)) {
 			openGestureModeDialog();
+			return;
 		}
+		if ("renderer-debug:on".equals(action) || "renderer-debug:off".equals(action)) {
+			applyRendererDebug("renderer-debug:on".equals(action));
+		}
+	}
+
+	private void applyRendererDebug(final boolean on) {
+		mRendererDebug = on;
+		if (windowMap != null) {
+			for (com.resurrection.blowtorch2.lib.window.Window w : windowMap.values()) {
+				if (w != null && !"button_window".equals(w.getName())) {
+					w.setRendererDebug(on);
+				}
+			}
+		}
+		if (mSplitMirror != null) {
+			mSplitMirror.setRendererDebug(on);
+		}
+	}
+
+	/** Extra-text panes are built after the action, so they read this themselves. */
+	boolean rendererDebugOn() {
+		return mRendererDebug;
 	}
 
 	public void openGlobalGestureEditor() {
@@ -8944,8 +10573,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return defaultValue;
 	}
 
-	/** Handler for {@link #MESSAGE_INPUT_EDIT_TOOLS}: arg1 0=toggle, 1=on, 2=off. */
+	/** Handler for {@link #MESSAGE_INPUT_EDIT_TOOLS}: arg1 0=toggle, 1=on, 2=off, 3=status. */
 	private void applyInputEditToolsMessage(int mode) {
+		if (mode == com.resurrection.blowtorch2.lib.service.StellarService.INPUT_EDIT_TOOLS_STATUS) {
+			reportInputEditToolsStatus();
+			return;
+		}
 		View tools = findViewById(R.id.input_edit_tools);
 		boolean expanded;
 		if (mode == com.resurrection.blowtorch2.lib.service.StellarService.INPUT_EDIT_TOOLS_ON) {
@@ -8956,6 +10589,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			expanded = tools == null || tools.getVisibility() != View.VISIBLE;
 		}
 		setInputEditToolsExpanded(expanded, true);
+	}
+
+	private void reportInputEditToolsStatus() {
+		View tools = findViewById(R.id.input_edit_tools);
+		boolean expanded;
+		if (tools != null) {
+			expanded = tools.getVisibility() == View.VISIBLE;
+		} else {
+			expanded = getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
+					.getBoolean(editExpandedPrefKey(getConnectionDisplay()), false);
+		}
+		dispatchLuaText("\n" + Colorizer.getWhiteColor()
+				+ "Edit tools strip (.editpanel) is currently "
+				+ (expanded ? "on" : "off") + ".\n"
+				+ "Usage: .editpanel on | .editpanel off | .editpanel toggle\n");
 	}
 
 	/**
@@ -9446,6 +11094,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		mSplitHost = host;
 		mSplitMirror = mirror;
+		if (mRendererDebug) {
+			mirror.setRendererDebug(true);
+		}
 		mSplitOrientation = orient;
 		mSplitPercent = pct;
 		mSplitOn = true;
@@ -9538,7 +11189,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	private void applyPrefixPickMode(final int mode) {
+	private void applyPrefixPickMode(final int packed) {
+		int mode = PickCommand.modeOf(packed);
+		boolean insert = PickCommand.inserts(packed);
 		if (mode == PickCommand.MODE_OFF) {
 			mPrefixPick.disarm();
 			disarmPrefixPickUi();
@@ -9548,10 +11201,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				|| mode == PickCommand.MODE_BUTTON
 				|| mode == PickCommand.MODE_BUTTON_DOUBLE;
 		if (sticky && mPrefixPickCommandMode == mode && mPrefixPick.isArmed()) {
+			if (mPrefixPickInsert != insert) {
+				mPrefixPickInsert = insert;
+				return;
+			}
 			mPrefixPick.disarm();
 			disarmPrefixPickUi();
 			return;
 		}
+		mPrefixPickInsert = insert;
 		if (sticky) {
 			mPrefixPick.armSticky("");
 		} else {
@@ -9585,6 +11243,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void disarmPrefixPickUi() {
 		mPrefixPickCommandMode = PickCommand.MODE_OFF;
+		mPrefixPickInsert = false;
 		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
 		if (main != null) {
 			main.setPrefixPickMode(PickCommand.MODE_OFF);
@@ -9605,6 +11264,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!PrefixWordJoin.usablePrefix(prefix)) {
 			prefix = inputBarText();
 		}
+		boolean insert = mPrefixPickInsert;
 		String line;
 		if (mPrefixPick.isArmed()) {
 			line = mPrefixPick.fire(prefix, word);
@@ -9615,8 +11275,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			line = PrefixWordJoin.sendLine(prefix, word);
 		}
 		if (line != null) {
-			sendPickedCommand(line);
+			if (insert) {
+				putPickedLineInBar(line);
+			} else {
+				sendPickedCommand(line);
+			}
 		}
+	}
+
+	private void putPickedLineInBar(final String line) {
+		if (mInputBox == null) {
+			return;
+		}
+		String text = PrefixWordJoin.barLine(line);
+		if (text == null) {
+			return;
+		}
+		keepLastSuppress = true;
+		try {
+			mInputBox.setText(text);
+			mInputBox.setLogicalSelection(text.length());
+		} finally {
+			keepLastSuppress = false;
+		}
+		keepLastReplaceLength = 0;
+		historyWidgetKept = false;
+		mInputBox.requestFocus();
 	}
 
 	private void sendPickedCommand(final String line) {
@@ -9625,8 +11309,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		try {
 			if (!mLocalEchoOff) {
+				if (alignHistory(foregroundHistoryWorld())) {
+					syncLastListWorld();
+				}
 				history.addCommand(line);
-				history.save(MainWindow.this, getConnectionDisplay());
+				saveHistory();
+				afterHistoryMutation();
 				if (!line.trim().startsWith(".")) {
 					loadCommandKnowledge();
 					mWordSuggestions.learnCommand(line);
@@ -9647,6 +11335,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (w != null && w.jumpsOnSend()) {
 			w.jumpToStart();
 		}
+	}
+
+	private void openPhraseTrigger(final String raw) {
+		SelectionTriggerSeed.Seed seed = SelectionTriggerSeed.from(raw);
+		if (service == null || seed == null) {
+			return;
+		}
+		boolean warn = mShowRegexWarning == null || mShowRegexWarning.booleanValue();
+		TriggerEditorDialog editor = new TriggerEditorDialog(this, null, service,
+				new Handler() {
+					public void handleMessage(Message msg) {
+					}
+				},
+				PluginFilterSelectionDialog.MAIN_SETTINGS, warn);
+		editor.presetPhrase(seed.pattern, seed.name);
+		editor.show();
 	}
 
 	private void openStyleTriggerFromGrabber(final StyleMatchSpec spec, final String pattern) {
@@ -10198,7 +11902,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onNewIntent(Intent i) {
 		//this is if the activity is currently open, and a new intent has been posted.
 		Log.e("new intent","new intent : " + i.getStringExtra("DISPLAY"));
-		
+		// Before setIntent, so the draft and the command list stay under the world on screen.
+		mInputDrafts.pinShowing(getConnectionDisplay());
+		mHistoryWorld.pinShowing(getConnectionDisplay());
 		this.setIntent(i);
 		saveConnectionExtras(i);
 		queueChatThreadFromIntent(i);

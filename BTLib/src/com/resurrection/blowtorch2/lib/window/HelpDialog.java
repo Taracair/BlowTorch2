@@ -33,7 +33,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
@@ -91,7 +90,7 @@ public class HelpDialog extends Dialog {
 	 * @param title       header text for this document
 	 */
 	public HelpDialog(Context context, int rawResource, String title) {
-		super(context, R.style.BlowTorch_Dialog);
+		super(context, EditorDialogChrome.fullScreenTheme());
 		mRawResource = rawResource;
 		mTitle = title;
 		mAccordion = rawResource == R.raw.user_manual;
@@ -178,16 +177,7 @@ public class HelpDialog extends Dialog {
 		root.addView(footer);
 
 		setContentView(root);
-
-		Window window = getWindow();
-		if (window != null) {
-			int width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.92f);
-			int height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.88f);
-			window.setLayout(width, height);
-			window.setGravity(Gravity.CENTER);
-			window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-					| WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
-		}
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	@Override

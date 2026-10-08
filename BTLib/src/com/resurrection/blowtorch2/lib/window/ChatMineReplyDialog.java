@@ -183,7 +183,7 @@ final class ChatMineReplyDialog {
 			}
 		});
 		Button save = new Button(context);
-		save.setText("Save");
+		save.setText("Done");
 		save.setMinHeight(minButton);
 		save.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -236,7 +236,7 @@ final class ChatMineReplyDialog {
 
 	/**
 	 * This is a floating window; MainWindow is {@code adjustNothing}. Pad the
-	 * shell by the IME so Save stays above the keyboard. ADJUST_RESIZE on the
+	 * shell by the IME so Done stays above the keyboard. ADJUST_RESIZE on the
 	 * dialog is the other path (same as alias/trigger editors).
 	 */
 	private static void liftShellAboveIme(final View shell) {

@@ -31,11 +31,12 @@ new opportunity for the two copies to disagree.
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | Working-agreement copies (six rules, Commits, push-on-request) | `check.sh` | CI fails |
 | Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
-| Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script and `.scratch/review-diff` |
+| Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get one command: `scripts/review-diff.sh`, or `scripts/review-diff.sh HEAD` when the prompt already says so. Pages go to a new `.scratch/review-diff/` directory each run |
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
 | Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
 | Wrap-up omitted "what was not verified" | Claude Code `Stop` (`claude-stop-reminder.sh`) | Continues the turn once; Cursor cannot do this |
 | Gradle uses JDK 17, not the OS default | `check.sh`, `deploy.sh` (`scripts/java-home.sh`) | CachyOS `java` is 26; AGP 8.2 jlink fails. Scripts export `JAVA_HOME` to a 17 JDK (`java` + `javac` + `jlink`). Do not put that path in `gradle.properties` (Arch vs Debian) |
+| Install the test APK only from the main worktree | `deploy.sh` | A linked worktree exits before the build. `adb install -r` replaces the whole phone APK |
 
 The 16 KB check earns its place by having caught a real one on the day it was
 written. `BTLib/libs` is not in git and is built by a script nobody remembers to
@@ -117,7 +118,7 @@ scripts/guards/          rules, one file each, exit-code based
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
   task_model.py          every Task is grok-4.7-xhigh, not Composer-pinned bugbot
 scripts/java-home.sh     JDK 17 for Gradle 8.2; sourced by check.sh and deploy.sh
-scripts/review-diff.sh   index on stdout; hunks in .scratch/review-diff/page-NN.txt
+scripts/review-diff.sh   index on stdout; hunks in a fresh .scratch/review-diff/run-* directory
 scripts/hooks/
   pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest
   commit-msg             git hook: the probe check, which needs the real message

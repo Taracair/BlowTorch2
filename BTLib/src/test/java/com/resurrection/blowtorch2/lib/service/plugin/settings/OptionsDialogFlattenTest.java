@@ -22,35 +22,44 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
 public class OptionsDialogFlattenTest {
 
 	@Test
-	public void windowInlinesHyperlinkSettingsAndKeepsTheNestedGroup() {
+	public void windowDrillsIntoTextLayoutLinksAndInputBar() {
 		SettingsGroup window = new WindowToken().getSettings();
 		assertEquals("Window", window.getTitle());
+		assertEquals(4, window.getOptions().size());
 
-		Option nested = childNamed(window, "Hyperlink Settings");
-		assertNotNull(nested);
-		assertEquals(Option.TYPE.GROUP, nested.type);
+		SettingsGroup text = (SettingsGroup) childNamed(window, "Text");
+		SettingsGroup layout = (SettingsGroup) childNamed(window, "Layout");
+		SettingsGroup links = (SettingsGroup) childNamed(window, "Links");
+		SettingsGroup inputBar = (SettingsGroup) childNamed(window, "Input bar");
+		assertNotNull(text);
+		assertNotNull(layout);
+		assertNotNull(links);
+		assertNotNull(inputBar);
+		assertEquals("hyperlinks_options", links.getKey());
 
 		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(window);
-		assertNull("Hyperlink Settings is a header, not a drill-in row",
-				optionNamed(rows, "Hyperlink Settings"));
-		assertTrue(hasHeader(rows, "Hyperlink Settings"));
+		assertEquals(4, rows.size());
+		assertSame(text, rows.get(0).option);
+		assertSame(layout, rows.get(1).option);
+		assertSame(links, rows.get(2).option);
+		assertSame(inputBar, rows.get(3).option);
+		assertFalse(hasHeader(rows, "Links"));
+		assertFalse(hasHeader(rows, "Text"));
+		assertNull(optionNamed(rows, "Font"));
+		assertNull(optionNamed(rows, "Use OSC 8?"));
 
-		Option osc8 = optionNamed(rows, "Use OSC 8?");
-		assertNotNull(osc8);
-		assertEquals("osc8_links", osc8.getKey());
-		assertNull("Use OSC 8? is a Window sibling, not inside Hyperlink Settings",
-				((SettingsGroup) nested).findOptionByKey("osc8_links"));
-		assertSame(window.findOptionByKey("osc8_links"), osc8);
-
-		Option enabled = optionNamed(rows, "Enable Hyperlinks?");
-		assertNotNull(enabled);
-		assertEquals("hyperlinks_enabled", enabled.getKey());
-		assertSame(((SettingsGroup) nested).findOptionByKey("hyperlinks_enabled"),
-				enabled);
-
-		assertNotNull("Font is a FileOption on Window, not a nested group",
-				optionNamed(rows, "Font"));
-		assertFalse(hasHeader(rows, "Font"));
+		assertEquals("osc8_links", links.findOptionByKey("osc8_links").getKey());
+		assertEquals("hyperlinks_enabled",
+				links.findOptionByKey("hyperlinks_enabled").getKey());
+		assertSame(window.findOptionByKey("font_path"), text.findOptionByKey("font_path"));
+		assertSame(window.findOptionByKey("top_padding"),
+				layout.findOptionByKey("top_padding"));
+		assertSame(window.findOptionByKey("input_bar_show_edit"),
+				inputBar.findOptionByKey("input_bar_show_edit"));
+		assertTrue(text.findOptionByKey("font_path") instanceof FileOption);
+		for (WindowToken.OPTION_KEY key : WindowToken.OPTION_KEY.values()) {
+			assertNotNull(key.name(), window.findOptionByKey(key.name()));
+		}
 	}
 
 	@Test
@@ -67,7 +76,7 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
-	public void windowStillFindsInlinedKeysForUpdate() {
+	public void windowStillFindsNestedKeysForUpdate() {
 		SettingsGroup window = new WindowToken().getSettings();
 		Option found = window.findOptionByKey("hyperlinks_enabled");
 		assertNotNull(found);
@@ -77,66 +86,57 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
-	public void extraTextWindowsInlinesWithoutMovingTheGroup() {
-		SettingsGroup window = new WindowToken().getSettings();
-		int before = window.getOptions().size();
-
+	public void extraTextWindowsDrillInUnderPanes() {
+		SettingsGroup panes = new SettingsGroup();
+		panes.setTitle("Panes");
 		SettingsGroup extra = new SettingsGroup();
 		extra.setTitle("Extra text windows");
+		extra.setKey("extra_text_group");
 		BooleanOption enabled = new BooleanOption();
 		enabled.setTitle("Enable Extra Text Windows?");
 		enabled.setKey("extra_text_windows_enabled");
 		enabled.setValue(true);
 		extra.addOption(enabled);
-		window.addOption(extra);
+		panes.addOption(extra);
 
-		assertEquals(before + 1, window.getOptions().size());
-		assertSame(extra, window.getOptions().get(before));
-
-		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(window);
-		assertTrue(hasHeader(rows, "Extra text windows"));
-		assertNull(optionNamed(rows, "Extra text windows"));
-		Option row = optionNamed(rows, "Enable Extra Text Windows?");
-		assertNotNull(row);
-		assertSame(enabled, row);
-		assertEquals("extra_text_windows_enabled",
-				window.findOptionByKey("extra_text_windows_enabled").getKey());
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(panes);
+		assertEquals(1, rows.size());
+		assertFalse(rows.get(0).isHeader());
+		assertSame(extra, rows.get(0).option);
+		assertFalse(hasHeader(rows, "Extra text windows"));
+		assertNull(optionNamed(rows, "Enable Extra Text Windows?"));
+		assertSame(enabled, panes.findOptionByKey("extra_text_windows_enabled"));
 	}
 
 	@Test
-	public void serviceInlinesProtocolsGmcpMcpAndTelnet() {
-		SettingsGroup service = new SettingsGroup();
-		service.setTitle("Service");
-		BooleanOption log = new BooleanOption();
-		log.setTitle("Log Session to File?");
-		log.setKey("log_session");
-		log.setValue(false);
-		service.addOption(log);
-		service.addOption(namedGroup("Protocols", "use_gmcp", "Use GMCP?"));
-		service.addOption(namedGroup("GMCP", "log_gmcp", "Log GMCP?"));
-		service.addOption(namedGroup("MCP", "log_mcp", "Log MCP?"));
-		service.addOption(namedGroup("Telnet", "use_mtts", "Use MTTS?"));
+	public void protocolsPageDrillsIntoGmcpMcpAndTelnet() {
+		SettingsGroup protocols = new SettingsGroup();
+		protocols.setTitle("Protocols");
+		BooleanOption useGmcp = new BooleanOption();
+		useGmcp.setTitle("Use GMCP?");
+		useGmcp.setKey("use_gmcp");
+		useGmcp.setValue(false);
+		protocols.addOption(useGmcp);
+		SettingsGroup gmcp = namedGroup("GMCP", "log_gmcp", "Log GMCP?");
+		SettingsGroup mcp = namedGroup("MCP", "log_mcp", "Log MCP?");
+		SettingsGroup telnet = namedGroup("Telnet", "use_mtts", "Use MTTS?");
+		protocols.addOption(gmcp);
+		protocols.addOption(mcp);
+		protocols.addOption(telnet);
 
-		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(service);
-		assertNotNull(optionNamed(rows, "Log Session to File?"));
-		assertTrue(hasHeader(rows, "Protocols"));
-		assertTrue(hasHeader(rows, "GMCP"));
-		assertTrue(hasHeader(rows, "MCP"));
-		assertTrue(hasHeader(rows, "Telnet"));
-		assertNull(optionNamed(rows, "Protocols"));
-		assertNull(optionNamed(rows, "GMCP"));
-		assertNull(optionNamed(rows, "MCP"));
-		assertNull(optionNamed(rows, "Telnet"));
-		assertEquals("use_gmcp", optionNamed(rows, "Use GMCP?").getKey());
-		assertEquals("log_gmcp", optionNamed(rows, "Log GMCP?").getKey());
-		assertEquals("use_mtts", optionNamed(rows, "Use MTTS?").getKey());
-		assertSame(service.findOptionByKey("use_gmcp"),
-				optionNamed(rows, "Use GMCP?"));
-		Option gmcp = optionNamed(rows, "Use GMCP?");
-		int at = OptionsDialog.indexOfOption(rows, gmcp);
-		assertTrue(at >= 0);
-		assertFalse(rows.get(at).isHeader());
-		assertSame(gmcp, rows.get(at).option);
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(protocols);
+		assertSame(useGmcp, optionNamed(rows, "Use GMCP?"));
+		assertSame(gmcp, optionNamed(rows, "GMCP"));
+		assertSame(mcp, optionNamed(rows, "MCP"));
+		assertSame(telnet, optionNamed(rows, "Telnet"));
+		assertFalse(hasHeader(rows, "GMCP"));
+		assertFalse(hasHeader(rows, "MCP"));
+		assertFalse(hasHeader(rows, "Telnet"));
+		assertNull(optionNamed(rows, "Log GMCP?"));
+		assertNull(optionNamed(rows, "Use MTTS?"));
+		assertSame(useGmcp, protocols.findOptionByKey("use_gmcp"));
+		assertSame(gmcp.findOptionByKey("log_gmcp"),
+				protocols.findOptionByKey("log_gmcp"));
 	}
 
 	@Test
@@ -233,7 +233,7 @@ public class OptionsDialogFlattenTest {
 		SettingsGroup page = new SettingsGroup();
 		page.setTitle("Window");
 		SettingsGroup hyper = new SettingsGroup();
-		hyper.setTitle("Hyperlink Settings");
+		hyper.setTitle("Where they appear");
 		BooleanOption owned = new BooleanOption();
 		owned.setTitle("Show gesture hints");
 		owned.setKey("show_gesture_hints");
@@ -248,11 +248,33 @@ public class OptionsDialogFlattenTest {
 
 		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(page,
 				new HashSet<String>(Collections.singleton("show_gesture_hints")));
-		assertTrue(hasHeader(rows, "Hyperlink Settings"));
+		assertTrue(hasHeader(rows, "Where they appear"));
 		assertNull(optionNamed(rows, "Show gesture hints"));
 		assertNotNull(optionNamed(rows, "Enable Hyperlinks?"));
 		assertNotNull("the key stays in the tree for the editor to write",
 				hyper.findOptionByKey("show_gesture_hints"));
+	}
+
+	@Test
+	public void mapperGmcpDetailKeysStayHiddenAndStillSave() {
+		SettingsGroup mapper = new SettingsGroup();
+		mapper.setTitle("Mapper");
+		mapper.addOption(bool("Configure Room Sync…", "manage_mapper_gmcp"));
+		mapper.addOption(bool("GMCP Sync Policy", "mapper_gmcp_policy"));
+		mapper.addOption(bool("GMCP: Match by room number?", "mapper_gmcp_use_num"));
+		mapper.addOption(bool("GMCP: Use absolute coordinates?", "mapper_gmcp_use_coords"));
+		mapper.addOption(bool("GMCP: Auto-grow map?", "mapper_gmcp_grow"));
+		mapper.addOption(bool("GMCP: Create exit neighbors?", "mapper_gmcp_create_exits"));
+
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(mapper);
+		assertEquals(1, rows.size());
+		assertEquals("manage_mapper_gmcp", rows.get(0).option.getKey());
+		assertNull(optionNamed(rows, "GMCP Sync Policy"));
+		assertNotNull(mapper.findOptionByKey("mapper_gmcp_policy"));
+		assertNotNull(mapper.findOptionByKey("mapper_gmcp_use_num"));
+		assertNotNull(mapper.findOptionByKey("mapper_gmcp_use_coords"));
+		assertNotNull(mapper.findOptionByKey("mapper_gmcp_grow"));
+		assertNotNull(mapper.findOptionByKey("mapper_gmcp_create_exits"));
 	}
 
 	@Test
@@ -282,6 +304,14 @@ public class OptionsDialogFlattenTest {
 		o.setValue(false);
 		g.addOption(o);
 		return g;
+	}
+
+	private static BooleanOption bool(String title, String key) {
+		BooleanOption o = new BooleanOption();
+		o.setTitle(title);
+		o.setKey(key);
+		o.setValue(false);
+		return o;
 	}
 
 	private static CallbackOption callback(String title, String key) {

@@ -153,7 +153,7 @@ public class ChatPanelController {
 		slideIn();
 	}
 
-	/** {@code .chat} binder callback — open is a toggle (no close AIDL). */
+	/** Bare {@code .chat} — open is a toggle. {@code .chat open} calls {@link #show()}. */
 	public void toggle() {
 		if (isVisible()) {
 			hide();

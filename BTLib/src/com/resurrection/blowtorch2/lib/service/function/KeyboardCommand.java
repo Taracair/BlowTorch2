@@ -46,27 +46,9 @@ public class KeyboardCommand extends SpecialCommand {
 			failed = true;
 		}
 		
-		if(failed) {
-			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",
-					"Text ops: insert, insertliteral, insertword, add, popup, flush, close, clear\n" +
-					"Edit ops: sel | selectall, cut, copy, paste\n" +
-					"Cursor: start | cursorstart, end | cursorend,\n" +
-					"        stepf | stepr (right), stepb | stepl (left),\n" +
-					"        lineu / lined — caret one line up / down\n" +
-					"History: stepu (older), stepd (newer)\n" +
-					"Examples:\n" +
-					"  .kb popup reply   — set text and show IME\n" +
-					"  .kb add foo       — append without popup\n" +
-					"  .kb insert troll  — drop at the caret, spaced like a tap ($word)\n" +
-					"  .kb insertliteral troll — same text exactly as typed\n" +
-					"  .kb insertword troll — same as insert\n" +
-					"  .kb flush         — send current input\n" +
-					"  .kb sel / .kb cut — select all / cut\n" +
-					"  .kb start / .kb end — caret to start / end\n" +
-					"  .kb stepf / .kb stepb — caret ±1 character\n" +
-					"  .kb stepu / .kb stepd — previous / next command (always, even in a wrapped bar)\n" +
-					"  .kb lineu / .kb lined — caret one line up / down, no history\n"
-					+ "Edit tools strip: .editpanel on|off · Edit button: .editbutton on|off\n"));			return null;
+		if(failed || ((String) o).trim().length() == 0) {
+			c.sendDataToWindow(usage());
+			return null;
 		}
 
 		Matcher m = OP_PATTERN.matcher((String)o);
@@ -77,6 +59,10 @@ public class KeyboardCommand extends SpecialCommand {
 			operation1 = m.group(1);
 			operation2 = m.group(2);
 			text = m.group(3);
+		}
+		if (operation1 == null || operation1.length() == 0) {
+			c.sendDataToWindow(usage());
+			return null;
 		}
 		boolean doadd = false;
 		boolean dopopup = false;
@@ -167,5 +153,29 @@ public class KeyboardCommand extends SpecialCommand {
 		
 		c.getService().doShowKeyboard(text,dopopup,doadd,doflush,doclear,doclose);
 		return null;
+	}
+
+	private static String usage() {
+		return getErrorMessage("Keyboard (kb) special command usage:",
+				"Text ops: insert, insertliteral, insertword, add, popup, flush, close, clear\n" +
+				"Edit ops: sel | selectall, cut, copy, paste\n" +
+				"Cursor: start | cursorstart, end | cursorend,\n" +
+				"        stepf | stepr (right), stepb | stepl (left),\n" +
+				"        lineu / lined — caret one line up / down\n" +
+				"History: stepu (older), stepd (newer)\n" +
+				"A word that is not one of these prints this usage and does not change the bar.\n" +
+				"Examples:\n" +
+				"  .kb popup reply   — set text and show IME\n" +
+				"  .kb add foo       — append without popup\n" +
+				"  .kb insert troll  — drop at the caret, spaced like a tap ($word)\n" +
+				"  .kb insertliteral troll — same text exactly as typed\n" +
+				"  .kb insertword troll — same as insert\n" +
+				"  .kb flush         — send current input\n" +
+				"  .kb sel / .kb cut — select all / cut\n" +
+				"  .kb start / .kb end — caret to start / end\n" +
+				"  .kb stepf / .kb stepb — caret ±1 character\n" +
+				"  .kb stepu / .kb stepd — previous / next command (always, even in a wrapped bar)\n" +
+				"  .kb lineu / .kb lined — caret one line up / down, no history\n"
+				+ "Edit tools strip: .editpanel on|off · Edit button: .editbutton on|off\n");
 	}
 }

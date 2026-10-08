@@ -102,6 +102,14 @@ public class PrefixWordJoinTest {
 	}
 
 	@Test
+	public void barLineKeepsASpaceForTheNextWord() {
+		assertEquals("fix helmet ", PrefixWordJoin.barLine("fix helmet"));
+		assertEquals("fix helmet ", PrefixWordJoin.barLine("fix helmet "));
+		assertNull(PrefixWordJoin.barLine(null));
+		assertNull(PrefixWordJoin.barLine(""));
+	}
+
+	@Test
 	public void dollarTenIsNotDollarOne() {
 		assertFalse(PrefixWordJoin.hasSlot("pay $10"));
 		assertEquals("pay $10 gold",

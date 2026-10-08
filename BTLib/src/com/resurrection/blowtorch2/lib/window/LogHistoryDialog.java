@@ -34,7 +34,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
@@ -129,7 +128,7 @@ public class LogHistoryDialog extends Dialog {
 
 	public LogHistoryDialog(Context context, String display, File openAt,
 			int lineIndex, String query, boolean caseSensitive) {
-		super(context, R.style.BlowTorch_Dialog);
+		super(context, EditorDialogChrome.fullScreenTheme());
 		mDisplay = display == null ? "" : display;
 		mPendingFile = openAt;
 		mPendingLine = lineIndex;
@@ -259,16 +258,7 @@ public class LogHistoryDialog extends Dialog {
 				ViewGroup.LayoutParams.MATCH_PARENT,
 				ViewGroup.LayoutParams.MATCH_PARENT));
 		setContentView(root);
-
-		Window window = getWindow();
-		if (window != null) {
-			int width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.94f);
-			int height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.88f);
-			window.setLayout(width, height);
-			window.setGravity(Gravity.CENTER);
-			window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-					| WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
-		}
+		EditorDialogChrome.applyFullScreen(this);
 
 		showListWidgets();
 		applySevenDays();

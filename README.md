@@ -1,23 +1,12 @@
 # BlowTorch 2
 
-<p align="center">
-  <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/"><img src="https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid" alt="F-Droid"></a>
-  <a href="https://github.com/Taracair/BlowTorch2/releases/latest"><img src="https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github" alt="Latest GitHub release"></a>
-  <a href="https://discord.gg/AvyUUtRmtQ"><img src="https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white" alt="Discord: B.U.R.N."></a>
-  <a href="https://ko-fi.com/taracair"><img src="https://img.shields.io/badge/Ko--fi-tip-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
-  <a href="#credit"><img src="https://img.shields.io/badge/unofficial-fork-orange" alt="Unofficial fork"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
-</p>
+[![F-Droid](https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid)](https://f-droid.org/packages/com.resurrection.blowtorch2/)[![Latest GitHub release](https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github)](https://github.com/Taracair/BlowTorch2/releases/latest)[![Discord: B.U.R.N.](https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white)](https://discord.gg/AvyUUtRmtQ)[![Ko-fi](https://img.shields.io/badge/Ko--fi-tip-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/taracair)[![Unofficial fork](https://img.shields.io/badge/unofficial-fork-orange)](#credit)[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)![Vibe-coded](https://img.shields.io/badge/vibe--coded-app-7C3AED)
 
-<p align="center">
-  <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/">
-    <img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">
-  </a>
-</p>
+[![Get it on F-Droid](https://f-droid.org/badge/get-it-on.png)](https://f-droid.org/packages/com.resurrection.blowtorch2/)
 
-<p align="center"><em>Unofficial fork. Daily driver. Same client, current Android.</em></p>
+That's the client I'm using daily to play MUDs, so the testing I'm doing reaches specific situations and creates specific needs. I never played MUDs on a PC. It all started with the original BlowTorch. So I might be *slightly* biased towards weird mobile mudding, and the client is packed with those features. Sorry — that's my style!
 
-An Android client for MUDs — text worlds you play over the network.
+BlowTorch 2 is an Android client for MUDs — text worlds you play over the network.
 MUD stands for Multi-User Dungeon. They are an old kind of game people
 still play: immersive text rooms, meeting other players, fighting and
 talking, from before the graphical MMOs. The classic ones are fantasy
@@ -35,8 +24,8 @@ This is an unofficial fork of BlowTorch (2010–2018). The original stopped
 getting updates, Android moved on, and it quietly became uninstallable. Same
 client underneath, running again, with a lot built for a phone on top. The
 [user guide](docs/user-manual.md) is the full picture (also in-app under
-**Help**). Settings: [`docs/options-guide.md`](docs/options-guide.md). Lua
-plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md). 
+**Help**). Settings: [docs/options-guide.md](docs/options-guide.md). Lua
+plugins: [docs/plugin-authoring.md](docs/plugin-authoring.md). 
 
 Install from [F-Droid](https://f-droid.org/packages/com.resurrection.blowtorch2/)
 or from [GitHub Releases](https://github.com/Taracair/BlowTorch2/releases/latest)
@@ -82,12 +71,14 @@ drawer (⋮ → **Chat**, or `.chat`).
 **Input and scrollback.** The input field can grow to more than one line
 (on by default). Search the buffer. Copy is two fingers, not a long-press.
 Log the session if you turn that on. The notification shows how long you
-have been connected.
+have been connected. The line you have not sent stays with that world
+when you switch.
 
 **A map.** Follows room info the world sends, or records your steps when
 you turn recording on. Find a room; `.map go` walks you there. Newest
 part of the app — the first time you open it, a dialog calls it
-experimental.
+experimental. View → Minimal hides the title bar, the tools bar, and the
+corner handle. Two fingers on the map bring them back.
 
 ## Triggers, aliases, and timers
 
@@ -132,18 +123,26 @@ a slot name; bare `.window` is help.
 replace what was there). Bare `.kb popup` clears the bar, then shows
 the keyboard.
 `.run 3n2ew` — speedwalk. `.rev 3n2ew` walks those letters backwards.
-`#5 north` — send `north` five times at once. `##5 north` reaches the
-game as `#5 north`.
+`#5 north` — send `north` five times at once. `#5/1s north` does the
+same with one second between each. `##5 north` reaches the game as
+`#5 north`.
 `.trigger group off combat` — disable that trigger group.
 `.alias toggle kk` — that alias on or off.
 `.timer play heal` — start that timer (`pause` / `reset` / `stop` / `info` / `dump`).
 `.suggest on` — word chips from recent game text.
+`.last` — send the newest command again. You sent `inventory` last:
+`.last` sends it again, and `.last` itself never goes to the game.
+`.last input` puts that line in the bar so you can change it first.
+`.lastbar 5` — five recent commands above the input. `.lastlist` is the
+same list in a window. `.lastfloat` is those commands as chips over the game.
+`.pick insert` — type `get`, then a space, tap `iron` on the screen, and
+the bar shows `get iron` with a space after it. Nothing is sent until Send.
 
 Dot commands are on by default. `..` alone toggles them. `..look` sends
 `.look` to the game.
 
 Full list, arguments, and the Lua API:
-[`docs/user-manual.md`](docs/user-manual.md) (in-app **Help**).
+[docs/user-manual.md](docs/user-manual.md) (in-app **Help**).
 
 ---
 
@@ -154,7 +153,7 @@ MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork is
 the natural inheritance of that work — my personal gratitude for what they
 built, and a slightly desperate attempt to keep it running on newer Android
 phones. Without that MIT release there would be nothing to keep alive. Same
-license, see [`LICENSE`](LICENSE).
+license, see [LICENSE](LICENSE).
 
 ---
 
@@ -184,7 +183,7 @@ the same source defaults that check **off** (`-Pblowtorch.fdroid`); F-Droid
 updates you already. If a world then asks the client to fetch a sound or a
 picture, that fetch is the world talking, not a tracker of mine. The check
 is in
-[`UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
+[UpdateChecker.java](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
 if you would rather verify than take my word. Turn it off under the
 launcher's **⋮ → Check for updates** and the app stops phoning GitHub.
 App-wide, not per world. Test builds never check on their own; **Check for
@@ -198,7 +197,7 @@ maps, logs). Without it, everything still runs from app storage, with import
 and export through the system picker (the picker does not first ask for All
 files access). Display over other apps is not needed
 either, unless you float a button or a gauge over the soft keyboard. The
-full list is in [`docs/FDROID_README.md`](docs/FDROID_README.md).
+full list is in [docs/FDROID_README.md](docs/FDROID_README.md).
 
 **Speaking out loud.** A trigger or a timer can read a line aloud (the **Speak
 Out Loud** action). That is not a permission — it uses the phone's own speech
@@ -218,7 +217,7 @@ not allow. There is now a `/BlowTorch/` folder (`settings/`, `backups/`,
 `launcher/`, `maps/`, `session_logs/`, `logs/`) if you grant access, and everything still
 works from app storage if you do not, with import and export through the system
 picker. Settings saves are atomic, so a crash mid-write cannot leave you with
-half a profile. Details in [`docs/FDROID_README.md`](docs/FDROID_README.md).
+half a profile. Details in [docs/FDROID_README.md](docs/FDROID_README.md).
 
 ---
 
@@ -259,21 +258,21 @@ module, with the Lua plugins under `assets/`. Native LuaJIT lives in
 `LuaJIT-2.0.5/` (32-bit ABI) and `LuaJIT-2.1/` (GC64, 64-bit).
 `scripts/check.sh` runs everything checkable without a device, in one
 command — the same thing CI runs. Guides are under `docs/`: architecture in
-[`architecture.md`](docs/architecture.md), plugins in
-[`plugin-authoring.md`](docs/plugin-authoring.md), working rules in
-[`ORCHESTRATION.md`](docs/ORCHESTRATION.md). Store and F-Droid text is in
+[architecture.md](docs/architecture.md), plugins in
+[plugin-authoring.md](docs/plugin-authoring.md), working rules in
+[ORCHESTRATION.md](docs/ORCHESTRATION.md). Store and F-Droid text is in
 `fastlane/` and `metadata/`.
 
 F-Droid builds the production flavor only — see
-[`docs/fdroid.md`](docs/fdroid.md).
+[docs/fdroid.md](docs/fdroid.md).
 
 **If you are new to the codebase**, start with
-[`docs/architecture.md`](docs/architecture.md) (how it is built). **If you are
-about to change something**, read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md)
+[docs/architecture.md](docs/architecture.md) (how it is built). **If you are
+about to change something**, read [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
 first — it will save you a wrong guess or two.
 
 ---
 
 MIT — Offset Null Entertainment, LLC 2010–2018; fork changes under the same
 license. Issues on GitHub: Android version, steps to reproduce, and a log or
-crash report if you can get one. Maintainer: taracair@gmail.com.
+crash report if you can get one. Maintainer: [taracair@gmail.com](mailto:taracair@gmail.com).

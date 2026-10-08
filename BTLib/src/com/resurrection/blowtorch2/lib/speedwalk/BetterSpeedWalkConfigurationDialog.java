@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
@@ -94,6 +95,10 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 	@Override
 	public void onCreate(Bundle b) {
 		super.onCreate(b);
+		Button leave = (Button) findViewById(R.id.done);
+		if (leave != null) {
+			leave.setText("Close");
+		}
 	}
 
 	@Override

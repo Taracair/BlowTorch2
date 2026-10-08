@@ -70,6 +70,10 @@ public class MapperOverlayController
 	private View bottomChrome;
 	private TextView chromeToggleBtn;
 	private boolean chromeVisible = true;
+	private View titleBar;
+	/** Title bar and resize handle hidden. Window fill and opacity stay. */
+	private boolean minimal;
+	private boolean minimalRestored;
 	/**
 	 * Same as ChromeController.LEGACY_INPUT_BAR_ID. MainWindow.assignLegacyChromeIds
 	 * remaps {@code R.id.inputbar} to this value, so ABOVE must use id 10 — not
@@ -230,6 +234,7 @@ public class MapperOverlayController
 			return;
 		}
 		floatGeometryRestored = true;
+		restoreMinimal();
 		android.content.SharedPreferences p = activity.getSharedPreferences(UI_PREFS, 0);
 		int w = p.getInt(key + "_w", 0);
 		int h = p.getInt(key + "_h", 0);
@@ -241,6 +246,55 @@ public class MapperOverlayController
 		floatWidth = w;
 		floatHeight = h;
 		applyLayoutMode();
+	}
+
+	private void rememberMinimal() {
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		String key = visibilityKeyForWorld();
+		if (activity == null || key == null) {
+			return;
+		}
+		activity.getSharedPreferences(UI_PREFS, 0).edit()
+				.putBoolean(key + "_min", minimal)
+				.apply();
+	}
+
+	/** Title bar and resize handle, for this world. The window fill is left alone. */
+	private void restoreMinimal() {
+		if (minimalRestored) {
+			return;
+		}
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		String key = visibilityKeyForWorld();
+		if (activity == null || key == null) {
+			return;
+		}
+		minimalRestored = true;
+		minimal = activity.getSharedPreferences(UI_PREFS, 0).getBoolean(key + "_min", false);
+	}
+
+	private void setMinimal(final boolean on) {
+		if (minimal == on) {
+			applyWindowChrome();
+			return;
+		}
+		minimal = on;
+		if (!on) {
+			chromeVisible = true;
+		}
+		rememberMinimal();
+		applyLayoutMode();
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		if (activity == null) {
+			return;
+		}
+		boolean full = fullscreen;
+		Toast.makeText(activity,
+				on ? (full
+						? "Minimal. Two-finger tap brings the title and tools back."
+						: "Minimal. Two-finger tap brings the bars and handle back.")
+						: (full ? "Title and tools back." : "Bars and handle back."),
+				on ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
 	}
 
 	private void rememberVisibility(boolean open) {
@@ -358,6 +412,7 @@ public class MapperOverlayController
 		toolbarHintRight = (TextView) overlayRoot.findViewById(R.id.mapper_toolbar_hint_right);
 		wireToolbarScrollHints();
 		resizeHandle = overlayRoot.findViewById(R.id.mapper_resize_handle);
+		titleBar = overlayRoot.findViewById(R.id.mapper_title_bar);
 		dragHandle = overlayRoot.findViewById(R.id.mapper_drag_handle);
 		modeFloatBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_float);
 		modeFullBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_full);
@@ -375,6 +430,7 @@ public class MapperOverlayController
 		// so restoring only on the first attach meant the defaults simply
 		// overwrote the saved position again afterwards.
 		floatGeometryRestored = false;
+		minimalRestored = false;
 		restoreFloatGeometry();
 
 		if (controller != null) {
@@ -537,6 +593,13 @@ public class MapperOverlayController
 				}
 				jumpToInterLevelDest(dest);
 			}
+
+			@Override
+			public void onTwoFingerTap() {
+				if (minimal) {
+					setMinimal(false);
+				}
+			}
 		});
 
 		wireDragResize();
@@ -634,9 +697,6 @@ public class MapperOverlayController
 					(int) (8 * density),
 					(int) (8 * density),
 					(int) (4 * density));
-			if (resizeHandle != null) {
-				resizeHandle.setVisibility(View.GONE);
-			}
 		} else {
 			lp = new RelativeLayout.LayoutParams(floatWidth, floatHeight);
 			lp.leftMargin = floatX;
@@ -646,15 +706,27 @@ public class MapperOverlayController
 					(int) (2 * density),
 					(int) (2 * density),
 					(int) (2 * density));
-			if (resizeHandle != null) {
-				resizeHandle.setVisibility(View.VISIBLE);
-				resizeHandle.bringToFront();
-			}
 		}
+		applyWindowChrome();
 		overlayRoot.setLayoutParams(lp);
 		bringUnderChrome();
 		updateDisplayModeToggleUi();
 		overlayRoot.requestLayout();
+	}
+
+	/** Title, tools bar, and corner handle. Opacity and the fill stay. */
+	private void applyWindowChrome() {
+		if (titleBar != null) {
+			titleBar.setVisibility(minimal ? View.GONE : View.VISIBLE);
+		}
+		if (resizeHandle != null) {
+			boolean show = !fullscreen && !minimal;
+			resizeHandle.setVisibility(show ? View.VISIBLE : View.GONE);
+			if (show) {
+				resizeHandle.bringToFront();
+			}
+		}
+		applyChromeVisibility();
 	}
 
 	private void updateDisplayModeToggleUi() {
@@ -2304,7 +2376,7 @@ public class MapperOverlayController
 				boolean gmcpGrow = snapshotGmcpGrow;
 				MapperRadialMenu.showViewSync((ViewGroup) overlayRoot, radialListener(),
 						currentOpacityPercent(), gmcpOn, gmcpGrow, showLinkLabels,
-						snapshotEchoWindow);
+						snapshotEchoWindow, minimal);
 			}
 		});
 	}
@@ -2479,6 +2551,8 @@ public class MapperOverlayController
 				host.runMapCommand("relayout");
 				pullSnapshotFromService();
 			}
+		} else if (MapperRadialMenu.ACTION_MINIMAL.equals(action)) {
+			setMinimal(!minimal);
 		} else if (MapperRadialMenu.ACTION_OPACITY.equals(action)) {
 			promptOpacity();
 		} else if (MapperRadialMenu.ACTION_ARROW_LABELS.equals(action)) {
@@ -3713,12 +3787,36 @@ public class MapperOverlayController
 	}
 
 	private void applyChromeVisibility() {
+		boolean showTools = chromeVisible && !minimal;
 		if (bottomChrome != null) {
-			bottomChrome.setVisibility(chromeVisible ? View.VISIBLE : View.GONE);
+			bottomChrome.setVisibility(showTools ? View.VISIBLE : View.GONE);
 		}
 		if (chromeToggleBtn != null) {
 			chromeToggleBtn.setText(chromeVisible ? "▾ tools" : "▸ tools");
 		}
+		View mapHolder = overlayRoot != null
+				? overlayRoot.findViewById(R.id.mapper_map_holder) : null;
+		if (mapHolder == null
+				|| !(mapHolder.getLayoutParams() instanceof RelativeLayout.LayoutParams)) {
+			return;
+		}
+		RelativeLayout.LayoutParams mp =
+				(RelativeLayout.LayoutParams) mapHolder.getLayoutParams();
+		if (minimal) {
+			mp.removeRule(RelativeLayout.BELOW);
+			mp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+		} else {
+			mp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
+			mp.addRule(RelativeLayout.BELOW, R.id.mapper_title_bar);
+		}
+		if (showTools) {
+			mp.removeRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+			mp.addRule(RelativeLayout.ABOVE, R.id.mapper_bottom_chrome);
+		} else {
+			mp.removeRule(RelativeLayout.ABOVE);
+			mp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+		}
+		mapHolder.setLayoutParams(mp);
 	}
 
 	/** Pick opacity from a list — no step-cycling through near-invisible. */

@@ -8,12 +8,9 @@ import java.util.Map;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -26,6 +23,8 @@ import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Friendly editor for the mapper movement lexicon: list of commands with
@@ -88,7 +87,7 @@ public class MapMoveEffectsDialog extends Dialog {
 	 */
 	public MapMoveEffectsDialog(Context context, String initialCombinedTable,
 			Listener listener) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		this.listener = listener;
 		this.initialTable = initialCombinedTable;
 	}
@@ -97,48 +96,40 @@ public class MapMoveEffectsDialog extends Dialog {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setCanceledOnTouchOutside(false);
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		setContentView(R.layout.mapper_list_shell);
 
-		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		LinearLayout root = new LinearLayout(getContext());
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-
-		TextView heading = new TextView(getContext());
-		heading.setText("Mapper moves");
-		heading.setTextSize(18f);
-		heading.setTextColor(0xFFEEEEEE);
-		root.addView(heading);
+		((TextView) findViewById(R.id.titlebar)).setText("Mapper moves");
+		LinearLayout body = (LinearLayout) findViewById(R.id.mapper_shell_body);
+		final int pad = dip(getContext(), 12);
 
 		TextView help = new TextView(getContext());
 		help.setText("What each typed command does while recording.\n"
 				+ "Tap a row to edit · long-press to delete.");
 		help.setTextSize(12f);
-		help.setTextColor(0xFFBBBBBB);
-		help.setPadding(0, pad / 2, 0, pad / 2);
-		root.addView(help);
+		help.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_description));
+		help.setPadding(pad, pad, pad, pad / 2);
+		body.addView(help);
 
 		emptyHint = new TextView(getContext());
 		emptyHint.setText("No moves yet — tap Add or Reset to defaults.");
-		emptyHint.setTextColor(0xFF888888);
-		emptyHint.setPadding(0, pad, 0, pad);
+		emptyHint.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_hint));
+		emptyHint.setPadding(pad, pad, pad, pad);
 		emptyHint.setVisibility(View.GONE);
-		root.addView(emptyHint);
+		body.addView(emptyHint);
 
 		listView = new ListView(getContext());
-		listView.setDividerHeight((int) (1 * density));
-		LinearLayout.LayoutParams listLp = new LinearLayout.LayoutParams(
-				ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-		root.addView(listView, listLp);
+		styleList(listView);
+		body.addView(listView, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
 		listAdapter = new ArrayAdapter<String>(getContext(),
 				android.R.layout.simple_list_item_1, new ArrayList<String>()) {
 			@Override
 			public View getView(int position, View convertView, ViewGroup parent) {
 				TextView tv = (TextView) super.getView(position, convertView, parent);
-				tv.setTextColor(0xFFEEEEEE);
+				tv.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
 				tv.setTextSize(14f);
 				tv.setPadding(pad, pad, pad, pad);
 				return tv;
@@ -166,7 +157,7 @@ public class MapMoveEffectsDialog extends Dialog {
 
 		LinearLayout topBar = new LinearLayout(getContext());
 		topBar.setOrientation(LinearLayout.HORIZONTAL);
-		topBar.setPadding(0, pad / 2, 0, 0);
+		topBar.setPadding(pad, pad / 2, pad, pad / 2);
 
 		Button add = new Button(getContext());
 		add.setText("Add");
@@ -187,36 +178,28 @@ public class MapMoveEffectsDialog extends Dialog {
 			}
 		});
 		topBar.addView(reset);
-		root.addView(topBar);
+		body.addView(topBar);
 
-		LinearLayout bottom = new LinearLayout(getContext());
-		bottom.setOrientation(LinearLayout.HORIZONTAL);
-		bottom.setPadding(0, pad / 2, 0, 0);
-		bottom.setGravity(Gravity.END);
-
-		Button cancel = new Button(getContext());
-		cancel.setText("Cancel");
+		LinearLayout footer = (LinearLayout) findViewById(R.id.button_row);
+		Button cancel = barButton(getContext(), "Cancel", false);
 		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				dismiss();
 			}
 		});
-		bottom.addView(cancel);
+		footer.addView(cancel);
 
-		Button save = new Button(getContext());
-		save.setText("Save");
-		save.setOnClickListener(new View.OnClickListener() {
+		Button done = barButton(getContext(), "Done", true);
+		done.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				saveAndClose();
 			}
 		});
-		bottom.addView(save);
-		root.addView(bottom);
+		footer.addView(done);
 
-		setContentView(root);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		EditorDialogChrome.applyFullScreen(this);
 
 		loadFromController();
 		refreshList();
@@ -306,29 +289,24 @@ public class MapMoveEffectsDialog extends Dialog {
 			return;
 		}
 		final Row row = rows.get(position);
-		new AlertDialog.Builder(getContext())
-				.setTitle("Delete move?")
-				.setMessage("Remove \"" + row.command + "\" → "
-						+ humanEffect(row.effect) + "?")
-				.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+		showConfirm("Delete move?",
+				"Remove \"" + row.command + "\" → " + humanEffect(row.effect) + "?",
+				"Delete", new Runnable() {
 					@Override
-					public void onClick(DialogInterface dialog, int which) {
+					public void run() {
 						rows.remove(position);
 						refreshList();
 					}
-				})
-				.setNegativeButton("Cancel", null)
-				.show();
+				});
 	}
 
 	private void confirmReset() {
-		new AlertDialog.Builder(getContext())
-				.setTitle("Reset to defaults?")
-				.setMessage("Replace the list with the built-in compass, "
-						+ "up/down, and specials (in/out).")
-				.setPositiveButton("Reset", new DialogInterface.OnClickListener() {
+		showConfirm("Reset to defaults?",
+				"Replace the list with the built-in compass, "
+						+ "up/down, and specials (in/out).",
+				"Reset", new Runnable() {
 					@Override
-					public void onClick(DialogInterface dialog, int which) {
+					public void run() {
 						rows.clear();
 						LinkedHashMap<String, MapMoveEffect> def =
 								MapDirections.defaultMoveEffects();
@@ -340,9 +318,7 @@ public class MapMoveEffectsDialog extends Dialog {
 						}
 						refreshList();
 					}
-				})
-				.setNegativeButton("Cancel", null)
-				.show();
+				});
 	}
 
 	private void openRowEditor(final Row existing, final int editIndex) {
@@ -351,7 +327,7 @@ public class MapMoveEffectsDialog extends Dialog {
 
 		LinearLayout form = new LinearLayout(getContext());
 		form.setOrientation(LinearLayout.VERTICAL);
-		form.setPadding(pad, pad, pad, pad);
+		form.setPadding(0, 0, 0, 0);
 
 		TextView cmdLabel = new TextView(getContext());
 		cmdLabel.setText("Command you type (e.g. n, north, out, climb)");
@@ -453,65 +429,76 @@ public class MapMoveEffectsDialog extends Dialog {
 			}
 		});
 
-		AlertDialog.Builder b = new AlertDialog.Builder(getContext());
-		b.setTitle(existing == null ? "Add move" : "Edit move");
-		b.setView(form);
-		b.setPositiveButton(existing == null ? "Add" : "Apply", null);
-		b.setNegativeButton("Cancel", null);
-		final AlertDialog dlg = b.create();
-		dlg.setOnShowListener(new DialogInterface.OnShowListener() {
+		final Dialog dlg = new Dialog(getContext(), EditorDialogChrome.dialogTheme());
+		dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		Window window = dlg.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+		dlg.setContentView(R.layout.mapper_form_shell);
+		((TextView) dlg.findViewById(R.id.titlebar)).setText(
+				existing == null ? "Add move" : "Edit move");
+		((LinearLayout) dlg.findViewById(R.id.mapper_shell_body)).addView(form);
+		LinearLayout footer = (LinearLayout) dlg.findViewById(R.id.button_row);
+		Button cancel = barButton(getContext(), "Cancel", false);
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onShow(DialogInterface dialog) {
-				Button ok = dlg.getButton(AlertDialog.BUTTON_POSITIVE);
-				ok.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						String cmd = cmdEdit.getText() != null
-								? cmdEdit.getText().toString().trim()
-										.toLowerCase(Locale.US)
-								: "";
-						if (cmd.length() == 0) {
-							Toast.makeText(getContext(), "Enter a command",
-									Toast.LENGTH_SHORT).show();
-							return;
-						}
-						MapMoveEffect fx = effectFromForm(
-								kindSpinner.getSelectedItemPosition(),
-								compassSpinner.getSelectedItemPosition(),
-								dxEdit, dyEdit);
-						if (fx == null) {
-							Toast.makeText(getContext(),
-									"Enter valid dx / dy numbers",
-									Toast.LENGTH_SHORT).show();
-							return;
-						}
-						// Replace duplicate command (case-insensitive)
-						int dup = -1;
-						for (int i = 0; i < rows.size(); i++) {
-							if (i == editIndex) {
-								continue;
-							}
-							if (cmd.equalsIgnoreCase(rows.get(i).command)) {
-								dup = i;
-								break;
-							}
-						}
-						if (dup >= 0) {
-							rows.set(dup, new Row(cmd, fx));
-							if (editIndex >= 0 && editIndex != dup) {
-								rows.remove(editIndex);
-							}
-						} else if (editIndex >= 0 && editIndex < rows.size()) {
-							rows.set(editIndex, new Row(cmd, fx));
-						} else {
-							rows.add(new Row(cmd, fx));
-						}
-						refreshList();
-						dlg.dismiss();
-					}
-				});
+			public void onClick(View v) {
+				dlg.dismiss();
 			}
 		});
+		Button commit = barButton(getContext(),
+				existing == null ? "Add" : "Apply", true);
+		commit.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				String cmd = cmdEdit.getText() != null
+						? cmdEdit.getText().toString().trim()
+								.toLowerCase(Locale.US)
+						: "";
+				if (cmd.length() == 0) {
+					Toast.makeText(getContext(), "Enter a command",
+							Toast.LENGTH_SHORT).show();
+					return;
+				}
+				MapMoveEffect fx = effectFromForm(
+						kindSpinner.getSelectedItemPosition(),
+						compassSpinner.getSelectedItemPosition(),
+						dxEdit, dyEdit);
+				if (fx == null) {
+					Toast.makeText(getContext(),
+							"Enter valid dx / dy numbers",
+							Toast.LENGTH_SHORT).show();
+					return;
+				}
+				// Replace duplicate command (case-insensitive)
+				int dup = -1;
+				for (int i = 0; i < rows.size(); i++) {
+					if (i == editIndex) {
+						continue;
+					}
+					if (cmd.equalsIgnoreCase(rows.get(i).command)) {
+						dup = i;
+						break;
+					}
+				}
+				if (dup >= 0) {
+					rows.set(dup, new Row(cmd, fx));
+					if (editIndex >= 0 && editIndex != dup) {
+						rows.remove(editIndex);
+					}
+				} else if (editIndex >= 0 && editIndex < rows.size()) {
+					rows.set(editIndex, new Row(cmd, fx));
+				} else {
+					rows.add(new Row(cmd, fx));
+				}
+				refreshList();
+				dlg.dismiss();
+			}
+		});
+		footer.addView(cancel);
+		footer.addView(commit);
+		EditorDialogChrome.applyFloatingWrapContentHeight(dlg);
 		dlg.show();
 	}
 
@@ -555,5 +542,72 @@ public class MapMoveEffectsDialog extends Dialog {
 			listener.onSaveCombinedTable(combined);
 		}
 		dismiss();
+	}
+
+	private void showConfirm(String title, String message, String positive,
+			final Runnable onPositive) {
+		final Dialog dialog = new Dialog(getContext(), EditorDialogChrome.dialogTheme());
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		Window window = dialog.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+		dialog.setContentView(R.layout.mapper_form_shell);
+		((TextView) dialog.findViewById(R.id.titlebar)).setText(title);
+		TextView msg = new TextView(getContext());
+		msg.setText(message);
+		msg.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
+		msg.setTextSize(15f);
+		((LinearLayout) dialog.findViewById(R.id.mapper_shell_body)).addView(msg);
+		LinearLayout footer = (LinearLayout) dialog.findViewById(R.id.button_row);
+		Button cancel = barButton(getContext(), "Cancel", false);
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button ok = barButton(getContext(), positive, true);
+		ok.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (onPositive != null) {
+					onPositive.run();
+				}
+				dialog.dismiss();
+			}
+		});
+		footer.addView(cancel);
+		footer.addView(ok);
+		EditorDialogChrome.applyFloatingWrapContentHeight(dialog);
+		dialog.show();
+	}
+
+	private void styleList(ListView list) {
+		list.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.chrome_body));
+		list.setCacheColorHint(0x00000000);
+		list.setDivider(ContextCompat.getDrawable(getContext(), R.drawable.editor_row_divider));
+		list.setDividerHeight(Math.max(1, dip(getContext(), 1)));
+		list.setSelector(R.drawable.blue_frame_nomargin_nobackground);
+		list.setScrollbarFadingEnabled(false);
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 }

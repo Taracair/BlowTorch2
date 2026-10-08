@@ -18,6 +18,7 @@ import android.os.Environment;
 import android.os.RemoteException;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -151,6 +152,10 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 	@Override
 	public void onCreate(Bundle b) {
 		super.onCreate(b);
+		Button leave = (Button) findViewById(R.id.done);
+		if (leave != null) {
+			leave.setText("Close");
+		}
 		setRefreshButtonVisible(true);
 		setRefreshButtonListener(new View.OnClickListener() {
 			@Override

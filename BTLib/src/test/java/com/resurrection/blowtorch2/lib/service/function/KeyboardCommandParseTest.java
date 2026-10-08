@@ -27,6 +27,14 @@ public class KeyboardCommandParseTest {
 	}
 
 	@Test
+	public void plainWordsAreNotOps() {
+		assertEquals("", KeyboardCommand.operationOf("hello"));
+		assertEquals("", KeyboardCommand.operationOf("help"));
+		assertEquals("insert", KeyboardCommand.operationOf("insert hello"));
+		assertEquals("add", KeyboardCommand.operationOf("add hello"));
+	}
+
+	@Test
 	public void existingCaretOpsStillParse() {
 		assertEquals("stepf", KeyboardCommand.operationOf("stepf"));
 		assertEquals("stepb", KeyboardCommand.operationOf("stepb"));

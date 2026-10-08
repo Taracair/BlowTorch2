@@ -48,17 +48,18 @@ Use:
 
 Do **not** dump whole-tree `git diff`. Cursor Shell results omit the middle
 of large stdout. `scripts/review-diff.sh` prints a short index and writes
-hunks to `.scratch/review-diff/page-NN.txt`. Read every listed page. A
-one-page bundle that fits is also printed inline. Do not Read a 4000-line
-class hunting for the hunk.
+hunks under `.scratch/review-diff/`, a new directory every run. Read every
+page path the index prints. Untracked files are in those pages. Context
+stays three lines. A one-page bundle that fits is also printed inline. Do
+not Read a 4000-line class hunting for the hunk.
 
 Triage, fix real findings, re-run until clean or until you hit something to
 report. Then commit. The "resume the writer, do not patch" path is only for
 a batch the maintainer asked for (see above).
 
 Review **before** the commit. After `scripts/deploy.sh` the working tree is
-leftovers, not what shipped. To re-review a committed step:
-`scripts/review-diff.sh HEAD`, never `Diff: uncommitted changes`.
+leftovers, not what shipped. To re-review a committed step, the prompt must
+say `scripts/review-diff.sh HEAD`.
 
 One logical change per review and per commit. A colour-bleed fix and a
 launcher pin are two reviews. A wave of unrelated fixes is what truncates

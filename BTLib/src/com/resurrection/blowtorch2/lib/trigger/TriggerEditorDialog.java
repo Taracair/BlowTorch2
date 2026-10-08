@@ -151,6 +151,25 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	/**
+	 * Prefill a new trigger from a copy-widget selection. Literal, so
+	 * {@code $} and {@code .} in the game text stay characters. Call before
+	 * {@code show()}.
+	 */
+	public void presetPhrase(final String pattern, final String name) {
+		if (isEditor) {
+			return;
+		}
+		if (pattern != null && pattern.length() > 0) {
+			the_trigger.setPattern(pattern);
+			the_trigger.setInterpretAsRegex(false);
+		}
+		if (name != null && name.length() > 0) {
+			the_trigger.setName(name);
+		}
+		the_trigger.setEnabled(true);
+	}
+
+	/**
 	 * Prefill Match style from the grabber. Call before {@code show()}.
 	 */
 	public void presetStyle(

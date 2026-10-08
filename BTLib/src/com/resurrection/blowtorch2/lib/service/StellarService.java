@@ -884,6 +884,38 @@ public class StellarService extends Service {
 		}
 	}
 
+	/** Force the drawer open. Already open stays open. */
+	public final void doShowChatPanel() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).showChatPanel();
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "showChatPanel: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
+	/** Force the drawer closed. Already closed stays closed. */
+	public final void doCloseChatPanel() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).closeChatPanel();
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "closeChatPanel: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
 	/**
 	 * After a window rebuild, tell this UI the session split again. The
 	 * activity does not keep the panes across {@code loadWindowSettings}.
@@ -898,6 +930,23 @@ public class StellarService extends Service {
 			callback.applySplit(mode, c.getSplitPercent());
 		} catch (RemoteException e) {
 			android.util.Log.w("BlowTorch", "applySplit: client gone", e);
+		}
+	}
+
+	/**
+	 * After a window rebuild, put the renderer label back. Rebuild clears the
+	 * activity flag, so a world that has it off must still be told.
+	 */
+	public final void pushRendererDebug(final IConnectionBinderCallback callback,
+			final Connection c) {
+		if (callback == null || c == null) {
+			return;
+		}
+		try {
+			callback.runUiAction(c.rendererDebugLabel()
+					? "renderer-debug:on" : "renderer-debug:off");
+		} catch (RemoteException e) {
+			android.util.Log.w("BlowTorch", "renderer-debug: client gone", e);
 		}
 	}
 
@@ -1987,6 +2036,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(i).loadSettings();
 				mCallbacks.getBroadcastItem(i).reloadBuffer();
 				pushSplitState(mCallbacks.getBroadcastItem(i), target);
+				pushRendererDebug(mCallbacks.getBroadcastItem(i), target);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.switchTo", e);
 			}
@@ -2024,6 +2074,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(0).loadWindowSettings();
 				if (i == 0) {
 					pushSplitState(mCallbacks.getBroadcastItem(0), active);
+					pushRendererDebug(mCallbacks.getBroadcastItem(0), active);
 				}
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.reloadWindows", e);
@@ -2463,10 +2514,12 @@ public class StellarService extends Service {
 		broadcastInputBarActionWithArg(10, delta);
 	}
 
-	/** mode: {@link #INPUT_EDIT_TOOLS_TOGGLE}, {@link #INPUT_EDIT_TOOLS_ON}, {@link #INPUT_EDIT_TOOLS_OFF}. */
+	/** mode: {@link #INPUT_EDIT_TOOLS_TOGGLE}, {@link #INPUT_EDIT_TOOLS_ON}, {@link #INPUT_EDIT_TOOLS_OFF}, {@link #INPUT_EDIT_TOOLS_STATUS}. */
 	public static final int INPUT_EDIT_TOOLS_TOGGLE = 0;
 	public static final int INPUT_EDIT_TOOLS_ON = 1;
 	public static final int INPUT_EDIT_TOOLS_OFF = 2;
+	/** Ask the UI to say whether the strip is open. Does not flip it. */
+	public static final int INPUT_EDIT_TOOLS_STATUS = 3;
 
 	/** Expand / collapse / toggle the Edit tools strip (same as the Edit button). */
 	public final void doInputBarEditTools(final int mode) {

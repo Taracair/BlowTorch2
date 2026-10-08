@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -88,15 +89,17 @@ public class ConditionLeafEditorDialog extends Dialog {
 
 		LinearLayout root = new LinearLayout(getContext());
 		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(16, 12, 16, 12);
 
-		TextView title = new TextView(getContext());
+		float density = getContext().getResources().getDisplayMetrics().density;
+		TextView title = new TextView(getContext(), null, 0, R.style.BlowTorch_Chrome_Title);
 		title.setText(isEdit ? "EDIT CONDITION" : "NEW CONDITION");
-		title.setTextColor(0xFF333333);
-		title.setBackgroundColor(0xFF999999);
-		title.setTextSize(15);
-		title.setGravity(android.view.Gravity.CENTER);
-		root.addView(title);
+		root.addView(title, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * density + 0.5f)));
+
+		ScrollView scroll = new ScrollView(getContext());
+		LinearLayout form = new LinearLayout(getContext());
+		form.setOrientation(LinearLayout.VERTICAL);
+		form.setPadding(16, 12, 16, 12);
 
 		typeSpinner = new Spinner(getContext());
 		ArrayList<String> typeLabels = new ArrayList<String>();
@@ -107,7 +110,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 				R.layout.spinner_item_dark, typeLabels);
 		typeAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		typeSpinner.setAdapter(typeAdapter);
-		root.addView(labeled("Type", typeSpinner));
+		form.addView(labeled("Type", typeSpinner));
 
 		triggerSpinner = new Spinner(getContext());
 		loadTriggerChoices();
@@ -116,7 +119,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 		trigAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		triggerSpinner.setAdapter(trigAdapter);
 		triggerRow = labeled("Trigger", triggerSpinner);
-		root.addView(triggerRow);
+		form.addView(triggerRow);
 
 		conditionHint = new TextView(getContext());
 		conditionHint.setTextColor(0xFFCCCCCC);
@@ -127,7 +130,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 				"Uses that trigger's Pattern and Match style. "
 						+ "Does not run its actions. Off or missing is closed. "
 						+ "A timer has no line, so this stays closed there.");
-		root.addView(conditionHint);
+		form.addView(conditionHint);
 
 		aliasSpinner = new Spinner(getContext());
 		loadAliasChoices();
@@ -136,7 +139,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 		aliasAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		aliasSpinner.setAdapter(aliasAdapter);
 		aliasRow = labeled("Alias", aliasSpinner);
-		root.addView(aliasRow);
+		form.addView(aliasRow);
 
 		// The phone, in words. Everything below this still works — a variable is
 		// a variable — but nobody should have to know that "face down" is spelled
@@ -153,26 +156,26 @@ public class ConditionLeafEditorDialog extends Dialog {
 		phoneAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		phoneSpinner.setAdapter(phoneAdapter);
 		phoneRow = labeled("The phone", phoneSpinner);
-		root.addView(phoneRow);
+		form.addView(phoneRow);
 
 		phoneNeeds = new TextView(getContext());
 		phoneNeeds.setTextColor(0xFFCCCCCC);
 		phoneNeeds.setTextSize(12);
 		phoneNeeds.setPadding(0, 0, 0, 6);
-		root.addView(phoneNeeds);
+		form.addView(phoneNeeds);
 
 		nameField = new EditText(getContext());
 		nameField.setSingleLine(true);
 		nameField.setHint("variable name");
 		nameRow = labeled("Name", nameField);
 		nameLabel = (TextView) nameRow.getChildAt(0);
-		root.addView(nameRow);
+		form.addView(nameRow);
 
 		valueField = new EditText(getContext());
 		valueField.setSingleLine(true);
 		valueField.setHint("expected value");
 		valueRow = labeled("Value", valueField);
-		root.addView(valueRow);
+		form.addView(valueRow);
 
 		variableHint = new TextView(getContext());
 		variableHint.setTextColor(0xFFCCCCCC);
@@ -182,7 +185,13 @@ public class ConditionLeafEditorDialog extends Dialog {
 				"Session variables are sticky notes for this connection — not pattern syntax.\n"
 						+ "Set them with the Set Variable action or Lua SetVariable.\n"
 						+ "Read them here, or as ${name} in alias / responder text.");
-		root.addView(variableHint);
+		form.addView(variableHint);
+
+		scroll.addView(form, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
+		root.addView(scroll, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
 		LinearLayout buttons = new LinearLayout(getContext());
 		buttons.setOrientation(LinearLayout.HORIZONTAL);
@@ -279,6 +288,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 			}
 		});
 		updateFieldVisibility();
+		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 	}
 
 	private LinearLayout labeled(String label, View child) {

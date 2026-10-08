@@ -23,6 +23,17 @@ public final class PrefixWordJoin {
 		return p.length() > 0 && !p.startsWith(".");
 	}
 
+	/** The input-bar form of a line {@link #sendLine} would have sent. */
+	public static String barLine(final String sendLine) {
+		if (sendLine == null || sendLine.length() == 0) {
+			return null;
+		}
+		if (sendLine.charAt(sendLine.length() - 1) == ' ') {
+			return sendLine;
+		}
+		return sendLine + " ";
+	}
+
 	public static String sendLine(final String prefix, final String word) {
 		if (!usablePrefix(prefix)) {
 			return null;

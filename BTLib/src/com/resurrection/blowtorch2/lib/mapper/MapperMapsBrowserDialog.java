@@ -3,11 +3,14 @@ package com.resurrection.blowtorch2.lib.mapper;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.app.AlertDialog;
+import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
+
+import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -15,6 +18,8 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Pick a saved map from {@link MapStore} — tap to open, long-press to delete.
@@ -52,18 +57,10 @@ public final class MapperMapsBrowserDialog {
 		}
 		final String current = host.getCurrentMapName();
 
-		float density = context.getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-
-		TextView title = new TextView(context);
-		title.setText("Maps");
-		title.setTextSize(18f);
-		title.setTextColor(0xFFEEEEEE);
-		root.addView(title);
+		final Dialog dialog = openList(context);
+		((TextView) dialog.findViewById(R.id.titlebar)).setText("Maps");
+		LinearLayout body = (LinearLayout) dialog.findViewById(R.id.mapper_shell_body);
+		int pad = dip(context, 12);
 
 		TextView help = new TextView(context);
 		String curLabel = current != null && current.length() > 0
@@ -73,9 +70,9 @@ public final class MapperMapsBrowserDialog {
 						? "\nWorld: " + worldHost : "")
 				+ "\nTap a map to open · long-press to delete.");
 		help.setTextSize(12f);
-		help.setTextColor(0xFFBBBBBB);
-		help.setPadding(0, pad / 2, 0, pad / 2);
-		root.addView(help);
+		help.setTextColor(ContextCompat.getColor(context, R.color.chrome_description));
+		help.setPadding(pad, pad, pad, pad / 2);
+		body.addView(help);
 
 		final List<String> labels = new ArrayList<String>();
 		for (String n : names) {
@@ -88,46 +85,32 @@ public final class MapperMapsBrowserDialog {
 			empty.setText(worldHost != null && worldHost.length() > 0
 					? "No saved maps for this world yet.\nUse New to create one."
 					: "No saved maps yet.\nUse New to create one.");
-			empty.setTextColor(0xFF888888);
-			empty.setPadding(0, pad, 0, pad);
-			root.addView(empty);
+			empty.setTextColor(ContextCompat.getColor(context, R.color.chrome_hint));
+			empty.setPadding(pad, pad, pad, pad);
+			body.addView(empty);
 		}
 
 		final ListView list = new ListView(context);
+		styleList(context, list);
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(context,
 				android.R.layout.simple_list_item_1, labels) {
 			@Override
-			public View getView(int position, View convertView,
-					android.view.ViewGroup parent) {
-				TextView tv = (TextView) super.getView(position, convertView,
-						parent);
-				tv.setTextColor(0xFFEEEEEE);
+			public View getView(int position, View convertView, ViewGroup parent) {
+				TextView tv = (TextView) super.getView(position, convertView, parent);
+				tv.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
 				tv.setTextSize(15f);
 				return tv;
 			}
 		};
 		list.setAdapter(adapter);
-		root.addView(list, new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT,
-				(int) (280 * density)));
+		body.addView(list, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-		LinearLayout buttons = new LinearLayout(context);
-		buttons.setOrientation(LinearLayout.HORIZONTAL);
-		buttons.setGravity(Gravity.END);
-		buttons.setPadding(0, pad / 2, 0, 0);
-
-		Button newBtn = new Button(context);
-		newBtn.setText("New");
-		buttons.addView(newBtn);
-
-		Button closeBtn = new Button(context);
-		closeBtn.setText("Close");
-		buttons.addView(closeBtn);
-		root.addView(buttons);
-
-		final AlertDialog dlg = new AlertDialog.Builder(context)
-				.setView(root)
-				.create();
+		LinearLayout footer = (LinearLayout) dialog.findViewById(R.id.button_row);
+		Button newBtn = barButton(context, "New", false);
+		Button closeBtn = barButton(context, "Close", true);
+		footer.addView(newBtn);
+		footer.addView(closeBtn);
 
 		list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 			@Override
@@ -137,7 +120,7 @@ public final class MapperMapsBrowserDialog {
 					return;
 				}
 				String name = names.get(position);
-				dlg.dismiss();
+				dialog.dismiss();
 				host.openMap(name);
 			}
 		});
@@ -150,21 +133,16 @@ public final class MapperMapsBrowserDialog {
 					return true;
 				}
 				final String name = names.get(position);
-				new AlertDialog.Builder(context)
-						.setTitle("Delete map?")
-						.setMessage("Delete \"" + name + "\" from disk?\n"
-								+ "This cannot be undone.")
-						.setPositiveButton("Delete",
-								new DialogInterface.OnClickListener() {
-									@Override
-									public void onClick(DialogInterface d,
-											int which) {
-										dlg.dismiss();
-										host.deleteMap(name);
-									}
-								})
-						.setNegativeButton("Cancel", null)
-						.show();
+				showConfirm(context, "Delete map?",
+						"Delete \"" + name + "\" from disk?\n"
+								+ "This cannot be undone.",
+						"Delete", new Runnable() {
+							@Override
+							public void run() {
+								dialog.dismiss();
+								host.deleteMap(name);
+							}
+						});
 				return true;
 			}
 		});
@@ -172,14 +150,14 @@ public final class MapperMapsBrowserDialog {
 		newBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				dlg.dismiss();
+				dialog.dismiss();
 				host.createNewMap();
 			}
 		});
 		closeBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				dlg.dismiss();
+				dialog.dismiss();
 			}
 		});
 
@@ -187,6 +165,93 @@ public final class MapperMapsBrowserDialog {
 			Toast.makeText(context, "No maps on disk yet", Toast.LENGTH_SHORT)
 					.show();
 		}
-		dlg.show();
+		EditorDialogChrome.applyFullScreen(dialog);
+		dialog.show();
+	}
+
+	private static Dialog openList(Context context) {
+		Dialog dialog = new Dialog(context, EditorDialogChrome.fullScreenTheme());
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		dialog.setCanceledOnTouchOutside(false);
+		Window window = dialog.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+		dialog.setContentView(R.layout.mapper_list_shell);
+		return dialog;
+	}
+
+	private static void showConfirm(Context context, String title, String message,
+			String positive, final Runnable onPositive) {
+		final Dialog dialog = openForm(context, false);
+		((TextView) dialog.findViewById(R.id.titlebar)).setText(title);
+		TextView msg = new TextView(context);
+		msg.setText(message);
+		msg.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
+		msg.setTextSize(15f);
+		((LinearLayout) dialog.findViewById(R.id.mapper_shell_body)).addView(msg);
+		LinearLayout footer = (LinearLayout) dialog.findViewById(R.id.button_row);
+		Button cancel = barButton(context, "Cancel", false);
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button ok = barButton(context, positive, true);
+		ok.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (onPositive != null) {
+					onPositive.run();
+				}
+				dialog.dismiss();
+			}
+		});
+		footer.addView(cancel);
+		footer.addView(ok);
+		EditorDialogChrome.applyFloatingWrapContentHeight(dialog);
+		dialog.show();
+	}
+
+	private static Dialog openForm(Context context, boolean fullScreen) {
+		Dialog dialog = new Dialog(context, fullScreen
+				? EditorDialogChrome.fullScreenTheme()
+				: EditorDialogChrome.dialogTheme());
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		Window window = dialog.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+		dialog.setContentView(R.layout.mapper_form_shell);
+		return dialog;
+	}
+
+	private static void styleList(Context context, ListView list) {
+		list.setBackgroundColor(ContextCompat.getColor(context, R.color.chrome_body));
+		list.setCacheColorHint(0x00000000);
+		list.setDivider(ContextCompat.getDrawable(context, R.drawable.editor_row_divider));
+		list.setDividerHeight(Math.max(1, dip(context, 1)));
+		list.setSelector(R.drawable.blue_frame_nomargin_nobackground);
+		list.setScrollbarFadingEnabled(false);
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 }

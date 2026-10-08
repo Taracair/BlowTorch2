@@ -26,6 +26,8 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String OPTION_KEY = "word_complete";
 	public static final String LINES_KEY = "word_complete_lines";
 	public static final String WHERE_KEY = "word_complete_where";
+	/** First chip on the left (0) or the right (1). */
+	public static final String ORDER_KEY = "word_complete_order";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String TYPOS_KEY = "word_complete_typos";
 	public static final String SKIP_HEAD_KEY = "word_complete_skip_head";
@@ -176,10 +178,10 @@ public class CompleteCommand extends SpecialCommand {
 		}
 		if (arg.startsWith("split")) {
 			return setFlag(arg.substring("split".length()).trim(), c, SPLIT_KEY,
-					"A short mark now sits between the dimmed suggestions, so two"
-						+ " words on the same line stay apart. The little numbers stay.",
-					"The dimmed suggestions sit next to each other again, with a"
-						+ " space and no mark.");
+					"Dimmed suggestions on the same line stay apart with a space."
+						+ " The little numbers stay.",
+					"Dimmed suggestions on the same line stay apart with a space."
+						+ " The little numbers stay.");
 		}
 		if (arg.startsWith("ghostlines")) {
 			return setGhostLines(arg.substring("ghostlines".length()).trim(), c);
@@ -248,6 +250,11 @@ public class CompleteCommand extends SpecialCommand {
 						+ " moved.",
 					"Suggestions are back to newest first, wherever the cursor is.");
 		}
+		if (arg.equals("order") || arg.startsWith("order ") || arg.startsWith("order\t")) {
+			String rest = arg.length() == "order".length()
+					? "" : arg.substring("order".length()).trim();
+			return setSuggestOrder(rest, c);
+		}
 		if (arg.startsWith("where")) {
 			return setWhere(arg.substring("where".length()).trim(), c);
 		}
@@ -289,6 +296,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (isOn(c) ? "on" : "off")
 					+ ", remembering the last " + describeLines(lines(c))
 					+ ".\nThe bar is " + describeWhere(where(c))
+					+ ", chips " + (suggestOrderRight(c) ? "right to left" : "left to right")
 					+ (where(c) == WordSuggestions.WHERE_FLOATING
 						? ", at " + opacity(c) + "% solid" : "")
 					+ (where(c) == WordSuggestions.WHERE_NONE ? ""
@@ -325,7 +333,7 @@ public class CompleteCommand extends SpecialCommand {
 						? "by where you are in the line" : "newest first")
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
-					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
+					+ ".\nUse .suggest on|off, lines N, where floating|bar|list|off, order left|right,"
 					+ " phrases/next/loose/typos/skiphead/firstletter/ghost/split/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
@@ -345,15 +353,17 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest firstletter on|off — two mistakes may change the"
 				+ "                           first letter\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
-				+ ".suggest split on|off    — a short mark between those dimmed words\n"
+				+ ".suggest split on|off    — a space between those dimmed words\n"
 				+ ".suggest caret on|off    — prefix chips follow the cursor into"
 				+ "                           the middle of a line\n"
 				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"
 				+ ".suggest ghostlines N    — extra rows the field may grow by, 1-6.\n"
 				+ "                           At 1 the others still fill the rest of\n"
 				+ "                           the line. It is not the count — that is show\n"
-				+ ".suggest where floating|bar|off — where the bar of chips goes,\n"
-				+ "                           or off for none; the ghost still works\n"
+				+ ".suggest where floating|bar|list|off — chips, the strip, a list\n"
+				+ "                           window, or none; the ghost still works\n"
+				+ ".suggest order left|right — first chip on the left, or the right\n"
+				+ "                           (the bar and the floating window)\n"
 				+ ".suggest persist on|off  — keep the bar up even when it is empty\n"
 				+ ".suggest opacity N       — how solid those chips are\n"
 				+ ".suggest learned         — what your commands have taught\n"
@@ -366,7 +376,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ "This completes mob names, player names and item words the\n"
 				+ "keyboard will never know, and would rather correct into\n"
 				+ "English. Type \"k gri\" after a grizzled cave troll walks in.\n\n"
-				+ "Also under Options → Input → Suggestions.\n"));
+				+ "Also under Options → Suggestions.\n"));
 		return null;
 	}
 
@@ -399,56 +409,48 @@ public class CompleteCommand extends SpecialCommand {
 	}
 
 	/**
-	 * Where the bar of chips goes, or that there is none.
-	 *
-	 * <p>One setting with three values rather than two switches: "no bar, but
-	 * floating" is not a thing, and two switches can say it.
+	 * Where suggestions sit: floating chips, the layout bar, a list window, or off.
 	 */
 	private Object setWhere(String arg, Connection c) {
 		if (arg.length() == 0) {
 			c.sendDataToWindow("\nThe suggestion bar is " + describeWhere(where(c))
-					+ ".\nUse .suggest where floating|bar|off, or"
+					+ ".\nUse .suggest where floating|bar|list|off, or"
 					+ " .suggest where next to step through them.\n");
 			return null;
 		}
 		int picked;
-		// One press that goes round the three. On a button this is the whole
-		// point: floating for a fight, the strip while reading, nothing at all
-		// when the ghost is doing the work — without three buttons for it.
+		// One press that goes round the places. The first step from floating
+		// is still the bar, so a button that already does next keeps that step.
 		if (arg.equals("next") || arg.equals("cycle") || arg.equals("toggle")) {
-			int now = where(c);
-			if (now == WordSuggestions.WHERE_FLOATING) {
-				picked = WordSuggestions.WHERE_BAR;
-			} else if (now == WordSuggestions.WHERE_BAR) {
-				picked = WordSuggestions.WHERE_NONE;
-			} else {
-				picked = WordSuggestions.WHERE_FLOATING;
-			}
+			picked = WordSuggestions.cycleWhere(where(c));
 			c.updateIntegerSetting(WHERE_KEY, picked);
+			if (picked == WordSuggestions.WHERE_LIST && c.getService() != null) {
+				c.getService().doRunUiAction("suggest:list");
+			}
 			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 					+ "Suggestion bar: " + describeWhere(picked)
 					+ Colorizer.getWhiteColor() + "\n");
 			return null;
 		}
-		if (arg.equals("floating") || arg.equals("float") || arg.equals("over")) {
-			picked = WordSuggestions.WHERE_FLOATING;
-		} else if (arg.equals("bar") || arg.equals("strip") || arg.equals("below")) {
-			picked = WordSuggestions.WHERE_BAR;
-		} else if (arg.equals("off") || arg.equals("none") || arg.equals("nowhere")) {
-			picked = WordSuggestions.WHERE_NONE;
-		} else {
+		Integer place = WordSuggestions.place(arg);
+		if (place == null) {
 			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
-					".suggest where floating|bar|off\n\n"
+					".suggest where floating|bar|list|off\n\n"
 					+ "floating — chips over the game text, on the input bar\n"
 					+ "bar      — a strip below the game window; it takes height,\n"
 					+ "           so the text jumps unless .suggest persist on\n"
+					+ "list     — a window like .lastlist; a tap puts the word in the bar\n"
 					+ "off      — no bar at all. Suggestions still work: the ghost\n"
 					+ "           still draws and .suggest 1.." + MAX_PICK
 						+ " still picks.\n"
-					+ "next     — step round the three; good on a button\n"));
+					+ "next     — floating, bar, list, off; good on a button\n"));
 			return null;
 		}
+		picked = place.intValue();
 		c.updateIntegerSetting(WHERE_KEY, picked);
+		if (picked == WordSuggestions.WHERE_LIST && c.getService() != null) {
+			c.getService().doRunUiAction("suggest:list");
+		}
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 				+ "The suggestion bar is now " + describeWhere(picked) + "."
 				+ (picked == WordSuggestions.WHERE_NONE
@@ -459,9 +461,58 @@ public class CompleteCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object setSuggestOrder(String arg, Connection c) {
+		if (arg.length() == 0) {
+			c.sendDataToWindow("\nSuggestion order is "
+					+ (suggestOrderRight(c) ? "right" : "left")
+					+ ".\nUse .suggest order left|right\n");
+			return null;
+		}
+		if (arg.indexOf(' ') >= 0 || arg.indexOf('\t') >= 0) {
+			c.sendDataToWindow(suggestOrderUsage());
+			return null;
+		}
+		int picked;
+		if (arg.equals("left")) {
+			picked = WordSuggestions.ORDER_LEFT;
+		} else if (arg.equals("right")) {
+			picked = WordSuggestions.ORDER_RIGHT;
+		} else {
+			c.sendDataToWindow(suggestOrderUsage());
+			return null;
+		}
+		c.updateIntegerSetting(ORDER_KEY, picked);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ (picked == WordSuggestions.ORDER_RIGHT
+					? "Suggestion order is right: the first chip sits on the right."
+					: "Suggestion order is left: the first chip sits on the left.")
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private static String suggestOrderUsage() {
+		return getErrorMessage("Suggestions usage:",
+				".suggest order left|right\n\n"
+				+ "left  — the first chip on the left\n"
+				+ "right — the first chip on the right\n"
+				+ "The bar and the floating window both follow this.\n"
+				+ ".suggest order with no side prints which one it is.\n");
+	}
+
+	private static boolean suggestOrderRight(Connection c) {
+		BaseOption o = findOption(c, ORDER_KEY);
+		if (o instanceof ListOption && o.getValue() instanceof Integer) {
+			return ((Integer) o.getValue()).intValue() == WordSuggestions.ORDER_RIGHT;
+		}
+		return false;
+	}
+
 	private static String describeWhere(int where) {
 		if (where == WordSuggestions.WHERE_BAR) {
 			return "a strip below the game window";
+		}
+		if (where == WordSuggestions.WHERE_LIST) {
+			return "a list over the game";
 		}
 		if (where == WordSuggestions.WHERE_NONE) {
 			return "off — no bar anywhere";

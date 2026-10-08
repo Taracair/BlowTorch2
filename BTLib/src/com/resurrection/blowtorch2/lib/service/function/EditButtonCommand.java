@@ -29,7 +29,7 @@ public class EditButtonCommand extends SpecialCommand {
 			return null;
 		}
 
-		Boolean desired = parseOnOff(arg.toLowerCase().split("\\s+")[0]);
+		Boolean desired = parseArgument(arg);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Editbutton command usage:",
 					".editbutton on | .editbutton off\n"
@@ -51,6 +51,26 @@ public class EditButtonCommand extends SpecialCommand {
 		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 				+ "Edit button " + (desired.booleanValue() ? "on" : "off") + ".\n");
 		return null;
+	}
+
+	/**
+	 * The whole argument is one word, {@code on} or {@code off}.
+	 * A second word is not on.
+	 */
+	static Boolean parseArgument(String arg) {
+		if (arg == null) {
+			return null;
+		}
+		String token = arg.trim().toLowerCase(java.util.Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	/** Strict {@code on}/{@code off} only — no synonym aliases. */

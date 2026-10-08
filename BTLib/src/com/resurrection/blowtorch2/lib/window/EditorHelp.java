@@ -206,7 +206,7 @@ public final class EditorHelp {
 			+ "    Replace / Gag   change or hide the line\n"
 			+ "    Color           256 grid or RGB wheel; text and background off separately; italic/underline\n"
 			+ "                    Bold is heavier glyphs (cells stay put), not MUD [1m bright.\n"
-			+ "                    Options → Service → Heavier MUD bold (SGR 1)? also redraws the world's [1m heavier\n"
+			+ "                    Options → Window → Text → Heavier MUD bold (SGR 1)? also redraws the world's [1m heavier\n"
 			+ "    Tappable Word   make the match pressable\n"
 			+ "    Toast / Notification   tell the phone; the shade title is the world name, then your title\n"
 			+ "    Set Variable    remember something for later\n\n"

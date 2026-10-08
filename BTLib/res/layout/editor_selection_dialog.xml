@@ -95,7 +95,7 @@
 			android:layout_height="wrap_content"
 			android:minHeight="44dip"
 			android:layout_marginLeft="6dip"
-			android:text="Done"/>
+			android:text="Close"/>
 	</LinearLayout>
 
 	<LinearLayout

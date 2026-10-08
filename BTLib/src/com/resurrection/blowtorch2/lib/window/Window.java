@@ -145,6 +145,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Bitmap mTextSelectionCancelBitmap = null;
 	/** The bitmap that holds the selection widget copy button. */
 	private Bitmap mTextSelectionCopyBitmap = null;
+	private Bitmap mTextSelectionTriggerBitmap = null;
 	/** The bitmap that holds the selection widget cursor swap button. */
 	private Bitmap mTextSelectionSwapBitmap = null;
 	/** Rectangle that represents the hot-zone (clickable region) for the home button. */
@@ -628,8 +629,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	//private Context mContext = null;
 	/** Disc radius of the copy widget, from {@link PrefixPickLoupe} size. */
 	private int mSelectionIndicatorHalfDimension = 60;
-	/** Copy, swap, close button centres from {@link CopyLoupeLayout#placeButtons}. */
-	private final float[] mCopyLoupeButtons = new float[6];
+	/** Copy, swap, close, trigger button centres from {@link CopyLoupeLayout#placeButtons}. */
+	private final float[] mCopyLoupeButtons = new float[8];
 	/** Destination for a copy-widget action icon. */
 	private final RectF mCopyLoupeIconDst = new RectF();
 	/** Leftover finger pixels on the copy disc, X then Y. */
@@ -690,6 +691,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final String MAIN_DISPLAY = "mainDisplay";
 	private final GlobalGestureSession mGlobalGesture = new GlobalGestureSession();
 	private final Paint mGestureChromePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/** {@code .debug renderer show}. Not a setting. */
+	private boolean mRendererDebug;
+	private int mDbgTiles;
+	private int mDbgBake;
+	private int mDbgType;
 	private String mGestureDir;
 	private String mGestureCmd;
 	private float mGestureAtX;
@@ -849,6 +855,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mTextSelectionCancelBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.cancel_tiny);
 		mTextSelectionCopyBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.copy_tiny);
 		mTextSelectionSwapBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.swap);
+		mTextSelectionTriggerBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.trigger_tiny);
 		
 		mTextSelectionIndicatorPaint.setStyle(Paint.Style.STROKE);
 		mTextSelectionIndicatorPaint.setStrokeWidth(1 * mDensity);
@@ -3267,6 +3274,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			break;
 		case SCROLL:
+			clearGesturePreview();
 			nudgeGlobalScroll(d.dx, d.dy, t.getEventTime());
 			if (mAndroidFling) {
 				if (mVelocityTracker == null) {
@@ -3381,8 +3389,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (Math.hypot(mGlobalScrollPendingX, mGlobalScrollPendingY) < 8f * mDensity) {
 				return;
 			}
-			mGlobalScrollAxis = Math.abs(mGlobalScrollPendingX) > Math.abs(mGlobalScrollPendingY)
-					? 1 : 2;
+			mGlobalScrollAxis = GlobalGestureSession.scrollAxis(
+					mGlobalScrollPendingX, mGlobalScrollPendingY, maxScrollX() > 0f);
 			dx = mGlobalScrollPendingX;
 			dy = mGlobalScrollPendingY;
 			mGlobalScrollPendingX = 0f;
@@ -3532,6 +3540,58 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		drawGesturePreview(c, g);
+	}
+
+	public void setRendererDebug(final boolean on) {
+		if (mRendererDebug == on) {
+			return;
+		}
+		mRendererDebug = on;
+		invalidate();
+	}
+
+	private void drawRendererDebug(final Canvas c) {
+		if (!mRendererDebug || c == null) {
+			return;
+		}
+		final String label = RendererDebugLabel.format(mDbgTiles, mDbgBake, mDbgType,
+				c.isHardwareAccelerated());
+		final float d = mDensity > 0f ? mDensity : 1f;
+		mGestureChromePaint.setAntiAlias(true);
+		mGestureChromePaint.setStyle(Paint.Style.FILL);
+		mGestureChromePaint.setTextAlign(Paint.Align.LEFT);
+		final float padX = 8f * d;
+		final float padY = 4f * d;
+		final float left = 8f * d;
+		final float rightLimit = mWidth - (8f * d);
+		final float maxText = rightLimit - left - padX * 2f;
+		float textSize = 16f * d;
+		mGestureChromePaint.setTextSize(textSize);
+		float textW = mGestureChromePaint.measureText(label);
+		textSize = RendererDebugLabel.fitTextSize(textSize, textW, maxText, 11f * d);
+		mGestureChromePaint.setTextSize(textSize);
+		textW = mGestureChromePaint.measureText(label);
+		final Paint.FontMetrics fm = mGestureChromePaint.getFontMetrics();
+		final float boxH = (fm.descent - fm.ascent) + padY * 2f;
+		float right = left + textW + padX * 2f;
+		if (right > rightLimit) {
+			right = rightLimit;
+		}
+		if (right - left < 1f) {
+			return;
+		}
+		float top = 12f * d;
+		if (MAIN_DISPLAY.equals(getName()) && GlobalGestures.current().showMode()) {
+			top += boxH + (4f * d);
+		}
+		mGestureChromePaint.setColor(0xE8141418);
+		c.drawRoundRect(left, top, right, top + boxH, 6f * d, 6f * d, mGestureChromePaint);
+		mGestureChromePaint.setColor(0xFFF2F4F6);
+		final int clip = c.save();
+		c.clipRect(left, top, right, top + boxH);
+		c.drawText(label, left + padX, top + padY - fm.ascent, mGestureChromePaint);
+		c.restoreToCount(clip);
+		mGestureChromePaint.setTextAlign(Paint.Align.CENTER);
 	}
 
 	private void drawGesturePreview(final Canvas c, final GlobalGestures g) {
@@ -4397,6 +4457,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	// RenderNode rec 46–57ms, recN 5–24/2s reverse: jumps + black bottom half.
 	@Override
 	public final void onDraw(final Canvas hw) {
+		mDbgTiles = 0;
+		mDbgBake = 0;
+		mDbgType = 0;
 		Canvas c = hw;
 		mBlinkSawThisFrame = false;
 		mBlinkFastSawThisFrame = false;
@@ -4677,6 +4740,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				// would keep the hole after the line has scrolled off it.
 				final boolean avoidTileOk = !mAvoidRemap;
 				if (avoidTileOk && lineTileable(l) && blitLineTile(hw, tileKey, y0)) {
+					if (mRendererDebug) {
+						mDbgTiles++;
+					}
 					y = y + avoidRowsForLine * mPrefLineSize;
 					x = -mScrollX;
 					drawnlines += avoidRowsForLine;
@@ -4693,6 +4759,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					if (tile != null) {
 						c = tile;
 						cap = true;
+					}
+				}
+				if (mRendererDebug) {
+					if (cap) {
+						mDbgBake++;
+					} else {
+						mDbgType++;
 					}
 				}
 				try {
@@ -5058,6 +5131,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			c.restore();
 			drawGlobalGestureChrome(c);
+			drawRendererDebug(hw);
 			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
 				postInvalidateOnAnimation();
 			} else if (!mFingerDown) {
@@ -5308,8 +5382,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * back, which is what made it look like the widget had broken rather than never
 	 * been drawn. It is the selection's business, not the scrollbar's.
 	 *
-	 * Drawn after the text clip restore so copy/swap/close sit outside the disc
-	 * without being cropped by the pad.
+	 * Drawn after the text clip restore so copy/swap/close/trigger sit outside
+	 * the disc without being cropped by the pad.
 	 */
 	private void drawSelectionWidget(final Canvas c) {
 		if (selectedSelector == null) {
@@ -5371,6 +5445,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				mTextSelectionSwapBitmap);
 		drawCopyLoupeButton(c, mCopyLoupeButtons[4], mCopyLoupeButtons[5], btnR,
 				mTextSelectionCancelBitmap);
+		drawCopyLoupeButton(c, mCopyLoupeButtons[6], mCopyLoupeButtons[7], btnR,
+				mTextSelectionTriggerBitmap);
 	}
 
 	private void drawCopyLoupeButton(final Canvas c, final float cx,
@@ -5438,6 +5514,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return SelectionWidgetButtons.COPY;
 		case CopyLoupeLayout.HIT_EXIT:
 			return SelectionWidgetButtons.EXIT;
+		case CopyLoupeLayout.HIT_TRIGGER:
+			return SelectionWidgetButtons.TRIGGER;
 		case CopyLoupeLayout.HIT_DISC:
 			return SelectionWidgetButtons.CENTER;
 		default:
@@ -9011,6 +9089,16 @@ end
 						case EXIT:
 							endTextSelectionMode(v);
 							return true;
+						case TRIGGER:
+							String phrase = mBuffer.getTextSection(theSelection);
+							endTextSelectionMode(v);
+							if (phrase != null && mMainWindowHandler != null) {
+								mMainWindowHandler.sendMessage(
+										mMainWindowHandler.obtainMessage(
+												MainWindow.MESSAGE_OPEN_PHRASE_TRIGGER,
+												phrase));
+							}
+							return true;
 						default:
 							break;
 						}
@@ -9041,6 +9129,7 @@ end
 		EXIT,
 		COPY,
 		NEXT,
+		TRIGGER,
 	}
 	
 	private SelectionWidgetButtons selectionButtonDown = null;

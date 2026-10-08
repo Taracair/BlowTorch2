@@ -46,7 +46,11 @@ public class GmcpCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
-		if (arg.length() == 0 || arg.equalsIgnoreCase("help") || arg.equals("?")) {
+		int route = route(arg);
+		if (route == ROUTE_STATUS) {
+			return doStatus(c);
+		}
+		if (route == ROUTE_HELP) {
 			c.sendDataToWindow(helpText());
 			return null;
 		}
@@ -235,7 +239,7 @@ public class GmcpCommand extends SpecialCommand {
 			sb.append("Hello: ").append(p.getGmcpHello()).append("\n");
 		}
 		sb.append("Negotiated processor: ").append(p != null ? "yes" : "no (not connected)").append("\n");
-		sb.append("Enable under Options → Service → Protocols.\n");
+		sb.append("Enable under Options → Protocols.\n");
 		sb.append(sniffLogLocations(c));
 		c.sendDataToWindow(sb.toString());
 		return null;
@@ -252,10 +256,10 @@ public class GmcpCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "GMCP window feed is " + (current ? "on" : "off") + ".\n"
 					+ "Usage: .gmcp feed on | off\n"
-					+ "Also: Options → Service → GMCP → Show GMCP in game window?\n");
+					+ "Also: Options → Protocols → GMCP → Show GMCP in game window?\n");
 			return null;
 		}
-		Boolean desired = parseOnOff(rest.split("\\s+")[0]);
+		Boolean desired = parseFeedArgument(rest);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("GMCP feed", ".gmcp feed on | off"));
 			return null;
@@ -302,7 +306,7 @@ public class GmcpCommand extends SpecialCommand {
 			}
 			return doSniffTail(c, lines);
 		}
-		Boolean desired = parseOnOff(first);
+		Boolean desired = parseSniffArgument(rest);
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("GMCP sniff",
 					".gmcp sniff on | off | tail [0-100]"));
@@ -390,7 +394,7 @@ public class GmcpCommand extends SpecialCommand {
 			sb.append(":\n  ").append(BlowTorchLogger.getGmcpLogFile(c.getContext()).getAbsolutePath());
 		}
 		sb.append("\n");
-		sb.append("Also appended to the session log when Options → Service → Log Session to File? is on");
+		sb.append("Also appended to the session log when Options → Connection → Log Session to File? is on");
 		if (c != null && c.getContext() != null && SessionLogger.isEnabled(c.getContext())) {
 			java.io.File current = SessionLogger.getCurrentLogFile();
 			if (current != null) {
@@ -415,7 +419,7 @@ public class GmcpCommand extends SpecialCommand {
 				+ "Telnet option: IAC SB GMCP (201) … IAC SE\n"
 				+ "Native modules: Char.Login (password), Client.Media (sound/music).\n"
 				+ "Typical supports: \"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"\n"
-				+ "Manage: Options → Service → GMCP → Manage modules…\n";
+				+ "Manage: Options → Protocols → GMCP → Manage modules…\n";
 		c.sendDataToWindow(msg);
 		return null;
 	}
@@ -471,7 +475,7 @@ public class GmcpCommand extends SpecialCommand {
 			return null;
 		}
 		if (!boolOpt(c, OPT_USE, true)) {
-			c.sendDataToWindow(getErrorMessage("GMCP send", "Use GMCP? is off (Options → Service → Protocols)."));
+			c.sendDataToWindow(getErrorMessage("GMCP send", "Use GMCP? is off (Options → Protocols)."));
 			return null;
 		}
 		c.getHandler().sendMessage(c.getHandler().obtainMessage(Connection.MESSAGE_SENDGMCPDATA, rest));
@@ -552,16 +556,33 @@ public class GmcpCommand extends SpecialCommand {
 		return "\n" + Colorizer.getWhiteColor()
 				+ "GMCP (Generic Mud Communication Protocol) is an out-of-band telnet channel\n"
 				+ "(option 201) for structured JSON-ish updates (vitals, room, media, login).\n"
-				+ "Enable under Options → Service → Protocols. Servers differ — sniff if something looks off.\n\n"
+				+ "Enable under Options → Protocols. Servers differ — sniff if something looks off.\n\n"
 				+ shortUsage()
-				+ "Options → Service → Protocols: Use GMCP?. Options → Service → GMCP: Manage modules…, Log GMCP?\n"
+				+ "Options → Protocols: Use GMCP?. Options → Protocols → GMCP: Manage modules…, Log GMCP?\n"
 				+ "Native: Char.Login uses launcher account login/password; Client.Media plays sound/music.\n"
 				+ "Lua: Send_GMCP_Packet(\"module {…}\")  Triggers: pattern %module.path\n";
 	}
 
+	static final int ROUTE_STATUS = 0;
+	static final int ROUTE_HELP = 1;
+	static final int ROUTE_VERB = 2;
+
+	/** Blank is {@code status}. {@code help} is the usage wall. */
+	static int route(String arg) {
+		if (arg == null || arg.trim().length() == 0) {
+			return ROUTE_STATUS;
+		}
+		String a = arg.trim();
+		if (a.equalsIgnoreCase("help") || a.equals("?")) {
+			return ROUTE_HELP;
+		}
+		return ROUTE_VERB;
+	}
+
 	private static String shortUsage() {
 		return "Usage:\n"
-				+ "  .gmcp                 — this help\n"
+				+ "  .gmcp                 — status (same as .gmcp status)\n"
+				+ "  .gmcp help            — this help\n"
 				+ "  .gmcp ask|handshake   — Hello / enabled / native / seen (honest)\n"
 				+ "  .gmcp modules         — enabled vs seen\n"
 				+ "  .gmcp enable|disable  — toggle modules (+ live Add/Remove)\n"
@@ -574,6 +595,32 @@ public class GmcpCommand extends SpecialCommand {
 				+ "  .gmcp supports […]    — show or set supports modules\n"
 				+ "  .gmcp dump [path]     — dump cached GMCP table\n"
 				+ "  .gmcp send <payload>  — send a GMCP packet\n";
+	}
+
+	/** One word. A second word is not a setting. */
+	static Boolean parseFeedArgument(String rest) {
+		return soleOnOff(rest);
+	}
+
+	/** One word. {@code tail} is handled before this. A second word is not a setting. */
+	static Boolean parseSniffArgument(String rest) {
+		return soleOnOff(rest);
+	}
+
+	private static Boolean soleOnOff(String rest) {
+		if (rest == null) {
+			return null;
+		}
+		String token = rest.trim().toLowerCase(Locale.US);
+		if (token.length() == 0) {
+			return null;
+		}
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isWhitespace(token.charAt(i))) {
+				return null;
+			}
+		}
+		return parseOnOff(token);
 	}
 
 	private static Boolean parseOnOff(String token) {

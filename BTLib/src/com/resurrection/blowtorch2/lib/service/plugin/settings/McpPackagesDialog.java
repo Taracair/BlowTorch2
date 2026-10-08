@@ -2,9 +2,8 @@ package com.resurrection.blowtorch2.lib.service.plugin.settings;
 
 import java.util.ArrayList;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.Button;
@@ -12,7 +11,6 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,7 +31,7 @@ public final class McpPackagesDialog {
 	private McpPackagesDialog() {
 	}
 
-	public static void show(Context context, final Host host) {
+	public static void show(final Context context, final Host host) {
 		if (context == null || host == null) {
 			return;
 		}
@@ -47,17 +45,15 @@ public final class McpPackagesDialog {
 
 		int pad = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 12,
 				context.getResources().getDisplayMetrics());
-		ScrollView scroll = new ScrollView(context);
-		LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-		scroll.addView(root);
+		final Dialog dialog = OptionsSubdialog.open(context, "MCP packages");
+		LinearLayout root = OptionsSubdialog.body(dialog);
 
 		TextView intro = new TextView(context);
 		intro.setText("Choose MCP packages to advertise in mcp-negotiate-can. "
 				+ "Nothing auto-enables from traffic. Apply can re-negotiate if connected.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
+		OptionsSubdialog.ink(intro);
 		root.addView(intro);
 
 		String hint = host.getStatusHint();
@@ -66,6 +62,7 @@ public final class McpPackagesDialog {
 			status.setText(hint);
 			status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 			status.setPadding(0, 0, 0, pad);
+			OptionsSubdialog.muted(status);
 			root.addView(status);
 		}
 
@@ -94,6 +91,7 @@ public final class McpPackagesDialog {
 		advanced.setMinLines(2);
 		advanced.setText(reg.toPackagesString());
 		advanced.setVisibility(View.GONE);
+		OptionsSubdialog.field(advanced);
 		root.addView(advanced);
 		Button toggleAdv = new Button(context);
 		toggleAdv.setText("Show advanced packages string…");
@@ -110,31 +108,42 @@ public final class McpPackagesDialog {
 		});
 		root.addView(toggleAdv);
 
-		AlertDialog.Builder b = new AlertDialog.Builder(context);
-		b.setTitle("MCP packages");
-		b.setView(scroll);
-		b.setNegativeButton("Cancel", null);
-		b.setNeutralButton("Apply", new DialogInterface.OnClickListener() {
+		Button renegotiate = new Button(context);
+		renegotiate.setText("Apply + renegotiate");
+		renegotiate.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				String pkgs = advanced.getVisibility() == View.VISIBLE
-						? advanced.getText().toString()
-						: reg.toPackagesString();
-				host.applyPackagesString(pkgs, false);
-				Toast.makeText(context, "MCP packages saved", Toast.LENGTH_SHORT).show();
-			}
-		});
-		b.setPositiveButton("Apply + renegotiate", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				String pkgs = advanced.getVisibility() == View.VISIBLE
-						? advanced.getText().toString()
-						: reg.toPackagesString();
-				host.applyPackagesString(pkgs, true);
+			public void onClick(View v) {
+				host.applyPackagesString(packagesFrom(reg, advanced), true);
 				Toast.makeText(context, "MCP packages saved + renegotiate", Toast.LENGTH_SHORT).show();
+				dialog.dismiss();
 			}
 		});
-		b.show();
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button done = new Button(context);
+		done.setText("Done");
+		done.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				host.applyPackagesString(packagesFrom(reg, advanced), false);
+				Toast.makeText(context, "MCP packages saved", Toast.LENGTH_SHORT).show();
+				dialog.dismiss();
+			}
+		});
+		OptionsSubdialog.buttons(dialog, renegotiate, cancel, done);
+		OptionsSubdialog.show(dialog);
+	}
+
+	private static String packagesFrom(McpPackageRegistry reg, EditText advanced) {
+		return advanced.getVisibility() == View.VISIBLE
+				? advanced.getText().toString()
+				: reg.toPackagesString();
 	}
 
 	private static void addSection(Context context, LinearLayout root, String title,
@@ -146,6 +155,7 @@ public final class McpPackagesDialog {
 		h.setText(title);
 		h.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
 		h.setPadding(0, 16, 0, 8);
+		OptionsSubdialog.ink(h);
 		root.addView(h);
 		for (final McpPackageRegistry.PackageInfo p : rows) {
 			CheckBox cb = new CheckBox(context);
@@ -153,6 +163,7 @@ public final class McpPackagesDialog {
 					+ (p.minVersion.equals(p.maxVersion) ? "" : ("–" + p.maxVersion)) + ")\n"
 					+ p.summary);
 			cb.setChecked(reg.isEnabled(p.id));
+			OptionsSubdialog.check(cb);
 			cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
 				@Override
 				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {

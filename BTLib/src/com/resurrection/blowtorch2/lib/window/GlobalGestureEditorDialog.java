@@ -85,7 +85,7 @@ public final class GlobalGestureEditorDialog {
 		int pad = (int) (16 * density);
 		form.setPadding(pad, pad, pad, pad);
 		TextView note = bodyText(activity, density);
-		note.setText("A blank direction does nothing. Same list as Options → Input → Global gestures.");
+		note.setText("A blank direction sends no command. Same list as Options → Gestures.");
 		form.addView(note);
 		addSection(activity, form, density, "One finger", 1, current, fields);
 		addSection(activity, form, density, "Two fingers", 2, current, fields);
@@ -149,7 +149,7 @@ public final class GlobalGestureEditorDialog {
 		int pad = (int) (16 * density);
 		form.setPadding(pad, pad, pad, pad);
 		TextView note = bodyText(activity, density);
-		note.setText("Same scrolling choice as Options → Input → Global gestures. Grey when this mode does not use it.");
+		note.setText("Same scrolling choice as Options → Gestures. Grey when this mode does not use it.");
 		form.addView(note);
 
 		form.addView(sectionLabel(activity, density, "Scrolling"));

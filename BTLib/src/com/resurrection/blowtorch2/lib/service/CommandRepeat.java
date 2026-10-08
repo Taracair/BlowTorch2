@@ -7,7 +7,8 @@ import java.util.regex.Pattern;
 
 /**
  * {@code #5 north} before alias replacement, so {@code #3 kk troll} is three
- * expansions. {@code ##} sends a literal hash. Burst, not paced.
+ * expansions. {@code #5/1s north} is the same copies with a {@code .wait}
+ * between them. {@code ##} sends a literal hash.
  */
 public final class CommandRepeat {
 
@@ -22,6 +23,13 @@ public final class CommandRepeat {
 	/** {@code #<digits> <rest>}; the rest must be non-blank to be a command. */
 	private static final Pattern REPEAT =
 			Pattern.compile("^\\s*#(\\d+)\\s+(\\S.*)$");
+
+	/**
+	 * {@code #<digits>/<gap> <rest>}. The gap is one word ({@code 1s},
+	 * {@code 500ms}, {@code 5m10s}, or a bare number of seconds).
+	 */
+	private static final Pattern PACED =
+			Pattern.compile("^\\s*#(\\d+)/(\\S+)\\s+(\\S.*)$");
 
 	/** A segment that starts with two hashes: send one hash, do not repeat. */
 	private static final Pattern ESCAPED = Pattern.compile("^\\s*##");
@@ -54,7 +62,7 @@ public final class CommandRepeat {
 	}
 
 	/**
-	 * Expand every {@code #N cmd} segment in a batch.
+	 * Expand every {@code #N cmd} and {@code #N/gap cmd} segment in a batch.
 	 *
 	 * @param segments the semicolon-split command segments; not modified.
 	 * @return the same list with multipliers expanded, never null.
@@ -96,6 +104,11 @@ public final class CommandRepeat {
 				out.add(segment.replaceFirst("##", "#"));
 				continue;
 			}
+			Matcher paced = PACED.matcher(segment);
+			if (paced.matches()) {
+				refused = expandPaced(out, segment, paced, refused);
+				continue;
+			}
 			Matcher m = REPEAT.matcher(segment);
 			if (!m.matches()) {
 				out.add(segment);
@@ -106,12 +119,7 @@ public final class CommandRepeat {
 			if (count < 1 || count > MAX_REPEAT) {
 				// Left exactly as typed, so the player sees the world reject it
 				// rather than seeing us quietly do something else.
-				out.add(segment);
-				if (refused == null) {
-					refused = new StringBuilder();
-				}
-				refused.append("Repeat refused: ").append(segment.trim())
-						.append(" (allowed 1-").append(MAX_REPEAT).append(")\n");
+				refused = refuse(out, segment, refused, countLimit());
 				continue;
 			}
 			for (int n = 0; n < count; n++) {
@@ -119,6 +127,66 @@ public final class CommandRepeat {
 			}
 		}
 		return new Result(out, refused == null ? null : refused.toString());
+	}
+
+	/**
+	 * Copies of {@code body}, with {@code .wait <gap>} between them and not
+	 * after the last. A bad count or gap is left as typed.
+	 */
+	private static StringBuilder expandPaced(final List<String> out, final String segment,
+			final Matcher paced, StringBuilder refused) {
+		int count = parseCount(paced.group(1));
+		String gap = paced.group(2);
+		String body = paced.group(3);
+		if (count < 1 || count > MAX_REPEAT) {
+			return refuse(out, segment, refused, countLimit());
+		}
+		String problem = gapProblem(gap);
+		if (problem != null) {
+			return refuse(out, segment, refused, problem);
+		}
+		for (int n = 0; n < count; n++) {
+			if (n > 0) {
+				out.add(".wait " + gap);
+			}
+			out.add(body);
+		}
+		return refused;
+	}
+
+	private static String countLimit() {
+		return "allowed 1-" + MAX_REPEAT;
+	}
+
+	/** Null when the gap is a real pause, at most one hour. */
+	private static String gapProblem(final String gap) {
+		try {
+			long ms = CommandWait.parseDurationMs(gap);
+			if (ms <= 0L) {
+				return "gap must be more than zero";
+			}
+			if (ms > CommandWait.MAX_MS) {
+				return "gap longer than 1h";
+			}
+			return null;
+		} catch (IllegalArgumentException bad) {
+			String msg = bad.getMessage();
+			if (msg != null && msg.startsWith("Wait refused:")) {
+				return "gap longer than 1h";
+			}
+			return "gap not understood";
+		}
+	}
+
+	private static StringBuilder refuse(final List<String> out, final String segment,
+			StringBuilder refused, final String why) {
+		out.add(segment);
+		if (refused == null) {
+			refused = new StringBuilder();
+		}
+		refused.append("Repeat refused: ").append(segment.trim())
+				.append(" (").append(why).append(")\n");
+		return refused;
 	}
 
 	/**

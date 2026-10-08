@@ -51,7 +51,7 @@ public class PromptBarCommand extends SpecialCommand {
 				+ "already holds such a line back so a trigger cannot cut it in\n"
 				+ "half, so it knows exactly which line is the prompt without\n"
 				+ "guessing at its shape.\n\n"
-				+ "Also under Options → Input.\n"));
+				+ "Also under Options → Panes.\n"));
 		return null;
 	}
 

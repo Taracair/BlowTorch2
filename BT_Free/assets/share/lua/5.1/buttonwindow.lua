@@ -1643,6 +1643,11 @@ end
 
 function buttonHeat(arg)
 	arg = arg or ""
+	if type(arg) ~= "string" then
+		Note("\nUsage: .heatmap | .heatmap off | .heatmap reset\n")
+		return
+	end
+	arg = string.lower(string.gsub(arg, "^%s*(.-)%s*$", "%1"))
 	if arg == "off" then
 		buttonHeatOverlay = false
 		Note("\nHeatmap hidden. Counts keep collecting for this world.\n")
@@ -1657,7 +1662,7 @@ function buttonHeat(arg)
 			buttonHeatDiscardLoad = true
 		end
 		Note("\nHeatmap cleared for this world.\n")
-	else
+	elseif arg == "" then
 		buttonHeatOverlay = true
 		local lines = {}
 		for key, n in pairs(buttonHeatCounts) do
@@ -1670,6 +1675,9 @@ function buttonHeat(arg)
 			Note("\nHeatmap for this world (kept between sessions). Brighter tiles are used more:\n"
 				.. table.concat(lines, "\n") .. "\n")
 		end
+	else
+		Note("\nUsage: .heatmap | .heatmap off | .heatmap reset\n")
+		return
 	end
 	refreshHeatmapChrome()
 end

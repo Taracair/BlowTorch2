@@ -25,9 +25,61 @@ public class ProbeCommand extends SpecialCommand {
 		this.commandName = "probe";
 	}
 
+	static final int PROBE_CATALOGUE = 0;
+	static final int PROBE_RUN = 1;
+	static final int PROBE_ERROR = 2;
+
+	/**
+	 * Blank prints the catalogue. A real probe verb runs. A bad {@code lines}
+	 * argument, and any other word, is usage — not the catalogue.
+	 */
+	static int classify(String raw) {
+		String arg = raw == null ? "" : raw.trim().toLowerCase(Locale.US);
+		if (arg.length() == 0) {
+			return PROBE_CATALOGUE;
+		}
+		if (arg.startsWith("lines")) {
+			String rest = arg.substring("lines".length()).trim();
+			if (rest.length() == 0 || rest.equals("on") || rest.equals("off")
+					|| rest.equals("reset") || rest.equals("report") || rest.equals("status")) {
+				return PROBE_RUN;
+			}
+			return PROBE_ERROR;
+		}
+		if (arg.startsWith("connection") || arg.startsWith("conn")
+				|| arg.startsWith("net") || arg.startsWith("socket")
+				|| arg.startsWith("bleed") || arg.startsWith("colourbleed")
+				|| arg.startsWith("colorbleed")
+				|| arg.equals("truecolor") || arg.equals("colour") || arg.equals("color")
+				|| arg.equals("colours") || arg.equals("colors")
+				|| arg.equals("osc8") || arg.equals("osc-8") || arg.equals("hyperlink")
+				|| arg.equals("protocols") || arg.equals("protocol")
+				|| arg.equals("mxp")
+				|| arg.startsWith("sensors")) {
+			return PROBE_RUN;
+		}
+		return PROBE_ERROR;
+	}
+
+	static String usage() {
+		return ".probe                         — list of probes\n"
+				+ ".probe connection|bleed|lines|sensors|truecolor|osc8|mxp|protocols\n"
+				+ ".probe lines on|off|report|reset\n"
+				+ "Anything else is not that list.";
+	}
+
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
+		int kind = classify(arg);
+		if (kind == PROBE_CATALOGUE) {
+			c.sendDataToWindow(catalogue());
+			return null;
+		}
+		if (kind == PROBE_ERROR) {
+			c.sendDataToWindow(getErrorMessage("Probe usage", usage()));
+			return null;
+		}
 
 		if (arg.startsWith("connection") || arg.startsWith("conn")
 				|| arg.startsWith("net") || arg.startsWith("socket")) {
@@ -216,9 +268,12 @@ public class ProbeCommand extends SpecialCommand {
 				c.sendDataToWindow(c.chunkProbeReport());
 				return null;
 			}
+			c.sendDataToWindow(getErrorMessage("Probe usage",
+					".probe lines on|off|report|reset"));
+			return null;
 		}
 
-		c.sendDataToWindow(catalogue());
+		c.sendDataToWindow(getErrorMessage("Probe usage", usage()));
 		return null;
 	}
 

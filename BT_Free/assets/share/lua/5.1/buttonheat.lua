@@ -1,8 +1,8 @@
 -- Button-use counts for one world. No Android.
 -- File body is "v1" then one "key<TAB>count" line. Keys percent-encode
 -- % \n \r \t so a label can hold those and the line split still works.
--- Alpha is a log scale: a tile used tens of times stays visible beside one
--- used thousands of times. 0 uses is always the dim end.
+-- Linear in this tile's count over the hottest on the pad. 300 beside a
+-- hottest of 500 is 0.6 of the dim-to-bright span. 0 uses stays at the dim end.
 
 local M = {}
 
@@ -55,7 +55,7 @@ function M.alpha(total, maxTotal)
 	if total >= maxTotal then
 		return M.MAX_ALPHA
 	end
-	local t = math.log(1 + total) / math.log(1 + maxTotal)
+	local t = total / maxTotal
 	local a = math.floor(M.MIN_ALPHA + t * (M.MAX_ALPHA - M.MIN_ALPHA) + 0.5)
 	if a < M.MIN_ALPHA then
 		return M.MIN_ALPHA

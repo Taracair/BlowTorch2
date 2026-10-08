@@ -16,6 +16,7 @@ import com.resurrection.blowtorch2.lib.window.PrefixPickLoupe;
  * .pick tap — same as once
  * .pick button — swipe (or tap) on a pad tile, keep holding, slide onto a word
  * .pick button-double — hold a tile, tap a word with the other finger
+ * add {@code insert} ({@code .pick hold insert}) and the line goes in the bar
  * .pick loupe / .pick loupe size N / .pick loupe zoom N
  * .pick off
  * </pre>
@@ -28,6 +29,33 @@ public class PickCommand extends SpecialCommand {
 	public static final int MODE_TAP = 3;
 	public static final int MODE_BUTTON = 4;
 	public static final int MODE_BUTTON_DOUBLE = 5;
+	/** Packed into the mode int. The binder method stays one int. */
+	public static final int INSERT_FLAG = 0x100;
+
+	public static final class Args {
+		public final int mode;
+		public final boolean insert;
+
+		Args(final int mode, final boolean insert) {
+			this.mode = mode;
+			this.insert = insert;
+		}
+
+		public int packed() {
+			if (mode < 0) {
+				return -1;
+			}
+			return insert ? (mode | INSERT_FLAG) : mode;
+		}
+	}
+
+	public static int modeOf(final int packed) {
+		return packed & 0xff;
+	}
+
+	public static boolean inserts(final int packed) {
+		return packed >= 0 && (packed & INSERT_FLAG) != 0;
+	}
 
 	public PickCommand() {
 		this.commandName = "pick";
@@ -59,6 +87,51 @@ public class PickCommand extends SpecialCommand {
 		return -1;
 	}
 
+	/**
+	 * One mode word, plus optional {@code insert} in either order.
+	 * {@code .pick off insert} and two mode words are invalid ({@code mode}
+	 * is {@code -1}).
+	 */
+	public static Args parseArgs(final String raw) {
+		String trimmed = raw == null ? "" : raw.trim();
+		if (trimmed.length() == 0) {
+			return new Args(MODE_ONCE, false);
+		}
+		String[] tok = trimmed.toLowerCase(Locale.US).split("\\s+");
+		java.util.ArrayList<String> words = new java.util.ArrayList<String>();
+		for (int i = 0; i < tok.length; i++) {
+			String t = tok[i].replace('_', '-');
+			if ((t.equals("button") || t.equals("btn")) && i + 1 < tok.length
+					&& tok[i + 1].replace('_', '-').equals("double")) {
+				words.add("button-double");
+				i++;
+				continue;
+			}
+			words.add(t);
+		}
+		int mode = Integer.MIN_VALUE;
+		boolean insert = false;
+		for (int i = 0; i < words.size(); i++) {
+			String w = words.get(i);
+			if (w.equals("insert")) {
+				insert = true;
+				continue;
+			}
+			int m = parseMode(w);
+			if (m < 0 || mode != Integer.MIN_VALUE) {
+				return new Args(-1, false);
+			}
+			mode = m;
+		}
+		if (mode == Integer.MIN_VALUE) {
+			mode = MODE_ONCE;
+		}
+		if (mode == MODE_OFF && insert) {
+			return new Args(-1, false);
+		}
+		return new Args(mode, insert);
+	}
+
 	public static boolean isLoupeCommand(final String raw) {
 		if (raw == null) {
 			return false;
@@ -77,7 +150,8 @@ public class PickCommand extends SpecialCommand {
 		if (isLoupeCommand(raw)) {
 			return executeLoupe(raw, c);
 		}
-		int mode = parseMode(raw);
+		Args args = parseArgs(raw);
+		int mode = args.mode;
 		if (mode < 0) {
 			c.sendDataToWindow(getErrorMessage(
 					"Pick — send a prefix plus a word from the screen.",
@@ -86,6 +160,11 @@ public class PickCommand extends SpecialCommand {
 							+ ".pick tap              — same as once\n"
 							+ ".pick button           — swipe a tile, keep holding, slide onto a word\n"
 							+ ".pick button-double    — hold a tile, tap a word with the other finger\n"
+							+ "Add insert to any of those and the line goes in the bar instead.\n"
+							+ ".pick insert           — once, into the bar\n"
+							+ ".pick hold insert      — each next word is added in the bar\n"
+							+ ".pick button insert\n"
+							+ ".pick button-double insert\n"
 							+ ".pick loupe            — print size and zoom\n"
 							+ ".pick loupe size N     — magnifier size 50–200 (118 default)\n"
 							+ ".pick loupe zoom N     — magnifier zoom 150–350 (200 = 2×)\n"
@@ -95,10 +174,14 @@ public class PickCommand extends SpecialCommand {
 							+ "Or put fix $1 helmet in the bar and pick iron → fix iron helmet.\n"
 							+ "$1, $0 and $word are the picked word. No slot: the word is appended.\n"
 							+ "Or put .pick hold on a button and leave fix  in the bar.\n"
-							+ "During hold, a second finger cancels that pick so you can scroll."));
+							+ "During hold, a second finger cancels that pick so you can scroll.\n"
+							+ "insert sends nothing. You send the line yourself."));
 			return null;
 		}
-		c.getService().doExecutePrefixPick(mode);
+		c.getService().doExecutePrefixPick(args.packed());
+		String intoBar = args.insert
+				? " The line goes in the bar. Nothing is sent."
+				: "";
 		String msg;
 		if (mode == MODE_OFF) {
 			msg = Colorizer.getBrightCyanColor() + "Pick off."
@@ -108,19 +191,23 @@ public class PickCommand extends SpecialCommand {
 					+ "Pick on (hold). Prefix is the input bar "
 					+ "(fix  or fix $1 helmet). .pick off to stop. "
 					+ "A second finger cancels that pick so you can scroll."
+					+ intoBar
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_BUTTON) {
 			msg = Colorizer.getBrightCyanColor()
 					+ "Pick button: swipe a tile, keep holding, slide onto a word. .pick off to stop."
+					+ intoBar
 					+ Colorizer.getWhiteColor() + "\n";
 		} else if (mode == MODE_BUTTON_DOUBLE) {
 			msg = Colorizer.getBrightCyanColor()
 					+ "Pick button-double: hold a tile, tap a word with the other finger. .pick off to stop."
+					+ intoBar
 					+ Colorizer.getWhiteColor() + "\n";
 		} else {
 			msg = Colorizer.getBrightCyanColor()
 					+ "Pick once: prefix in the bar (fix  or fix $1 helmet), "
 					+ "tap a word, then it turns off."
+					+ intoBar
 					+ Colorizer.getWhiteColor() + "\n";
 		}
 		c.sendDataToWindow("\n" + msg);

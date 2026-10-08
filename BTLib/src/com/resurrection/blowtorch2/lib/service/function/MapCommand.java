@@ -21,7 +21,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * <pre>
  * .map / .map help
  * .map open|close|toggle
- * .map record on|off|toggle
+ * .map record            on or off; on|off|toggle to set
  * .map follow on|off
  * .map level list|prev|next|set &lt;name&gt;|delete &lt;id|name&gt;
  * .map find|path|goto &lt;query&gt;
@@ -364,15 +364,130 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
-	private Object doRecord(Connection c, MapperController mapper, String rest) {
-		String a = rest.toLowerCase(Locale.US);
+	static final int RECORD_BAD = 0;
+	static final int RECORD_ON = 1;
+	static final int RECORD_OFF = 2;
+	static final int RECORD_TOGGLE = 3;
+	static final int RECORD_STATUS = 4;
+
+	static final int FLAG_BAD = 0;
+	static final int FLAG_ON = 1;
+	static final int FLAG_OFF = 2;
+	static final int FLAG_TOGGLE = 3;
+	static final int FLAG_STATUS = 4;
+	/** Not a bare flag: grow, policy, apply, status. */
+	static final int FLAG_OTHER = 5;
+
+	/** Blank is on or off. {@code toggle} flips. {@code on} and {@code off} stay. */
+	static int parseRecord(String rest) {
+		String a = rest == null ? "" : rest.trim().toLowerCase(Locale.US);
+		if (a.length() == 0) {
+			return RECORD_STATUS;
+		}
 		if (a.equals("on") || a.equals("1") || a.equals("true")) {
+			return RECORD_ON;
+		}
+		if (a.equals("off") || a.equals("0") || a.equals("false")) {
+			return RECORD_OFF;
+		}
+		if (a.equals("toggle")) {
+			return RECORD_TOGGLE;
+		}
+		return RECORD_BAD;
+	}
+
+	/** Blank is on or off. {@code toggle} flips. A second word is usage. */
+	static int parseEcho(String rest) {
+		String a = rest == null ? "" : rest.trim().toLowerCase(Locale.US);
+		if (a.length() == 0) {
+			return FLAG_STATUS;
+		}
+		if (a.equals("on") || a.equals("1") || a.equals("true")) {
+			return FLAG_ON;
+		}
+		if (a.equals("off") || a.equals("0") || a.equals("false") || a.equals("quiet")) {
+			return FLAG_OFF;
+		}
+		if (a.equals("toggle")) {
+			return FLAG_TOGGLE;
+		}
+		return FLAG_BAD;
+	}
+
+	/** Blank is on or off. {@code accept} stays on. {@code smart} and {@code close} stay off. */
+	static int parseOneWay(String rest) {
+		String a = rest == null ? "" : rest.trim().toLowerCase(Locale.US);
+		if (a.length() == 0) {
+			return FLAG_STATUS;
+		}
+		if (a.equals("on") || a.equals("1") || a.equals("true") || a.equals("accept")) {
+			return FLAG_ON;
+		}
+		if (a.equals("off") || a.equals("0") || a.equals("false")
+				|| a.equals("smart") || a.equals("close")) {
+			return FLAG_OFF;
+		}
+		if (a.equals("toggle")) {
+			return FLAG_TOGGLE;
+		}
+		return FLAG_BAD;
+	}
+
+	/**
+	 * Blank, {@code on}, {@code off}, or {@code toggle} for {@code .map gmcp}.
+	 * {@code grow}, {@code policy}, and the apply/keep words are {@link #FLAG_OTHER}.
+	 */
+	static int parseGmcp(String rest) {
+		String a = rest == null ? "" : rest.trim().toLowerCase(Locale.US);
+		if (a.length() == 0) {
+			return FLAG_STATUS;
+		}
+		if (a.equals("on")) {
+			return FLAG_ON;
+		}
+		if (a.equals("off")) {
+			return FLAG_OFF;
+		}
+		if (a.equals("toggle")) {
+			return FLAG_TOGGLE;
+		}
+		if (a.startsWith("grow") || a.startsWith("policy") || a.startsWith("mode")
+				|| a.equals("apply") || a.equals("applyall") || a.equals("keep")
+				|| a.equals("keepall") || a.equals("status") || a.equals("?")) {
+			return FLAG_OTHER;
+		}
+		return FLAG_BAD;
+	}
+
+	/** The words after {@code .map gmcp grow}. Blank is on or off. */
+	static int parseGmcpGrow(String rest) {
+		String a = rest == null ? "" : rest.trim().toLowerCase(Locale.US);
+		if (a.length() == 0) {
+			return FLAG_STATUS;
+		}
+		if (a.equals("on")) {
+			return FLAG_ON;
+		}
+		if (a.equals("off")) {
+			return FLAG_OFF;
+		}
+		if (a.equals("toggle")) {
+			return FLAG_TOGGLE;
+		}
+		return FLAG_BAD;
+	}
+
+	private Object doRecord(Connection c, MapperController mapper, String rest) {
+		int mode = parseRecord(rest);
+		if (mode == RECORD_ON) {
 			note(c, mapper.setRecordingStatus(true));
-		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
+		} else if (mode == RECORD_OFF) {
 			note(c, mapper.setRecordingStatus(false));
-		} else if (a.equals("toggle") || a.length() == 0) {
+		} else if (mode == RECORD_TOGGLE) {
 			// setRecordingStatus denies turning ON while Browse; OFF always works.
 			note(c, mapper.setRecordingStatus(!mapper.isRecording()));
+		} else if (mode == RECORD_STATUS) {
+			note(c, "Mapper record: " + (mapper.isRecording() ? "on" : "off"));
 		} else {
 			note(c, "Usage: .map record on|off|toggle");
 			return null;
@@ -949,17 +1064,17 @@ public class MapCommand extends SpecialCommand {
 	}
 
 	private Object doOneWay(Connection c, MapperController mapper, String rest) {
-		String a = rest.toLowerCase(Locale.US);
-		if (a.equals("on") || a.equals("1") || a.equals("true") || a.equals("accept")) {
-			mapper.setAcceptOneWaySpecials(true);
-		} else if (a.equals("off") || a.equals("0") || a.equals("false")
-				|| a.equals("smart") || a.equals("close")) {
-			mapper.setAcceptOneWaySpecials(false);
-		} else if (a.equals("toggle") || a.length() == 0) {
-			mapper.toggleAcceptOneWaySpecials();
-		} else {
+		int mode = parseOneWay(rest);
+		if (mode == FLAG_BAD) {
 			note(c, "Usage: .map oneway on|off|toggle");
 			return null;
+		}
+		if (mode == FLAG_ON) {
+			mapper.setAcceptOneWaySpecials(true);
+		} else if (mode == FLAG_OFF) {
+			mapper.setAcceptOneWaySpecials(false);
+		} else if (mode == FLAG_TOGGLE) {
+			mapper.toggleAcceptOneWaySpecials();
 		}
 		note(c, "Mapper accept one-way specials: "
 				+ (mapper.isAcceptOneWaySpecials() ? "on" : "off"));
@@ -968,12 +1083,18 @@ public class MapCommand extends SpecialCommand {
 
 	private Object doGmcp(Connection c, MapperController mapper, String rest) {
 		String a = rest != null ? rest.trim().toLowerCase(Locale.US) : "";
-		if (a.equals("on") || a.equals("off") || a.equals("toggle") || a.length() == 0) {
-			if (a.equals("on")) {
+		int mode = parseGmcp(a);
+		if (mode == FLAG_BAD) {
+			note(c, "Usage: .map gmcp on|off|toggle | grow on|off|toggle"
+					+ " | policy follow|sync|strict | apply|keep|applyall|keepall");
+			return null;
+		}
+		if (mode != FLAG_OTHER) {
+			if (mode == FLAG_ON) {
 				mapper.setUseGmcp(true);
-			} else if (a.equals("off")) {
+			} else if (mode == FLAG_OFF) {
 				mapper.setUseGmcp(false);
-			} else {
+			} else if (mode == FLAG_TOGGLE) {
 				mapper.toggleUseGmcp();
 			}
 			note(c, "Mapper GMCP sync: " + (mapper.isUseGmcp() ? "on" : "off")
@@ -982,12 +1103,18 @@ public class MapCommand extends SpecialCommand {
 			return null;
 		}
 		if (a.startsWith("grow")) {
-			String b = a.length() > 4 ? a.substring(4).trim() : "toggle";
-			if (b.equals("on")) {
+			String b = a.length() > 4 ? a.substring(4).trim() : "";
+			int grow = parseGmcpGrow(b);
+			if (grow == FLAG_BAD) {
+				note(c, "Usage: .map gmcp on|off|toggle | grow on|off|toggle"
+						+ " | policy follow|sync|strict | apply|keep|applyall|keepall");
+				return null;
+			}
+			if (grow == FLAG_ON) {
 				mapper.setGmcpGrow(true);
-			} else if (b.equals("off")) {
+			} else if (grow == FLAG_OFF) {
 				mapper.setGmcpGrow(false);
-			} else {
+			} else if (grow == FLAG_TOGGLE) {
 				mapper.toggleGmcpGrow();
 			}
 			note(c, "Mapper GMCP grow: " + (mapper.isGmcpGrow() ? "on" : "off")
@@ -1028,23 +1155,20 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
-	/**
-	 * Toggle whether {@code .map} status lines appear in the game window.
-	 * Always prints the resulting state (even when turning echo off).
-	 */
+	/** Blank prints on or off. {@code on}, {@code off}, and {@code toggle} set it. */
 	private Object doEcho(Connection c, MapperController mapper, String rest) {
-		String a = rest != null ? rest.trim().toLowerCase(Locale.US) : "";
-		if (a.equals("on") || a.equals("1") || a.equals("true")) {
-			mapper.setEchoWindow(true);
-		} else if (a.equals("off") || a.equals("0") || a.equals("false")
-				|| a.equals("quiet")) {
-			mapper.setEchoWindow(false);
-		} else if (a.equals("toggle") || a.length() == 0) {
-			mapper.toggleEchoWindow();
-		} else {
+		int mode = parseEcho(rest);
+		if (mode == FLAG_BAD) {
 			c.sendDataToWindow(Colorizer.getWhiteColor()
 					+ "Usage: .map echo on|off|toggle\n");
 			return null;
+		}
+		if (mode == FLAG_ON) {
+			mapper.setEchoWindow(true);
+		} else if (mode == FLAG_OFF) {
+			mapper.setEchoWindow(false);
+		} else if (mode == FLAG_TOGGLE) {
+			mapper.toggleEchoWindow();
 		}
 		boolean on = mapper.isEchoWindow();
 		c.sendDataToWindow(Colorizer.getWhiteColor()
@@ -1133,7 +1257,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("Mapper (").append(statusLine(m)).append(")\n");
 		sb.append("  .map open|close|toggle\n");
-		sb.append("  .map record|rec on|off|toggle\n");
+		sb.append("  .map record|rec            — on or off; on|off|toggle to set\n");
 		sb.append("  .map name   (while recording: room name from recent lines; Nav → Name)\n");
 		sb.append("  .map follow on|off|toggle\n");
 		sb.append("  .map level list|prev|next|set <name>|rename [<id|name>] <new>|delete <id|name>|move <tileId> <level>\n");
@@ -1159,10 +1283,13 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
 		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
-		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
-		sb.append("  .map gmcp on|off|toggle | .map gmcp grow on|off|toggle\n");
+		sb.append("  .map oneway                — on or off; on|off|toggle to set"
+				+ " (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
+		sb.append("  .map gmcp                  — on or off; on|off|toggle to set\n");
+		sb.append("  .map gmcp grow             — on or off; on|off|toggle to set\n");
 		sb.append("  .map gmcp policy follow|sync|strict | .map gmcp apply|keep|applyall|keepall\n");
-		sb.append("  .map echo on|off|toggle  (echo .map status into the game window)\n");
+		sb.append("  .map echo                  — on or off; on|off|toggle to set"
+				+ " (echo .map status into the game window)\n");
 		sb.append("  .map locktitle|lockposition [for <id>] on|off|toggle\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
 		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");

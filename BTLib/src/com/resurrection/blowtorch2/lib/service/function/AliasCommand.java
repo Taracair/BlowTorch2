@@ -44,7 +44,11 @@ public class AliasCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
-		if (arg.length() == 0 || arg.equalsIgnoreCase("help") || arg.equals("?")) {
+		int route = route(arg);
+		if (route == ROUTE_STATUS) {
+			return doStatus(c, "");
+		}
+		if (route == ROUTE_HELP) {
 			c.sendDataToWindow(helpText());
 			return null;
 		}
@@ -267,8 +271,26 @@ public class AliasCommand extends SpecialCommand {
 				+ " · .alias all on|off";
 	}
 
+	static final int ROUTE_STATUS = 0;
+	static final int ROUTE_HELP = 1;
+	static final int ROUTE_VERB = 2;
+
+	/** Blank is the count line. {@code help} is the usage wall. {@code state} stays a verb. */
+	static int route(String arg) {
+		if (arg == null || arg.trim().length() == 0) {
+			return ROUTE_STATUS;
+		}
+		String a = arg.trim();
+		if (a.equalsIgnoreCase("help") || a.equals("?")) {
+			return ROUTE_HELP;
+		}
+		return ROUTE_VERB;
+	}
+
 	private String helpText() {
 		return "\nAlias commands:\n"
+				+ "  .alias                         how many are on (same as status)\n"
+				+ "  .alias help                    this list\n"
 				+ "  .alias list                    all aliases and their state\n"
 				+ "  .alias status|state [name]      counts, or one alias\n"
 				+ "  .alias on|off|toggle <name>    turn one on or off\n"

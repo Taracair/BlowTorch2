@@ -57,7 +57,7 @@ public class BellCommand extends SpecialCommand {
 						+ "The bell rang, but nothing is set to answer it."
 						+ Colorizer.getWhiteColor()
 						+ "\nTurn on Vibrate, Generate Notification or Display Bell in"
-						+ " Options → Bell.\nOnly Vibrate is on by default, and a"
+						+ " Options → Sound.\nOnly Vibrate is on by default, and a"
 						+ " phone in silent mode, Do Not Disturb, or some OS"
 						+ " profiles will not buzz.\n");
 				return null;
@@ -115,7 +115,7 @@ public class BellCommand extends SpecialCommand {
 
 	static String usage() {
 		return "Usage:\n"
-				+ "  .dobell            — reactions currently on in Options → Bell\n"
+				+ "  .dobell            — reactions currently on in Options → Sound\n"
 				+ "  .dobell vibrate [short|long|strong|burst]\n"
 				+ "  .dobell alert      — on-screen bell icon now\n";
 	}

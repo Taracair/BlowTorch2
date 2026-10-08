@@ -5,9 +5,8 @@ package com.resurrection.blowtorch2.lib.service.plugin.settings;
 
 import java.util.ArrayList;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.AdapterView;
@@ -16,15 +15,16 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.gauge.GaugeSpawnPlacement;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
+import com.resurrection.blowtorch2.lib.window.EditorHelp;
 
 /**
  * Manage overlay gauges: list / add / delete / edit. Persist via
@@ -52,7 +52,7 @@ public final class GaugeWidgetsDialog {
 			+ "then give it two numbers (current and max). How those numbers "
 			+ "arrive depends on the source.\n\n"
 			+ "1) Protocol (no trigger)\n"
-			+ "GMCP: Options → Service → Protocols → Use GMCP?. Path is a dotted "
+			+ "GMCP: Options → Protocols → Use GMCP?. Path is a dotted "
 			+ "key, e.g. Char.Vitals.hp and Char.Vitals.maxhp.\n"
 			+ "  .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp\n\n"
 			+ "MCP (MOOs). LambdaMOO passes #$# to the core; MCP 2.1 lives in "
@@ -109,11 +109,8 @@ public final class GaugeWidgetsDialog {
 		final ArrayList<GaugeWidget> gauges = GaugeWidgetsStore.parse(host.getJson());
 		GaugeWidgetsStore.validate(gauges);
 
-		ScrollView scroll = new ScrollView(context);
-		final LinearLayout root = new LinearLayout(context);
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-		scroll.addView(root);
+		final Dialog dialog = OptionsSubdialog.open(context, "Manage widgets");
+		final LinearLayout root = OptionsSubdialog.body(dialog);
 
 		TextView intro = new TextView(context);
 		intro.setText("Overlay gauges (max " + GaugeWidgetsStore.MAX
@@ -123,6 +120,7 @@ public final class GaugeWidgetsDialog {
 				+ "Long-press a gauge to move/resize it. Tap/swipe commands are on each widget.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
+		OptionsSubdialog.ink(intro);
 		root.addView(intro);
 
 		final LinearLayout list = new LinearLayout(context);
@@ -137,6 +135,7 @@ public final class GaugeWidgetsDialog {
 				if (gauges.isEmpty()) {
 					TextView empty = new TextView(context);
 					empty.setText("(no widgets yet)");
+					OptionsSubdialog.muted(empty);
 					list.addView(empty);
 					return;
 				}
@@ -156,6 +155,7 @@ public final class GaugeWidgetsDialog {
 							+ " " + widget.getOpacity() + "%"
 							+ (widget.isVisible() ? "" : " (hidden)"));
 					title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+					OptionsSubdialog.ink(title);
 					row.addView(title);
 
 					LinearLayout buttons = new LinearLayout(context);
@@ -203,19 +203,27 @@ public final class GaugeWidgetsDialog {
 		});
 		root.addView(add);
 
-		AlertDialog.Builder b = new AlertDialog.Builder(context);
-		b.setTitle("Manage widgets");
-		b.setView(scroll);
-		b.setNegativeButton("Cancel", null);
-		b.setPositiveButton("Apply", new DialogInterface.OnClickListener() {
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onClick(DialogInterface dialog, int which) {
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button done = new Button(context);
+		done.setText("Done");
+		done.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
 				GaugeWidgetsStore.validate(gauges);
 				String json = GaugeWidgetsStore.toJson(gauges);
 				host.applyJson(json, host.isEnabled());
+				dialog.dismiss();
 			}
 		});
-		b.show();
+		OptionsSubdialog.buttons(dialog, cancel, done);
+		OptionsSubdialog.show(dialog);
 	}
 
 	private static void confirmDelete(final Context context,
@@ -225,40 +233,47 @@ public final class GaugeWidgetsDialog {
 			return;
 		}
 		String id = widget.getId() != null ? widget.getId() : "";
-		new AlertDialog.Builder(context)
-				.setMessage("Delete widget '" + id + "'?")
-				.setNegativeButton("Cancel", null)
-				.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						gauges.remove(widget);
-						onDone.run();
-					}
-				})
-				.show();
+		final Dialog dialog = OptionsSubdialog.open(context, "Delete widget");
+		TextView message = new TextView(context);
+		message.setText("Delete widget '" + id + "'?");
+		message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+		OptionsSubdialog.ink(message);
+		OptionsSubdialog.body(dialog).addView(message);
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button delete = new Button(context);
+		delete.setText("Delete");
+		delete.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				gauges.remove(widget);
+				onDone.run();
+				dialog.dismiss();
+			}
+		});
+		OptionsSubdialog.buttons(dialog, cancel, delete);
+		OptionsSubdialog.show(dialog);
 	}
 
 	private static void editWidget(final Context context,
 			final ArrayList<GaugeWidget> gauges, final GaugeWidget existing,
 			final Runnable onDone) {
-		int pad = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 12,
-				context.getResources().getDisplayMetrics());
-		ScrollView scroll = new ScrollView(context);
-		LinearLayout form = new LinearLayout(context);
-		form.setOrientation(LinearLayout.VERTICAL);
-		form.setPadding(pad, pad, pad, pad);
-		scroll.addView(form);
+		final Dialog dialog = OptionsSubdialog.open(context,
+				existing == null ? "Add widget" : "Edit widget");
+		LinearLayout form = OptionsSubdialog.body(dialog);
 
 		Button helpBtn = new Button(context);
 		helpBtn.setText("?");
 		helpBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				new AlertDialog.Builder(context)
-						.setTitle("Widget sources")
-						.setMessage(EDIT_HELP)
-						.setPositiveButton("OK", null)
-						.show();
+				EditorHelp.show(context, "Widget sources", EDIT_HELP);
 			}
 		});
 		form.addView(helpBtn);
@@ -270,6 +285,7 @@ public final class GaugeWidgetsDialog {
 			idField.setText(existing.getId());
 		}
 		form.addView(label(context, "Id"));
+		OptionsSubdialog.field(idField);
 		form.addView(idField);
 
 		final Spinner shape = spinner(context, SHAPES);
@@ -291,6 +307,7 @@ public final class GaugeWidgetsDialog {
 			path.setText(existing.getPath());
 		}
 		form.addView(pathLabel);
+		OptionsSubdialog.field(path);
 		form.addView(path);
 
 		final TextView maxPathLabel = label(context, "Max path");
@@ -300,6 +317,7 @@ public final class GaugeWidgetsDialog {
 			maxPath.setText(existing.getMaxPath());
 		}
 		form.addView(maxPathLabel);
+		OptionsSubdialog.field(maxPath);
 		form.addView(maxPath);
 		source.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
 			@Override
@@ -321,6 +339,7 @@ public final class GaugeWidgetsDialog {
 		color.setSingleLine(true);
 		color.setText(GaugeWidget.formatColor(existing != null
 				? existing.getColorFill() : GaugeWidget.DEFAULT_COLOR_FILL));
+		OptionsSubdialog.field(color);
 		form.addView(label(context, "Color"));
 		LinearLayout colorRow = new LinearLayout(context);
 		colorRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -354,6 +373,7 @@ public final class GaugeWidgetsDialog {
 		opacity.setText(Integer.toString(existing != null
 				? existing.getOpacity() : GaugeWidget.DEFAULT_OPACITY));
 		form.addView(label(context, "Opacity % (10–100)"));
+		OptionsSubdialog.field(opacity);
 		form.addView(opacity);
 
 		final EditText warnPct = new EditText(context);
@@ -363,6 +383,7 @@ public final class GaugeWidgetsDialog {
 		warnPct.setText(Integer.toString(existing != null
 				? existing.getWarnPct() : GaugeWidget.DEFAULT_WARN_PCT));
 		form.addView(label(context, "Warn %"));
+		OptionsSubdialog.field(warnPct);
 		form.addView(warnPct);
 
 		final Spinner ime = spinner(context, IME_MODES);
@@ -374,9 +395,11 @@ public final class GaugeWidgetsDialog {
 		final CheckBox showValue = new CheckBox(context);
 		showValue.setText("Show value");
 		showValue.setChecked(existing == null || existing.isShowValue());
+		OptionsSubdialog.check(showValue);
 		final CheckBox showLabel = new CheckBox(context);
 		showLabel.setText("Show label");
 		showLabel.setChecked(existing == null || existing.isShowLabel());
+		OptionsSubdialog.check(showLabel);
 		LinearLayout flags = new LinearLayout(context);
 		flags.setOrientation(LinearLayout.HORIZONTAL);
 		flags.addView(showValue);
@@ -386,6 +409,7 @@ public final class GaugeWidgetsDialog {
 		final CheckBox visible = new CheckBox(context);
 		visible.setText("Visible");
 		visible.setChecked(existing == null || existing.isVisible());
+		OptionsSubdialog.check(visible);
 		form.addView(visible);
 
 		form.addView(label(context, "Commands (empty = none)"));
@@ -411,13 +435,19 @@ public final class GaugeWidgetsDialog {
 		final EditText swipeDownRight = commandField(context, form, "Swipe down-right",
 				existing != null ? existing.getSwipeDownRight() : "");
 
-		AlertDialog.Builder b = new AlertDialog.Builder(context);
-		b.setTitle(existing == null ? "Add widget" : "Edit widget");
-		b.setView(scroll);
-		b.setNegativeButton("Cancel", null);
-		b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+		Button cancel = new Button(context);
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onClick(DialogInterface dialog, int which) {
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		Button done = new Button(context);
+		done.setText("Done");
+		done.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
 				String rawId = idField.getText() != null ? idField.getText().toString() : "";
 				String normalized = GaugeWidgetsStore.normalizeName(rawId);
 				if (normalized == null) {
@@ -492,9 +522,11 @@ public final class GaugeWidgetsDialog {
 					gauges.add(widget);
 				}
 				onDone.run();
+				dialog.dismiss();
 			}
 		});
-		b.show();
+		OptionsSubdialog.buttons(dialog, cancel, done);
+		OptionsSubdialog.show(dialog);
 	}
 
 	private static void applySourceFieldLabels(final String source,
@@ -539,8 +571,8 @@ public final class GaugeWidgetsDialog {
 	private static Spinner spinner(Context context, String[] items) {
 		Spinner s = new Spinner(context);
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(context,
-				android.R.layout.simple_spinner_item, items);
-		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				R.layout.spinner_item_dark, items);
+		adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		s.setAdapter(adapter);
 		return s;
 	}
@@ -565,6 +597,7 @@ public final class GaugeWidgetsDialog {
 		if (value != null && value.length() > 0) {
 			field.setText(value);
 		}
+		OptionsSubdialog.field(field);
 		form.addView(label(context, caption));
 		form.addView(field);
 		return field;
@@ -581,6 +614,7 @@ public final class GaugeWidgetsDialog {
 		TextView tv = new TextView(context);
 		tv.setText(text);
 		tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+		OptionsSubdialog.ink(tv);
 		return tv;
 	}
 }

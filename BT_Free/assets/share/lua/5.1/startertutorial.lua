@@ -191,14 +191,17 @@ Two you only need when something goes wrong:
   .echo on|off       unmask the input bar if a MUD took echoing over
                      at a password prompt and never gave it back
 
-Semicolons: Options → Service → Process Semicolons? (default on) turns ;
+Semicolons: Options → Connection → Process Semicolons? (default on) turns ;
 into a newline so look;score sends two lines. A semicolon the game should
 see inside a command is ;; (say hello;;world sends say hello;world).
 A whole line of ;; sends one semicolon. Turn it off if your MUD uses
 ; in commands.
 
-Repeat a line: #5 north sends north five times (1–100). ##5 north
-sends the characters #5 north to the game.
+Repeat a line: #5 north sends north five times at once (1–100).
+#5/1s north sends north five times with one second between them.
+The gap is one word (1s, 500ms, 2, 5m10s), at most 1h. The last copy
+is not followed by a wait. .wait stop cancels what is still waiting.
+##5 north sends the characters #5 north to the game.
 
 Pace a line: north;.wait 2s;south waits two seconds after north, then
 sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.
@@ -206,7 +209,7 @@ sends south. Same as #wait 2s. Units h/m/s/ms in any order; max 1h.
 queue. .wait change 1 60s retargets that row from now. The game still
 prints; other triggers still send. A lone .wait 5s delays nothing later.
 
-Also: Options → Service → Process System Commands? must be on (default)
+Also: Options → Connection → Process System Commands? must be on (default)
 for .commands to work.
 
 While you play, .tutorial still opens any lesson by name
@@ -727,7 +730,7 @@ TOPICS.coloring = function()
 .probe truecolor dumps a 24-bit sample here so you can see it without
 waiting on the game. Use MTTS? on advertises MTTS 269.
 
-Options → Window → Dim repeated lines? (off by default): a long identical
+Options → Window → Text → Dim repeated lines? (off by default): a long identical
 line (the same room on look) paints dimmer so what changed stands out.
 .dimrepeat on|off turns it. .dimrepeat lines 12 is how many recent long
 lines stay in memory (then an old room is bright again). .dimrepeat
@@ -752,7 +755,7 @@ Trigger Color responders can tint matched lines. The Color action has a
 256 grid and an RGB wheel; text and background can be turned off
 separately, plus bold / italic / underline.
 
-Options → Window → Light theme? (off by default): light grey paper and
+Options → Window → Text → Light theme? (off by default): light grey paper and
 dark ink. Colours the game sends stay; whites and light greys are
 darkened so they stay readable. Extra-text windows follow. Launcher,
 Options, mapper, chat and ⋮ stay dark. .light on|off|1-5.]])
@@ -809,6 +812,10 @@ command in the bar is not a prefix; pick stays on.
 	.pick tap            same as once
 	.pick button         swipe a tile, keep holding, slide onto a word
 	.pick button-double  hold a tile, tap a word with the other finger
+	.pick insert         once, but the line goes in the bar and nothing is sent
+	.pick hold insert    stays on; the next tap adds the next word in the bar
+	.pick button insert  the button's command plus the word, into the bar
+	.pick button-double insert
 	.pick loupe          print size and zoom; also size N / zoom N / default
 	.pick off
 
@@ -817,7 +824,7 @@ visible. During hold, a second finger cancels that pick so you can
 scroll (two fingers with pick off still copy).
 The loupe is a round magnifier of the game text around the finger,
 with the chosen word highlighted and the phrase (fix helmet) above
-the circle. Options → Window → Pick loupe size / zoom, or .pick loupe.
+the circle. Options → Window → Text → Pick loupe size / zoom, or .pick loupe.
 Tokens are letters and digits: iron-helmet is two words. Prefix mode
 wins over an existing tappable-word trigger for that pick.]])
 end
@@ -837,14 +844,19 @@ TOPICS.keyboard = function()
 Edit on the input bar expands Sel/Cut/Copy/Paste and a compact arrow pad.
 Up/down on that pad, hardware arrows, and .kb stepu/.kb stepd recall
 command history even when the bar has wrapped to several lines. .kb lineu
-and .kb lined move the caret one visual line and do not touch history.]])
+and .kb lined move the caret one visual line and do not touch history.
+.last resends the newest command. .2last resends the one before it,
+.3last the one before that. The game does not receive .last.
+.last input puts that command in the bar and does not send it.
+.lastlist opens this world's recent commands. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. A tap on the grip hides them, and so does .lastfloat off. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. Each world has its own list.]])
 end
 
 TOPICS.completion = function()
 	noteBlock("Suggestions and the prompt — .suggest / .prompt",
 [[The soft keyboard never learns a mob called grizzled or a player called
 Tonkatsu, and corrects them into English. Suggestions offer back what the world
-actually said. All of it is off until you ask, under Options → Input or on
+actually said. Suggestions are under Options → Suggestions, the prompt
+bar under Options → Panes, or on
 .suggest (.complete still works and means the same thing):
 
   .suggest on|off         offer words the game just used
@@ -864,21 +876,26 @@ actually said. All of it is off until you ask, under Options → Input or on
                           two mistakes may change the first letter
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
-                          drawn only, never sent. No arrow, and no gap before
-                          the first one. After a space, that ghost can be the
-                          word that last followed the one you just finished.
+                          drawn only, never sent. The rest of the word stays
+                          glued; a different word has one space in front, and
+                          not a second one if you already typed a space.
+                          After a space, that ghost can be the word that last
+                          followed the one you just finished.
                           A name you are still typing still offers the whole
                           phrase
-  .suggest split on|off   a short mark between those dimmed words. Off, a
-                          space. The little numbers stay either way
+  .suggest split on|off   a space between those dimmed words. The little
+                          numbers stay either way
   .suggest caret on|off   follow the cursor into the middle of a line, not
                           only the end; taking one replaces the word there
   .suggest show N         at most N suggestions total (bar + ghost), 1-8
   .suggest ghostlines N   extra rows the field may grow by (1-6). At 1 the
                           others still fill the rest of the line you are on;
                           not the same as show — does not cap how many offered
-  .suggest where floating|bar|off   where the chips go. off still leaves the
-                          ghost and .suggest 1..8 working, with no bar at all
+  .suggest where floating|bar|list|off
+                          where they sit. list is a window; a tap puts the word
+                          in the bar. The gear sets opacity and font size.
+                          off still leaves the ghost and
+                          .suggest 1..8 working, with no bar at all
   .suggest persist on|off keep the bar up even when it has nothing to say
   .suggest opacity N      how solid the floating chips are (10-100)
   .suggest learned        report what your commands have taught on this world
@@ -936,7 +953,7 @@ Session log files (this world only):
   .search logs 0 goblin        window plus every saved file
   .search 'logs'               still finds the word “logs” in the window
 Files are {world}_{yyyy-MM-dd}.txt (one file per world per local day;
-reconnects append) in the folder Options → Service
+reconnects append) in the folder Options → Connection
 → Session Log Directory names (blank = /BlowTorch/session_logs/).
 Incoming game text only unless Include Local Echo in Session Log? is on.
 Overflow ⋮ → Session logs: pick dates, tap Load (a large folder can
@@ -1067,19 +1084,22 @@ Levels (tile-anchored — not one global stack)
   Floors chip: Floor list / Floor ↑ / Floor ↓ / Root / To entrance / Rename /
   Delete (Delete = Edit only). Long-press the title opens Floors.
   Edit chip: Draw, Links, and related tools. Map chip: Save / Maps / New.
-  Nav chip: Record, Follow, Find. View chip: View & sync (GMCP sync, opacity).
+  Nav chip: Record, Follow, Find. View chip: View & sync (GMCP sync, opacity,
+  Minimal). Minimal hides the title bar, the tools bar, and the resize handle.
+  The fill stays as you set it. A two-finger tap on the map brings them back.
   up/down while Recording still works.
 
 Toolbar chips: Nav · Floors · Edit · Map · View
   (legacy Options CSV is unused by that chrome)
   Record and Follow live under Nav
-  View & sync has GMCP sync (needs Options → Service → Protocols → Use GMCP?)
+  View & sync has GMCP sync (needs Options → Protocols → Use GMCP?)
 
 Gestures
   Long-press tile + drag = move (release without move = tile menu)
   Double-tap tile = Set as Here
   Tap arrow label / +N = list walk verbs on that edge (unlink optional)
   Tap ▲/▼/◆ = jump to linked floor (browse)
+  Two-finger tap on the map turns Minimal off (title bar, tools bar, and resize handle)
 
 Movement lexicon (summary; full list: .map dirs)
   +x = east, +y = south on the grid
@@ -1119,8 +1139,8 @@ TOPICS.wrap = function()
   .wrap          show status
   .wrap on|off
 
-Also: Options → Input → Grow Input Bar?
-Word Wrap for output: Options → Window.
+Also: Options → Typing → Grow Input Bar?
+Word Wrap for output: Options → Window → Text.
 
 Hyphenation is separate, and off until you ask. With .wrap on, a word
 that does not fit the space left on the line breaks with a hyphen.
@@ -1148,23 +1168,23 @@ break. The break uses the width already left of Edit and Send, so
 hiding those buttons widens the line and a broken word may fit again.
 The corner above the buttons stays empty.
 
-Options → Input → Hyphenate long words?, Hyphenation language,
+Options → Typing → Hyphenate long words?, Hyphenation language,
 Hyphenate more often?]])
 end
 
 TOPICS.logging_export = function()
 	noteBlock("Logging and import / export",
 [[Session log (game output, ANSI stripped):
-  Options → Service → Log Session to File?
+  Options → Connection → Log Session to File?
   Session Log Directory blank = /BlowTorch/session_logs/
   Files: {profile}_{yyyy-MM-dd}.txt (one per world per local day)
 
 Import / export / reset this session’s settings:
-  Options → Miscellaneous → Export / Import / Reset Settings
+  Options → Files → Export / Import / Reset Settings
   Default folder: /BlowTorch/settings/ (or SAF pickers)
 
 Storage access (Android 11+):
-  Options → Miscellaneous → Manage Storage Access
+  Options → Files → Manage Storage Access
   Grants All files access for a shared /BlowTorch/ tree
   (settings, backups, launcher, session_logs, logs).
   Without it, the app falls back under Android/data.
@@ -1175,7 +1195,7 @@ end
 TOPICS.overflow_menu = function()
 	noteBlock("Overflow menu (⋮)",
 [[The ⋮ sits bottom-right above the input bar unless you move it:
-Options → Miscellaneous → Overflow button corner (any of the four
+Options → Window → Layout → Overflow button corner (any of the four
 corners). The editor strip (Undo / Done) follows; the jump-to-live
 chevron stays bottom-right.
 
@@ -1191,14 +1211,14 @@ The ⋮ list is grouped (no action-bar icons for Aliases / Triggers / Timers):
 .help in the input bar is a short command list in the game window,
 not this manual. Launcher Help is the same manual as ⋮ → Help.
 
-Export / Import / Reset Settings live under Options → Miscellaneous.]])
+Export / Import / Reset Settings live under Options → Files.]])
 end
 
 TOPICS.gmcp = function()
 	noteBlock("GMCP (brief)",
 [[GMCP is an out-of-band telnet channel (option 201). Enable under
-Options → Service → Protocols → Use GMCP?. Prefer Manage modules…
-(under Options → Service → GMCP) over editing the raw Supports String.
+Options → Protocols → Use GMCP?. Prefer Manage modules…
+(under Options → Protocols → GMCP) over editing the raw Supports String.
 
 Useful helpers:
   .gmcp ask|handshake   what we declare vs what was seen
@@ -1231,7 +1251,7 @@ No GMCP? Bind what you can see.
 
 MCP (MOOs). LambdaMOO passes #$# to the core; MCP 2.1 lives in cores
 that implement it, not every stock LambdaCore. Use MCP? under Options →
-Service → Protocols (or .mcp). Status-update keys (the
+Protocols (or .mcp). Status-update keys (the
 dns-org-hellmoo-status package some shards send): hp, maxhp, thirst,
 hunger, stress:
 
@@ -1288,14 +1308,14 @@ Show as overlay widget in the timer editor):
   .widget add stun timer
   .widget source stun timer stunwait
 
-Also: Options → Window → Widgets → Manage widgets….]])
+Also: Options → Panes → Widgets → Manage widgets….]])
 end
 
 TOPICS.mcp = function()
 	noteBlock("MCP (brief)",
 [[Mud Client Protocol uses in-band #$# messages (common on MOOs). Not the
-same as GMCP. Options → Service → Protocols → Use MCP? (off by default).
-Details sit under Options → Service → MCP.
+same as GMCP. Options → Protocols → Use MCP? (off by default).
+Details sit under Options → Protocols → MCP.
 
   .mcp ask|status
   .mcp packages / enable|disable / renegotiate
@@ -1308,7 +1328,7 @@ end
 TOPICS.mxp = function()
 	noteBlock("MXP — clickable game text",
 [[Some worlds mark exits and items with MXP so a tap sends the command.
-Options → Service → Protocols → Use MXP? (on by default). Reconnect
+Options → Protocols → Use MXP? (on by default). Reconnect
 after changing. .mxp on|off. .mxp with no argument is status.
 
   .probe mxp     dumps a tappable sample here without waiting on the game
@@ -1333,16 +1353,16 @@ in plain language. .protocols enable turns on the offered-but-off
 switches. Reconnect when it says so (telnet options); OSC 8 does not
 need one.
 
-The switches live under Options → Service → Protocols (Use GMCP? /
+The switches live under Options → Protocols (Use GMCP? /
 Use MCP? / Use MXP?). MTTS, MSDP, MSSP and MCCP sit under Telnet.
-Use OSC 8? is Options → Window.
+Use OSC 8? is Options → Window → Links.
 Some worlds mark room items with hashes that only resolve when Use GMCP?
 is on as well as OSC 8.]])
 end
 
 TOPICS.stay_connected = function()
 	noteBlock("Staying connected",
-[[Options → Service:
+[[Options → Connection:
 
   Auto Reconnect?          reconnect after a drop (default on)
   Auto Reconnect Tries     hard limit on attempts (default 5)
@@ -1355,7 +1375,7 @@ A one-shot battery dialog may appear while connected if the OS still
 optimizes BlowTorch. Connection duration shows on the ongoing
 notification and the launcher row.
 
-Persistent Connection? (Options → Miscellaneous) only changes how Auto
+Persistent Connection? (Options → Connection) only changes how Auto
 Reconnect waits for the network. It does not reconnect on its own, and
 it does not raise the try count.
 
@@ -1385,9 +1405,11 @@ TOPICS.copy_text = function()
   2. Second finger — tap to open the copy / selection widget.
 
 One-finger long-press alone does not open copy. Drag the cursors, then
-use copy / swap ends / close around the magnifier (outside the circle).
+use copy / swap ends / close / new trigger around the magnifier (outside
+the circle). New trigger opens the editor with the selection as the
+pattern and Literal on. Nothing is saved until Done.
 A slow drag follows the finger. A flick moves further across the text.
-Size and zoom: Options → Window → Copy loupe size / zoom, or .copy loupe
+Size and zoom: Options → Window → Text → Copy loupe size / zoom, or .copy loupe
 size N / zoom N / default.
 If .width is over 100, drag the magnifier to the right edge to pan the
 rest into view.
@@ -1406,21 +1428,24 @@ scrolls, two fingers copy. Change mode with ⋮ → Gesture mode, or:
   .gesture mode both
 
 One finger: Scrolling is also at the top of ⋮ → Gesture mode, and under
-Options → Input → Global gestures.
+Options → Gestures.
   With two fingers — a one-finger swipe sends a command. Two fingers
-    scroll the text.
+    scroll the text. One finger may move faster than the other.
   Hold, then gesture — a short move still scrolls. The gesture starts
-    after the hold (80–800 ms, 280 is the default).
+    after the hold (80–800 ms, 280 is the default). A blank direction
+    scrolls the text after the hold.
   Off — a one-finger swipe does not scroll.
 
 Two fingers: one finger scrolls. The scrolling choice is grey. A
 two-finger swipe can send a command, and a short tap can copy.
 
 Both: the same scrolling choice. With two fingers, two fingers scroll.
-The both-fingers switch is only while Scrolling is Hold or Off.
+The both-fingers switch is only while Scrolling is Hold or Off. While
+it is on, fingers moving the same way scroll even when one is faster.
+A finger that stays put can still draw a gesture.
 
-A blank direction does nothing. Before the hold, a move still scrolls.
-After the hold, a blank direction does not scroll the text. Lifting
+A blank direction sends no command. Before the hold, a move still scrolls.
+After the hold, a blank direction scrolls the text. Lifting
 without a direction sends nothing. A second finger cancels a one-finger
 gesture, and that tap does not open copy. On a two-finger swipe, lifting
 the finger that is not drawing the line cancels it. A third finger
@@ -1442,20 +1467,24 @@ TOPICS.options_cleanup = function()
 	noteBlock("Options layout",
 [[In-game Options groups settings under Program Settings, including:
 
+  Window    Text, Layout, Links, Input bar (Edit and Send)
   Display   orientation, fullscreen, NAWS, keep screen on
-  Window    font, buffer, word wrap, hyperlinks, ANSI,
-            Extra text windows, Widgets (Manage widgets…)
-  Input     history, keep last, Grow Input Bar (.wrap),
+  Typing    history, keep last, Grow Input Bar (.wrap),
             Hyphenate long words (.hyphen; drawn, not sent),
-            Global gestures (.gesture),
-            lowercase start of sent commands (\\Look keeps capital),
-            strip accents when sending (.unaccent; usiądź → usiadz)
-  Service   encoding, logging, battery, reconnect, Wi-Fi,
-            Notification stack (One stack / Separate bars);
-            nested Protocols / GMCP / MCP / Telnet
-  Bell      bell reactions
-  Miscellaneous   storage access and paths, Export / Import / Reset
-                  Settings, persistent connection, ⋮ button look
+            lowercase start (\\Look keeps capital),
+            strip accents (.unaccent; usiądź → usiadz)
+  Suggestions   words the game just used
+  Gestures  screen-wide swipes (.gesture)
+  Panes     extra text windows, Widgets, the prompt line,
+            floating buttons
+  Chat      unread mark, a line in the game window, notifications
+  Sound     the bell, trigger sounds, quiet while you type
+  Connection   encoding, logging, battery, reconnect, Wi-Fi,
+            Notification stack, Persistent Connection?
+  Protocols Use GMCP? / Use MCP? / Use MXP?, then GMCP, MCP, Telnet
+  Mapper    the built-in map
+  Device    shake, light, battery, variables triggers can read
+  Files     storage access, Export / Import / Reset Settings
 
 Plugin-specific pages (Button, Starter Tutorial, …) appear when that
 plugin is loaded. Prefer nested Manage modules… / Manage packages…
@@ -1483,26 +1512,26 @@ Toggle fullscreen without opening Options:
 NAWS tells the MUD your terminal size so maps and prompts fit. After
 changing width/height, some servers need a look or a reconnect.
 
-Options → Window → Dim repeated lines? (off by default): a long identical
+Options → Window → Text → Dim repeated lines? (off by default): a long identical
 line (the same room on look) paints dimmer. .dimrepeat on|off, lines N,
 strength N (higher is darker).
-Options → Window → Scroll dates? (off by default): while you are scrolled
+Options → Window → Layout → Scroll dates? (off by default): while you are scrolled
 into history, a small day/time sits to the left of ⋮, and a mark to
 the right of the date shows where you are in the buffer. .when on|off.
 .when opacity N. .search 14:32 or 18 Aug jumps to that moment.
-Options → Window → Newest text at top?: live output appears at the top.
-Options → Window → Text avoids on-screen buttons? (off by default): prose
+Options → Window → Text → Newest text at top?: live output appears at the top.
+Options → Window → Text → Text avoids on-screen buttons? (off by default): prose
 wraps around the grid pad and floating buttons instead of drawing under
 them. Maps may break. .avoidbuttons letters (default) moves one character
 at a time; .avoidbuttons words keeps whole words off the hole.
 .avoidbuttons on|off.
-Options → Window → Jump to the live edge when you send? (on by default):
+Options → Window → Layout → Jump to the live edge when you send? (on by default):
 after you send a line, the window scrolls to the newest text. Incoming
 text near the live edge still snaps there. .jumpsend on|off.
-Options → Window → Android fling? (off by default): after you lift your
+Options → Window → Layout → Android fling? (off by default): after you lift your
 finger the text coasts with the swipe, like a web page. Dragging stays
 1:1. Scroll sensitivity (50–500%) is off while this is on.
-Options → Window → Light theme? (off by default): light paper and
+Options → Window → Text → Light theme? (off by default): light paper and
 dark ink. .light on|off|1-5. Extra-text windows follow this window.
 Launcher, Options, mapper, chat and ⋮ stay dark.]])
 end
@@ -1743,29 +1772,30 @@ local TIPS = {
 	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
 	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; Match style can require colour/SGR. .grabber inspects a glyph. Actions gag, colour, send, or run Lua.]],
 	timer = [[.timer info name writes status in the window, including time added with 50s. .timer duration name 15 sets the length and restarts from full. .timer duration name 50s adds to the time left; -50s subtracts (floor 0). .timer dump writes that into the window. .timer play|pause|stop name.]],
-	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. .wait change 1 60s retargets that row from now. The game still prints.]],
+	wait = [[.wait 5s (or #wait 5m10s) pauses the rest of that line, then sends what follows. north;.wait 2s;south. #5/1s north sends north five times with a second between; the last copy has no extra wait. Units h/m/s/ms in any order; max 1h. .wait stop or #wait 0 cancels. .wait show / .wait info lists the queue. .wait change 1 60s retargets that row from now. The game still prints.]],
 	suggest = [[.suggest on offers words the game just used. After a space, the ghost can be the word that last followed that one. A name you are still typing still offers the whole phrase. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
-	jumpsend = [[.jumpsend on (the default) scrolls to the newest text after you send a line. Incoming text near the live edge still snaps there. .jumpsend off leaves you where you scrolled. Options → Window → Jump to the live edge when you send?.]],
+	jumpsend = [[.jumpsend on (the default) scrolls to the newest text after you send a line. Incoming text near the live edge still snaps there. .jumpsend off leaves you where you scrolled. Options → Window → Layout → Jump to the live edge when you send?.]],
 	complete = [[Same as .suggest (older name).]],
 	suggestions = [[Same as .suggest.]],
-	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text). .hyphen on can then break a long word with a drawn hyphen when it does not fit the space left on the line. The game still receives the whole word.]],
-	hyphen = [[.hyphen on breaks a long input word with a drawn hyphen when it does not fit beside what is already on the line. A second copy of a long word breaks too. Send, copy and suggestions keep the whole word. .hyphen lang en|phone. .hyphen full on allows 2 letters before the hyphen; off needs 5. Needs .wrap on. Off by default. Options → Input → Hyphenate long words?.]],
+	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Text → Word Wrap? (game text). .hyphen on can then break a long word with a drawn hyphen when it does not fit the space left on the line. The game still receives the whole word.]],
+	hyphen = [[.hyphen on breaks a long input word with a drawn hyphen when it does not fit beside what is already on the line. A second copy of a long word breaks too. Send, copy and suggestions keep the whole word. .hyphen lang en|phone. .hyphen full on allows 2 letters before the hyphen; off needs 5. Needs .wrap on. Off by default. Options → Typing → Hyphenate long words?.]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	light = [[.light on paints the game on light paper with dark ink. .light 1-5 picks the paper (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
-	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
-	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
+	light = [[.light on paints the game on light paper with dark ink. .light 1-5 picks the paper (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Text → Light theme?. Off by default.]],
+	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Layout → Scroll dates?. Off by default.]],
+	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Links → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways. .avoidbuttons on wraps that text around the grid pad and floating buttons (maps may break).]],
-	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. Off by default — ASCII maps may break. Live while dragging a floating button. Options → Window → Text avoids on-screen buttons?.]],
+	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. Off by default — ASCII maps may break. Live while dragging a floating button. Options → Window → Text → Text avoids on-screen buttons?.]],
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
+	last = [[.last resends the newest command. .2last resends the one before it, .3last the one before that. You sent north, then look, then inventory: .last sends inventory. .last input puts that command in the bar and does not send it. .lastlist opens this world's list. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. .lastfloat off hides them. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. The game does not receive .last.]],
 	kb = [[Same as .keyboard.]],
-	pick = [[.pick once: type .pick, put a prefix in the bar (fix  or fix $1 helmet), tap a word; the client sends fix helmet or fix iron helmet and the bar still holds the prefix. $1, $0 and $word are the picked word. .pick hold stays until .pick off. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button-double: hold a tile, tap a word with the other finger. .pick loupe size N / zoom N, or Options → Window.]],
+	pick = [[.pick once: type .pick, put a prefix in the bar (fix  or fix $1 helmet), tap a word; the client sends fix helmet or fix iron helmet and the bar still holds the prefix. $1, $0 and $word are the picked word. .pick insert puts that line in the bar and sends nothing. .pick hold stays until .pick off. .pick hold insert adds the next word in the bar. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button insert and .pick button-double insert put the line in the bar. .pick loupe size N / zoom N, or Options → Window → Text.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
-	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
+	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Protocols → Use GMCP?.]],
 	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. MCP: .widget source hp mcp hp maxhp. Regex on visible text: .widget source hp regex "HP: (\d+)/(\d+)". .widget ime hp stay|hide|overlay|pin. pin stays visible and does not rise with the keyboard. Long-press (~½s) edits (move/resize); tap leaves edit. .gauge is the same command.]],
 	gauge = [[Same as .widget.]],
-	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → Protocols → Use MCP?.]],
-	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
+	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Protocols → Use MCP?.]],
+	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Protocols. .probe mxp dumps a sample.]],
 	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
 	split = [[.split 40 shows the same game text twice (left/top gets that percent). Each pane scrolls alone. .split horizontal or h is left/right; .split vertical or v is top/bottom. .split off is one pane. Buttons stay on the primary.]],

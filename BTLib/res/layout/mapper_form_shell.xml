@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/root"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:background="@color/chrome_body"
+	android:orientation="vertical">
+
+	<TextView
+		android:id="@+id/titlebar"
+		style="@style/BlowTorch.Chrome.Title"
+		android:layout_width="match_parent"
+		android:layout_height="42dip" />
+
+	<ScrollView
+		android:id="@+id/mapper_form_scroll"
+		android:layout_width="match_parent"
+		android:layout_height="0dip"
+		android:layout_weight="1"
+		android:fillViewport="true">
+
+		<LinearLayout
+			android:id="@+id/mapper_shell_body"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="vertical"
+			android:paddingLeft="12dip"
+			android:paddingRight="12dip"
+			android:paddingTop="12dip"
+			android:paddingBottom="8dip" />
+	</ScrollView>
+
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="horizontal"
+		android:gravity="center_vertical"
+		android:background="@color/chrome_title_bar"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip" />
+
+</LinearLayout>

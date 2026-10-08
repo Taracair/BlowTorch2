@@ -17,10 +17,11 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Edit tile title, notes, GMCP locks, level, exits; add link command; move-to-level.
@@ -41,7 +42,7 @@ public class MapperTileEditorDialog extends Dialog {
 	private List<MapLevel> levels = new ArrayList<MapLevel>();
 
 	public MapperTileEditorDialog(Context context, MapperController controller, MapTile tile) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		this.controller = controller;
 		this.tile = tile;
 	}
@@ -50,22 +51,12 @@ public class MapperTileEditorDialog extends Dialog {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setCanceledOnTouchOutside(false);
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		setContentView(R.layout.mapper_form_shell);
 
-		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		ScrollView scroll = new ScrollView(getContext());
-		LinearLayout root = new LinearLayout(getContext());
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-		scroll.addView(root);
-
-		TextView heading = new TextView(getContext());
-		heading.setText("Edit tile");
-		heading.setTextSize(18f);
-		heading.setTextColor(0xFFEEEEEE);
-		root.addView(heading);
+		((TextView) findViewById(R.id.titlebar)).setText("Edit tile");
+		LinearLayout root = (LinearLayout) findViewById(R.id.mapper_shell_body);
 
 		root.addView(label("Title"));
 		titleEdit = new EditText(getContext());
@@ -83,13 +74,13 @@ public class MapperTileEditorDialog extends Dialog {
 		root.addView(label("GMCP locks"));
 		lockTitleCheck = new CheckBox(getContext());
 		lockTitleCheck.setText("Lock title (GMCP won't overwrite)");
-		lockTitleCheck.setTextColor(0xFFDDDDDD);
+		lockTitleCheck.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
 		lockTitleCheck.setChecked(tile.isLockTitle());
 		root.addView(lockTitleCheck);
 
 		lockPositionCheck = new CheckBox(getContext());
 		lockPositionCheck.setText("Lock position (GMCP won't move)");
-		lockPositionCheck.setTextColor(0xFFDDDDDD);
+		lockPositionCheck.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
 		lockPositionCheck.setChecked(tile.isLockPosition());
 		root.addView(lockPositionCheck);
 
@@ -161,23 +152,18 @@ public class MapperTileEditorDialog extends Dialog {
 		});
 		root.addView(addLink);
 
-		LinearLayout buttons = new LinearLayout(getContext());
-		buttons.setOrientation(LinearLayout.HORIZONTAL);
-		buttons.setGravity(Gravity.END);
-
-		Button cancel = new Button(getContext());
-		cancel.setText("Cancel");
+		LinearLayout footer = (LinearLayout) findViewById(R.id.button_row);
+		Button cancel = barButton(getContext(), "Cancel", false);
 		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				dismiss();
 			}
 		});
-		buttons.addView(cancel);
+		footer.addView(cancel);
 
-		Button save = new Button(getContext());
-		save.setText("Save");
-		save.setOnClickListener(new View.OnClickListener() {
+		Button done = barButton(getContext(), "Done", true);
+		done.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				controller.setTitle(tile.getId(), titleEdit.getText().toString());
@@ -196,18 +182,16 @@ public class MapperTileEditorDialog extends Dialog {
 				dismiss();
 			}
 		});
-		buttons.addView(save);
-		root.addView(buttons);
+		footer.addView(done);
 
-		setContentView(scroll);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	private TextView label(String text) {
 		TextView tv = new TextView(getContext());
 		tv.setText(text);
-		tv.setTextColor(0xFFBBBBBB);
-		tv.setPadding(0, (int) (8 * getContext().getResources().getDisplayMetrics().density), 0, 2);
+		tv.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_description));
+		tv.setPadding(0, dip(getContext(), 8), 0, 2);
 		return tv;
 	}
 
@@ -225,7 +209,7 @@ public class MapperTileEditorDialog extends Dialog {
 			String to = exit.getToId() != null ? exit.getToId() : "(none)";
 			String spec = exit.isSpecial() ? " ★" : "";
 			info.setText(cmd + " → " + shortId(to) + spec);
-			info.setTextColor(0xFFDDDDDD);
+			info.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
 			info.setLayoutParams(new LinearLayout.LayoutParams(0,
 					LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 			row.addView(info);
@@ -245,7 +229,7 @@ public class MapperTileEditorDialog extends Dialog {
 		if (tile.getExits().isEmpty()) {
 			TextView empty = new TextView(getContext());
 			empty.setText("(no exits)");
-			empty.setTextColor(0xFF888888);
+			empty.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_hint));
 			exitsList.addView(empty);
 		}
 	}
@@ -255,5 +239,24 @@ public class MapperTileEditorDialog extends Dialog {
 			return "?";
 		}
 		return id.length() > 8 ? id.substring(0, 8) + "…" : id;
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 }

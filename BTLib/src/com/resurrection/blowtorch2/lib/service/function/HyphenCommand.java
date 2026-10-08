@@ -112,7 +112,7 @@ public class HyphenCommand extends SpecialCommand {
 				+ idle
 				+ "Usage: .hyphen on|off · .hyphen lang en|phone · .hyphen full on|off\n"
 				+ "The hyphen is drawn, not sent. A password line does not break.\n"
-				+ "Also: Options → Input → Hyphenate long words?\n";
+				+ "Also: Options → Typing → Hyphenate long words?\n";
 	}
 
 	private static String usage() {
@@ -121,7 +121,7 @@ public class HyphenCommand extends SpecialCommand {
 				+ ".hyphen full on|off\n"
 				+ "Draws a hyphen when a long word does not fit the space left on the line. The game receives the whole word.\n"
 				+ "Needs Grow Input Bar (.wrap). Off by default.\n"
-				+ "Also: Options → Input → Hyphenate long words?";
+				+ "Also: Options → Typing → Hyphenate long words?";
 	}
 
 	private static boolean enabledOn(BooleanOption enabled) {

@@ -25,7 +25,7 @@ import android.widget.TextView;
 /**
  * Battery low/ok percents for this device ({@code bt_gesture_tuning}, never
  * exported). Do not read {@link GestureTuning} from the UI — that process has
- * a stale prefs cache. Fields start at shipped defaults; Save sends a command.
+ * a stale prefs cache. Fields start at shipped defaults; Done sends a command.
  */
 public class BatteryThresholdDialog extends Dialog {
 
@@ -74,7 +74,7 @@ public class BatteryThresholdDialog extends Dialog {
 				+ " Low. batteryok fires once when it crosses back up through Recover."
 				+ " Recover must sit at least five points above Low, so 19–21% cannot"
 				+ " flap. Kept with this phone, not the world profile. The boxes start"
-				+ " at the shipped 20 and 35 — type the pair you want. Save sends"
+				+ " at the shipped 20 and 35 — type the pair you want. Done sends"
 				+ " .sensor threshold battery; .sensor threshold in the game window"
 				+ " shows the pair actually in force.");
 		body.addView(instruction);
@@ -103,8 +103,18 @@ public class BatteryThresholdDialog extends Dialog {
 		int footPad = (int) (6 * density + 0.5f);
 		footer.setPadding(footPad, footPad, footPad, footPad);
 
+		Button cancel = new Button(getContext());
+		cancel.setText("Cancel");
+		cancel.setMinHeight((int) (44 * density + 0.5f));
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				dismiss();
+			}
+		});
+
 		Button save = new Button(getContext());
-		save.setText("Save");
+		save.setText("Done");
 		save.setMinHeight((int) (44 * density + 0.5f));
 		save.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -113,23 +123,13 @@ public class BatteryThresholdDialog extends Dialog {
 			}
 		});
 
-		Button close = new Button(getContext());
-		close.setText("Close");
-		close.setMinHeight((int) (44 * density + 0.5f));
-		close.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(final View v) {
-				dismiss();
-			}
-		});
-
 		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
 				(int) (44 * density + 0.5f), 1f);
-		footer.addView(save, lp);
-		LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(0,
+		footer.addView(cancel, lp);
+		LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(0,
 				(int) (44 * density + 0.5f), 1f);
-		closeLp.leftMargin = footPad;
-		footer.addView(close, closeLp);
+		saveLp.leftMargin = footPad;
+		footer.addView(save, saveLp);
 		root.addView(footer);
 
 		setContentView(root);

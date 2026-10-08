@@ -390,6 +390,7 @@ function showList(unsortedList,lastLoadedSet)
 	newbutton:setOnClickListener(newButtonListener)
 	
 	local donebutton = layout:findViewById(R_id.done)
+	donebutton:setText("Close")
 	donebutton:setOnClickListener(doneListener)
 
 	-- Button Sets has no plugin filter; hide the unused "=" control.

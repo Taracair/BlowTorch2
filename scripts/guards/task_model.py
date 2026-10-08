@@ -20,9 +20,19 @@ REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
 
 REVIEW_DIFF_NOTE = (
     "[BlowTorch] Do not dump whole-tree `git diff`. In Full Repository Path "
-    "run `scripts/review-diff.sh` (uncommitted) or `scripts/review-diff.sh HEAD` "
-    "(already committed). Then Read every `.scratch/review-diff/page-NN.txt` "
-    "the script lists. Do not Read a 4000-line class hunting for the hunk.\n\n"
+    "run `scripts/review-diff.sh` for this uncommitted diff. Then Read every "
+    "page path the index prints (a new directory under `.scratch/review-diff/` "
+    "each run). Do not Read a 4000-line class hunting for the hunk.\n\n"
+)
+
+# Used only when the parent prompt already names the committed re-review.
+# One command per launch: this note must not also tell the reviewer to run
+# the no-argument script.
+REVIEW_DIFF_HEAD_NOTE = (
+    "[BlowTorch] Do not dump whole-tree `git diff`. "
+    "Run `scripts/review-diff.sh HEAD` for this committed diff. Then Read every "
+    "page path the index prints (a new directory under `.scratch/review-diff/` "
+    "each run). Do not Read a 4000-line class hunting for the hunk.\n\n"
 )
 
 # Cursor pins the `bugbot` *type* to Composer 2.5 and ignores `model`. We do
@@ -38,6 +48,12 @@ PROMPT_NOTE = REVIEW_DIFF_NOTE
 
 def _norm(value) -> str:
     return str(value or "").strip()
+
+
+def review_diff_note(prompt: str) -> str:
+    if "scripts/review-diff.sh HEAD" in prompt:
+        return REVIEW_DIFF_HEAD_NOTE
+    return REVIEW_DIFF_NOTE
 
 
 def is_review_task(inp: dict) -> bool:
@@ -93,12 +109,13 @@ def rewrite_task_input(inp: dict) -> tuple[dict | None, str]:
         reasons.append(f"model {model or 'omitted'} -> {REQUIRED_MODEL}")
 
     prompt = out.get("prompt") if isinstance(out.get("prompt"), str) else ""
+    note = review_diff_note(prompt)
     prefix = ""
     if rewritten_from_bugbot and COMPOSER_TYPE_NOTE.strip() not in prompt:
         prefix += COMPOSER_TYPE_NOTE
         reasons.append("prefixed composer-type note")
-    if REVIEW_DIFF_NOTE.strip() not in prompt:
-        prefix += REVIEW_DIFF_NOTE
+    if note.strip() not in prompt:
+        prefix += note
         reasons.append("prefixed review-diff recipe")
     if prefix:
         out["prompt"] = prefix + prompt
@@ -242,6 +259,17 @@ def _self_test() -> int:
             REQUIRED_MODEL,
         ),
         (
+            {
+                "subagent_type": "generalPurpose",
+                "description": "Bugbot",
+                "model": REQUIRED_MODEL,
+                "prompt": REVIEW_DIFF_HEAD_NOTE + "scripts/review-diff.sh HEAD\n",
+            },
+            False,
+            REQUIRED_TYPE,
+            REQUIRED_MODEL,
+        ),
+        (
             {"subagent_type": "explore", "description": "Find files"},
             False,
             "explore",
@@ -338,8 +366,31 @@ def _self_test() -> int:
         inject.get("permission") != "allow"
         or "review-diff.sh" not in inj_prompt
         or "scratch/review-diff" not in inj_prompt
+        or "for this uncommitted diff" not in inj_prompt
+        or "review-diff.sh HEAD" in inj_prompt
     ):
         print(f"FAIL recipe inject on correct-model Bugbot: {inject!r}", file=sys.stderr)
+        failed += 1
+
+    head = handle_payload({
+        "hook_event_name": "preToolUse",
+        "tool_name": "Task",
+        "tool_input": {
+            "description": "Bugbot",
+            "subagent_type": "generalPurpose",
+            "model": REQUIRED_MODEL,
+            "prompt": "Re-review the last commit.\nRun scripts/review-diff.sh HEAD\n",
+        },
+    })
+    head_prompt = ""
+    if isinstance(head.get("updated_input"), dict):
+        head_prompt = head["updated_input"].get("prompt") or ""
+    if (
+        head.get("permission") != "allow"
+        or "for this committed diff" not in head_prompt
+        or "for this uncommitted diff" in head_prompt
+    ):
+        print(f"FAIL HEAD review got the uncommitted command: {head!r}", file=sys.stderr)
         failed += 1
 
     if failed:

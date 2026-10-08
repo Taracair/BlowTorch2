@@ -28,14 +28,25 @@ check(heat.alpha(0, 500) == heat.MIN_ALPHA, "zero beside a hot tile → dim")
 check(heat.alpha(500, 500) == heat.MAX_ALPHA, "the max is fully bright")
 check(heat.alpha(1, 1) == heat.MAX_ALPHA, "a single use is the max")
 
-print("2. more uses are never dimmer, and a small count is not crushed to the floor")
+print("2. brightness is the count divided by the hottest tile")
+local span = heat.MAX_ALPHA - heat.MIN_ALPHA
+local a300 = heat.alpha(300, 500)
+local a500 = heat.alpha(500, 500)
+local expect300 = math.floor(heat.MIN_ALPHA + (300 / 500) * span + 0.5)
+check(a300 == expect300,
+	string.format("300/500 should be 0.6 of the span, got %d want %d", a300, expect300))
+local gap = a500 - a300
+check(gap >= 50,
+	string.format("300 beside 500 must stay visibly dimmer (gap %d)", gap))
+local once = heat.alpha(1, 500)
+check(once <= heat.MIN_ALPHA + 4,
+	string.format("one use beside 500 stays near dim, got %d", once))
 local a1 = heat.alpha(1, 1000)
 local a10 = heat.alpha(10, 1000)
 local a100 = heat.alpha(100, 1000)
 local a1000 = heat.alpha(1000, 1000)
-check(a1 < a10 and a10 < a100 and a100 < a1000,
+check(a1 <= a10 and a10 < a100 and a100 < a1000,
 	string.format("not increasing: %d %d %d %d", a1, a10, a100, a1000))
-check(a10 > heat.MIN_ALPHA, "10 beside 1000 must still be above the unused tile")
 check(a1 >= heat.MIN_ALPHA and a1000 <= heat.MAX_ALPHA, "alpha stays in range")
 
 print("3. label is light on a dim tile and dark on a bright one")

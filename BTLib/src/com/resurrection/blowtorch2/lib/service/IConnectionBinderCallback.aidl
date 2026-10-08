@@ -197,4 +197,8 @@ oneway interface IConnectionBinderCallback {
 	void applySplit(int orientation, int percent);
 	/** UI-only actions from a dot command: editbuttons, gesture-edit, gesture-mode. */
 	void runUiAction(String action);
+	/** Force the chat drawer open. Already open stays open. Appended. */
+	void showChatPanel();
+	/** Force the chat drawer closed. Already closed stays closed. Appended. */
+	void closeChatPanel();
 }

@@ -11,9 +11,10 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 /**
  * Preview title/exits regex against the last N lines of buffer text, then Apply.
@@ -31,7 +32,7 @@ public class MapperCapturePreviewDialog extends Dialog {
 
 	public MapperCapturePreviewDialog(Context context, MapperController controller,
 			String bufferText) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		this.controller = controller;
 		this.bufferText = bufferText != null ? bufferText : "";
 	}
@@ -40,26 +41,16 @@ public class MapperCapturePreviewDialog extends Dialog {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setCanceledOnTouchOutside(false);
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		setContentView(R.layout.mapper_form_shell);
 
-		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
-
-		ScrollView scroll = new ScrollView(getContext());
-		LinearLayout root = new LinearLayout(getContext());
-		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
-		scroll.addView(root);
-
-		TextView heading = new TextView(getContext());
-		heading.setText("Capture preview");
-		heading.setTextSize(18f);
-		heading.setTextColor(0xFFEEEEEE);
-		root.addView(heading);
+		((TextView) findViewById(R.id.titlebar)).setText("Capture preview");
+		LinearLayout root = (LinearLayout) findViewById(R.id.mapper_shell_body);
 
 		TextView titleLabel = new TextView(getContext());
 		titleLabel.setText("Title regex (group 1 optional)");
-		titleLabel.setTextColor(0xFFBBBBBB);
+		titleLabel.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_description));
 		root.addView(titleLabel);
 
 		titleRegex = new EditText(getContext());
@@ -72,7 +63,7 @@ public class MapperCapturePreviewDialog extends Dialog {
 
 		TextView exitsLabel = new TextView(getContext());
 		exitsLabel.setText("Exits regex");
-		exitsLabel.setTextColor(0xFFBBBBBB);
+		exitsLabel.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_description));
 		root.addView(exitsLabel);
 
 		exitsRegex = new EditText(getContext());
@@ -94,18 +85,24 @@ public class MapperCapturePreviewDialog extends Dialog {
 		root.addView(previewBtn);
 
 		previewView = new TextView(getContext());
-		previewView.setTextColor(0xFFCCCCCC);
+		previewView.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
 		previewView.setTextSize(13f);
-		previewView.setPadding(0, (int) (8 * density), 0, (int) (8 * density));
+		previewView.setPadding(0, dip(getContext(), 8), 0, dip(getContext(), 8));
 		previewView.setText("(run Preview on last buffer lines)");
 		root.addView(previewView);
 
-		LinearLayout actions = new LinearLayout(getContext());
-		actions.setOrientation(LinearLayout.HORIZONTAL);
+		LinearLayout footer = (LinearLayout) findViewById(R.id.button_row);
+		Button cancel = barButton(getContext(), "Cancel", false);
+		cancel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dismiss();
+			}
+		});
+		footer.addView(cancel);
 
-		Button apply = new Button(getContext());
-		apply.setText("Apply");
-		apply.setOnClickListener(new View.OnClickListener() {
+		Button done = barButton(getContext(), "Done", true);
+		done.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				if (previewTitle == null && previewExits == null) {
@@ -126,21 +123,9 @@ public class MapperCapturePreviewDialog extends Dialog {
 				dismiss();
 			}
 		});
-		actions.addView(apply);
+		footer.addView(done);
 
-		Button close = new Button(getContext());
-		close.setText("Close");
-		close.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				dismiss();
-			}
-		});
-		actions.addView(close);
-		root.addView(actions);
-
-		setContentView(scroll);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	private void runPreview() {
@@ -191,5 +176,24 @@ public class MapperCapturePreviewDialog extends Dialog {
 		sb.append("\n\nTitle: ").append(previewTitle != null ? previewTitle : "(none)");
 		sb.append("\nExits: ").append(previewExits != null ? previewExits : "(none)");
 		previewView.setText(sb.toString());
+	}
+
+	private static int dip(Context context, int dips) {
+		return Math.round(dips * context.getResources().getDisplayMetrics().density);
+	}
+
+	private static Button barButton(Context context, String label, boolean gap) {
+		Button button = new Button(context);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		if (gap) {
+			lp.leftMargin = dip(context, 6);
+		}
+		button.setMinHeight(dip(context, 44));
+		button.setSingleLine(false);
+		button.setMaxLines(2);
+		button.setLayoutParams(lp);
+		button.setText(label);
+		return button;
 	}
 }

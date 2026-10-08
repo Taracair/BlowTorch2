@@ -27,9 +27,9 @@ import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 
 public class ConnectionSettingsPlugin extends Plugin {
-	/** Extra text options; nested under Window in {@code buildSettingsPage}. */
+	/** Extra text options; nested under Panes. */
 	private SettingsGroup mExtraTextOptions;
-	/** Overlay gauge options; nested under Window in {@code buildSettingsPage}. */
+	/** Overlay gauge options; nested under Panes. */
 	private SettingsGroup mGaugeWidgetsOptions;
 
 	public ConnectionSettingsPlugin(Handler h,ConnectionPluginCallback parent,String dataDir) throws LuaException {
@@ -100,40 +100,39 @@ public class ConnectionSettingsPlugin extends Plugin {
 		sg.addOption(display);
 		
 		SettingsGroup input = new SettingsGroup();
-		input.setTitle("Input");
-		input.setDescription("Options that deal with the input box and editors.");
+		input.setTitle("Typing");
+		input.setDescription("The input bar: keyboard, last command, accents, hyphens. Edit and Send are under Window, Input bar.");
 		
 		BooleanOption fullscreen_editor = new BooleanOption();
 		fullscreen_editor.setTitle("Allow fullscreen keyboard editor");
-		fullscreen_editor.setDescription("On some older keyboards, opens a full-screen typing view instead of the strip above the keys. Many modern keyboards ignore this — if nothing changes when you toggle it, yours does not support it.");
+		fullscreen_editor.setDescription("On some older keyboards, opens a full-screen typing view instead of the strip above the keys.");
 		fullscreen_editor.setKey("fullscreen_editor");
 		fullscreen_editor.setValue(false);
 		input.addOption(fullscreen_editor);
 		
 		BooleanOption use_suggestions = new BooleanOption();
 		use_suggestions.setTitle("Keyboard word suggestions");
-		use_suggestions.setDescription("Ask the soft keyboard to show autocomplete and spelling suggestions in the input field. Off is usually better for MUD commands. SwiftKey, Gboard, and similar keyboards may still show their own prediction row — that is controlled by the keyboard app, not BlowTorch. Incognito / private keyboard chrome is only used while a password prompt is masked (telnet ECHO), not when this is off.");
+		use_suggestions.setDescription("Ask the keyboard for its own word list in the input bar; off is the usual choice for game commands.");
 		use_suggestions.setKey("use_suggestions");
 		use_suggestions.setValue(false);
 		input.addOption(use_suggestions);
 
 		BooleanOption floating_buttons_enabled = new BooleanOption();
 		floating_buttons_enabled.setTitle("Floating buttons over the game");
-		floating_buttons_enabled.setDescription("Show floating copies of buttons marked \"Float over the game\" in the button editor. Turn off to hide them all without editing each button.");
+		floating_buttons_enabled.setDescription("Show floating copies of buttons marked \"Float over the game\" in the button editor, or hide them all at once.");
 		floating_buttons_enabled.setKey("floating_buttons_enabled");
 		floating_buttons_enabled.setValue(true);
-		input.addOption(floating_buttons_enabled);
 		
 		BooleanOption keep_last = new BooleanOption();
 		keep_last.setTitle("Keep last command after send");
-		keep_last.setDescription("After you send, leave that line in the input bar and select it so you can edit or resend. Off clears the bar. Typing replaces the kept line.");
+		keep_last.setDescription("After you send, leave that line in the input bar and select it so you can edit or resend.");
 		keep_last.setKey("keep_last");
 		keep_last.setValue(false);
 		input.addOption(keep_last);
 
 		BooleanOption grow_input_bar = new BooleanOption();
 		grow_input_bar.setTitle("Grow Input Bar?");
-		grow_input_bar.setDescription("When on, the input bar grows to show pasted multi-line blocks. Enter always sends (soft keyboards must not insert a newline — that breaks MUD pagers waiting for a blank line). Shift+Enter on a hardware keyboard can still insert a newline. When off, input stays a single non-growing line. Toggle with .wrap on/off.");
+		grow_input_bar.setDescription("The input bar grows to show a pasted block of lines, and Enter still sends.");
 		grow_input_bar.setKey("grow_input_bar");
 		grow_input_bar.setValue(true);
 		input.addOption(grow_input_bar);
@@ -141,7 +140,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption lowercase_command_start = new BooleanOption();
 		lowercase_command_start.setTitle("Lowercase start of sent commands");
 		lowercase_command_start.setDescription(
-				"For case-sensitive worlds: softens the keyboard's auto-capitalisation and lowercases only the first letter of each command you send (Look → look). Mid-line text is unchanged (say Hello stays say Hello). Prefix with \\ to keep a capital once (\\Look → Look). Passwords are never rewritten. Off by default.");
+				"Lowercase only the first letter of each command you send, so Look goes out as look.");
 		lowercase_command_start.setKey("lowercase_command_start");
 		lowercase_command_start.setValue(false);
 		input.addOption(lowercase_command_start);
@@ -149,7 +148,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption unaccent_send = new BooleanOption();
 		unaccent_send.setTitle("Strip accents when sending");
 		unaccent_send.setDescription(
-				"When sending to the game, fold Latin letters with marks so usiądź przy stole becomes usiadz przy stole. Local echo shows that folded form; the input bar still shows what you typed. Toggle with .unaccent on/off. Off by default. Passwords are never rewritten. Lua SendToServer is not rewritten.");
+				"When sending, fold letters with marks into plain letters; the input bar still shows what you typed.");
 		unaccent_send.setKey("unaccent_send");
 		unaccent_send.setValue(false);
 		input.addOption(unaccent_send);
@@ -157,7 +156,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption input_hyphenate = new BooleanOption();
 		input_hyphenate.setTitle("Hyphenate long words?");
 		input_hyphenate.setDescription(
-				"When on, a word that does not fit the space left on the line breaks with a drawn hyphen and the rest continues underneath. A second copy of a long word does this even when that copy would fit on the next line by itself. The hyphen is not typed: send, copy, history and suggestions still see the whole word. Needs Grow Input Bar. A password line does not break. Hyphenation language chooses the syllable. The break uses the width already left of Edit and Send. Off by default. .hyphen on|off");
+				"A word that does not fit is drawn with a hyphen and continues underneath, and what you send is still the whole word.");
 		input_hyphenate.setKey("input_hyphenate");
 		input_hyphenate.setValue(false);
 		input.addOption(input_hyphenate);
@@ -165,7 +164,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		ListOption input_hyphen_lang = new ListOption();
 		input_hyphen_lang.setTitle("Hyphenation language");
 		input_hyphen_lang.setDescription(
-				"Which break rules the drawn hyphen follows. The word you send, copy and history stays whole. English is the default. Phone language uses the phone's language when rules for it are built in, and English when they are not. One choice, and only while Hyphenate long words? is on.");
+				"Which syllable rules the drawn hyphen follows; the word you send stays whole.");
 		input_hyphen_lang.setKey("input_hyphen_lang");
 		input_hyphen_lang.addItem("English");
 		input_hyphen_lang.addItem("Polish");
@@ -176,39 +175,36 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption input_hyphen_full = new BooleanOption();
 		input_hyphen_full.setTitle("Hyphenate more often?");
 		input_hyphen_full.setDescription(
-				"When on, 2 letters before the hyphen are enough. When off, the piece has to be at least 5 letters, and a smaller gap moves the whole word to the next line. Used only while Hyphenate long words? is on. Off by default. .hyphen full on|off");
+				"Allow a drawn hyphen after two letters instead of five, and only while hyphenation is on.");
 		input_hyphen_full.setKey("input_hyphen_full");
 		input_hyphen_full.setValue(false);
 		input.addOption(input_hyphen_full);
 
 		BooleanOption compatilibility_mode = new BooleanOption();
 		compatilibility_mode.setTitle("Standard keyboard input (IME fix)");
-		compatilibility_mode.setDescription("Use Android's normal input connection. On by default, so backspace and replacing a selected letter follow the keyboard. Turn off only if a world needs the old field. Keep last command also turns this on.");
+		compatilibility_mode.setDescription("Use Android's normal input connection, so backspace and replacing a selected letter follow the keyboard.");
 		compatilibility_mode.setKey("compatibility_mode");
 		// On by default. Parser comparison is != true. An omitted key used to
 		// mean off, so a profile that never stored this now loads as on.
 		compatilibility_mode.setValue(true);
 		input.addOption(compatilibility_mode);
 
-		// Suggestions is its own page (Input would be a wall). Section groups
-		// inside it are inlined as headers by OptionsDialog (INLINE_GROUP_TITLES).
-		// updateOptionsMap recurses: findOptionByKey("word_complete_*") on
-		// Input still resolves. Every option must be added to its section
-		// before that section is added here, and this group before input.
+		// Own root page. Inner section titles stay in INLINE_GROUP_TITLES.
+		// Add each option to its section before that section is added here.
 		SettingsGroup suggestions = new SettingsGroup();
 		suggestions.setTitle("Suggestions");
-		suggestions.setDescription("Completing words the game has just used, and where those suggestions are shown.");
+		suggestions.setDescription("Suggest words the game just used, and where those suggestions appear.");
 
 		BooleanOption word_complete = new BooleanOption();
 		word_complete.setTitle("Suggest game words");
-		word_complete.setDescription("Type two letters of a name the world just used and it appears; tap to take it. The keyboard cannot know these names and corrects them into English. Master switch: off, nothing below does anything. .suggest on/off");
+		word_complete.setDescription("Offer a name the game just used after you type the start of it; off, nothing below does anything.");
 		word_complete.setKey("word_complete");
 		word_complete.setValue(false);
 		suggestions.addOption(word_complete);
 
 		IntegerOption word_complete_lines = new IntegerOption();
 		word_complete_lines.setTitle("Remember (lines)");
-		word_complete_lines.setDescription("How many recent lines count as fresh, 0–5000. Lower means roughly what is still on screen; 0 means the whole session. .suggest lines N");
+		word_complete_lines.setDescription("How many recent lines count as fresh, from 0 to 5000; 0 means the whole session.");
 		word_complete_lines.setKey("word_complete_lines");
 		word_complete_lines.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
@@ -216,25 +212,25 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_typos = new BooleanOption();
 		word_complete_typos.setTitle("Correct nearby misspellings");
-		word_complete_typos.setDescription("When the exact prefix finds nothing, offer a word the game just used that is close to what you typed: a swapped pair, a wrong letter, a missing or extra letter; two such mistakes on a longer word. Only after an exact prefix found nothing. Four-letter minimum; two mistakes from six letters and the first letter must still match. Works on the word at the cursor and at the end. .suggest typos on/off");
+		word_complete_typos.setDescription("If what you typed is not the start of a recent word, offer a close misspelling of one the game just used.");
 		word_complete_typos.setKey("word_complete_typos");
 		word_complete_typos.setValue(true);
 
 		BooleanOption word_complete_loose = new BooleanOption();
 		word_complete_loose.setTitle("Skipped letters in order");
-		word_complete_loose.setDescription("When the exact spelling finds nothing, take your letters in order with gaps: grzld finds grizzled. Only after an exact match found nothing, so typing accurately never gets a different answer. First letter must still match. .suggest loose on/off");
+		word_complete_loose.setDescription("When the exact spelling finds nothing, match your letters in order with gaps.");
 		word_complete_loose.setKey("word_complete_loose");
 		word_complete_loose.setValue(false);
 
 		BooleanOption word_complete_skip_head = new BooleanOption();
 		word_complete_skip_head.setTitle("Skip the start of a long name");
-		word_complete_skip_head.setDescription("When the exact prefix finds nothing, a long name can match from its distinctive tail: onhelmet finds ironhelmet, including while you are still typing onhel. One extra or missing letter in that tail is allowed from six letters. On by default. Needs Correct nearby misspellings. .suggest skiphead on/off");
+		word_complete_skip_head.setDescription("When the exact start finds nothing, a long name can match from its tail.");
 		word_complete_skip_head.setKey("word_complete_skip_head");
 		word_complete_skip_head.setValue(true);
 
 		BooleanOption word_complete_wrong_first = new BooleanOption();
 		word_complete_wrong_first.setTitle("Two mistakes may change the first letter");
-		word_complete_wrong_first.setDescription("Two edits on a longer word may disagree on the first letter: hxizzled finds grizzled. Three edits still miss. One nearby mistake already may change the first letter without this. Off by default. Needs Correct nearby misspellings. .suggest firstletter on/off");
+		word_complete_wrong_first.setDescription("Two mistakes on a longer word may change the first letter.");
 		word_complete_wrong_first.setKey("word_complete_wrong_first");
 		word_complete_wrong_first.setValue(false);
 
@@ -248,7 +244,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_phrases = new BooleanOption();
 		word_complete_phrases.setTitle("Offer whole names");
-		word_complete_phrases.setDescription("Offer the words that followed too, up to three: after a grizzled cave troll walks in, typing gri offers \"grizzled cave troll\" above plain \"grizzled\". Off, you get single words only, which is what this has always done. .suggest phrases on/off");
+		word_complete_phrases.setDescription("Also offer the words that followed, up to three, while you are still typing the first word.");
 		word_complete_phrases.setKey("word_complete_phrases");
 		// Off by default: on, the top suggestion for a prefix stops being a word
 		// and becomes a phrase, and the ghost draws it. Change this and the
@@ -257,7 +253,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_short_first = new BooleanOption();
 		word_complete_short_first.setTitle("Plain word before the whole name");
-		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — it does not order one word against another, which is what \"Shorter suggestions first\" does. Does nothing with whole names off. Off by default. .suggest plain on/off");
+		word_complete_short_first.setDescription("With whole names on, offer the plain word before the longer name.");
 		word_complete_short_first.setKey("word_complete_short_first");
 		word_complete_short_first.setValue(false);
 
@@ -269,7 +265,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_next = new BooleanOption();
 		word_complete_next.setTitle("Suggest the next word");
-		word_complete_next.setDescription("After a finished word, offer the one word that followed it in the game. The game shows \"cave troll emerges\"; you type cave and a space, and it offers troll, then emerges. This is not whole names — those offer the phrase while you are still typing the first word. Off, a finished word offers nothing until you type the next one. On by default. .suggest next on/off");
+		word_complete_next.setDescription("After a finished word and a space, offer the one word that followed it in the game.");
 		word_complete_next.setKey("word_complete_next");
 		// On by default: this is what the client already does, and turning it
 		// off is the choice. Change this and ConnectionSetttingsParser's
@@ -279,7 +275,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");
-		word_complete_where.setDescription("One place, so picking one puts the other away. Floating: over the game text, on the input bar, with a grip to drag or fold it. Below the game: a strip in the layout, which takes height, so the text jumps unless you also keep it in place. Nowhere: no bar at all — the ghost above still works. .suggest where floating|bar|off");
+		word_complete_where.setDescription("Where suggestions sit: floating over the game, in a strip below it, in a list window, or nowhere so only the ghost remains.");
 		word_complete_where.setKey("word_complete_where");
 		// Added in this order: the values are indices into this list, and they are
 		// what lands in the profile. Anything inserted in the middle renames every
@@ -287,6 +283,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_where.addItem("Floating over the game");
 		word_complete_where.addItem("Below the game window");
 		word_complete_where.addItem("Nowhere (ghost only)");
+		word_complete_where.addItem("In a list window");
 		// Floating by default. The strip below the game window takes height while
 		// it shows, so the text jumps under the thumb on every letter. Change this
 		// and ConnectionSetttingsParser's comparison together, or the parser
@@ -294,45 +291,54 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_where.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE);
 
+		ListOption word_complete_order = new ListOption();
+		word_complete_order.setTitle("Chip order");
+		word_complete_order.setDescription("Put the first suggestion on the left chip or the right chip.");
+		word_complete_order.setKey("word_complete_order");
+		word_complete_order.addItem("First on the left");
+		word_complete_order.addItem("First on the right");
+		word_complete_order.setValue(Integer.valueOf(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_ORDER));
+
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Ghost after the cursor");
-		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. At the end of the line it sits after the cursor. In the middle (Complete at the cursor, or a nearby misspelling) there is no inline ghost — it would cover the words after the cursor — and the numbered list starts on the rest of the current line, after the text already there. A new line under the text only when that line is full, and the bar grows so that line stays above the keyboard. .suggest ghost on/off");
+		word_complete_ghost.setDescription("Draw the top suggestion in dim type after the cursor, and a tap takes it.");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 
 		BooleanOption word_complete_split = new BooleanOption();
 		word_complete_split.setTitle("Also split suggestions");
-		word_complete_split.setDescription("A short mark between the dimmed suggestions in the input bar, so two words on the same line stay apart. Off, they sit next to each other with a space and no mark. The little numbers stay either way. Needs the ghost to be on. .suggest split on|off");
+		word_complete_split.setDescription("Separate dimmed suggestions on the same line with a space.");
 		word_complete_split.setKey("word_complete_split");
 		word_complete_split.setValue(false);
 
 		BooleanOption word_complete_caret = new BooleanOption();
 		word_complete_caret.setTitle("Complete at the cursor");
-		word_complete_caret.setDescription("Prefix chips follow the cursor when you edit in the middle of a line, not only at the end. Taking one replaces the word the cursor is in (or the half-typed one before it). The numbered list sits after the text already on the line, not over the words that follow the cursor, and wraps under the line only when that line is full. Nearby misspellings already do this even when this is off. Off by default. .suggest caret on/off");
+		word_complete_caret.setDescription("Suggestions follow the cursor when you edit in the middle of a line, not only at the end.");
 		word_complete_caret.setKey("word_complete_caret");
 		word_complete_caret.setValue(false);
 
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");
-		word_complete_ghost_lines.setDescription("How many extra rows the input bar may grow by when suggestions do not fit on the current line, 1 to 6. At 1 it grows by nothing while the line still has room: the others fill what is left of that line, each numbered and tappable, and +N counts any that did not fit. A list that follows the cursor may still take one row under a full line, so the next word is not only a count. Above 1 they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setDescription("How many extra rows, from 1 to 6, the input bar may grow by when suggestions do not fit on the line.");
 		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
 		word_complete_ghost_lines.setValue(1);
 
 		IntegerOption word_complete_show = new IntegerOption();
 		word_complete_show.setTitle("Suggestions shown at once");
-		word_complete_show.setDescription("How many suggestions the bar and ghost may offer at once, 1 to 8. The rest are still found — they just do not appear until a higher one is taken or the word changes. .suggest show N");
+		word_complete_show.setDescription("How many suggestions the bar and ghost may offer at once, from 1 to 8.");
 		word_complete_show.setKey("word_complete_show");
 		word_complete_show.setValue(8);
 
 		BooleanOption word_complete_persist = new BooleanOption();
 		word_complete_persist.setTitle("Keep the bar in place");
-		word_complete_persist.setDescription("Leave the bar up even with nothing to suggest, instead of it coming and going as you type. Below the game this is the one that matters: it holds its height, so the game text stops jumping. Floating, it holds a bar's width and shows its grip. .suggest persist on/off");
+		word_complete_persist.setDescription("Leave the suggestion bar up even with nothing to suggest, so the game text does not jump.");
 		word_complete_persist.setKey("word_complete_persist");
 		word_complete_persist.setValue(false);
 
 		IntegerOption word_complete_opacity = new IntegerOption();
 		word_complete_opacity.setTitle("Chip opacity (%)");
-		word_complete_opacity.setDescription("How solid the chips are, 10-100. Lower lets more game text through behind them; the words stay fully readable either way. Floating chips only. .suggest opacity N");
+		word_complete_opacity.setDescription("How solid the floating suggestion chips are, from 10 to 100.");
 		word_complete_opacity.setKey("word_complete_opacity");
 		word_complete_opacity.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
@@ -340,6 +346,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		SettingsGroup whereShown = new SettingsGroup();
 		whereShown.setTitle("Where they appear");
 		whereShown.addOption(word_complete_where);
+		whereShown.addOption(word_complete_order);
 		whereShown.addOption(word_complete_ghost);
 		whereShown.addOption(word_complete_split);
 		whereShown.addOption(word_complete_caret);
@@ -351,19 +358,19 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_rank = new BooleanOption();
 		word_complete_rank.setTitle("Order by place in the line");
-		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. On by default: ki offers kill above kindle; after kill, the targets you have used. .suggest rank off turns it off. Learn what goes with what still needs its own checkbox. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. .suggest rank on/off");
+		word_complete_rank.setDescription("At the start of a line, put command words first; after a command, put the targets you have used first.");
 		word_complete_rank.setKey("word_complete_rank");
 		word_complete_rank.setValue(true);
 
 		BooleanOption word_complete_pairs = new BooleanOption();
 		word_complete_pairs.setTitle("Learn what goes with what");
-		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before: kill offers what you have killed, wear what you have worn. Needs Order by place in the line to be on, and knows nothing until you have played a while. It only changes the order. Off by default. .suggest pairs on/off");
+		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before.");
 		word_complete_pairs.setKey("word_complete_pairs");
 		word_complete_pairs.setValue(false);
 
 		BooleanOption word_complete_shorter_first = new BooleanOption();
 		word_complete_shorter_first.setTitle("Shorter suggestions first");
-		word_complete_shorter_first.setDescription("Order every suggestion by length, shortest first, instead of by what the world said most recently. Type cr and you get crate before crime-and-punishment. \"Order by place in the line\" still decides which group of words leads; this decides the order inside each group, and nothing is ever dropped. Off by default. .suggest short on/off");
+		word_complete_shorter_first.setDescription("Order suggestions shortest first, inside each group, and drop nothing.");
 		word_complete_shorter_first.setKey("word_complete_shorter_first");
 		// Off by default: newest-first is what the app has always done, and a
 		// player who never opens this must keep it. Change this and
@@ -378,12 +385,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 		order.addOption(word_complete_shorter_first);
 		suggestions.addOption(order);
 
-		// After every addOption above, never before one of them.
-		input.addOption(suggestions);
-
 		BooleanOption speak_quiet_typing = new BooleanOption();
 		speak_quiet_typing.setTitle("Quiet while you type");
-		speak_quiet_typing.setDescription("Triggers that speak drop anything they would have said between the first letter of a command and sending it. Speech already under way is not cut short. Off — the default — they speak whenever they fire. Worth turning on if you write long lines while a chatty trigger reads the screen at you; leave it off if speech is an alert, because you type most in a fight and that is when it would go quiet.");
+		speak_quiet_typing.setDescription("Triggers that speak stay quiet from the first letter of a command until you send it.");
 		speak_quiet_typing.setKey("speak_quiet_typing");
 		// Off by default: speaking whenever a trigger fires is what the app did
 		// before this existed, and a player who never opens this option must get
@@ -392,14 +396,12 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// ConnectionSetttingsParser's comparison together, or the parser quietly
 		// stops saving the value the player chose.
 		speak_quiet_typing.setValue(false);
-		input.addOption(speak_quiet_typing);
 
 		BooleanOption prompt_bar = new BooleanOption();
 		prompt_bar.setTitle("Prompt on its own bar");
-		prompt_bar.setDescription("A MUD prompt is the line the world never finishes — your health and mana line, resent after every command. On, it sits in one fixed place above the input bar instead of repeating down the game window. Worlds that send no prompt show nothing; .prompt says how many have been seen. Toggle with .prompt on/off.");
+		prompt_bar.setDescription("The game's unfinished prompt line sits above the input bar instead of repeating down the window.");
 		prompt_bar.setKey("prompt_bar");
 		prompt_bar.setValue(false);
-		input.addOption(prompt_bar);
 
 		IntegerOption input_history = new IntegerOption();
 		input_history.setTitle("Input History Size");
@@ -408,14 +410,22 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input_history.setValue(75);
 		input.addOption(input_history);
 
+		CallbackOption show_last_bar = new CallbackOption();
+		show_last_bar.setTitle("Recent command bar…");
+		show_last_bar.setDescription(
+				"Settings for the recent-command chips above the input row: on or off, how many, and how much of each command shows.");
+		show_last_bar.setKey("show_last_bar");
+		show_last_bar.setValue("show_last_bar");
+		input.addOption(show_last_bar);
+
 		SettingsGroup globalGestures = new SettingsGroup();
-		globalGestures.setTitle("Global gestures");
+		globalGestures.setTitle("Gestures");
 		globalGestures.setKey("global_gestures_group");
-		globalGestures.setDescription("Screen-wide swipes on the game text. Classic keeps one-finger scrolling and two-finger copy as they are now. Rows that do not apply to the current mode are dimmed.");
+		globalGestures.setDescription("Screen-wide swipes on the game text, and which fingers scroll or send a command.");
 
 		ListOption gestureMode = new ListOption();
 		gestureMode.setTitle("Gesture mode");
-		gestureMode.setDescription("One at a time. .gesture mode classic|1|2|both");
+		gestureMode.setDescription("Classic, one finger, two fingers, or both, one mode at a time.");
 		gestureMode.setKey("global_gesture_mode");
 		gestureMode.setValue(Integer.valueOf(0));
 		gestureMode.addItem("Classic");
@@ -425,7 +435,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption gestureShow = new BooleanOption();
 		gestureShow.setTitle("Show the current mode");
-		gestureShow.setDescription("A label near the top-right of the game text: the gesture mode, and the scrolling choice in One finger and Both. Inset from the corner. Off by default. .gesture show on|off");
+		gestureShow.setDescription("A label near the top-right of the game text showing the gesture mode.");
 		gestureShow.setKey("global_gesture_show_mode");
 		gestureShow.setValue(false);
 
@@ -437,13 +447,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption gestureCommand = new BooleanOption();
 		gestureCommand.setTitle("Show the command");
-		gestureCommand.setDescription("The command that will send, drawn above the finger. .gesture preview on|off sets this and the marker together.");
+		gestureCommand.setDescription("The command that will send, drawn above the finger.");
 		gestureCommand.setKey("global_gesture_show_command");
 		gestureCommand.setValue(true);
 
 		ListOption gestureScroll = new ListOption();
 		gestureScroll.setTitle("Scrolling");
-		gestureScroll.setDescription("Used in One finger and Both. Grey in Classic and Two fingers, and .gesture scroll two|hold|off is refused there. With two fingers: a one-finger swipe sends a command and two fingers scroll the text. Hold, then gesture: a move before the hold still scrolls. Off: a one-finger swipe does not scroll.");
+		gestureScroll.setDescription("In One finger and Both, whether a swipe scrolls, waits for a hold, or only sends a command.");
 		gestureScroll.setKey("global_gesture_scroll");
 		gestureScroll.setValue(Integer.valueOf(1));
 		gestureScroll.addItem(GlobalGestures.SCROLL_CHOICES[0]);
@@ -476,7 +486,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption editGlobalGestures = new CallbackOption();
 		editGlobalGestures.setTitle("Edit global gestures");
-		editGlobalGestures.setDescription("Eight directions for one finger, and eight for two fingers. A blank direction does nothing. .gesture edit");
+		editGlobalGestures.setDescription("Eight directions for one finger, and eight for two fingers; a blank direction sends no command.");
 		editGlobalGestures.setKey("global_gesture_bindings");
 		editGlobalGestures.setValue("");
 
@@ -491,20 +501,16 @@ public class ConnectionSettingsPlugin extends Plugin {
 		globalGestures.addOption(gestureTwoScroll);
 		globalGestures.addOption(editGlobalGestures);
 
-		input.addOptionAt(globalGestures, 0);
-
-		sg.addOption(input);
-
 		// The phone itself, as something triggers can read. Its own group
 		// because it is not an input setting and not a display one, and because
 		// this is where anything else sensor-shaped will go.
 		SettingsGroup device = new SettingsGroup();
 		device.setTitle("Device");
-		device.setDescription("What the phone knows about itself, and what the game may do with it.");
+		device.setDescription("Shake, light, battery, and variables triggers can read.");
 
 		BooleanOption device_state_variables = new BooleanOption();
 		device_state_variables.setTitle("Device state as variables");
-		device_state_variables.setDescription("Keep device.headphones, device.charging, device.battery, device.screen and device.covered up to date as session variables, so a trigger or timer can be gated on them in its Conditions tab and Lua can read them with GetVariable. A name this phone cannot know is left unset, and a condition testing it is false rather than true. Off by default, and nothing is registered while it is off. .probe sensors state shows the current values");
+		device_state_variables.setDescription("Keep device.battery, device.screen, device.headphones and the other device values updated, so a trigger or GetVariable can read them.");
 		device_state_variables.setKey("device_state_variables");
 		// Off by default: the app did nothing of the sort before this existed.
 		// Change this and ConnectionSetttingsParser's comparison together, or
@@ -514,38 +520,38 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption device_sensors = new CallbackOption();
 		device_sensors.setTitle("Sensors\u2026");
-		device_sensors.setDescription("The readings this phone can deliver — a hand over the screen, movement, light, headphones, charger, battery, screen — and what each one currently drives. Tap a reading in the list to give it a trigger.");
+		device_sensors.setDescription("The readings this phone can deliver, and the trigger each one currently drives.");
 		device_sensors.setKey("device_sensors");
 		device.addOption(device_sensors);
 
 		CallbackOption calibrate_shake = new CallbackOption();
 		calibrate_shake.setTitle("Calibrate shake\u2026");
-		calibrate_shake.setDescription("Two short measurements, one shaking and one walking about with the phone, and it picks a threshold that catches the first without catching the second. Replaces the value the app ships, which was measured on one device. Stays with this phone and never travels in an exported profile.");
+		calibrate_shake.setDescription("Measure a shake and a walk, and keep a threshold that catches the shake without catching the walk.");
 		calibrate_shake.setKey("calibrate_shake");
 		device.addOption(calibrate_shake);
 
 		CallbackOption calibrate_light = new CallbackOption();
 		calibrate_light.setTitle("Calibrate light\u2026");
-		calibrate_light.setDescription("Tap once somewhere dark and once somewhere bright. Lux readings are not comparable between phones or between rooms, so this is the only way \"it is dark around the phone\" can mean your dark. Stays with this phone, never exported with a profile.");
+		calibrate_light.setDescription("Tap once somewhere dark and once somewhere bright, so dark means this room on this phone.");
 		calibrate_light.setKey("calibrate_light");
 		device.addOption(calibrate_light);
 
 		CallbackOption battery_threshold = new CallbackOption();
 		battery_threshold.setTitle("Battery low threshold\u2026");
-		battery_threshold.setDescription("Charge percent that counts as low, and the higher percent that counts as recovered. batterylow fires once when charge crosses down through the first; batteryok once when it crosses back up through the second. The gap stops 19–21% flapping. Stays with this phone, never exported with a profile.");
+		battery_threshold.setDescription("The charge percent that counts as low, and the higher percent that counts as recovered.");
 		battery_threshold.setKey("battery_threshold");
 		device.addOption(battery_threshold);
 
 		BooleanOption sensor_screen_off = new BooleanOption();
 		sensor_screen_off.setTitle("Movement sensors with the screen off");
-		sensor_screen_off.setDescription("Off by default: a shake, a wave over the screen or the phone going face down does nothing while the display is asleep, so a phone jolted about in a pocket or a bag cannot fire a trigger. Turn it on to allow those readings with the screen off. Headphone, charger, battery, screen and rotation readings are not affected — muting speech when the jack comes out has to work with the screen off. Note that a sensor trigger fires in every world you have open, so with two MUDs connected one shake sends the command twice.");
+		sensor_screen_off.setDescription("A shake or a hand over the screen can fire a trigger while the display is asleep, in every world you have open.");
 		sensor_screen_off.setKey("sensor_screen_off");
 		sensor_screen_off.setValue(false);
 		device.addOption(sensor_screen_off);
 
 		BooleanOption sensor_background = new BooleanOption();
 		sensor_background.setTitle("Movement sensors while the app is in the background");
-		sensor_background.setDescription("Off by default: with BlowTorch in Recents or another app on top, a shake or a wave is more likely you using your phone than playing. Turn it on to keep movement readings live behind another app. Movement readings only — headphone, charger, battery, screen and rotation readings keep working either way — and, as above, one of them reaches every open world.");
+		sensor_background.setDescription("A shake or a hand over the screen can fire a trigger while BlowTorch is behind another app, in every world you have open.");
 		sensor_background.setKey("sensor_background");
 		sensor_background.setValue(false);
 		device.addOption(sensor_background);
@@ -566,66 +572,64 @@ public class ConnectionSettingsPlugin extends Plugin {
 		sensor_my_shakes.setValue(false);
 		device.addOption(sensor_my_shakes);
 
-		sg.addOption(device);
-
 		
 		
 		SettingsGroup servOptions = new SettingsGroup();
-		servOptions.setTitle("Service");
-		servOptions.setDescription("Options for the background service and data processing.");
+		servOptions.setTitle("Connection");
+		servOptions.setDescription("Reconnect, Wi-Fi, encoding, echo, and the session log.");
 
 		EncodingOption enc = new EncodingOption();
 		enc.setTitle("System Encoding");
-		enc.setDescription("Specifies the encoding used to process incoming text.");
+		enc.setDescription("Which character set turns the server's bytes into letters, UTF-8 unless you see the wrong characters.");
 		enc.setKey("encoding");
 		enc.setValue("UTF-8");
 		servOptions.addOption(enc);
 		
 		BooleanOption session_log = new BooleanOption();
 		session_log.setTitle("Log Session to File?");
-		session_log.setDescription("Append incoming game text live to a .txt under /BlowTorch/session_logs/ (or custom folder). One file per world per local day; reconnects append. Flushes about every 0.75s / 4KB and on disconnect — not only when you quit. Requires All files access.");
+		session_log.setDescription("Append incoming game text to a file, one file per world per day.");
 		session_log.setKey("session_log");
 		session_log.setValue(false);
 		servOptions.addOption(session_log);
 
 		BooleanOption session_log_echo = new BooleanOption();
 		session_log_echo.setTitle("Include Local Echo in Session Log?");
-		session_log_echo.setDescription("When logging to file, also append what Local Echo paints in the window (what you typed and saw locally). Off: incoming game text only. Passwords stay out while the server is echoing.");
+		session_log_echo.setDescription("Also append what local echo paints, when the session log is on.");
 		session_log_echo.setKey("session_log_echo");
 		session_log_echo.setValue(false);
 		servOptions.addOption(session_log_echo);
 
 		StringOption session_log_directory = new StringOption();
 		session_log_directory.setTitle("Session Log Directory");
-		session_log_directory.setDescription("Leave blank for /BlowTorch/session_logs/. Browse… for SAF, or enter an absolute path.");
+		session_log_directory.setDescription("Folder for session logs; blank uses /BlowTorch/session_logs/.");
 		session_log_directory.setKey("session_log_directory");
 		session_log_directory.setValue("");
 		servOptions.addOption(session_log_directory);
 		
 		BooleanOption local_echo = new BooleanOption();
 		local_echo.setTitle("Local Echo?");
-		local_echo.setDescription("Will the service echo data sent to the server?");
+		local_echo.setDescription("Show what you just sent in the game window; off, you only see the server's reply.");
 		local_echo.setKey("local_echo");
 		local_echo.setValue(true);
 		servOptions.addOption(local_echo);
 		
 		BooleanOption process_system_commands = new BooleanOption();
 		process_system_commands.setTitle("Process System Commands?");
-		process_system_commands.setDescription("Perform system functions for input beginning with the specified system command marker.");
+		process_system_commands.setDescription("A line that starts with a dot, such as .help, runs in the client and is not sent to the game.");
 		process_system_commands.setKey("process_system_commands");
 		process_system_commands.setValue(true);
 		servOptions.addOption(process_system_commands);
 		
 		BooleanOption echo_alias_updates = new BooleanOption();
 		echo_alias_updates.setTitle("Echo Alias Updates?");
-		echo_alias_updates.setDescription("Local echo system command updates to aliases.");
+		echo_alias_updates.setDescription("When a dot-command changes an alias, print that change in the game window.");
 		echo_alias_updates.setKey("echo_alias_updates");
 		echo_alias_updates.setValue(true);
 		servOptions.addOption(echo_alias_updates);
 		
 		BooleanOption process_semi = new BooleanOption();
 		process_semi.setTitle("Process Semicolons?");
-		process_semi.setDescription("Semicolons will be replaces with a newline character.");
+		process_semi.setDescription("A semicolon in what you send becomes a new line, so look;inventory goes out as two commands.");
 		process_semi.setKey("process_semicolon");
 		process_semi.setValue(true);
 		servOptions.addOption(process_semi);
@@ -639,14 +643,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption keep_cpu_awake = new BooleanOption();
 		keep_cpu_awake.setTitle("Keep CPU Awake?");
-		keep_cpu_awake.setDescription("Leave this on. Off saves some battery, but .wait, triggers and timers may not fire on time with the screen off.");
+		keep_cpu_awake.setDescription("Leave the CPU awake while connected, so waits, triggers, and timers still fire with the screen off.");
 		keep_cpu_awake.setKey("keep_cpu_awake");
 		keep_cpu_awake.setValue(true);
 		servOptions.addOption(keep_cpu_awake);
 
 		ListOption notification_grouping = new ListOption();
 		notification_grouping.setTitle("Notification stack");
-		notification_grouping.setDescription("One shade stack for the connection, alerts and chat. Or a separate bar for each. With several worlds open, the one you are in decides. A trigger set to Spawn new stays on its own bar either way.");
+		notification_grouping.setDescription("One notification stack for the connection, alerts, and chat, or a separate bar for each.");
 		notification_grouping.setKey("notification_grouping");
 		// Index 0 is the default and is what lands in the profile. Do not insert in the middle.
 		notification_grouping.addItem("One stack");
@@ -656,14 +660,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption auto_reconnect = new BooleanOption();
 		auto_reconnect.setTitle("Auto Reconnect?");
-		auto_reconnect.setDescription("Automatically reconnect when disconnected.");
+		auto_reconnect.setDescription("Reconnect automatically when the connection drops.");
 		auto_reconnect.setKey("auto_reconnect");
 		auto_reconnect.setValue(true);
 		servOptions.addOption(auto_reconnect);
 		
 		IntegerOption auto_reconnect_limit = new IntegerOption();
 		auto_reconnect_limit.setTitle("Auto Reconnect Tries");
-		auto_reconnect_limit.setDescription("Hard limit of how many times reconnection will be attempted.");
+		auto_reconnect_limit.setDescription("How many times reconnection will be attempted.");
 		auto_reconnect_limit.setKey("auto_reconnect_limit");
 		auto_reconnect_limit.setValue(new Integer(5));
 		servOptions.addOption(auto_reconnect_limit);
@@ -673,21 +677,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption cull_extraneous = new BooleanOption();
 		cull_extraneous.setTitle("Cull Extraneous Colors?");
-		cull_extraneous.setDescription("Removes extraneous color codes.");
+		cull_extraneous.setDescription("Drop colour codes that do not change the colour, so leftover codes do not sit in the text.");
 		cull_extraneous.setKey("cull_extraneous_color");
 		cull_extraneous.setValue(true);
 		servOptions.addOption(cull_extraneous);
 		
 		BooleanOption debug_telnet = new BooleanOption();
 		debug_telnet.setTitle("Debug Telnet?");
-		debug_telnet.setDescription("Shows data involving telnet option transactions in the window.");
+		debug_telnet.setDescription("Show telnet option negotiations in the game window.");
 		debug_telnet.setKey("debug_telnet");
 		debug_telnet.setValue(false);
-		servOptions.addOption(debug_telnet);
 
 		BooleanOption sgr1_weight = new BooleanOption();
 		sgr1_weight.setTitle("Heavier MUD bold (SGR 1)?");
-		sgr1_weight.setDescription("Off by default. The world’s [1m stays the bright palette. Tick this to also redraw those letters heavier (same overlay as tappable-word Bold). Glyphs can spill into the next cell, so bold can look messy. Color-trigger Bold always uses the heavier overlay, whether this box is on or off.");
+		sgr1_weight.setDescription("Also draw the game's bold letters heavier; off, bold is only the bright colour.");
 		sgr1_weight.setKey("sgr1_weight");
 		sgr1_weight.setValue(false);
 		servOptions.addOption(sgr1_weight);
@@ -702,33 +705,34 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		SettingsGroup protocolSwitches = new SettingsGroup();
 		protocolSwitches.setTitle("Protocols");
-		protocolSwitches.setDescription("Master switches for what this world may speak. Details for each protocol sit in the groups below. .protocols shows what the server offered.");
+		protocolSwitches.setDescription("GMCP, MCP, MXP, and telnet, and whether this world speaks them.");
 		protocolSwitches.setKey("protocol_switches_group");
 
 		BooleanOption use_gmcp = new BooleanOption();
 		use_gmcp.setTitle("Use GMCP?");
-		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data).");
+		use_gmcp.setDescription("Let this world speak GMCP, and reconnect after changing it.");
 		use_gmcp.setKey("use_gmcp");
 		use_gmcp.setValue(false);
 		protocolSwitches.addOption(use_gmcp);
 
 		BooleanOption use_mcp = new BooleanOption();
 		use_mcp.setTitle("Use MCP?");
-		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Off by default — reconnect or wait for server #$#mcp after enabling. Omit MCP lines from output? still hides #$# when this is off.");
+		use_mcp.setDescription("Let this world speak MCP, and reconnect after changing it.");
 		use_mcp.setKey("use_mcp");
 		use_mcp.setValue(false);
 		protocolSwitches.addOption(use_mcp);
 
 		BooleanOption use_mxp = new BooleanOption();
 		use_mxp.setTitle("Use MXP?");
-		use_mxp.setDescription("MUD eXtension Protocol (option 91). Clickable SEND links, colours, custom elements, EXPIRE. On by default. Reconnect after changing. .mxp on|off, .probe mxp");
+		use_mxp.setDescription("Let this world speak MXP, and reconnect after changing it.");
 		use_mxp.setKey("use_mxp");
 		use_mxp.setValue(true);
 		protocolSwitches.addOption(use_mxp);
+		protocolSwitches.addOption(debug_telnet);
 
 		SettingsGroup gmcpOptions = new SettingsGroup();
 		gmcpOptions.setTitle("GMCP");
-		gmcpOptions.setDescription("Options for the GMCP out of band communication channel.");
+		gmcpOptions.setDescription("Modules, logging, and pictures this world receives over GMCP.");
 
 		CallbackOption manage_gmcp = new CallbackOption();
 		manage_gmcp.setTitle("Manage modules…");
@@ -746,28 +750,28 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_gmcp = new BooleanOption();
 		log_gmcp.setTitle("Log GMCP?");
-		log_gmcp.setDescription("Write the GMCP handshake and every packet to logs/gmcp.log (its own file, so it cannot bury the crash log; also the session log if that is on). Use it to see exactly what a world sends. Also: .gmcp sniff on");
+		log_gmcp.setDescription("Write the GMCP handshake and every packet to logs/gmcp.log, and to the session log if that is on.");
 		log_gmcp.setKey("log_gmcp");
 		log_gmcp.setValue(false);
 		gmcpOptions.addOption(log_gmcp);
 
 		BooleanOption gmcp_feed = new BooleanOption();
 		gmcp_feed.setTitle("Show GMCP in game window?");
-		gmcp_feed.setDescription("Live IN/OUT GMCP feed in the mud window (noisy). Off by default. Also: .gmcp feed on|off");
+		gmcp_feed.setDescription("Show each GMCP packet in the game window.");
 		gmcp_feed.setKey("gmcp_feed");
 		gmcp_feed.setValue(false);
 		gmcpOptions.addOption(gmcp_feed);
 
 		BooleanOption gmcp_suggest = new BooleanOption();
 		gmcp_suggest.setTitle("Suggest modules when seen?");
-		gmcp_suggest.setDescription("Tell me when the server sends a package family I have not declared in Supports.Set, and once on connect if the server advertises a supports list of its own. Submodules of enabled parents (e.g. Char.Base under Char) do not trigger. Nothing is ever enabled for you. On by default; turn it off here.");
+		gmcp_suggest.setDescription("Tell you when the server sends a module you have not declared, and never turn one on for you.");
 		gmcp_suggest.setKey("gmcp_suggest_modules");
 		gmcp_suggest.setValue(true);
 		gmcpOptions.addOption(gmcp_suggest);
 
 		ListOption frame_images = new ListOption();
 		frame_images.setTitle("Pictures the server sends");
-		frame_images.setDescription("Where a mudstd.frame image frame is drawn. In a floating separate window it can be moved, resized and closed, and it stays put while the text scrolls. In the game text it scrolls away with the room it belongs to, which suits a map of where you are standing. Switching between the two takes effect at once, on frames already open. Needs mudstd.frame in Manage modules….");
+		frame_images.setDescription("Draw a picture the server sends in a floating window, or in the game text where it scrolls away.");
 		frame_images.setKey("frame_image_placement");
 		frame_images.setValue(new Integer(0));
 		frame_images.addItem("In a floating separate window");
@@ -783,7 +787,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		SettingsGroup mcpOptions = new SettingsGroup();
 		mcpOptions.setTitle("MCP");
-		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by some MOOs — different from GMCP. Off by default.");
+		mcpOptions.setDescription("Packages, logging, and #$# lines for MCP.");
 
 		CallbackOption manage_mcp = new CallbackOption();
 		manage_mcp.setTitle("Manage packages…");
@@ -801,14 +805,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_mcp = new BooleanOption();
 		log_mcp.setTitle("Log MCP?");
-		log_mcp.setDescription("Write MCP handshake and packets into the session log (Log Session to File?) even when Use MCP? is off. Also logcat. Also: .mcp sniff on");
+		log_mcp.setDescription("Write the MCP handshake and packets into the session log.");
 		log_mcp.setKey("log_mcp");
 		log_mcp.setValue(false);
 		mcpOptions.addOption(log_mcp);
 
 		BooleanOption mcp_feed = new BooleanOption();
 		mcp_feed.setTitle("Show MCP in game window?");
-		mcp_feed.setDescription("Live IN/OUT MCP feed in the mud window (noisy). Off by default. Also: .mcp feed on|off");
+		mcp_feed.setDescription("Show each MCP packet in the game window.");
 		mcp_feed.setKey("mcp_feed");
 		mcp_feed.setValue(false);
 		mcpOptions.addOption(mcp_feed);
@@ -829,64 +833,61 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		SettingsGroup protocolOptions = new SettingsGroup();
 		protocolOptions.setTitle("Telnet");
-		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS and MCCP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them. Use MXP? sits under Protocols above.");
+		protocolOptions.setDescription("Terminal type, compression, and the other telnet options beside GMCP and MCP.");
 		protocolOptions.setKey("mud_protocols_group");
 
 		BooleanOption use_mtts = new BooleanOption();
 		use_mtts.setTitle("Use MTTS?");
-		use_mtts.setDescription("When on, TTYPE announces ANSI-256COLOR then MTTS 269 (ANSI+UTF-8+256 colors+truecolor bit). When off, still sends a standards-compliant MTTS cycle but only ANSI (MTTS 1). Reconnect after changing.");
+		use_mtts.setDescription("Announce colour and UTF-8 to the server, and reconnect after changing it.");
 		use_mtts.setKey("use_mtts");
 		use_mtts.setValue(true);
 		protocolOptions.addOption(use_mtts);
 
 		BooleanOption use_msdp = new BooleanOption();
 		use_msdp.setTitle("Use MSDP?");
-		use_msdp.setDescription("MUD Server Data Protocol (option 69). Alternative out-of-band channel used by some MUDs (e.g. Aardwolf). Off by default. Corrupt packets are ignored.");
+		use_msdp.setDescription("Let the server send MSDP; corrupt packets are ignored.");
 		use_msdp.setKey("use_msdp");
 		use_msdp.setValue(false);
 		protocolOptions.addOption(use_msdp);
 
 		BooleanOption use_mssp = new BooleanOption();
 		use_mssp.setTitle("Use MSSP?");
-		use_mssp.setDescription("MUD Server Status Protocol (option 70). Server listing info (name, players, …). Off by default. Useful for diagnostics; .mssp dump");
+		use_mssp.setDescription("Let the server send its listing info, such as name and player count.");
 		use_mssp.setKey("use_mssp");
 		use_mssp.setValue(false);
 		protocolOptions.addOption(use_mssp);
 
 		BooleanOption use_mccp = new BooleanOption();
 		use_mccp.setTitle("Use MCCP?");
-		use_mccp.setDescription("MUD Client Compression Protocol v2 (option 86). On by default; saves bandwidth. If decompression fails the client turns it off and reconnects by itself. Reconnect after changing.");
+		use_mccp.setDescription("Accept compressed text from the server, and reconnect after changing it.");
 		use_mccp.setKey("use_mccp");
 		use_mccp.setValue(true);
 		protocolOptions.addOption(use_mccp);
 
 		BooleanOption log_mxp = new BooleanOption();
 		log_mxp.setTitle("Log MXP?");
-		log_mxp.setDescription("MXP handshake notes in the session log (when Log Session to File? is on) and logcat. Off by default.");
+		log_mxp.setDescription("Write MXP handshake notes into the session log.");
 		log_mxp.setKey("log_mxp");
 		log_mxp.setValue(false);
 		protocolOptions.addOption(log_mxp);
 
 		BooleanOption mxp_feed = new BooleanOption();
 		mxp_feed.setTitle("Show MXP in game window?");
-		mxp_feed.setDescription("Echo VERSION/SUPPORT replies and EXPIRE events into the scrollback. Off by default. Noisy.");
+		mxp_feed.setDescription("Show MXP handshake and expire events in the game window.");
 		mxp_feed.setKey("mxp_feed");
 		mxp_feed.setValue(false);
 		protocolOptions.addOption(mxp_feed);
 
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");
-		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background. Helps Keep CPU Awake? and Keep Wifi Alive? when the screen is off.");
+		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background.");
 		battery_opt.setKey("battery_optimization");
 		battery_opt.setValue("battery_optimization");
 		servOptions.addOption(battery_opt);
 
-		servOptions.addOption(protocolSwitches);
-		servOptions.addOption(gmcpOptions);
-		servOptions.addOption(mcpOptions);
-		servOptions.addOption(protocolOptions);
-		
-		sg.addOption(servOptions);
+		protocolSwitches.addOption(gmcpOptions);
+		protocolSwitches.addOption(mcpOptions);
+		protocolSwitches.addOption(protocolOptions);
 
 		SettingsGroup mapperOptions = new SettingsGroup();
 		mapperOptions.setTitle("Mapper");
@@ -894,14 +895,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_enabled = new BooleanOption();
 		mapper_enabled.setTitle("Enable Mapper?");
-		mapper_enabled.setDescription("Master switch for recording, GMCP room sync, and .map commands engine.");
+		mapper_enabled.setDescription("Master switch for recording and room sync.");
 		mapper_enabled.setKey("mapper_enabled");
 		mapper_enabled.setValue(true);
 		mapperOptions.addOption(mapper_enabled);
 
 		BooleanOption mapper_recording_default = new BooleanOption();
 		mapper_recording_default.setTitle("Record by Default?");
-		mapper_recording_default.setDescription("Start recording movement when a session loads. Toggle live with .map record.");
+		mapper_recording_default.setDescription("Start recording movement when a session loads.");
 		mapper_recording_default.setKey("mapper_recording_default");
 		mapper_recording_default.setValue(false);
 		mapperOptions.addOption(mapper_recording_default);
@@ -929,135 +930,132 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_path_auto_send = new BooleanOption();
 		mapper_path_auto_send.setTitle("Auto-Send Path?");
-		mapper_path_auto_send.setDescription("When using .map goto, send path commands to the MUD. Off = print path only.");
+		mapper_path_auto_send.setDescription("When you ask the map for a path, send those commands to the game; off, only print the path.");
 		mapper_path_auto_send.setKey("mapper_path_auto_send");
 		mapper_path_auto_send.setValue(false);
 		mapperOptions.addOption(mapper_path_auto_send);
 
 		BooleanOption mapper_echo_window = new BooleanOption();
 		mapper_echo_window.setTitle("Echo mapper status to game window?");
-		mapper_echo_window.setDescription("When on, .map / overlay toggles print status lines into the scrollback. Off = keep feedback in the map overlay only (More → Window echo).");
+		mapper_echo_window.setDescription("Print mapper status lines in the game window; off, they stay in the map overlay.");
 		mapper_echo_window.setKey("mapper_echo_window");
 		mapper_echo_window.setValue(true);
 		mapperOptions.addOption(mapper_echo_window);
 
-		BooleanOption mapper_use_gmcp = new BooleanOption();
-		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
-		mapper_use_gmcp.setDescription("Apply Room.* GMCP to the map (title, room num, coords, exits). Needs GMCP on + Room in Manage modules…. Prefer Configure Room Sync… below. Independent of Capture regex.");
-		mapper_use_gmcp.setKey("mapper_use_gmcp");
-		mapper_use_gmcp.setValue(true);
-		mapperOptions.addOption(mapper_use_gmcp);
-
-		CallbackOption mapper_gmcp_cfg = new CallbackOption();
-		mapper_gmcp_cfg.setTitle("Configure Room Sync…");
-		mapper_gmcp_cfg.setDescription("Sync policy (follow/sync/strict), room number matching, absolute coordinates, exit neighbors, and per-host layout presets.");
-		mapper_gmcp_cfg.setKey("manage_mapper_gmcp");
-		mapper_gmcp_cfg.setValue("manage_mapper_gmcp");
-		mapperOptions.addOption(mapper_gmcp_cfg);
-
-		StringOption mapper_gmcp_policy = new StringOption();
-		mapper_gmcp_policy.setTitle("GMCP Sync Policy");
-		mapper_gmcp_policy.setDescription("follow = jump only; sync = create/grow + prompt on title conflicts (default); strict = always overwrite unlocked titles. Also in Configure Room Sync… / More radial grow toggle.");
-		mapper_gmcp_policy.setKey("mapper_gmcp_policy");
-		mapper_gmcp_policy.setValue("sync");
-		mapperOptions.addOption(mapper_gmcp_policy);
-
-		BooleanOption mapper_gmcp_use_num = new BooleanOption();
-		mapper_gmcp_use_num.setTitle("GMCP: Match by room number?");
-		mapper_gmcp_use_num.setDescription("Use Room.Info num/id/vnum as stable tile identity (recommended). Also in Configure Room Sync….");
-		mapper_gmcp_use_num.setKey("mapper_gmcp_use_num");
-		mapper_gmcp_use_num.setValue(true);
-		mapperOptions.addOption(mapper_gmcp_use_num);
-
-		BooleanOption mapper_gmcp_use_coords = new BooleanOption();
-		mapper_gmcp_use_coords.setTitle("GMCP: Use absolute coordinates?");
-		mapper_gmcp_use_coords.setDescription("Place at coords/coord x,y only when adjacent (≤1 cell). Off (default) = grow beside previous room — better for sparse world coordinates. Also in Configure Room Sync….");
-		mapper_gmcp_use_coords.setKey("mapper_gmcp_use_coords");
-		mapper_gmcp_use_coords.setValue(false);
-		mapperOptions.addOption(mapper_gmcp_use_coords);
-
-		BooleanOption mapper_gmcp_grow = new BooleanOption();
-		mapper_gmcp_grow.setTitle("GMCP: Auto-grow map?");
-		mapper_gmcp_grow.setDescription("Derived from Sync Policy (off = follow). Create rooms/exits from Room.Info when on. Also in Configure Room Sync… / More radial.");
-		mapper_gmcp_grow.setKey("mapper_gmcp_grow");
-		mapper_gmcp_grow.setValue(true);
-		mapperOptions.addOption(mapper_gmcp_grow);
-
-		BooleanOption mapper_gmcp_create_exits = new BooleanOption();
-		mapper_gmcp_create_exits.setTitle("GMCP: Create exit neighbors?");
-		mapper_gmcp_create_exits.setDescription("Create/link missing exits from Room.Info (vnum stubs when given). Does not delete exits. Also in Configure Room Sync….");
-		mapper_gmcp_create_exits.setKey("mapper_gmcp_create_exits");
-		mapper_gmcp_create_exits.setValue(true);
-		mapperOptions.addOption(mapper_gmcp_create_exits);
-
 		BooleanOption mapper_auto_reverse = new BooleanOption();
 		mapper_auto_reverse.setTitle("Auto Reverse Links?");
-		mapper_auto_reverse.setDescription("When recording n/s/e/w (etc.), also create the opposite exit on the destination tile.");
+		mapper_auto_reverse.setDescription("When recording a compass move, also create the opposite exit on the destination tile.");
 		mapper_auto_reverse.setKey("mapper_auto_reverse_link");
 		mapper_auto_reverse.setValue(true);
 		mapperOptions.addOption(mapper_auto_reverse);
 
 		BooleanOption mapper_one_way = new BooleanOption();
 		mapper_one_way.setTitle("Accept One-Way Specials?");
-		mapper_one_way.setDescription("When ON, recording out/enter/leave always places a new nearby tile. When OFF (default), if exactly one room already leads into Here, link the special back there (e.g. freezer out → hallway). Toggle also in map Edit radial (1-way specials).");
+		mapper_one_way.setDescription("Recording out, enter, or leave always places a new nearby tile; off, link back when exactly one room already leads here.");
 		mapper_one_way.setKey("mapper_accept_one_way_specials");
 		mapper_one_way.setValue(false);
 		mapperOptions.addOption(mapper_one_way);
 
+		BooleanOption mapper_use_gmcp = new BooleanOption();
+		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
+		mapper_use_gmcp.setDescription("Apply room data the server sends over GMCP to the map.");
+		mapper_use_gmcp.setKey("mapper_use_gmcp");
+		mapper_use_gmcp.setValue(true);
+		mapperOptions.addOption(mapper_use_gmcp);
+
+		CallbackOption mapper_gmcp_cfg = new CallbackOption();
+		mapper_gmcp_cfg.setTitle("Configure Room Sync…");
+		mapper_gmcp_cfg.setDescription("Choose how room data from the server updates the map.");
+		mapper_gmcp_cfg.setKey("manage_mapper_gmcp");
+		mapper_gmcp_cfg.setValue("manage_mapper_gmcp");
+		mapperOptions.addOption(mapper_gmcp_cfg);
+
+		StringOption mapper_gmcp_policy = new StringOption();
+		mapper_gmcp_policy.setTitle("GMCP Sync Policy");
+		mapper_gmcp_policy.setDescription("Follow only jumps; sync grows the map; strict overwrites unlocked room titles.");
+		mapper_gmcp_policy.setKey("mapper_gmcp_policy");
+		mapper_gmcp_policy.setValue("sync");
+		mapperOptions.addOption(mapper_gmcp_policy);
+
+		BooleanOption mapper_gmcp_use_num = new BooleanOption();
+		mapper_gmcp_use_num.setTitle("GMCP: Match by room number?");
+		mapper_gmcp_use_num.setDescription("Match a room by the number the server sends.");
+		mapper_gmcp_use_num.setKey("mapper_gmcp_use_num");
+		mapper_gmcp_use_num.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_use_num);
+
+		BooleanOption mapper_gmcp_use_coords = new BooleanOption();
+		mapper_gmcp_use_coords.setTitle("GMCP: Use absolute coordinates?");
+		mapper_gmcp_use_coords.setDescription("Place a room at the coordinates the server sends only when it is next to the previous one.");
+		mapper_gmcp_use_coords.setKey("mapper_gmcp_use_coords");
+		mapper_gmcp_use_coords.setValue(false);
+		mapperOptions.addOption(mapper_gmcp_use_coords);
+
+		BooleanOption mapper_gmcp_grow = new BooleanOption();
+		mapper_gmcp_grow.setTitle("GMCP: Auto-grow map?");
+		mapper_gmcp_grow.setDescription("Create rooms and exits from the room data the server sends.");
+		mapper_gmcp_grow.setKey("mapper_gmcp_grow");
+		mapper_gmcp_grow.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_grow);
+
+		BooleanOption mapper_gmcp_create_exits = new BooleanOption();
+		mapper_gmcp_create_exits.setTitle("GMCP: Create exit neighbors?");
+		mapper_gmcp_create_exits.setDescription("Create missing exits from the room data the server sends, and do not delete exits.");
+		mapper_gmcp_create_exits.setKey("mapper_gmcp_create_exits");
+		mapper_gmcp_create_exits.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_create_exits);
+
 		StringOption mapper_toolbar = new StringOption();
 		mapper_toolbar.setTitle("Toolbar Actions (CSV)");
-		mapper_toolbar.setDescription("Left-side map buttons (CSV): record,follow,level-,level+,find,undo,center,close,capture. Links, Paths/Pack, Draw, Here, Edit, Save are always added.");
+		mapper_toolbar.setDescription("Which buttons sit on the left of the map, as a comma-separated list.");
 		mapper_toolbar.setKey("mapper_toolbar_actions");
 		mapper_toolbar.setValue("record,follow,level-,level+,find,undo,center,close");
 		mapperOptions.addOption(mapper_toolbar);
 
 		StringOption mapper_capture_title = new StringOption();
 		mapper_capture_title.setTitle("Capture Title Regex");
-		mapper_capture_title.setDescription("Regex for .map capture and the Capture dialog title field. Group 1 is used when present; otherwise the whole match. Default matches a capitalized line.");
+		mapper_capture_title.setDescription("The pattern that picks a room title out of the game text.");
 		mapper_capture_title.setKey("mapper_capture_title_regex");
 		mapper_capture_title.setValue("^([A-Z].*)$");
 		mapperOptions.addOption(mapper_capture_title);
 
 		StringOption mapper_capture_exits = new StringOption();
 		mapper_capture_exits.setTitle("Capture Exits Regex");
-		mapper_capture_exits.setDescription("Regex for .map capture and the Capture dialog exits field. Group 1 is used when present (e.g. text after Exits:). Case-insensitive by default.");
+		mapper_capture_exits.setDescription("The pattern that picks the exits line out of the game text.");
 		mapper_capture_exits.setKey("mapper_capture_exits_regex");
 		mapper_capture_exits.setValue("(?i)exits?:\\s*(.*)");
 		mapperOptions.addOption(mapper_capture_exits);
 
 		StringOption mapper_level_up = new StringOption();
 		mapper_level_up.setTitle("Level-Up Commands (CSV)");
-		mapper_level_up.setDescription("While recording, these moves create a higher floor (+1). Default: u,up,climb,ascend. Clear both Up and Down to never auto-create levels (place as special neighbors instead).");
+		mapper_level_up.setDescription("While recording, these commands create a higher floor.");
 		mapper_level_up.setKey("mapper_level_up_commands");
 		mapper_level_up.setValue(MapDirections.DEFAULT_LEVEL_UP_COMMANDS);
 		mapperOptions.addOption(mapper_level_up);
 
 		StringOption mapper_level_down = new StringOption();
 		mapper_level_down.setTitle("Level-Down Commands (CSV)");
-		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals. Also editable via map Edit → Moves.");
+		mapper_level_down.setDescription("While recording, these commands create a lower floor.");
 		mapper_level_down.setKey("mapper_level_down_commands");
 		mapper_level_down.setValue(MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
 		mapperOptions.addOption(mapper_level_down);
 
 		StringOption mapper_moves = new StringOption();
 		mapper_moves.setTitle("Move Effects (advanced)");
-		mapper_moves.setDescription("Raw table for power users. Prefer map overlay Edit → Moves (friendly list). Format: n=grid:0:-1;out=special. Levels also use Level-Up/Down CSV. Empty = built-in defaults.");
+		mapper_moves.setDescription("How each move changes the map; empty uses the built-in defaults.");
 		mapper_moves.setKey("mapper_move_effects");
 		mapper_moves.setValue(MapDirections.defaultMoveEffectsString());
 		mapperOptions.addOption(mapper_moves);
 
-		sg.addOption(mapperOptions);
-
-		// Nested under Options → Window by ConnectionSettingsIO.buildSettingsPage().
 		mExtraTextOptions = new SettingsGroup();
 		mExtraTextOptions.setTitle("Extra text windows");
 		mExtraTextOptions.setKey("extra_text_group");
 		mExtraTextOptions.setDescription(
-				"Top drawer or floating panes (chat, tells, combat). Overlay owns geometry; lines target the slot name.");
+				"Extra panes for lines you send to a named slot.");
 
 		BooleanOption extra_text_enabled = new BooleanOption();
 		extra_text_enabled.setTitle("Enable Extra Text Windows?");
-		extra_text_enabled.setDescription("Master switch for extra text overlays. Slot definitions are kept when off.");
+		extra_text_enabled.setDescription("Show the extra text windows; turning this off keeps their definitions.");
 		extra_text_enabled.setKey("extra_text_windows_enabled");
 		extra_text_enabled.setValue(true);
 		mExtraTextOptions.addOption(extra_text_enabled);
@@ -1065,24 +1063,26 @@ public class ConnectionSettingsPlugin extends Plugin {
 		CallbackOption manage_extra_text = new CallbackOption();
 		manage_extra_text.setTitle("Manage windows…");
 		manage_extra_text.setDescription(
-				"Add, remove, or edit extra text windows (drawer_top / float, height, opacity, GMCP modules). "
-				+ "GMCP routes need Use GMCP? enabled under Service → Protocols.");
+				"Add, remove, or edit extra text windows. A GMCP route needs Use GMCP on under Protocols.");
 		manage_extra_text.setKey("manage_extra_text_windows");
 		manage_extra_text.setValue("manage_extra_text_windows");
 		mExtraTextOptions.addOption(manage_extra_text);
 
+		CallbackOption show_last_list = new CallbackOption();
+		show_last_list.setTitle("Recent commands…");
+		show_last_list.setDescription(
+				"Settings for this world's command-history window: how many lines, and how they are drawn.");
+		show_last_list.setKey("show_last_list");
+		show_last_list.setValue("show_last_list");
+		mExtraTextOptions.addOption(show_last_list);
+
 		StringOption extra_text_windows = new StringOption();
 		extra_text_windows.setTitle("Windows JSON");
-		extra_text_windows.setDescription("Persisted slot list (JSON array). Prefer Manage windows…; edit raw JSON only if needed.");
+		extra_text_windows.setDescription("The saved list of extra text windows; Manage windows… is the usual way to change it.");
 		extra_text_windows.setKey("extra_text_windows");
 		extra_text_windows.setValue("[]");
 		mExtraTextOptions.addOption(extra_text_windows);
 
-		// Register on Program Settings so XML load/save + findOptionByKey work before
-		// buildSettingsPage nests this group under Window.
-		sg.addOption(mExtraTextOptions);
-
-		// Nested under Options → Window by ConnectionSettingsIO.buildSettingsPage().
 		mGaugeWidgetsOptions = new SettingsGroup();
 		mGaugeWidgetsOptions.setTitle("Widgets");
 		mGaugeWidgetsOptions.setKey("gauge_widgets_group");
@@ -1092,7 +1092,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption gauge_widgets_enabled = new BooleanOption();
 		gauge_widgets_enabled.setTitle("Enable overlay gauges?");
 		gauge_widgets_enabled.setDescription(
-				"Master switch for overlay gauges. Widget definitions are kept when off.");
+				"Show the overlay gauges; turning this off keeps their definitions.");
 		gauge_widgets_enabled.setKey(GaugeWidgetsStore.ENABLED_KEY);
 		gauge_widgets_enabled.setValue(true);
 		mGaugeWidgetsOptions.addOption(gauge_widgets_enabled);
@@ -1109,48 +1109,46 @@ public class ConnectionSettingsPlugin extends Plugin {
 		StringOption gauge_widgets = new StringOption();
 		gauge_widgets.setTitle("Widgets JSON");
 		gauge_widgets.setDescription(
-				"Persisted widget list (JSON array). Prefer Manage widgets…; edit raw JSON only if needed.");
+				"The saved list of overlay gauges; Manage widgets… is the usual way to change it.");
 		gauge_widgets.setKey(GaugeWidgetsStore.SETTING_KEY);
 		gauge_widgets.setValue("[]");
 		mGaugeWidgetsOptions.addOption(gauge_widgets);
 
-		sg.addOption(mGaugeWidgetsOptions);
-
 		SettingsGroup miscOptions = new SettingsGroup();
-		miscOptions.setTitle("Miscellaneous");
-		miscOptions.setDescription("Storage paths, permissions, and other app-wide helpers.");
+		miscOptions.setTitle("Files");
+		miscOptions.setDescription("Import, export, reset, and where settings files go.");
 
 		StringOption default_settings_directory = new StringOption();
 		default_settings_directory.setTitle("Default Settings Directory");
-		default_settings_directory.setDescription("Default folder for Import/Export Settings. Leave blank for /BlowTorch/settings/. Browse… for SAF, or enter an absolute path.");
+		default_settings_directory.setDescription("Folder for import and export; blank uses /BlowTorch/settings/.");
 		default_settings_directory.setKey("default_settings_directory");
 		default_settings_directory.setValue("");
 		miscOptions.addOption(default_settings_directory);
 
 		CallbackOption export_settings = new CallbackOption();
 		export_settings.setTitle("Export Settings");
-		export_settings.setDescription("Write this world's settings to a file you choose. Sits beside the storage settings it uses; a setup job rather than something you reach for mid-session.");
+		export_settings.setDescription("Write this world's settings to a file you choose.");
 		export_settings.setKey("export_settings");
 		export_settings.setValue("export_settings");
 		miscOptions.addOption(export_settings);
 
 		CallbackOption import_settings = new CallbackOption();
 		import_settings.setTitle("Import Settings");
-		import_settings.setDescription("Load settings from a file, replacing this world's current settings.");
+		import_settings.setDescription("Replace this world's saved profile with the file you pick, as soon as you pick it, with no second confirm.");
 		import_settings.setKey("import_settings");
 		import_settings.setValue("import_settings");
 		miscOptions.addOption(import_settings);
 
 		CallbackOption reset_settings = new CallbackOption();
 		reset_settings.setTitle("Reset Settings");
-		reset_settings.setDescription("Throw away this world's settings and start from the defaults — every alias, trigger, timer and button. Asks first.");
+		reset_settings.setDescription("Throw away this world's settings and start from the defaults, after a confirm.");
 		reset_settings.setKey("reset_settings");
 		reset_settings.setValue("reset_settings");
 		miscOptions.addOption(reset_settings);
 
 		CallbackOption request_storage = new CallbackOption();
 		request_storage.setTitle("Manage Storage Access");
-		request_storage.setDescription("Grant All files access so BlowTorch can use /BlowTorch/ (settings, backups, launcher, session_logs, logs) outside Android/data. Shows the effective root path.");
+		request_storage.setDescription("Grant All files access so BlowTorch can use /BlowTorch/ outside the app's private folder.");
 		request_storage.setKey("request_storage_access");
 		request_storage.setValue("request_storage_access");
 		miscOptions.addOption(request_storage);
@@ -1158,7 +1156,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		IntegerOption overflow_opacity = new IntegerOption();
 		IntegerOption tap_menu_opacity = new IntegerOption();
 		tap_menu_opacity.setTitle("Tapped-word menu opacity (%)");
-		tap_menu_opacity.setDescription("How solid the little menu is that opens when you tap a word with more than one action, 20-100. It opens on top of the text it is about, so lower lets more of the game through behind it. Only the backing fades — the commands stay fully readable either way. .tapmenu opacity N");
+		tap_menu_opacity.setDescription("How solid the menu is when a tapped word has more than one action, from 20 to 100.");
 		tap_menu_opacity.setKey("tap_menu_opacity");
 		tap_menu_opacity.setValue(
 				com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY);
@@ -1166,7 +1164,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		ListOption overflow_corner = new ListOption();
 		overflow_corner.setTitle("Overflow button corner");
-		overflow_corner.setDescription("Which corner the ⋮ sits in. Bottom right is the default, just above the input bar. Bottom left stays above the input bar on the other side. Top corners sit under the status bar, not under the keyboard. The editor strip (Undo / Done) follows; the jump-to-live chevron stays bottom-right.");
+		overflow_corner.setDescription("Which corner the ⋮ sits in.");
 		overflow_corner.setKey("overflow_button_corner");
 		// Added in this order: the values are indices into this list, and they are
 		// what lands in the profile. Anything inserted in the middle renames every
@@ -1180,46 +1178,34 @@ public class ConnectionSettingsPlugin extends Plugin {
 		miscOptions.addOption(overflow_corner);
 
 		overflow_opacity.setTitle("Overflow button opacity (%)");
-		overflow_opacity.setDescription("How solid the ⋮ button is drawn "
-				+ "(" + OVERFLOW_OPACITY_MIN + "–100). Lower it when it sits "
-				+ "over text you want to read. It never goes fully invisible on purpose: the "
-				+ "button keeps its whole tap area whatever it looks like, and an unseen ⋮ is a "
-				+ "corner of the screen that quietly eats taps.");
+		overflow_opacity.setDescription("How solid the ⋮ is drawn ("
+				+ OVERFLOW_OPACITY_MIN + "–100).");
 		overflow_opacity.setKey("overflow_button_opacity");
 		overflow_opacity.setValue(OVERFLOW_OPACITY_DEFAULT);
 		miscOptions.addOption(overflow_opacity);
 
 		BooleanOption overflow_background = new BooleanOption();
 		overflow_background.setTitle("Overflow button background?");
-		overflow_background.setDescription("Draw the dark disc behind the ⋮. On, it stays "
-				+ "findable over a floating window or the map; off, only the three dots show "
-				+ "and the game text behind them is uncovered.");
+		overflow_background.setDescription("Draw the dark disc behind the ⋮.");
 		overflow_background.setKey("overflow_button_background");
 		overflow_background.setValue(true);
 		miscOptions.addOption(overflow_background);
 
 		BooleanOption overflow_border = new BooleanOption();
 		overflow_border.setTitle("Overflow button ring?");
-		overflow_border.setDescription("Draw the thin circle around the ⋮. Independent of the "
-				+ "background, so you can keep an outline with no fill, or a fill with no "
-				+ "outline. Both off leaves the bare glyph.");
+		overflow_border.setDescription("Draw the thin circle around the ⋮.");
 		overflow_border.setKey("overflow_button_border");
 		overflow_border.setValue(true);
 		miscOptions.addOption(overflow_border);
 
 		BooleanOption persistent_connection = new BooleanOption();
 		persistent_connection.setTitle("Persistent Connection?");
-		persistent_connection.setDescription("When Auto Reconnect is on: after brief network loss (VPN/Wi-Fi flaps) wait for connectivity before retrying, and treat a peer close as a flap. Off, or Auto Reconnect off: the configured try count is used as written and a closed socket stays closed.");
+		persistent_connection.setDescription("After a brief network drop, wait for connectivity before retrying, and treat a closed socket as that kind of drop.");
 		persistent_connection.setKey("persistent_connection");
 		persistent_connection.setValue(false);
-		miscOptions.addOption(persistent_connection);
+		servOptions.addOption(persistent_connection);
 
-		// The update-check toggle used to live here. It never belonged: this
-		// screen is a connection profile, so "check for updates" read as a
-		// per-world setting when the answer is a property of the install. It is
-		// now in the launcher's overflow menu, next to the check itself.
-
-		sg.addOption(miscOptions);
+		// Update checks live in the launcher overflow, not in a connection profile.
 
 		// Dump persist comparisons in ConnectionSetttingsParser.dumpOptions must
 		// match these defaults. A missing switch case leaves dooutput false and
@@ -1237,7 +1223,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		ListOption chat_announce = new ListOption();
 		chat_announce.setTitle("New-message line in the game window");
-		chat_announce.setDescription("Off, every new line, or a digest. Digest waits the interval, then the cyan line is how many arrived (five tells → 5, not 1). Own lines (Send) are never announced.");
+		chat_announce.setDescription("Off, a line for every new message, or one digest line after the interval.");
 		chat_announce.setKey("chat_announce");
 		// Added in this order: the values are indices into this list and they are
 		// what lands in the profile. Nothing may be inserted in the middle.
@@ -1249,14 +1235,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		IntegerOption chat_announce_seconds = new IntegerOption();
 		chat_announce_seconds.setTitle("Digest interval (seconds)");
-		chat_announce_seconds.setDescription("How long to wait between digest lines. Used when the line mode is Digest, and when Android notifications are on while the line mode is Off. Default 60.");
+		chat_announce_seconds.setDescription("How long to wait between digest lines, in seconds.");
 		chat_announce_seconds.setKey("chat_announce_seconds");
 		chat_announce_seconds.setValue(60);
 		chatOptions.addOption(chat_announce_seconds);
 
 		BooleanOption chat_android_notify = new BooleanOption();
 		chat_android_notify.setTitle("Android notification for new chat");
-		chat_android_notify.setDescription("A real notification when a thread has new messages. Off by default. Tap opens that conversation. Each conversation picks one of four system channels in chat ⚙ (Tells, Channels, Auction, Other) — not one channel per name. Tune sound/vibrate per channel in Android Settings. Chat used to share the alerts channel with the bell; after this update, re-tune those four. The count updates on every new line; sound follows Every, or once per digest window. If the game line is Off, notifications still use the digest interval for sound.");
+		chat_android_notify.setDescription("A phone notification when a conversation gets new lines, and a tap opens that chat.");
 		chat_android_notify.setKey("chat_android_notify");
 		chat_android_notify.setValue(false);
 		chatOptions.addOption(chat_android_notify);
@@ -1268,22 +1254,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		chat_max_messages.setValue(4000);
 		chatOptions.addOption(chat_max_messages);
 
-		sg.addOption(chatOptions);
-		
 		SettingsGroup bellOptions = new SettingsGroup();
-		bellOptions.setTitle("Bell");
-		bellOptions.setDescription("Options for what happens when the bell character is received.");
+		bellOptions.setTitle("Sound");
+		bellOptions.setDescription("The bell, trigger sounds, and silence while you type.");
 		
 		BooleanOption bell_vibrate = new BooleanOption();
 		bell_vibrate.setTitle("Vibrate?");
-		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received. .dobell vibrate short|long|strong|burst buzzes now even if this is off. burst is three quick taps — easier to feel than short vs long. Silent mode, Do Not Disturb, and some OS profiles can still swallow vibration.");
+		bell_vibrate.setDescription("A short vibration when the bell character arrives.");
 		bell_vibrate.setKey("bell_vibrate");
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
 		
 		ListOption trigger_sound_stream = new ListOption();
 		trigger_sound_stream.setTitle("Trigger sounds play on");
-		trigger_sound_stream.setDescription("Which volume a trigger's Play a Sound action uses. Media is the phone's game and video volume — the one the side buttons reach for — and is the default because the notification volume follows the ringer, so a silenced ringer silences your triggers. Alarm is the loudest and usually survives Do Not Disturb. .sound stream media|notification|alarm");
+		trigger_sound_stream.setDescription("Which volume a trigger's Play a Sound action uses.");
 		trigger_sound_stream.setKey("trigger_sound_stream");
 		// Added in this order: the values are indices into this list and they are
 		// what lands in the profile. Nothing may be inserted in the middle.
@@ -1296,36 +1280,56 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption trigger_sound_warn = new BooleanOption();
 		trigger_sound_warn.setTitle("Say when a sound cannot be heard");
-		trigger_sound_warn.setDescription("Show a short message when a trigger plays a sound while that volume is turned all the way down. Without it the failure has no symptom at all: the trigger fires, the sound plays, and nothing comes out. At most one message every thirty seconds. .sound warn on|off");
+		trigger_sound_warn.setDescription("Show a short message when a trigger plays a sound while that volume is all the way down.");
 		trigger_sound_warn.setKey("trigger_sound_warn_silent");
 		trigger_sound_warn.setValue(true);
 		bellOptions.addOption(trigger_sound_warn);
 
 		BooleanOption bell_notification = new BooleanOption();
 		bell_notification.setTitle("Generate Notification?");
-		bell_notification.setDescription("Spawns a new notification when bell is received.");
+		bell_notification.setDescription("A phone notification when the bell character arrives.");
 		bell_notification.setKey("bell_notification");
 		bell_notification.setValue(false);
 		bellOptions.addOption(bell_notification);
 		
 		BooleanOption bell_display = new BooleanOption();
 		bell_display.setTitle("Display Bell?");
-		bell_display.setDescription("Displays a small alert on the screen when the bell character is received. .dobell alert shows that icon now even if this is off.");
+		bell_display.setDescription("A small alert on the screen when the bell character arrives.");
 		bell_display.setKey("bell_display");
 		bell_display.setValue(false);
 		bellOptions.addOption(bell_display);
-		
+		bellOptions.addOption(speak_quiet_typing);
+
+		SettingsGroup panes = new SettingsGroup();
+		panes.setTitle("Panes");
+		panes.setKey("panes_group");
+		panes.setDescription("Extra text windows, gauges, the prompt line, floating buttons.");
+		panes.addOption(mExtraTextOptions);
+		panes.addOption(mGaugeWidgetsOptions);
+		panes.addOption(prompt_bar);
+		panes.addOption(floating_buttons_enabled);
+
+		sg.addOption(input);
+		sg.addOption(suggestions);
+		sg.addOption(globalGestures);
+		sg.addOption(panes);
+		sg.addOption(chatOptions);
 		sg.addOption(bellOptions);
-		
+		sg.addOption(servOptions);
+		sg.addOption(protocolSwitches);
+		sg.addOption(mapperOptions);
+		sg.addOption(device);
+		sg.addOption(miscOptions);
+
 		this.getSettings().setOptions(sg);
 	}
 
-	/** Extra text windows settings group (may be nested under Window after buildSettingsPage). */
+	/** Extra text windows settings group (nested under Panes). */
 	public SettingsGroup getExtraTextOptionsGroup() {
 		return mExtraTextOptions;
 	}
 
-	/** Overlay gauge settings group (may be nested under Window after buildSettingsPage). */
+	/** Overlay gauge settings group (nested under Panes). */
 	public SettingsGroup getGaugeWidgetsOptionsGroup() {
 		return mGaugeWidgetsOptions;
 	}
