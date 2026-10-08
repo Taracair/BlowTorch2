@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.7
+.last resends what you just typed. Recent commands as a window, chips, or a bar above the input. Each world keeps its own unfinished line.
+.pick insert fills the bar instead of sending. New trigger from text you selected. .triger names .trigger and is not sent.
+#5/1s north sends north five times, a second apart. The map can hide its title bar and tools. Heatmap counts stay readable.
