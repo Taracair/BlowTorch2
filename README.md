@@ -1,6 +1,12 @@
 # BlowTorch 2
 
-[![F-Droid](https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid)](https://f-droid.org/packages/com.resurrection.blowtorch2/)[![Latest GitHub release](https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github)](https://github.com/Taracair/BlowTorch2/releases/latest)[![Discord: B.U.R.N.](https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white)](https://discord.gg/AvyUUtRmtQ)[![Ko-fi](https://img.shields.io/badge/Ko--fi-tip-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/taracair)[![Unofficial fork](https://img.shields.io/badge/unofficial-fork-orange)](#credit)[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)![Vibe-coded](https://img.shields.io/badge/vibe--coded-app-7C3AED)
+[![F-Droid](https://img.shields.io/f-droid/v/com.resurrection.blowtorch2?label=F-Droid&logo=f-droid)](https://f-droid.org/packages/com.resurrection.blowtorch2/)
+[![Latest GitHub release](https://img.shields.io/github/v/release/Taracair/BlowTorch2?label=GitHub&logo=github)](https://github.com/Taracair/BlowTorch2/releases/latest)
+[![Discord: B.U.R.N.](https://img.shields.io/badge/Discord-B.U.R.N.-5865F2?logo=discord&logoColor=white)](https://discord.gg/AvyUUtRmtQ)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-tip-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/taracair)
+[![Unofficial fork](https://img.shields.io/badge/unofficial-fork-orange)](#credit)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Vibe-coded](https://img.shields.io/badge/vibe--coded-app-7C3AED)
 
 [![Get it on F-Droid](https://f-droid.org/badge/get-it-on.png)](https://f-droid.org/packages/com.resurrection.blowtorch2/)
 
