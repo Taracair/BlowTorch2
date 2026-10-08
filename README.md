@@ -8,7 +8,9 @@
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Vibe-coded](https://img.shields.io/badge/vibe--coded-app-7C3AED)
 
-[![Get it on F-Droid](https://f-droid.org/badge/get-it-on.png)](https://f-droid.org/packages/com.resurrection.blowtorch2/)
+<p align="center">
+  <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="72"></a>
+</p>
 
 That's the client I'm using daily to play MUDs, so the testing I'm doing reaches specific situations and creates specific needs. I never played MUDs on a PC. It all started with the original BlowTorch. So I might be *slightly* biased towards weird mobile mudding, and the client is packed with those features. Sorry — that's my style!
 
