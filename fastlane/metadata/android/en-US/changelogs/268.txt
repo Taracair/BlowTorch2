@@ -1,0 +1,3 @@
+BlowTorch 2 v2.4.8
+A button can show a custom icon instead of a colored pad, and its label can use a different font. One Opacity fades the pad, the icon, and the label together. One button can keep text off it, or let text draw under it.
+Text no longer slides under a button. A gag on several lines no longer prints an error. A fast flick no longer opens copy.
