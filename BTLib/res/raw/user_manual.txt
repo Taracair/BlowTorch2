@@ -67,6 +67,7 @@ In the app this guide is **Help**: ⋮ → **Help**, or **Help** on the launcher
 
 **Buttons**
 
+- [Button look](#button-look)
 - [On-screen buttons: swipe + accordion](#on-screen-buttons-swipe--accordion)
 - [Super-buttons (buttons on top of the keyboard)](#super-buttons-buttons-on-top-of-the-keyboard)
 
@@ -95,7 +96,7 @@ In the app this guide is **Help**: ⋮ → **Help**, or **Help** on the launcher
 in a corner of the game window — bottom-right by default, just above
 the input bar. Options → Window → Layout can move ⋮ to any corner.
 Tap ⋮ → **Options** for settings. Options has a search field at the bottom; type `font` (or any other word)
-and tap a hit to jump there and flash the matching row. ⋮ → **Help** is this guide. `.help`
+and tap a hit to jump there and flash the matching row. A checkbox or a number on the hit changes that option without opening the page. ⋮ → **Help** is this guide. `.help`
 in the input bar is a short list of every `.command`, printed into the
 game window — not this manual. From the launcher, **Help** is also a
 button at the bottom and an item in that screen's ⋮ menu.
@@ -340,7 +341,7 @@ Plugins screen refuses to remove it.
 
 Grouped under ⋮ (there are no action-bar icons for Aliases / Triggers /
 Timers). Options has a search field at the bottom; tap a hit to jump there
-and flash the matching row.
+and flash the matching row. A checkbox or a number on the hit changes that option without opening the page.
 
 - **EDITORS** — Aliases, Triggers, Timers, Button Sets (Lua), Edit buttons,
   Edit global gestures, Gesture mode.
@@ -1100,10 +1101,12 @@ In the trigger editor:
   `Name opens north` is yellow throughout that word. Two triggers with the
   same number run A→Z by name;
   the editor says when they share a number — split them if that order is
-  wrong. Keep going? does not set this order. The list shows the number on
-  each row. Options (`=`) can sort by sequence instead of group, name (the
-  default). Sorting **All** by sequence is not fire order: main runs, then
-  each plugin.  
+  wrong. Keep going? does not set this order. Lines that arrive together
+  run from the top. On each line, this number decides which trigger runs.
+  A line lower in that text does not fire before a line above it. The list
+  shows the number on each row. Options (`=`) can sort by sequence instead
+  of group, name (the default). Sorting **All** by sequence is not fire
+  order: on each line, main runs, then each plugin.  
 - **Who else fires** → type a game line under Order. Other enabled triggers
   that also match that line are listed **with their numbers**, so you can
   see the replace is at 10 and put the colour at 11. It tries one line.
@@ -2699,7 +2702,7 @@ is enabled; `.alias list` shows every alias at once.
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Input bar → Show Send button?
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Text → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text → Text width (% of screen)
-    `.avoidbuttons [on|off|toggle|letters|words]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text → Text avoids on-screen buttons? / Avoid-buttons break
+    `.avoidbuttons [on|off|toggle|letters|words|margin N]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. `margin N` is extra pixels around every hole (0–200). Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text → Text avoids on-screen buttons? / Avoid-buttons break / Avoid-buttons margin
     `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Layout → Jump to the live edge when you send?
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window → Text
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Text → Light theme?
@@ -3563,6 +3566,16 @@ whole words on one side of the hole — it does not split a word across the
 button. Global **Word Wrap?** is a different option and is unchanged. When
 avoid is off, text paints normally and the break choice is ignored.
 
+**Avoid-buttons margin** (`.avoidbuttons margin N`, default **0**, at most 200):
+extra pixels around every hole. A button's own margin on its **Advanced**
+tab sits beside two checkboxes and is added on top when that button is a hole.
+**Game text avoids this button** starts off. Turn it on and press Done, then
+leave the button screen: that one button is a hole even when this switch is
+off. **Game text draws under this button** is the other way: text paints
+through that button even when this switch is on. Both off, the button follows
+this switch. The two cannot both be on. `.avoidbuttons margin` with no number
+prints the current value.
+
 This follows **Text width** (`.width`): at 100% you only wrap; over 100%
 you can still drag the canvas sideways, and the holes stay on the screen
 while the text pans. HP widgets and extra-text windows are not holes. The
@@ -4050,6 +4063,67 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 <details>
 <summary>Buttons</summary>
 
+## Button look
+
+**Options → Button** sets the label font, style, and alignment for every
+button that does not override them. The list is the same faces as the
+window font, plus Android default, serif, and sans serif. **Bold** is the
+default style, so existing labels stay heavy. A font file (`.ttf` or
+`.otf`) replaces the list; a missing file keeps the default face, and the
+label stays visible. A glyph the file does not have falls back to the
+system face.
+
+Edit one button and open **Advanced**:
+
+- **Button icon** replaces the whole button. Tap the tile. The picker has a
+  set along the top (Marks, Signals, Relics, Wards, Embers, Voyage) and a
+  grid of that set, or **Choose image file** (PNG, JPEG, or SVG). Magenta
+  `#FF00FF` (and near it) and PNG transparency are see-through. The icon is
+  drawn in the same rounded rectangle, or in an oval if the floating copy is
+  round. A picture with either edge over 8192 pixels, or a file over 2 MB, is
+  refused. A smaller picture is drawn at most 1024 pixels on a side, so a
+  5000 pixel photo is not loaded at full size. If the file cannot be read, the
+  colored pad stays and the label stays.
+- **While held** is the icon under your finger. Tap it and choose
+  **Darken** and the main icon darkens instead. **When flipped** is the
+  icon after a flip. Choose **Same icon** and the main icon stays (the
+  colored pad still uses the flip color when there is no icon). While you
+  are aiming a swipe, that held icon and the flip icon stay off; the
+  direction arrow is the swipe mark.
+- **Opacity** under the icon tiles shows the pad's transparency until you
+  drag it. Then it fades the pad, the icon and the label together. 100% is
+  fully solid. The colour picker sets the colour only. With several buttons
+  selected, the same slider is on the Advanced page: drag it to store that
+  percent on each of them. Until you drag it, a colour change leaves each
+  button's transparency as it was. If they do not already match, the slider
+  says **mixed**.
+- **Show label** off hides the words only when an icon actually drew.
+  **Wrap label** sits beside it and splits a long name onto two lines. Off by
+  default. **Enter in the Label field** (Tap / Flip) is a hard break even
+  when Wrap label is off.
+- Alignment is a full-width nine-dot grid, or **Follow global button options**.
+- **Change** on the font row opens the faces and the styles as a list.
+  Cancel and Done stay at the bottom of that list. Each face is drawn in that typeface.
+  Styles are Regular, Bold, Italic, and Bold italic, or **Follow global
+  button options**. **Choose font file** opens the file picker. Bold and
+  italic on a file face are drawn on that face. The Label and Flip label
+  boxes use that same font, so a character the font provides is visible
+  while you type it.
+- A label that starts with `{font:bold}` or
+  `{font:italic:fonts/DejaVuSansMono.ttf}` uses that face for this label
+  only. The braces are not shown. Anything that is not a real token is left
+  on the button, braces included, so you can see the mistake.
+- **Game text avoids this button** is off until you turn it on and press
+  Done. On: that button is a hole even when `.avoidbuttons` is off.
+  **Game text draws under this button** is off until you turn it on and
+  press Done. On: text paints through that button even when `.avoidbuttons`
+  is on. Both off: the button follows `.avoidbuttons`. Turning one on
+  turns the other off. **Break around every hole** is **Letters** or **Words**,
+  the same switch as `.avoidbuttons letters` and `.avoidbuttons words`: one
+  character at a time, or a whole word kept off the hole, for every hole.
+  **Extra margin** is pixels on top of **Avoid-buttons margin**. Leave the
+  button screen (not only this dialog) before the hole is drawn.
+
 ## On-screen buttons: swipe + accordion
 
 **Load a button set from the wizard:** **Options → Button → Load button set from wizard**
@@ -4099,16 +4173,14 @@ moves with the tiles rather than leaving them to overlap, and nothing is
 re-flowed into rows. **Layout template** next to it only chooses which pack the
 wizard offers first; it installs nothing on its own.
 
-**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Window → Layout.
+**Edit layout:** open **⋮ → Edit buttons**, `.editbuttons`, or long-press **⋮**. The long-press can be replaced under the gear → Extra gestures. An empty hold does nothing. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right. The editor strip follows the ⋮ corner from Options → Window → Layout. In the gear, **Grid opacity** fades the lines. **Background opacity**, under it, fades the black behind them so the game text shows through while you place buttons. The lines keep their own opacity.
 
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.
 
-**Wrap label** (edit button → Others → Size & Position, last row) splits a long
-name onto two lines on the tile. Off by default. **Enter in the Label field**
-(Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
+**Enter in the Label field** (Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
 then `NORTH` shows as two lines. Typed `\\n` is not a break.
-**Draw / border** (Others → Colors) paints a coloured outline. **Active** (same
+**Draw / border** (Advanced → Colors) paints a coloured outline. **Active** (same
 row as Name, on by default) hides the tile in play without deleting it — Edit
 buttons still shows it, so you can tick Active again.
 
@@ -4152,7 +4224,7 @@ copy, edit the copy, and switch between them with `.loadset`.
 ## Super-buttons (buttons on top of the keyboard)
 
 Any button can also be put **on the screen itself**, over the game and over the
-soft keyboard. Edit the button → **Others** → **Float over the game**.
+soft keyboard. Edit the button → **Advanced** → **Float over the game**.
 
 Two modes, in the **When** picker:
 

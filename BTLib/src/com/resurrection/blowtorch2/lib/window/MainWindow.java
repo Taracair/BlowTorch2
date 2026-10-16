@@ -151,6 +151,8 @@ import com.resurrection.blowtorch2.lib.service.function.LastRecall;
 import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -469,6 +471,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	ImageButton enter_button_c  = null;
 	boolean input_controls_expanded = false;
 	boolean isBound = false;
+	/** Post time of a .switch whose rebuild has not armed a frame yet. UI thread. */
+	private long mTimingSwitchUp;
 	boolean isKeepLast = false; //for keeping last
 	/** Profile flag: Options → Input → Standard keyboard input. */
 	private boolean mCompatibilityMode = false;
@@ -563,8 +567,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String display = MainWindow.this.getConnectionDisplay();
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
+				long reg0 = android.os.SystemClock.uptimeMillis();
 				service.registerCallback(the_callback, host, port,
 						MainWindow.this.getConnectionTls(), display);
+				TimingTrace.event("launch", "phase=register callMs="
+						+ (android.os.SystemClock.uptimeMillis() - reg0)
+						+ " display=" + TimingLine.token(display)
+						+ " windowsReady=" + (windowsInitialized ? 1 : 0));
 				// Do NOT windowShowing(true) here. After a UI process kill the
 				// windows are not registered yet — saying "showing" clears the
 				// hold and pushes lines at a null/dead callback. finishInitializeWindows
@@ -645,6 +654,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//Log.e("Window","start onCreate");
 		//Debug.startMethodTracing("window");
 		super.onCreate(icicle);
+		TimingTrace.arm(this);
+		final long timingCreate = android.os.SystemClock.uptimeMillis();
+		Intent timingIntent = getIntent();
+		if (timingIntent != null && icicle == null) {
+			long tap = timingIntent.getLongExtra(TimingTrace.EXTRA_LAUNCH_UP, 0L);
+			if (tap > 0L) {
+				String src = timingIntent.getStringExtra(TimingTrace.EXTRA_LAUNCH_SRC);
+				TimingTrace.noteLaunch(tap, src);
+				TimingTrace.event("launch", "phase=create sinceTapMs=" + (timingCreate - tap)
+						+ " src=" + TimingLine.token(src)
+						+ " display=" + TimingLine.token(timingIntent.getStringExtra("DISPLAY")));
+				timingIntent.removeExtra(TimingTrace.EXTRA_LAUNCH_UP);
+				timingIntent.removeExtra(TimingTrace.EXTRA_LAUNCH_SRC);
+			}
+		}
 		windowMap = new HashMap<String,com.resurrection.blowtorch2.lib.window.Window>(0);
 		chrome = new ChromeController(this);
 		settingsTransfer = new MainWindowSettingsTransfer(this);
@@ -997,6 +1021,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INITIALIZEWINDOWS:
 					//Log.e("WINDOW","INITIALIZE WINDOWS CALLED");
+					final long windows0 = android.os.SystemClock.uptimeMillis();
 					if (mLeavingUi || isFinishing()) {
 						Log.i("BlowTorch", "skip INITIALIZEWINDOWS: activity is leaving");
 						break;
@@ -1017,6 +1042,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
 					myhandler.sendEmptyMessageDelayed(MESSAGE_CONNECT_WHEN_READY, 200);
 					tryOpenPendingChatThread();
+					TimingTrace.event("windows", "phase=init bodyMs="
+							+ (android.os.SystemClock.uptimeMillis() - windows0)
+							+ " ready=" + (windowsInitialized ? 1 : 0));
 					break;
 				case MESSAGE_SWITCH:
 					// Service clutch moved (e.g. .switch). Keep the Activity
@@ -1024,6 +1052,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// The old rebind left DISPLAY on the launch world, so the
 					// next onResume switched the clutch back after screen-off.
 					if (msg.obj instanceof String) {
+						long switch0 = android.os.SystemClock.uptimeMillis();
+						long posted = msg.getData().getLong("bt.timing.up");
+						if (posted > 0L) {
+							mTimingSwitchUp = posted;
+						}
 						String next = (String) msg.obj;
 						// Foreign vocabularyReset is ignored after the display
 						// filter, so the switch itself must save what we are
@@ -1052,6 +1085,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// that DISPLAY is the world we are entering.
 						restoreInputEditToolsForWorld();
 						refreshChatUnreadDot();
+						TimingTrace.event("switch", "phase=ui"
+								+ " from=" + TimingLine.token(onScreen)
+								+ " to=" + TimingLine.token(next)
+								+ " queueMs=" + (posted > 0L ? switch0 - posted : -1L)
+								+ " bodyMs=" + (android.os.SystemClock.uptimeMillis() - switch0));
 					}
 					break;
 				case MESSAGE_TRIGGERSTR:
@@ -1902,7 +1940,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			startAction.putExtra("HOST", getConnectionHost());
 			startAction.putExtra("TLS", getConnectionTls());
 
+			long svc0 = android.os.SystemClock.uptimeMillis();
 			androidx.core.content.ContextCompat.startForegroundService(this, startAction);
+			TimingTrace.event("launch", "phase=startsvc callMs="
+					+ (android.os.SystemClock.uptimeMillis() - svc0)
+					+ " display=" + TimingLine.token(getConnectionDisplay()));
 		}
 		
 		//register screenlock thingie.
@@ -1967,6 +2009,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//parent.setContentInsetsAbsolute(0,0);
 
 		//Log.e("Window","End on create");
+		TimingTrace.event("launch", "phase=created createMs="
+				+ (android.os.SystemClock.uptimeMillis() - timingCreate));
 	}
 	
 	View.OnTouchListener mEditBoxTouchListener = new View.OnTouchListener() {
@@ -3059,6 +3103,81 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	private void restoreButtonsOnResume() {
 		windowCall("button_window", "restoreButtons", "");
+	}
+
+	/**
+	 * Test build only. A same-world return does not rebuild windows, so this
+	 * records the button window, overlay, and input view after restoreButtons.
+	 * Visibility is {@link android.view.View#getVisibility()}.
+	 */
+	private void noteResumeChrome() {
+		if (!TimingTrace.on()) {
+			return;
+		}
+		int buttonWin = 0;
+		int buttonAttached = 0;
+		int buttonVis = -1;
+		int restoreFn = 0;
+		int mainWin = 0;
+		int mainAttached = 0;
+		int mainVis = -1;
+		int mapped = windowMap == null ? -1 : windowMap.size();
+		if (windowMap != null) {
+			com.resurrection.blowtorch2.lib.window.Window buttons = windowMap.get("button_window");
+			if (buttons != null) {
+				buttonWin = 1;
+				buttonAttached = buttons.isAttachedToWindow() ? 1 : 0;
+				buttonVis = buttons.getVisibility();
+				restoreFn = buttons.checkSupports("restoreButtons") ? 1 : 0;
+			}
+			com.resurrection.blowtorch2.lib.window.Window main = windowMap.get("mainDisplay");
+			if (main != null) {
+				mainWin = 1;
+				mainAttached = main.isAttachedToWindow() ? 1 : 0;
+				mainVis = main.getVisibility();
+			}
+		}
+		int overlay = -1;
+		int tiles = -1;
+		int layerResumed = -1;
+		if (floatingButtons != null) {
+			overlay = floatingButtons.overlayWindowCount();
+			tiles = floatingButtons.buttonViewCount();
+			layerResumed = floatingButtons.resumedFlag();
+		}
+		int input = 0;
+		int inputAttached = 0;
+		int inputVis = -1;
+		int inputEnabled = 0;
+		if (mInputBox != null) {
+			input = 1;
+			inputAttached = mInputBox.isAttachedToWindow() ? 1 : 0;
+			inputVis = mInputBox.getVisibility();
+			inputEnabled = mInputBox.isEnabled() ? 1 : 0;
+		}
+		android.view.View inputBar = findViewById(R.id.inputbar);
+		int bar = inputBar == null ? 0 : 1;
+		int barAttached = inputBar != null && inputBar.isAttachedToWindow() ? 1 : 0;
+		int barVis = inputBar == null ? -1 : inputBar.getVisibility();
+		TimingTrace.event("resume", "phase=chrome"
+				+ " mapped=" + mapped
+				+ " buttonWin=" + buttonWin
+				+ " buttonAttached=" + buttonAttached
+				+ " buttonVis=" + buttonVis
+				+ " restoreFn=" + restoreFn
+				+ " mainWin=" + mainWin
+				+ " mainAttached=" + mainAttached
+				+ " mainVis=" + mainVis
+				+ " overlay=" + overlay
+				+ " tiles=" + tiles
+				+ " layerResumed=" + layerResumed
+				+ " input=" + input
+				+ " inputAttached=" + inputAttached
+				+ " inputVis=" + inputVis
+				+ " inputEnabled=" + inputEnabled
+				+ " bar=" + bar
+				+ " barAttached=" + barAttached
+				+ " barVis=" + barVis);
 	}
 	
 	/**
@@ -5167,6 +5286,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		if (com.resurrection.blowtorch2.lib.button.ButtonAssetPick.onActivityResult(
+				this, requestCode, resultCode, data)) {
+			return;
+		}
 		if (requestCode == com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.REQUEST_PICK_SOUND) {
 			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
 				// Hold the read permission past this activity: the responder keeps
@@ -5220,6 +5343,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onStart() {
 		//Log.e("Window","starting onStart");
 		super.onStart();
+		long now = android.os.SystemClock.uptimeMillis();
+		long sinceLeave = TimingTrace.sinceLeave(now);
+		TimingTrace.event(sinceLeave < 0L ? "start" : "resume",
+				"phase=start sinceLeaveMs=" + sinceLeave
+				+ " stopped=" + TimingTrace.stoppedFlag());
 		/*if("com.resurrection.blowtorch2.lib.window.MainWindow.NORMAL_MODE".equals(this.getIntent().getAction())) {
 			mode = LAUNCH_MODE.FREE;
 		} else if("com.resurrection.blowtorch2.lib.window.MainWindow.TEST_MODE".equals(this.getIntent().getAction())) {
@@ -5292,11 +5420,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public void onStop() {
 		//Log.e("WINDOW","onStop()");
+		TimingTrace.noteStopped();
 		super.onStop();
 	}
-	
 
 	public void onPause() {
+		final long pause0 = android.os.SystemClock.uptimeMillis();
+		mTimingSwitchUp = 0L;
+		TimingTrace.markLeave();
 		//Log.e("WINDOW","onDestroy()");
 		//windowShowing = false;
 		// Before the early return below: an overlay window left up would float
@@ -5326,10 +5457,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mSuggestList.flush();
 		}
 		windowCall("button_window", "flushButtonHeat", "");
-		if(service == null) { super.onPause(); return; };
+		if(service == null) {
+			TimingTrace.event("resume", "phase=pause bodyMs="
+					+ (android.os.SystemClock.uptimeMillis() - pause0)
+					+ " noservice=1");
+			super.onPause();
+			return;
+		};
 		cancelTouchOnPause();
 		try {
+			long hide0 = android.os.SystemClock.uptimeMillis();
 			service.windowShowing(false);
+			TimingTrace.event("resume", "phase=hide callMs="
+					+ (android.os.SystemClock.uptimeMillis() - hide0));
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onPause", e);
@@ -5337,10 +5477,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//screen2.pauseDrawing();
 		//screen2.clearAllText();
 		isResumed = false;
+		TimingTrace.event("resume", "phase=pause bodyMs="
+				+ (android.os.SystemClock.uptimeMillis() - pause0));
 		super.onPause();
 	}
 
 	public void onResume() {
+		final long resumeEnter = android.os.SystemClock.uptimeMillis();
+		final boolean timingWasBound = isBound;
+		// onNewIntent may already have moved the clutch. The rebuild is only
+		// queued, so this frame is still the previous world.
+		final boolean timingLaunchPending = mPinLaunchPending;
+		boolean timingDeferPaint = !timingWasBound || timingLaunchPending;
+		TimingTrace.noteResumeEnter(resumeEnter);
+		TimingTrace.event("resume", "phase=enter awayMs="
+				+ TimingTrace.sinceLeave(resumeEnter)
+				+ " stopped=" + TimingTrace.stoppedFlag()
+				+ " bound=" + (isBound ? 1 : 0)
+				+ " svc=" + (service != null ? 1 : 0));
 		super.onResume();
 		// The insets that follow a resume are the ones that get retracted, so
 		// tell the chrome to let them settle before it moves anything.
@@ -5366,6 +5520,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// resume that arrived before the service was bound left the floating
 		// buttons down — the layer drops its views on pause either way.
 		restoreButtonsOnResume();
+		noteResumeChrome();
 		// Coming back from another app or from the options screen lands here.
 		// Editing a trigger does not — see scheduleTapRulesRefresh.
 		scheduleTapRulesRefresh();
@@ -5373,7 +5528,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(!isBound) {
 			saveConnectionExtras(getIntent());
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
+			long bind0 = android.os.SystemClock.uptimeMillis();
 			this.bindService(new Intent(serviceBindAction,null,this,StellarService.class),mConnection, 0);
+			TimingTrace.event("launch", "phase=bind callMs="
+					+ (android.os.SystemClock.uptimeMillis() - bind0));
 			
 			isBound = true;
 			isResumed = true;
@@ -5382,14 +5540,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//request buffer.
 			try {
 				if(service != null) {
+					long show0 = android.os.SystemClock.uptimeMillis();
 					service.windowShowing(true);
+					TimingTrace.event("resume", "phase=showing callMs="
+							+ (android.os.SystemClock.uptimeMillis() - show0));
 				}
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e1);
 			}
+			String clutchBranch = "skip";
+			long clutch0 = 0L;
 			try {
 				if (service != null) {
+					clutch0 = android.os.SystemClock.uptimeMillis();
 					String connected = service.getConnectedTo();
 					String display = getConnectionDisplay();
 					if (connected != null && !connected.isEmpty()) {
@@ -5410,31 +5574,48 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						boolean pinLaunchPending = mPinLaunchPending;
 						if (!connected.equals(display)) {
 							if (chatNotifyPending) {
+								clutchBranch = "chat";
+								timingDeferPaint = true;
 								Log.i("BlowTorch", "onResume: keep Intent "
 										+ display + " (chat notify; clutch "
 										+ connected + ")");
 							} else if (pinLaunchPending) {
+								clutchBranch = "pin";
+								timingDeferPaint = true;
 								Log.i("BlowTorch", "onResume: keep Intent "
 										+ display + " (pin launch; clutch "
 										+ connected + ")");
 							} else {
+								clutchBranch = "rebuild";
+								timingDeferPaint = true;
 								Log.i("BlowTorch", "onResume: rebuild onto clutch "
 										+ connected + " (Intent was " + display + ")");
 								service.switchTo(connected);
 							}
+						} else {
+							clutchBranch = "same";
 						}
 					} else if (display != null && !display.isEmpty()
 							&& service.isConnectedTo(display)) {
+						clutchBranch = "empty";
+						timingDeferPaint = true;
 						Log.i("BlowTorch", "onResume: clutch empty, switchTo "
 								+ display);
 						service.switchTo(display);
+					} else {
+						clutchBranch = "none";
 					}
 				}
 			} catch (RemoteException e) {
+				clutchBranch = "error";
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e);
 			} finally {
 				// One resume cycle. Screen-off must trust the clutch again.
 				mPinLaunchPending = false;
+			}
+			if (clutch0 != 0L) {
+				TimingTrace.event("resume", "phase=clutch branch=" + clutchBranch
+						+ " callMs=" + (android.os.SystemClock.uptimeMillis() - clutch0));
 			}
 			
 			
@@ -5456,6 +5637,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//screen2.resumeDrawing();
 		//screen2.doDelayedDraw(0);
 		isResumed = true;
+		TimingTrace.event("resume", "phase=body bodyMs="
+				+ (android.os.SystemClock.uptimeMillis() - resumeEnter)
+				+ " wasBound=" + (timingWasBound ? 1 : 0));
+		if (myhandler != null && (myhandler.hasMessages(MESSAGE_SWITCH)
+				|| myhandler.hasMessages(MESSAGE_INITIALIZEWINDOWS)
+				|| myhandler.hasMessages(MESSAGE_MARKWINDOWSDIRTY))) {
+			timingDeferPaint = true;
+		}
+		if (!timingDeferPaint) {
+			TimingTrace.expectPaint("resume", resumeEnter);
+		}
 		requestNotificationPermissionIfNeeded();
 		try {
 			if (service != null && service.isConnected()) {
@@ -6499,7 +6691,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		public void switchTo(String connection) throws RemoteException {
-			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SWITCH,connection));
+			android.os.Message switchMsg = myhandler.obtainMessage(MESSAGE_SWITCH, connection);
+			switchMsg.getData().putLong("bt.timing.up", android.os.SystemClock.uptimeMillis());
+			myhandler.sendMessage(switchMsg);
 		}
 
 		public void reloadBuffer() throws RemoteException {
@@ -6825,12 +7019,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// which raced ahead of registerWindowCallback and dropped the hand-over.
 		try {
 			if (service != null) {
+				long show0 = android.os.SystemClock.uptimeMillis();
 				service.windowShowing(true);
+				TimingTrace.event("windows", "phase=showing callMs="
+						+ (android.os.SystemClock.uptimeMillis() - show0));
 			}
 		} catch (RemoteException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 					"MainWindow.finishInitializeWindows", e);
 		}
+		long switchAt = mTimingSwitchUp;
+		mTimingSwitchUp = 0L;
+		TimingTrace.expectPaint(switchAt > 0L ? "switch" : "windows", switchAt);
 		// Window tokens (and Options → Window prefs) are live — re-layout Edit/Send.
 		// ensureInputActionColumn reapplies this world's Edit-strip flag, so a
 		// later loadSettings → applyGrowInputBar refresh cannot leave the
@@ -8527,6 +8727,37 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return o.getValue().toString();
 		}
 		return fallback;
+	}
+
+	/** Window-wide `.avoidbuttons words`, the same list as Options → Window → Text. */
+	public boolean avoidButtonsUseWords() {
+		if (service == null) {
+			return false;
+		}
+		try {
+			com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup group =
+					service.getSettings();
+			if (group == null) {
+				return false;
+			}
+			return optInt(group, "text_avoid_buttons_break", 0)
+					== com.resurrection.blowtorch2.lib.service.WindowToken.AVOID_BUTTONS_BREAK_WORDS;
+		} catch (android.os.RemoteException e) {
+			return false;
+		}
+	}
+
+	public void setAvoidButtonsUseWords(final boolean words) {
+		if (service == null) {
+			return;
+		}
+		try {
+			service.updateMainWindowInteger("text_avoid_buttons_break",
+					words
+							? com.resurrection.blowtorch2.lib.service.WindowToken.AVOID_BUTTONS_BREAK_WORDS
+							: com.resurrection.blowtorch2.lib.service.WindowToken.AVOID_BUTTONS_BREAK_LETTERS);
+		} catch (android.os.RemoteException ignored) {
+		}
 	}
 
 	private void refreshGlobalGestureWindows() {
@@ -11891,7 +12122,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// Ensure latest grid is on the processor before TCP/NAWS handshake.
 			reportLiveNawsToService();
 			mPendingInitialConnect = false;
+			long xfer0 = android.os.SystemClock.uptimeMillis();
 			service.initXfer();
+			TimingTrace.event("launch", "phase=initXfer callMs="
+					+ (android.os.SystemClock.uptimeMillis() - xfer0)
+					+ " display=" + TimingLine.token(getConnectionDisplay()));
 		} catch (RemoteException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.tryConnectAfterNaws", e);
 			mPendingInitialConnect = false;
@@ -11901,6 +12136,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	@Override
 	public void onNewIntent(Intent i) {
 		//this is if the activity is currently open, and a new intent has been posted.
+		final long intent0 = android.os.SystemClock.uptimeMillis();
+		long tap = i != null ? i.getLongExtra(TimingTrace.EXTRA_LAUNCH_UP, 0L) : 0L;
+		String src = i != null ? i.getStringExtra(TimingTrace.EXTRA_LAUNCH_SRC) : null;
+		if (tap > 0L) {
+			TimingTrace.noteLaunch(tap, src);
+			TimingTrace.event("launch", "phase=newIntent sinceTapMs=" + (intent0 - tap)
+					+ " src=" + TimingLine.token(src)
+					+ " display=" + TimingLine.token(i.getStringExtra("DISPLAY")));
+			i.removeExtra(TimingTrace.EXTRA_LAUNCH_UP);
+			i.removeExtra(TimingTrace.EXTRA_LAUNCH_SRC);
+		}
 		Log.e("new intent","new intent : " + i.getStringExtra("DISPLAY"));
 		// Before setIntent, so the draft and the command list stay under the world on screen.
 		mInputDrafts.pinShowing(getConnectionDisplay());
@@ -11951,6 +12197,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (!switched) {
 			tryOpenPendingChatThread();
+		}
+		TimingTrace.event("launch", "phase=newIntentDone bodyMs="
+				+ (android.os.SystemClock.uptimeMillis() - intent0)
+				+ " switched=" + (switched ? 1 : 0)
+				+ " src=" + TimingLine.token(src));
+		if (tap > 0L && !switched && !mPinLaunchPending) {
+			TimingTrace.expectPaint("launch", tap);
 		}
 	}
 

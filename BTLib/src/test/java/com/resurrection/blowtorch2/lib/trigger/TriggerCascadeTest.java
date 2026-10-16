@@ -18,8 +18,8 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
 import org.junit.Test;
 
 /**
- * Cascade policy: every matching trigger fires, in list order, unless the
- * caller stops after a fire. Not the old joined-regex leftmost winner.
+ * Hits come out line by line, and on a line in list order. The caller skips
+ * later hits on a line after Keep going? is off.
  */
 public class TriggerCascadeTest {
 
@@ -311,6 +311,81 @@ public class TriggerCascadeTest {
 		t.setEnabled(true);
 		TriggerCascade c = compile(t);
 		assertTrue(c.isEmpty());
+	}
+
+	@Test
+	public void secondLineTriggerListedFirstFiresAfterTheFirstLine() {
+		TriggerData sk = trigger("sk", "@sk");
+		TriggerData round = trigger("round", "Round");
+		TriggerCascade c = compile(sk, round);
+		String chunk = "Round 2\n@sk hit\n";
+		c.reset(chunk);
+		TriggerCascade.Hit first = c.nextHit();
+		TriggerCascade.Hit second = c.nextHit();
+		assertEquals("round", first.trigger.getName());
+		assertEquals(0, lineOf(chunk, first.start));
+		assertEquals("sk", second.trigger.getName());
+		assertEquals(1, lineOf(chunk, second.start));
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void multilineSpanOnLineZeroPrecedesALaterLineMatchListedFirst() {
+		TriggerData silver = trigger("silver", "silver");
+		TriggerData both = trigger("both", "gold: (\\d+)\\nsilver: (\\d+)");
+		TriggerCascade c = compile(silver, both);
+		String chunk = "gold: 12\nsilver: 40\n";
+		c.reset(chunk);
+		TriggerCascade.Hit first = c.nextHit();
+		TriggerCascade.Hit second = c.nextHit();
+		assertEquals("both", first.trigger.getName());
+		assertEquals(0, lineOf(chunk, first.start));
+		assertTrue(first.matched().indexOf('\n') >= 0);
+		assertEquals("12", first.groups[1]);
+		assertEquals("40", first.groups[2]);
+		assertEquals("silver", second.trigger.getName());
+		assertEquals(1, lineOf(chunk, second.start));
+		assertNull(c.nextHit());
+	}
+
+	@Test
+	public void styleOnlyOnALaterLineFollowsAnEarlierRegex() throws Exception {
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("alpha\ngold\n\u001B[32mloot\n".getBytes("UTF-8"));
+		StyleLineModel[] models = StyleLineModel.buildTree(tree);
+		String chunk = "alpha\ngold\nloot\n";
+		int[] starts = new int[models.length];
+		int lootLine = -1;
+		for (int i = 0; i < models.length; i++) {
+			String plain = models[i].plain;
+			int nl = plain.indexOf('\n');
+			String body = nl >= 0 ? plain.substring(0, nl) : plain;
+			int at = chunk.indexOf(body);
+			starts[i] = at;
+			if ("loot".equals(body)) {
+				lootLine = lineOf(chunk, at);
+			}
+		}
+		assertEquals(2, lootLine);
+		TriggerData green = new TriggerData();
+		green.setName("green");
+		green.setPattern("");
+		green.setEnabled(true);
+		StyleMatchSpec spec = new StyleMatchSpec();
+		spec.setFg(Gate.REQUIRE, ColorSpace.ANSI16, 32);
+		green.setStyleMatch(spec);
+		TriggerData gold = trigger("gold", "gold");
+		TriggerCascade c = compile(green, gold);
+		c.reset(chunk);
+		c.attachStyle(models, starts);
+		TriggerCascade.Hit first = c.nextHit();
+		TriggerCascade.Hit second = c.nextHit();
+		assertEquals("gold", first.trigger.getName());
+		assertEquals(1, lineOf(chunk, first.start));
+		assertEquals("green", second.trigger.getName());
+		assertEquals("loot", second.matched());
+		assertEquals(2, lineOf(chunk, second.start));
+		assertNull(c.nextHit());
 	}
 
 	@Test

@@ -16,6 +16,16 @@ public final class GridObstacleRects {
 
 	public static void addFromJson(final JSONArray arr,
 			final List<ButtonTextFlow.RectPx> dest) {
+		addFromJson(arr, dest, null);
+	}
+
+	/**
+	 * @param forced rects whose button asked to be a hole on its own
+	 *               ({@code force:true}). May be null.
+	 */
+	public static void addFromJson(final JSONArray arr,
+			final List<ButtonTextFlow.RectPx> dest,
+			final List<ButtonTextFlow.RectPx> forced) {
 		if (arr == null || dest == null) {
 			return;
 		}
@@ -31,7 +41,11 @@ public final class GridObstacleRects {
 			if (r <= l || b <= t) {
 				continue;
 			}
-			dest.add(new ButtonTextFlow.RectPx(l, t, r, b));
+			ButtonTextFlow.RectPx rect = new ButtonTextFlow.RectPx(l, t, r, b);
+			dest.add(rect);
+			if (forced != null && o.optBoolean("force", false)) {
+				forced.add(rect);
+			}
 		}
 	}
 }

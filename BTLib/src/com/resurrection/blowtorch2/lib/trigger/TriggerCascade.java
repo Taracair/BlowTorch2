@@ -1,6 +1,8 @@
 package com.resurrection.blowtorch2.lib.trigger;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,10 +13,8 @@ import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatcher;
 
 /**
- * Match enabled line-triggers in list order, not as one leftmost-first join.
- * {@code MULTILINE} not {@code DOTALL}; each entry has its own {@link Matcher}
- * — do not share {@code TriggerData.getMatcher()} with the UI. Pull-based:
- * {@link #nextHit()} because a responder can rebuild mid-chunk. Does not read
+ * Hits come out line by line, and on a line in list order. {@code MULTILINE}
+ * not {@code DOTALL}; each entry has its own {@link Matcher}. Does not read
  * {@code keepEvaluating}.
  */
 public final class TriggerCascade {
@@ -55,9 +55,21 @@ public final class TriggerCascade {
 		}
 	}
 
+	private static final class Found {
+		final Hit hit;
+		final int entryIndex;
+
+		Found(final Hit hit, final int entryIndex) {
+			this.hit = hit;
+			this.entryIndex = entryIndex;
+		}
+	}
+
 	private final Entry[] entries;
-	private int idx;
 	private boolean stopped;
+	private boolean collected;
+	private int yieldAt;
+	private ArrayList<Found> found;
 	private StyleLineModel[] styleModels;
 	private int[] styleLineStarts;
 	private int[] styleStrippedLens;
@@ -133,8 +145,10 @@ public final class TriggerCascade {
 	public void reset(final CharSequence text) {
 		CharSequence src = text == null ? "" : text;
 		sourceText = src;
-		idx = 0;
 		stopped = false;
+		collected = false;
+		yieldAt = 0;
+		found = null;
 		styleRunLine = 0;
 		styleRunIdx = 0;
 		for (int i = 0; i < entries.length; i++) {
@@ -174,14 +188,13 @@ public final class TriggerCascade {
 		return styleModels[line].matchLength() == styleStrippedLens[line];
 	}
 
-	/** No further hits, including more {@code find()}s of the current trigger. */
+	/** No further hits, including ones already collected and not yet returned. */
 	public void stop() {
 		stopped = true;
 	}
 
 	/**
-	 * Next regex or style-run hit in list order, exhausting one trigger before
-	 * moving on.
+	 * Next regex or style-run hit, line by line and on a line in list order.
 	 *
 	 * @return The hit, or null when the walk is finished or {@link #stop()} was
 	 *     called.
@@ -190,19 +203,34 @@ public final class TriggerCascade {
 		if (stopped) {
 			return null;
 		}
-		while (idx < entries.length) {
-			Entry e = entries[idx];
+		if (!collected) {
+			found = collectHits();
+			collected = true;
+			yieldAt = 0;
+		}
+		if (found == null || yieldAt >= found.size()) {
+			return null;
+		}
+		return found.get(yieldAt++).hit;
+	}
+
+	private ArrayList<Found> collectHits() {
+		ArrayList<Found> all = new ArrayList<Found>();
+		for (int i = 0; i < entries.length; i++) {
+			Entry e = entries[i];
 			if (e.styleOnly) {
-				Hit h = nextStyleRun(e.trigger);
-				if (h != null) {
-					return h;
-				}
-				idx++;
 				styleRunLine = 0;
 				styleRunIdx = 0;
+				Hit h;
+				while ((h = nextStyleRun(e.trigger)) != null) {
+					all.add(new Found(h, i));
+				}
 				continue;
 			}
 			Matcher m = e.matcher;
+			if (m == null) {
+				continue;
+			}
 			while (m.find()) {
 				StyleMatchSpec spec = e.trigger.getStyleMatch();
 				if (spec != null && spec.isActive()) {
@@ -215,14 +243,20 @@ public final class TriggerCascade {
 				}
 				int count = m.groupCount();
 				String[] groups = new String[count + 1];
-				for (int i = 0; i <= count; i++) {
-					groups[i] = m.group(i);
+				for (int g = 0; g <= count; g++) {
+					groups[g] = m.group(g);
 				}
-				return new Hit(e.trigger, m.start(), m.end(), groups);
+				all.add(new Found(new Hit(e.trigger, m.start(), m.end(), groups), i));
 			}
-			idx++;
 		}
-		return null;
+		Collections.sort(all, new Comparator<Found>() {
+			@Override
+			public int compare(final Found a, final Found b) {
+				return TriggerFireOrder.compare(sourceText, a.entryIndex, a.hit.start,
+						b.entryIndex, b.hit.start);
+			}
+		});
+		return all;
 	}
 
 	private Hit nextStyleRun(final TriggerData t) {

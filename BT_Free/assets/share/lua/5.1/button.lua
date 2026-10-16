@@ -10,6 +10,7 @@ local DEFAULT_BOLD_TYPEFACE = Typeface.DEFAULT_BOLD
 local TextPaintClass = luajava.bindClass("android.text.TextPaint")
 local StaticLayoutBuilder = luajava.bindClass("android.text.StaticLayout$Builder")
 local LayoutAlignment = luajava.bindClass("android.text.Layout$Alignment")
+local buttonlook = require("buttonlook")
 
 buttonRoundness = 16
 buttonShowHints = true
@@ -68,6 +69,43 @@ function colorWithForcedAlpha(color, alpha)
 	end
 	local r, g, b = rgbFromArgb(color)
 	return Color:argb(alpha, r, g, b)
+end
+
+local function buttonOpacityPercent(data)
+	if data == nil then
+		return nil
+	end
+	local raw = rawget(data, "opacity")
+	if raw == nil then
+		return nil
+	end
+	return buttonlook.opacityPercent(raw)
+end
+
+-- Stored Opacity replaces the colour's alpha. Missing keeps that alpha.
+-- .buttonopacity is a session force and wins, so this does not stack on it.
+function applyButtonOpacity(color, data)
+	if color == nil or effectiveButtonOpacityOverride() ~= nil then
+		return color
+	end
+	local pct = buttonOpacityPercent(data)
+	if pct == nil then
+		return color
+	end
+	return colorWithForcedAlpha(color, buttonlook.opacityAlpha(pct))
+end
+
+-- Heatmap alpha is the use count. Scale it by the button percent.
+-- .buttonopacity must not turn that scale off.
+function fadeButtonOpacity(color, data)
+	if color == nil then
+		return color
+	end
+	local pct = buttonOpacityPercent(data)
+	if pct == nil then
+		return color
+	end
+	return colorWithForcedAlpha(color, buttonlook.mergedAlpha(alphaFromArgb(color), pct))
 end
 
 BUTTONSET_DATA = {
@@ -134,6 +172,17 @@ BUTTONSET_DATA = {
 						-- floatFrame (floating layer only, auto-contrast colour).
 						border = false,
 						borderColor = Color:argb(0xE0, 0xFF, 0xFF, 0xFF),
+						-- Empty picture: colored pad. A path or builtin: replaces it.
+						face = "",
+						facePressed = "",
+						faceFlip = "",
+						faceOnly = false,
+						labelAlignH = "center",
+						labelAlignV = "center",
+						fontPath = "",
+						fontStyle = "",
+						avoidText = false,
+						avoidMargin = 0,
 						gridXwidth = 50,
 						gridYwidth = 50			
 			  		}
@@ -199,8 +248,8 @@ function buttonLabelUsesWrappedLayout(wrapLabel, label)
 end
 
 -- Wrap the label inside the tile using Android StaticLayout. Single-line
--- drawText stays on the wrap-off path so existing buttons are pixel-identical.
-local function drawWrappedLabel(canvas, paint, label, rect, density, cx, cy)
+-- drawText stays on the wrap-off path.
+local function drawWrappedLabel(canvas, paint, label, rect, density, alignH, alignV)
 	if label == nil then
 		label = ""
 	end
@@ -209,17 +258,189 @@ local function drawWrappedLabel(canvas, paint, label, rect, density, cx, cy)
 	if maxW < 1 then
 		maxW = 1
 	end
+	local align = LayoutAlignment.ALIGN_CENTER
+	if alignH == "left" then
+		align = LayoutAlignment.ALIGN_NORMAL
+	elseif alignH == "right" then
+		align = LayoutAlignment.ALIGN_OPPOSITE
+	end
 	local jstr = luajava.newInstance("java.lang.String", tostring(label))
 	local tp = luajava.new(TextPaintClass, paint)
 	local builder = StaticLayoutBuilder:obtain(jstr, 0, jstr:length(), tp, maxW)
-	builder:setAlignment(LayoutAlignment.ALIGN_CENTER)
+	builder:setAlignment(align)
 	builder:setIncludePad(false)
 	local layout = builder:build()
+	local top = buttonlook.labelBlockTop(rectTop(rect), rectBottom(rect),
+		layout:getHeight(), alignV, pad)
 	canvas:save()
 	canvas:clipRect(rectLeft(rect), rectTop(rect), rectRight(rect), rectBottom(rect))
-	canvas:translate(rectLeft(rect) + pad, cy - layout:getHeight() / 2)
+	canvas:translate(rectLeft(rect) + pad, top)
 	layout:draw(canvas)
 	canvas:restore()
+end
+
+local ButtonFacesClass = nil
+local ButtonTypefacesClass = nil
+
+local function optionIndex(value, fallback)
+	local n = tonumber(value)
+	if n == nil then
+		return fallback
+	end
+	return n
+end
+
+local function globalFontPath()
+	if options == nil then
+		return "default"
+	end
+	local file = options.button_label_font_file
+	if file ~= nil and tostring(file) ~= "" then
+		return tostring(file)
+	end
+	return buttonlook.fontPathForIndex(optionIndex(options.button_label_font, 0))
+end
+
+local function globalFontStyle()
+	if options == nil then
+		return "bold"
+	end
+	return buttonlook.fontStyleForIndex(optionIndex(options.button_label_style, 1))
+end
+
+local function globalAlignH()
+	if options == nil then
+		return "center"
+	end
+	return buttonlook.alignHForIndex(optionIndex(options.button_label_align_h, 1))
+end
+
+local function globalAlignV()
+	if options == nil then
+		return "center"
+	end
+	return buttonlook.alignVForIndex(optionIndex(options.button_label_align_v, 1))
+end
+
+local function labelTypeface(path, style)
+	if ButtonTypefacesClass == nil then
+		local ok, cls = pcall(function()
+			return luajava.bindClass("com.resurrection.blowtorch2.lib.button.ButtonTypefaces")
+		end)
+		if ok then
+			ButtonTypefacesClass = cls
+		end
+	end
+	if ButtonTypefacesClass == nil or view == nil then
+		return DEFAULT_BOLD_TYPEFACE
+	end
+	local ok, face = pcall(function()
+		return ButtonTypefacesClass:resolve(view:getContext(), path, style)
+	end)
+	if ok and face ~= nil then
+		return face
+	end
+	return DEFAULT_BOLD_TYPEFACE
+end
+
+local function applyLabelPaint(paint, path, style)
+	paint:setTypeface(labelTypeface(path, style))
+	local fake = false
+	local skew = 0
+	if ButtonTypefacesClass ~= nil then
+		local okB, bold = pcall(function()
+			return ButtonTypefacesClass:fakeBold(path, style)
+		end)
+		if okB and (bold == true or tostring(bold) == "true") then
+			fake = true
+		end
+		local okS, sk = pcall(function()
+			return ButtonTypefacesClass:textSkew(path, style)
+		end)
+		if okS then
+			skew = tonumber(sk) or 0
+		end
+	end
+	paint:setFakeBoldText(fake)
+	paint:setTextSkewX(skew)
+end
+
+local faceDrawLogged = {}
+
+local function logFaceOnce(key, msg)
+	if faceDrawLogged[key] then
+		return
+	end
+	faceDrawLogged[key] = true
+	pcall(function()
+		local Log = luajava.bindClass("android.util.Log")
+		Log:w("BTFace", tostring(msg))
+	end)
+end
+
+local function tryDrawButtonFace(canvas, data, dest, usestate, alpha)
+	if dest == nil then
+		return false
+	end
+	-- Pressed and flip pictures still draw when the idle picture is empty.
+	-- ButtonFaces.draw picks the state picture; an empty spec returns false.
+	local face = tostring(rawget(data, "face") or "")
+	local pressed = tostring(rawget(data, "facePressed") or "")
+	local flip = tostring(rawget(data, "faceFlip") or "")
+	if face == "" and pressed == "" and flip == "" then
+		return false
+	end
+	if ButtonFacesClass == nil then
+		local ok, cls = pcall(function()
+			return luajava.bindClass("com.resurrection.blowtorch2.lib.button.ButtonFaces")
+		end)
+		if ok then
+			ButtonFacesClass = cls
+		end
+	end
+	if ButtonFacesClass == nil or view == nil then
+		return false
+	end
+	local radius = tonumber(buttonRoundness) or 0
+	local state = tonumber(usestate) or 0
+	local paintAlpha = tonumber(alpha) or 255
+	local ok, drew = pcall(function()
+		return ButtonFacesClass:draw(canvas, view:getContext(), dest, radius, false,
+			face, pressed, flip, state, paintAlpha)
+	end)
+	if ok and drew then
+		return true
+	end
+	local spec = face
+	local darken = false
+	if state == 1 then
+		if pressed ~= "" then
+			spec = pressed
+		else
+			darken = true
+		end
+	elseif state == 2 and flip ~= "" then
+		spec = flip
+	end
+	if spec == "" then
+		return false
+	end
+	local okB, bmp = pcall(function()
+		return ButtonFacesClass:thumbnail(view:getContext(), spec, 192)
+	end)
+	if okB and bmp ~= nil then
+		local okP, painted = pcall(function()
+			return ButtonFacesClass:paintBitmap(canvas, bmp, dest, radius, false,
+				paintAlpha, darken)
+		end)
+		if okP and painted then
+			return true
+		end
+		logFaceOnce(spec .. ":paint", tostring(painted))
+		return false
+	end
+	logFaceOnce(spec, "draw " .. tostring(drew) .. " thumb " .. tostring(okB))
+	return false
 end
 
 BUTTON = {} -- this class is purley a factory. these represent "in use" buttons
@@ -588,7 +809,7 @@ function BUTTON:drawSwipePreview(canvas, direction)
 			Color:argb(fillAlpha, 0xFF, 0xFF, 0xFF))
 end
 
-function BUTTON:draw(state,canvas)
+function BUTTON:draw(state, canvas, swipePreview)
 	if(canvas == nil) then
 		error("canvas parameter must not be null")
 	end
@@ -598,14 +819,21 @@ function BUTTON:draw(state,canvas)
 	if(state ~= nil) then
 		usestate = state
 	end
+	-- Held/flip picture only when that gesture is what a release would do.
+	local picture = buttonlook.pictureState(usestate, swipePreview == true)
 	
 	local function tileColor(c)
-		local colored = colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
+		local colored
+		if effectiveButtonOpacityOverride() ~= nil then
+			colored = colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
+		else
+			colored = applyButtonOpacity(c, self.data)
+		end
 		-- Edit mode still draws inactive tiles; fade them so they read as off.
 		if manage == true then
 			local a = self.data.active
 			if a == false or a == "false" then
-				return colorWithForcedAlpha(colored,
+				colored = colorWithForcedAlpha(colored,
 					math.floor(alphaFromArgb(colored) * 0.4))
 			end
 		end
@@ -623,8 +851,9 @@ function BUTTON:draw(state,canvas)
 	end
 	local heat = heatA ~= nil
 	local fill
+	local faceDrawn = false
 	if heat then
-		fill = Color:argb(heatA, heatR, heatG, heatB)
+		fill = fadeButtonOpacity(Color:argb(heatA, heatR, heatG, heatB), self.data)
 		local drawRect = rect
 		if usestate == 1 or usestate == 2 then
 			drawRect = self.inset
@@ -632,28 +861,30 @@ function BUTTON:draw(state,canvas)
 		p:setColor(fill)
 		canvas:drawRoundRect(drawRect, buttonRoundness, buttonRoundness, p)
 	else
+		local dest = rect
 		fill = tileColor(self.data.primaryColor)
-		if(usestate == 0) then
-			p:setColor(fill)
-			canvas:drawRoundRect(rect,buttonRoundness,buttonRoundness,p)
-		elseif(usestate == 1) then
+		if usestate == 1 then
 			fill = tileColor(self.data.selectedColor)
-			p:setColor(fill)
-			canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
-		elseif(usestate == 2) then
+			dest = self.inset
+		elseif usestate == 2 then
 			fill = tileColor(self.data.flipColor)
-			p:setColor(fill)
-			canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
+			dest = self.inset
+		end
+		if usestate == 0 or usestate == 1 or usestate == 2 then
+			faceDrawn = tryDrawButtonFace(canvas, self.data, dest, picture, alphaFromArgb(fill))
+			if not faceDrawn then
+				p:setColor(fill)
+				canvas:drawRoundRect(dest, buttonRoundness, buttonRoundness, p)
+			end
 		end
 	end
-	-- Badges reuse this, not a second fade: tileColor already applied
-	-- buttonOpacityOverride (or left the colour's own alpha).
+	-- Badges reuse this alpha. tileColor already applied Opacity or .buttonopacity.
 	local fillAlpha = alphaFromArgb(fill)
 	self._fillAlpha = fillAlpha
 	
 	local label = nil
 	if heat then
-		p:setColor(Color:argb(255, heatLR, heatLG, heatLB))
+		p:setColor(fadeButtonOpacity(Color:argb(255, heatLR, heatLG, heatLB), self.data))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		if(usestate == 2 and self.data.flipLabel ~= nil and self.data.flipLabel ~= "") then
 			label = self.data.flipLabel
@@ -667,7 +898,7 @@ function BUTTON:draw(state,canvas)
 		label = self.data.label
 	elseif(usestate == 2) then
 		p:setColor(tileColor(self.data.flipLabelColor))
-		--p:setTypeface(DEFAULT_BOLD_TYPEFACE)
+		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		if(self.data.flipLabel == "" or self.data.flipLabel == nil) then
 			label = self.data.label
 		else
@@ -675,22 +906,36 @@ function BUTTON:draw(state,canvas)
 		end
 		
 	end
-	-- Centre the label on the rect, not on data.x/data.y. The rect is built by
-	-- updateRectAt from whichever position this orientation is in force (see
-	-- buttonwindow.posX), and it already carries statusoffset. Reading the
-	-- portrait pair here meant that in landscape -- and for the whole of a move
-	-- in the manager -- the tile moved and its label stayed behind.
-	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
-	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
-	if buttonLabelUsesWrappedLayout(self.data.wrapLabel, label) then
-		p:setTypeface(DEFAULT_BOLD_TYPEFACE)
-		drawWrappedLabel(canvas, p, label, rect, self.density, cx, cy)
-	else
-		local tX = cx - (p:measureText(label)/2)
-		local tY = cy + (p:getTextSize()/2)
-		p:setTypeface(DEFAULT_BOLD_TYPEFACE)
-		canvas:drawText(label,tX,tY,p)
+	if label == nil then
+		label = ""
 	end
+	local tag = buttonlook.parseFontTag(label)
+	label = tag.display
+	local fontPath, fontStyle = buttonlook.resolveFont(
+		rawget(self.data, "fontPath"), rawget(self.data, "fontStyle"),
+		tag.path, tag.style, globalFontPath(), globalFontStyle())
+	applyLabelPaint(p, fontPath, fontStyle)
+	local alignH = buttonlook.effectiveAlign(rawget(self.data, "labelAlignH"), globalAlignH())
+	local alignV = buttonlook.effectiveAlign(rawget(self.data, "labelAlignV"), globalAlignV())
+	local faceOnly = self.data.faceOnly == true or self.data.faceOnly == "true"
+	-- Label position comes from the rect, which already includes statusoffset
+	-- and the landscape pair. A picture that failed to load still shows the label.
+	if not (faceOnly and faceDrawn) then
+		if buttonLabelUsesWrappedLayout(self.data.wrapLabel, label) then
+			drawWrappedLabel(canvas, p, label, rect, self.density, alignH, alignV)
+		else
+			local pad = 4 * self.density
+			local fm = p:getFontMetrics()
+			local tX = buttonlook.labelLeft(rectLeft(rect), rectRight(rect),
+				p:measureText(label), alignH, pad)
+			local tY = buttonlook.labelBaseline(rectTop(rect), rectBottom(rect),
+				fm.ascent, fm.descent, alignV, pad)
+			canvas:drawText(label,tX,tY,p)
+		end
+	end
+	p:setTypeface(DEFAULT_BOLD_TYPEFACE)
+	p:setFakeBoldText(false)
+	p:setTextSkewX(0)
 	-- nil defaults to on; only explicit false/"false"/0 hides U/D/L/R, Hold, accordion badges.
 	-- Independent of showGestureLabel (the callout above the tile while gesturing).
 	local showHints = true
@@ -737,7 +982,8 @@ function BUTTON:draw(state,canvas)
 		end
 		p:setStyle(PaintStyle.STROKE)
 		p:setStrokeWidth(stroke)
-		p:setColor(Color:argb(math.max(heatA, 72), heatR, heatG, heatB))
+		p:setColor(fadeButtonOpacity(
+			Color:argb(math.max(heatA, 72), heatR, heatG, heatB), self.data))
 		canvas:drawRoundRect(frameRect, buttonRoundness, buttonRoundness, p)
 		p:setStrokeWidth(previousWidth)
 		p:setStyle(previousStyle)

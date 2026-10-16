@@ -90,7 +90,7 @@ check(isPlayModeInactive({ }) == false, "button with no data is not inactive")
 print("4. editor / save / play-mode skip paths name active")
 local advanced = readAll(ROOT .. "/buttoneditoradvanced.lua")
 check(advanced:find('setText("Active")', 1, true) ~= nil,
-	"Others tab has Active checkbox")
+	"Advanced tab has Active checkbox")
 check(advanced:find("safeAddView(ui.buttonNameRow, ui.activeCheck)", 1, true) ~= nil,
 	"Active checkbox sits on the Name row")
 check(advanced:find("tmp.active", 1, true) ~= nil,

@@ -89,6 +89,14 @@ public final class ButtonTextFlow {
 		return new RectPx(minL, minT, maxR, maxB);
 	}
 
+	/** Grow a hole by {@code px} on every side. Zero and negative leave it. */
+	public static RectPx outset(final RectPx rect, final int px) {
+		if (rect == null || px <= 0) {
+			return rect;
+		}
+		return new RectPx(rect.left - px, rect.top - px, rect.right + px, rect.bottom + px);
+	}
+
 	/**
 	 * Blob in viewport px → inclusive-exclusive column span in the text grid.
 	 * {@code scrollX} is canvas pixels already panned ({@code Window} mScrollX).
@@ -301,6 +309,45 @@ public final class ButtonTextFlow {
 		return placed;
 	}
 
+	/**
+	 * Cell remainders beside the button. {@code [0]} is pixels from the left
+	 * cell boundary to {@code blobLeft}; {@code [1]} is pixels from
+	 * {@code blobRight} out to the next cell boundary.
+	 */
+	public static int[] sideSlack(final int blobLeft, final int blobRight, final int cellW) {
+		if (cellW <= 0) {
+			return new int[] { 0, 0 };
+		}
+		int left = Math.floorMod(blobLeft, cellW);
+		int rightMod = Math.floorMod(blobRight, cellW);
+		int right = rightMod == 0 ? 0 : cellW - rightMod;
+		return new int[] { left, right };
+	}
+
+	/** Shared remainder before the half-cell bias. The wider remainder closes. */
+	public static int equalSideGap(final int blobLeft, final int blobRight, final int cellW) {
+		int[] slack = sideSlack(blobLeft, blobRight, cellW);
+		return Math.min(slack[0], slack[1]);
+	}
+
+	/**
+	 * Left-run view X stays on the unholed grid. A non-zero shift is one dx for
+	 * the whole run, so column 0 moves with the hole (player, 15 Oct 2026).
+	 */
+	public static int leftPocketShift(final int blobLeft, final int blobRight, final int cellW) {
+		return 0;
+	}
+
+	/**
+	 * Added to {@code destCol * cellW}. The half cell keeps the right-hand letter
+	 * clear of the button until the pan reaches the middle of the cell.
+	 */
+	public static int rightPocketShift(final int blobLeft, final int blobRight, final int cellW) {
+		int[] slack = sideSlack(blobLeft, blobRight, cellW);
+		int half = cellW <= 0 ? 0 : cellW / 2;
+		return Math.min(slack[0], slack[1]) - slack[1] + half;
+	}
+
 	private static int skipRowBudget(final List<RectPx> buttons, final int firstRowTop,
 			final int rowHeight) {
 		if (buttons == null || buttons.isEmpty() || rowHeight <= 0) {
@@ -369,27 +416,62 @@ public final class ButtonTextFlow {
 	}
 
 	/**
-	 * View-X for a right-pocket glyph. Anchored on {@code blobRight} so 1px of
-	 * scroll moves 1px; {@link #panViewX} jumps ~cellW at the column boundary
-	 * because {@code destCol} is screen-fixed (phone, 17 Sep 2026).
+	 * View-X for a left-pocket glyph. Same pan as {@link #panViewX}: a holed
+	 * row starts on the same column as a row with no hole.
+	 */
+	public static float leftPocketViewX(final int destCol, final int sliceFrom,
+			final float blobLeft, final float blobRight, final float cellW, final float scrollX) {
+		float x = panViewX(destCol, sliceFrom, cellW, scrollX);
+		if (cellW <= 0f) {
+			return x;
+		}
+		return x + leftPocketShift(Math.round(blobLeft), Math.round(blobRight), Math.round(cellW));
+	}
+
+	/** Inverse of {@link #leftPocketViewX}. */
+	public static int leftPocketDestCol(final float viewX, final int sliceFrom,
+			final float blobLeft, final float blobRight, final float cellW, final float scrollX) {
+		if (cellW <= 0f) {
+			return panDestCol(viewX, sliceFrom, cellW, scrollX);
+		}
+		float shift = leftPocketShift(Math.round(blobLeft), Math.round(blobRight),
+				Math.round(cellW));
+		return panDestCol(viewX - shift, sliceFrom, cellW, scrollX);
+	}
+
+	/**
+	 * View-X for a right-pocket glyph. 1px of scroll moves 1px; a screen-fixed
+	 * {@code destCol} would jump ~cellW at the column boundary (phone, 17 Sep
+	 * 2026). At scroll fraction 0 the glyph starts half a cell past
+	 * {@link #equalSideGap}. The left run does not take that half.
 	 */
 	public static float rightPocketViewX(final int destCol, final int holeCol1,
-			final float blobRight, final float cellW, final float scrollX) {
+			final float blobLeft, final float blobRight, final float cellW, final float scrollX) {
 		if (cellW <= 0f) {
 			return blobRight;
 		}
-		int localCol = destCol - holeCol1;
-		return blobRight + localCol * cellW - scrollFrac(scrollX, cellW);
+		if (destCol < holeCol1) {
+			return blobRight;
+		}
+		int shift = rightPocketShift(Math.round(blobLeft), Math.round(blobRight),
+				Math.round(cellW));
+		return destCol * cellW + shift - scrollFrac(scrollX, cellW);
 	}
 
 	/** Inverse of {@link #rightPocketViewX}: viewport column under view-X. */
 	public static int rightPocketDestCol(final float viewX, final int holeCol1,
-			final float blobRight, final float cellW, final float scrollX) {
+			final float blobLeft, final float blobRight, final float cellW, final float scrollX) {
 		if (cellW <= 0f) {
 			return holeCol1;
 		}
-		return holeCol1
-				+ (int) Math.floor((viewX - blobRight + scrollFrac(scrollX, cellW)) / cellW);
+		int shift = rightPocketShift(Math.round(blobLeft), Math.round(blobRight),
+				Math.round(cellW));
+		float frac = scrollFrac(scrollX, cellW);
+		int col = (int) Math.floor((viewX - shift + frac) / cellW);
+		if (col < holeCol1) {
+			return holeCol1;
+		}
+		return col;
 	}
 
 	/** Pixel offset within the current cell; always in {@code [0, cellW)} for scrollX&gt;=0. */

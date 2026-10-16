@@ -79,8 +79,14 @@ public final class GlobalGestureSession {
 	private int activeFinger;
 	private boolean seenTwo;
 	private boolean ownedScroll;
+	private boolean twoMoved;
 	private String lockedDir;
 	private String lockedCmd;
+	/** Furthest sample of the current two-finger contact, kept until the lift. */
+	private boolean liftSeen;
+	private float liftLead;
+	private float liftX0, liftY0, liftX1, liftY1;
+	private Decision liftedScroll;
 
 	public void setConfig(final GlobalGestures config, final float slopPx, final float travelPx) {
 		this.config = config != null ? config : GlobalGestures.defaults();
@@ -93,8 +99,11 @@ public final class GlobalGestureSession {
 		bypass = false;
 		seenTwo = false;
 		ownedScroll = false;
+		twoMoved = false;
 		lockedDir = null;
 		lockedCmd = null;
+		liftedScroll = null;
+		clearLift();
 	}
 
 	public Decision onDown(final long time, final float x, final float y) {
@@ -204,8 +213,52 @@ public final class GlobalGestureSession {
 		phase = Phase.TRACK2;
 		seenTwo = true;
 		ownedScroll = false;
+		twoMoved = false;
 		lockedDir = null;
 		lockedCmd = null;
+		liftedScroll = null;
+		clearLift();
+	}
+
+	/** One sample from the lift. The furthest is the one that is classified. */
+	public void noteLift(final float x0, final float y0, final float x1, final float y1) {
+		if (phase != Phase.TRACK2) {
+			return;
+		}
+		float lead = Math.max(hypot(x0 - ox0, y0 - oy0), hypot(x1 - ox1, y1 - oy1));
+		if (!liftSeen || lead > liftLead) {
+			liftSeen = true;
+			liftLead = lead;
+			liftX0 = x0;
+			liftY0 = y0;
+			liftX1 = x1;
+			liftY1 = y1;
+		}
+	}
+
+	private void clearLift() {
+		liftSeen = false;
+		liftLead = 0f;
+	}
+
+	/** Classify a swipe that arrived only with the lift, before the tap test. */
+	private void applyLiftSample(final long time) {
+		if (!liftSeen) {
+			return;
+		}
+		float x0 = liftX0;
+		float y0 = liftY0;
+		float x1 = liftX1;
+		float y1 = liftY1;
+		float lead = liftLead;
+		clearLift();
+		if (phase != Phase.TRACK2 || lead <= slop) {
+			return;
+		}
+		Decision d = onMove(time, 2, x0, y0, x1, y1);
+		if (d.kind == Decision.Kind.SCROLL) {
+			liftedScroll = d;
+		}
 	}
 
 	public Decision onPointerUp(final long time, final int pointersRemaining) {
@@ -216,13 +269,25 @@ public final class GlobalGestureSession {
 	public Decision onPointerUp(final long time, final int pointersRemaining,
 			final int liftedIndex) {
 		if (bypass) {
+			clearLift();
 			return Decision.ignore();
 		}
+		applyLiftSample(time);
 		if (phase == Phase.PREVIEW2 && liftedIndex != activeFinger) {
+			liftedScroll = null;
 			return cancelGesture();
 		}
 		if (phase == Phase.PREVIEW1 || phase == Phase.PREVIEW2) {
+			liftedScroll = null;
 			return fireLocked();
+		}
+		if (liftedScroll != null) {
+			Decision scroll = liftedScroll;
+			liftedScroll = null;
+			if (phase == Phase.SCROLL2) {
+				phase = Phase.LIFTED;
+			}
+			return scroll;
 		}
 		Decision tap = copyIfStill();
 		if (tap != null) {
@@ -266,7 +331,7 @@ public final class GlobalGestureSession {
 	/** A stationary two-finger tap. Decided while both points are still stored,
 	 * which is the pointer-up, not the last finger's up. */
 	private Decision copyIfStill() {
-		if ((phase == Phase.TRACK2 || phase == Phase.LIFTED) && twoCopyOn()
+		if ((phase == Phase.TRACK2 || phase == Phase.LIFTED) && twoCopyOn() && !twoMoved
 				&& hypot(lx0 - ox0, ly0 - oy0) <= slop
 				&& hypot(lx1 - ox1, ly1 - oy1) <= slop) {
 			phase = Phase.CANCELLED;
@@ -550,6 +615,11 @@ public final class GlobalGestureSession {
 		if (pointerCount > 1) {
 			lx1 = x1;
 			ly1 = y1;
+			if ((phase == Phase.TRACK2 || phase == Phase.PREVIEW2 || phase == Phase.SCROLL2)
+					&& (hypot(x0 - ox0, y0 - oy0) > slop
+							|| hypot(x1 - ox1, y1 - oy1) > slop)) {
+				twoMoved = true;
+			}
 		}
 	}
 

@@ -18,9 +18,25 @@ android {
         buildConfigField "boolean", "UPDATE_CHECK_ON_BY_DEFAULT",
                 ((findProperty("blowtorch.fdroid") ?: "false").toString() == "true")
                         ? "false" : "true"
+        // Off unless a flavor turns it on. The writer is not in this source set.
+        buildConfigField "boolean", "TIMING_TRACE", "false"
         // Fat APK for phones/tablets: 32-bit + 64-bit ARM (covers virtually all devices).
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
+        }
+    }
+
+    // Same dimension and names as :BT_Free. F-Droid builds `production`, which
+    // compiles the empty TimingTrace. The writer is src/btTest only.
+    flavorDimensions += "edition"
+    productFlavors {
+        btTest {
+            dimension "edition"
+            buildConfigField "boolean", "TIMING_TRACE", "true"
+        }
+        production {
+            dimension "edition"
+            buildConfigField "boolean", "TIMING_TRACE", "false"
         }
     }
 
@@ -38,7 +54,7 @@ android {
         main {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
-            java.exclude('**/androidTest/**', '**/test/**')
+            java.exclude('**/androidTest/**', '**/test/**', 'btTest/**', 'production/**')
             aidl.srcDirs = ['src']
             res.srcDirs = ['res']
             assets.srcDirs = ['assets']
@@ -50,6 +66,8 @@ android {
         test {
             java.srcDirs = ['src/test/java']
         }
+        btTest.java.srcDirs = ['src/btTest/java']
+        production.java.srcDirs = ['src/production/java']
     }
 
     lint {
@@ -61,11 +79,23 @@ android {
     }
 }
 
+// Flavors replace testDebugUnitTest. Keep the old name so check.sh and
+// deploy.sh still run both variants' JVM tests.
+afterEvaluate {
+    if (tasks.findByName('testDebugUnitTest') == null) {
+        tasks.register('testDebugUnitTest') {
+            dependsOn 'testBtTestDebugUnitTest', 'testProductionDebugUnitTest'
+            group = 'verification'
+        }
+    }
+}
+
 dependencies {
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation 'com.google.android.material:material:1.11.0'
+    implementation 'com.caverock:androidsvg-aar:1.4'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test:core:1.5.0'

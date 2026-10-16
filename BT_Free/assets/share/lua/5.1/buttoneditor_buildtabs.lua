@@ -537,7 +537,7 @@ function buildTabs(host, content, o)
 	--
 	-- The note sits at the top of the tab so it is the first thing read. It is
 	-- built once and shown or hidden, because the ticking of 'Float over the
-	-- game' on the Others tab drives this live and re-adding it on each change
+	-- game' on the Advanced tab drives this live and re-adding it on each change
 	-- would stack copies.
 	local accordionSuperNote = luajava.new(TextView, o.context)
 	accordionSuperNote:setTextSize(o.textSizeSmall)
@@ -545,7 +545,7 @@ function buildTabs(host, content, o)
 		"This is a super button, so it cannot have an accordion: the "
 		.. "sub-buttons are drawn on the button grid and only exist while "
 		.. "the parent is open. Untick 'Float over the game' on the "
-		.. "Others tab to use one.")
+		.. "Advanced tab to use one.")
 	local notePad = math.floor(8 * density)
 	accordionSuperNote:setPadding(notePad, notePad, notePad, notePad)
 	accordionSuperNote:setLayoutParams(o.fillparams)
@@ -1197,6 +1197,9 @@ function buildTabs(host, content, o)
 
 		childrenContainer:addView(footer)
 		o.updateAccordionAddGate()
+		if o.paintLabelTypeface ~= nil then
+			o.paintLabelTypeface()
+		end
 	end
 
 	o.rebuildAccordionChildRows = rebuildAccordionChildRows
@@ -1307,7 +1310,7 @@ function buildTabs(host, content, o)
 	-- One place decides whether this tab can be typed into, because two things
 	-- close it: editing several buttons at once (an accordion is per button),
 	-- and the button being a super button. The second can be switched on and off
-	-- on the Others tab while this tab is open, so this is a function rather
+	-- on the Advanced tab while this tab is open, so this is a function rather
 	-- than a run of setEnabled calls at build time.
 	o.updateAccordionEnabled = function(isFloating)
 		o._accordionFloating = (isFloating == true)

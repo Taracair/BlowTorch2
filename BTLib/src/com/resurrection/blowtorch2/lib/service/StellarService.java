@@ -36,12 +36,15 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.Bundle;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.chat.ChatAnnounce;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
@@ -275,7 +278,7 @@ public class StellarService extends Service {
 
 	/** The implementation of the onCreate() Service method. */
 	public final void onCreate() {
-		
+		TimingTrace.arm(this);
 		BlowTorchLogger.ensureLogFileAsync(this.getApplicationContext());
 		mConnections = new HashMap<String, Connection>();
 		
@@ -2010,10 +2013,13 @@ public class StellarService extends Service {
 		if (!hasOpenConnection(display)) {
 			return;
 		}
+		final long timingStart = SystemClock.uptimeMillis();
+		final String from = getClutch();
 		Connection target = mConnections.get(display);
 		// Persist before moving the clutch so a concurrent onResume cannot
 		// pair the new DISPLAY with the previous world's host/port.
 		persistForegroundConnection(target);
+		final long timingPersisted = SystemClock.uptimeMillis();
 		setClutch(display);
 		// Rebuild the FGS PendingIntent with the new DISPLAY — otherwise a tap
 		// on the ongoing notification still carries the pre-switch world into
@@ -2025,6 +2031,7 @@ public class StellarService extends Service {
 					getString(R.string.notification_status_connected,
 							target.getHost(), target.getPort()));
 		}
+		final long timingNotified = SystemClock.uptimeMillis();
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
@@ -2042,6 +2049,18 @@ public class StellarService extends Service {
 			}
 		}
 		mCallbacks.finishBroadcast();
+		final long timingEnd = SystemClock.uptimeMillis();
+		TimingTrace.event("switch", "phase=svc"
+				+ " from=" + TimingLine.token(from)
+				+ " to=" + TimingLine.token(display)
+				+ " open=" + openWorldCount()
+				+ " connected=" + (target.isConnected() ? 1 : 0)
+				+ " t0=" + timingStart
+				+ " persistMs=" + (timingPersisted - timingStart)
+				+ " notifyMs=" + (timingNotified - timingPersisted)
+				+ " callbackMs=" + (timingEnd - timingNotified)
+				+ " totalMs=" + (timingEnd - timingStart)
+				+ " callbacks=" + n);
 	}
 
 	/**

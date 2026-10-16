@@ -24,6 +24,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
 import com.resurrection.blowtorch2.lib.service.Connection;
+import com.resurrection.blowtorch2.lib.window.MatchShift;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Text;
 import com.resurrection.blowtorch2.lib.window.TextTree.Unit;
@@ -138,9 +139,9 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 				if(this.getFireType() == FIRE_WHEN.WINDOW_OPEN || this.getFireType() == FIRE_WHEN.WINDOW_NEVER) return false;
 			}
 			
-			int end = pend  + 1 + tree.getModCount();
-			
-			int start = pstart + tree.getModCount();
+			MatchShift shift = tree.getMatchShift();
+			int end = shift.currentInclusiveEnd(pend);
+			int start = shift.currentStart(pstart);
 			
 			
 			//so here we go, meat of the replacer code.
@@ -159,7 +160,8 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 				//delta = delta -1;
 			}
 			//if(delta < 0)
-			tree.setModCount(tree.getModCount()+delta);
+			shift.addFromResponder(pstart, pend, delta);
+			tree.setModCount(shift.totalDelta());
 			//TextTree.Line newLine = new TextTree.Line();
 			LinkedList<TextTree.Unit> newLine = new LinkedList<TextTree.Unit>();
 			

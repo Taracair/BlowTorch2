@@ -67,6 +67,39 @@ setGridSnapCallback = function(c) setGridSnap = c end
 setGridXSpacingCallback = function(c) setGridXSpacing = c end
 setGridYSpacingCallback = function(c) setGridYSpacing = c end
 setGridOpacityCallback = function(c) setGridOpacity = c end
+setGridBackgroundOpacityCallback = function(c) setGridBackgroundOpacity = c end
+
+-- Not a local: showDialog is at the 60-upvalue ceiling.
+function addBackgroundOpacityRow(parent, fillparams, wrapparams, textSize, initial)
+  local bgOpacity = tonumber(initial)
+  if bgOpacity == nil then bgOpacity = 255 end
+  if bgOpacity < 0 then bgOpacity = 0 end
+  if bgOpacity > 255 then bgOpacity = 255 end
+  local bgOpacityLabel = luajava.newInstance("android.widget.TextView", context)
+  bgOpacityLabel:setLayoutParams(wrapparams)
+  bgOpacityLabel:setTextSize(textSize)
+  local function bgOpacityText(progress)
+    return "Background opacity: " .. math.floor((progress / 255) * 100) .. "%"
+  end
+  bgOpacityLabel:setText(bgOpacityText(bgOpacity))
+  local bgOpacitySeekBar = luajava.newInstance("android.widget.SeekBar", context)
+  bgOpacitySeekBar:setLayoutParams(fillparams)
+  bgOpacitySeekBar:setMax(255)
+  bgOpacitySeekBar:setProgress(bgOpacity)
+  bgOpacitySeekBar:setOnSeekBarChangeListener(luajava.createProxy(
+      "android.widget.SeekBar$OnSeekBarChangeListener", {
+    onProgressChanged = function(v, progress, state)
+      bgOpacityLabel:setText(bgOpacityText(progress))
+      if setGridBackgroundOpacity ~= nil then
+        setGridBackgroundOpacity(progress)
+      end
+    end,
+    onStartTrackingTouch = function(v) end,
+    onStopTrackingTouch = function(v) end,
+  }))
+  parent:addView(bgOpacityLabel)
+  parent:addView(bgOpacitySeekBar)
+end
 setGridSnapTestCallback = function(c) setGridSnapTest = c end
 setAdvancedPropertiesCallback = function(c) setAdvancedProperties = c end
 setShowGestureHintsCallback = function(c) setShowGestureHints = c end
@@ -725,6 +758,9 @@ function showDialog(initialValues)
   gridYField = addSliderRow(ySeekBarLabel, ySeekBar, gridY)
   ll:addView(opacitySeekBarLabel)
   ll:addView(opacitySeekBar)
+  addBackgroundOpacityRow(ll, fillparams, wrapparams, textSizeSmall,
+      initialValues.gridBackgroundOpacity)
+  addHint("How solid the black behind the lines is. Lower it to read the game while you place buttons.")
 
   local fitRow = luajava.newInstance("android.widget.LinearLayout", context)
   fitRow:setLayoutParams(fillparams)

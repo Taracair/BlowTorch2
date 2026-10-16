@@ -112,6 +112,8 @@ public class TextTree {
 	Matcher colormatch = colordata.matcher("");
 	
 	private int modCount;
+	/** Replaces on the line the cascade is currently applying. Not saved. */
+	private MatchShift matchShift = new MatchShift();
 	
 	public boolean debugLineAdd = false;
 	//Pattern newlinelookup = Pattern.compile("\n");
@@ -2787,6 +2789,23 @@ public class TextTree {
 
 	public void setModCount(int modCount) {
 		this.modCount = modCount;
+	}
+
+	public MatchShift getMatchShift() {
+		if (matchShift == null) {
+			matchShift = new MatchShift();
+		}
+		return matchShift;
+	}
+
+	/** Install this line's shift and keep {@link #modCount} equal to its total. */
+	public void setMatchShift(MatchShift shift) {
+		matchShift = shift == null ? new MatchShift() : shift;
+		modCount = matchShift.totalDelta();
+	}
+
+	public void clearMatchAdjustments() {
+		setMatchShift(new MatchShift());
 	}
 
 	public class SelectionCursor {

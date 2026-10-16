@@ -23,6 +23,8 @@ local pcall = _G["pcall"]
 local CheckBox = luajava.bindClass("android.widget.CheckBox")
 local Spinner = luajava.bindClass("android.widget.Spinner")
 local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
+local buttoneditorlook = require("buttoneditorlook")
+local buttonlook = require("buttonlook")
 module(...)
 
 local context = nil
@@ -37,6 +39,23 @@ local DESC_TEXT = Color:argb(255, 0x9A, 0xA3, 0xAD)
 
 local ui = {}
 
+local COLOR_NOTE_SLIDER = "These colors show when that state has no icon. Drag Opacity to fade them together. Until then each colour keeps its own."
+local COLOR_NOTE_PICKER = "These colors show when that state has no icon. The colour picker sets how see-through they are."
+local COLOR_NOTE_MULTI = "These colors show when that state has no icon. Drag Opacity to fade every selected button. A colour change keeps each button's transparency."
+
+local function paintColorNote(mode)
+  if ui.colorNote == nil then
+    return
+  end
+  if mode == "picker" then
+    ui.colorNote:setText(COLOR_NOTE_PICKER)
+  elseif mode == "multi" then
+    ui.colorNote:setText(COLOR_NOTE_MULTI)
+  else
+    ui.colorNote:setText(COLOR_NOTE_SLIDER)
+  end
+end
+
 -- Told when 'Float over the game' is ticked or unticked, so tabs built by
 -- another module can follow. Re-registered by buttoneditor.lua on every open:
 -- ui.floatCheckListener is built once and outlives the dialog it came from.
@@ -46,37 +65,91 @@ local selectedColorField
 
 local defaultColors = {}
 
+local function argbParts(color)
+  local n = tonumber(color) or 0
+  if n < 0 then
+    n = n + 4294967296
+  end
+  local a = math.floor(n / 16777216) % 256
+  local r = math.floor(n / 65536) % 256
+  local g = math.floor(n / 256) % 256
+  local b = n % 256
+  return a, r, g, b
+end
+
+local function displayColor(color)
+  if color == nil or ui.previewOpacity == nil then
+    return color
+  end
+  local _, r, g, b = argbParts(color)
+  return Color:argb(buttonlook.opacityAlpha(ui.previewOpacity), r, g, b)
+end
+
+local function showSwatch(view, color)
+  if view == nil or color == nil then
+    return
+  end
+  view:setBackgroundColor(displayColor(color))
+  view:invalidate()
+end
+
+local function refreshSwatches()
+  showSwatch(ui.normalColorPicker, ui.normalColor)
+  showSwatch(ui.pressedColorPicker, ui.pressedColor)
+  showSwatch(ui.flipColorPicker, ui.flipColor)
+  showSwatch(ui.normalLabelColorPicker, ui.normalLabelColor)
+  showSwatch(ui.flipLabelColorPicker, ui.flipLabelColor)
+  showSwatch(ui.borderColorPicker, ui.borderColor)
+end
+
+function previewButtonOpacity(pct)
+  if pct == nil then
+    ui.previewOpacity = nil
+  else
+    ui.previewOpacity = buttonlook.opacityPercent(pct)
+  end
+  refreshSwatches()
+end
+
+-- Single button: Opacity owns the alpha once the slider has a percent.
+-- Multi-edit: hue only, so a stored Opacity still replaces colour alpha.
+-- Set defaults: the picker alpha is the transparency.
+local function pickedColor(previous, picked)
+  if ui.multiColorEdit ~= true and not buttoneditorlook.opacitySliderShown() then
+    return picked
+  end
+  local _, r, g, b = argbParts(picked)
+  local a = argbParts(previous)
+  if buttoneditorlook.opacitySliderShown() and buttoneditorlook.opacityActive() then
+    a = 255
+  end
+  return Color:argb(a, r, g, b)
+end
+
 local function applyDefaultColor(field)
   local color = defaultColors[field]
   if color == nil then
     return
   end
   if field == "flip" then
-    ui.flipColorPicker:setBackgroundColor(color)
-    ui.flipColorPicker:invalidate()
     ui.flipColor = color
+    showSwatch(ui.flipColorPicker, color)
   elseif field == "normal" then
-    ui.normalColorPicker:setBackgroundColor(color)
-    ui.normalColorPicker:invalidate()
     ui.normalColor = color
+    showSwatch(ui.normalColorPicker, color)
+    buttoneditorlook.showUnreadOpacity(color)
   elseif field == "pressed" then
-    ui.pressedColorPicker:setBackgroundColor(color)
-    ui.pressedColorPicker:invalidate()
     ui.pressedColor = color
+    showSwatch(ui.pressedColorPicker, color)
   elseif field == "label" then
-    ui.normalLabelColorPicker:setBackgroundColor(color)
-    ui.normalLabelColorPicker:invalidate()
     ui.normalLabelColor = color
+    showSwatch(ui.normalLabelColorPicker, color)
   elseif field == "flipLabel" then
-    ui.flipLabelColorPicker:setBackgroundColor(color)
-    ui.flipLabelColorPicker:invalidate()
     ui.flipLabelColor = color
+    showSwatch(ui.flipLabelColorPicker, color)
   elseif field == "border" then
     ui.borderColor = color
-    if ui.borderColorPicker ~= nil then
-      ui.borderColorPicker:setBackgroundColor(color)
-      ui.borderColorPicker:invalidate()
-    end
+    showSwatch(ui.borderColorPicker, color)
   end
 end
 
@@ -154,6 +227,12 @@ end
 function makeUI(editorValues,numediting)
   
   local fnew = luajava.new
+  if editorValues.opacity ~= nil then
+    ui.previewOpacity = buttonlook.opacityPercent(editorValues.opacity)
+  else
+    ui.previewOpacity = nil
+  end
+  ui.multiColorEdit = numediting ~= nil and numediting > 1
   defaultColors.normal = editorValues.defaultPrimaryColor or Color:argb(0x88,0x00,0x00,0xFF)
   defaultColors.pressed = editorValues.defaultSelectedColor or Color:argb(0x88,0x00,0xFF,0x00)
   defaultColors.flip = editorValues.defaultFlipColor or Color:argb(0x88,0xFF,0x00,0x00)
@@ -165,6 +244,13 @@ function makeUI(editorValues,numediting)
   if(ui.advancedPageScroller == nil) then
     ui.advancedPageScroller = fnew(ScrollView,context)
     ui.advancedPageScroller:setId(5)
+  end
+  if ui.scrollFocusSet ~= true and ui.advancedPageScroller ~= nil then
+    local ViewGroup = luajava.bindClass("android.view.ViewGroup")
+    ui.advancedPageScroller:setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS)
+    ui.advancedPageScroller:setFocusable(true)
+    ui.advancedPageScroller:setFocusableInTouchMode(true)
+    ui.scrollFocusSet = true
   end
   
   if(ui.advancedPage == nil) then
@@ -309,6 +395,7 @@ function makeUI(editorValues,numediting)
   -- Hidden, not deleted: switchTo is still read on save so an old value is not
   -- wiped. Switching pads is `.loadset` on the Tap command.
   ui.buttonTargetSetRow:setVisibility(View.GONE)
+  buttoneditorlook.attachIcon(ui.advancedPage, editorValues, numediting)
   if(numediting > 1) then
     ui.targetEdit:setEnabled(false)
     ui.targetEdit:setText("")
@@ -329,7 +416,21 @@ function makeUI(editorValues,numediting)
     ui.colortopLabel:setLayoutParams(colortopLabelParams)
     ui.advancedPage:addView(ui.colortopLabel)
   end
-  styleSectionBar(ui.colortopLabel, "COLORS")
+  styleSectionBar(ui.colortopLabel, "COLORED PAD")
+  if ui.colorNote == nil then
+    ui.colorNote = fnew(TextView, context)
+    ui.colorNote:setTextSize(textSizeSmall)
+    ui.colorNote:setTextColor(DESC_TEXT)
+    local pad = math.floor(10 * density)
+    ui.colorNote:setPadding(pad, 0, pad, math.floor(4 * density))
+    ui.colorNote:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.colorNote)
+  end
+  if ui.multiColorEdit == true then
+    paintColorNote("multi")
+  else
+    paintColorNote("slider")
+  end
   
   if(ui.colorRowOne == nil) then
     ui.colorRowOne = fnew(LinearLayout,context)
@@ -352,14 +453,14 @@ function makeUI(editorValues,numediting)
     ui.normalColorPicker = fnew(View,context)
     ui.normalColorPicker:setLayoutParams(touchparams)
     ui.normalColor = editorValues.primaryColor
-    ui.normalColorPicker:setBackgroundColor(ui.normalColor)
+    showSwatch(ui.normalColorPicker, ui.normalColor)
     ui.normalColorPicker:setTag("normal")
     bindColorSwatch(ui.normalColorPicker)
     --Note("addiing normal color")
     ui.colorHolderA:addView(ui.normalColorPicker)
   else 
     ui.normalColor = editorValues.primaryColor
-    ui.normalColorPicker:setBackgroundColor(ui.normalColor)
+    showSwatch(ui.normalColorPicker, ui.normalColor)
   end
 
   if(ui.colorHolderB == nil) then
@@ -377,12 +478,12 @@ function makeUI(editorValues,numediting)
     bindColorSwatch(ui.pressedColorPicker)
     --thePressedColor = Color:argb(255,120,250,250)
     ui.pressedColor = editorValues.selectedColor
-    ui.pressedColorPicker:setBackgroundColor(ui.pressedColor)
+    showSwatch(ui.pressedColorPicker, ui.pressedColor)
     --Note("addiing pressed color")
     ui.colorHolderB:addView(ui.pressedColorPicker)
   else
     ui.pressedColor = editorValues.selectedColor
-    ui.pressedColorPicker:setBackgroundColor(ui.pressedColor)
+    showSwatch(ui.pressedColorPicker, ui.pressedColor)
   end
   
   if(ui.colorHolderC == nil) then
@@ -400,11 +501,11 @@ function makeUI(editorValues,numediting)
     bindColorSwatch(ui.flipColorPicker)
     ui.flipColor = editorValues.flipColor
     --Note("addiing flip color")
-    ui.flipColorPicker:setBackgroundColor(ui.flipColor)
+    showSwatch(ui.flipColorPicker, ui.flipColor)
     ui.colorHolderC:addView(ui.flipColorPicker)
   else
     ui.flipColor = editorValues.flipColor
-    ui.flipColorPicker:setBackgroundColor(ui.flipColor)
+    showSwatch(ui.flipColorPicker, ui.flipColor)
   end
   
   if(ui.labelRowOne == nil) then
@@ -459,13 +560,13 @@ function makeUI(editorValues,numediting)
     ui.normalLabelColorPicker = fnew(View,context)
     ui.normalLabelColorPicker:setLayoutParams(touchparams)
     ui.normalLabelColor = editorValues.labelColor
-    ui.normalLabelColorPicker:setBackgroundColor(ui.normalLabelColor)
+    showSwatch(ui.normalLabelColorPicker, ui.normalLabelColor)
     ui.normalLabelColorPicker:setTag("label")
     bindColorSwatch(ui.normalLabelColorPicker)
     safeAddView(ui.colorHolderD, ui.normalLabelColorPicker)
   else
     ui.normalLabelColor = editorValues.labelColor
-    ui.normalLabelColorPicker:setBackgroundColor(ui.normalLabelColor)
+    showSwatch(ui.normalLabelColorPicker, ui.normalLabelColor)
   end
   
   if(ui.colorHolderE == nil) then
@@ -482,11 +583,11 @@ function makeUI(editorValues,numediting)
     bindColorSwatch(ui.flipLabelColorPicker)
     --theFlipLabelColor = Color:argb(255,120,250,250)
     ui.flipLabelColor = editorValues.flipLabelColor
-    ui.flipLabelColorPicker:setBackgroundColor(ui.flipLabelColor)
+    showSwatch(ui.flipLabelColorPicker, ui.flipLabelColor)
     ui.colorHolderE:addView(ui.flipLabelColorPicker)
   else
     ui.flipLabelColor = editorValues.flipLabelColor
-    ui.flipLabelColorPicker:setBackgroundColor(ui.flipLabelColor)
+    showSwatch(ui.flipLabelColorPicker, ui.flipLabelColor)
   end
   
   if(ui.colorHolderF == nil) then
@@ -557,7 +658,7 @@ function makeUI(editorValues,numediting)
   end
   safeAddView(ui.colorHolderF, ui.borderColorPicker)
   ui.borderColor = editorValues.borderColor or defaultColors.border
-  ui.borderColorPicker:setBackgroundColor(ui.borderColor)
+  showSwatch(ui.borderColorPicker, ui.borderColor)
 
   if(ui.borderCheck == nil) then
     ui.borderCheck = fnew(CheckBox,context)
@@ -822,24 +923,9 @@ function makeUI(editorValues,numediting)
     ui.labelRowFour:addView(ui.invisControlLabel)
   end
 
-  -- Last row of SIZE & POSITION, after X/Y — not under Label Font Size.
-  if(ui.wrapLabelRow == nil) then
-    ui.wrapLabelRow = fnew(LinearLayout,context)
-    ui.wrapLabelRow:setLayoutParams(fillparams)
-    ui.wrapLabelRow:setGravity(Gravity.CENTER_VERTICAL)
-    ui.wrapLabelRow:setPadding(othersSide, math.floor(4 * density), othersSide, math.floor(8 * density))
-    ui.advancedPage:addView(ui.wrapLabelRow)
-  end
-  if(ui.wrapLabelCheck == nil) then
-    ui.wrapLabelCheck = fnew(CheckBox,context)
-    ui.wrapLabelCheck:setLayoutParams(fillparams)
-    ui.wrapLabelCheck:setText("Wrap label")
-    ui.wrapLabelCheck:setTextSize(textSize)
-  end
-  safeAddView(ui.wrapLabelRow, ui.wrapLabelCheck)
-  ui.wrapLabelCheck:setChecked(editorValues.wrapLabel == true)
+  buttoneditorlook.attachAvoid(ui.advancedPage, editorValues, numediting)
 
-  -- Floating-button options (Others tab). Single-button edit only.
+  -- Floating-button options (Advanced tab). Single-button edit only.
   if(ui.floatSectionLabel == nil) then
     ui.floatSectionLabel = fnew(TextView,context)
     local floatSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
@@ -1009,7 +1095,6 @@ function getEditorValues()
   tmp.border = ui.borderCheck ~= nil and ui.borderCheck:isChecked()
   tmp.borderColor = ui.borderColor
   tmp.labelSize = tonumber(ui.labelSizeEdit:getText():toString())
-  tmp.wrapLabel = ui.wrapLabelCheck ~= nil and ui.wrapLabelCheck:isChecked()
   if ui.activeCheck ~= nil then
     tmp.active = ui.activeCheck:isChecked()
   else
@@ -1072,7 +1157,13 @@ swatchClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     elseif(selectedColorField == "border") then
       color = ui.borderColor
     end
-    colorpickerdialog = luajava.newInstance("com.resurrection.blowtorch2.lib.button.ColorPickerDialog",context,colorPickerDoneListener,color)
+    local shown = displayColor(color)
+    if shown == nil then
+      shown = color
+    end
+    colorpickerdialog = luajava.newInstance("com.resurrection.blowtorch2.lib.button.ColorPickerDialog",context,colorPickerDoneListener,shown)
+    colorpickerdialog:setShowAlpha(ui.multiColorEdit ~= true
+      and not buttoneditorlook.opacitySliderShown())
     colorpickerdialog:show()
   end
 })
@@ -1087,36 +1178,30 @@ swatchLongClickListener = luajava.createProxy("android.view.View$OnLongClickList
 colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.button.ColorPickerDialog$OnColorChangedListener",{
   colorChanged = function(color)
     if(selectedColorField == "flip") then
-      ui.flipColorPicker:setBackgroundColor(color)
-      ui.flipColorPicker:invalidate()
-      ui.flipColor = color
+      ui.flipColor = pickedColor(ui.flipColor, color)
+      showSwatch(ui.flipColorPicker, ui.flipColor)
     elseif(selectedColorField == "normal") then
-      ui.normalColorPicker:setBackgroundColor(color)
-      ui.normalColorPicker:invalidate()
-      ui.normalColor = color;
+      ui.normalColor = pickedColor(ui.normalColor, color)
+      showSwatch(ui.normalColorPicker, ui.normalColor)
     elseif(selectedColorField == "pressed") then
-      ui.pressedColorPicker:setBackgroundColor(color)
-      ui.pressedColorPicker:invalidate()
-      ui.pressedColor = color
+      ui.pressedColor = pickedColor(ui.pressedColor, color)
+      showSwatch(ui.pressedColorPicker, ui.pressedColor)
     elseif(selectedColorField == "label") then
-      ui.normalLabelColorPicker:setBackgroundColor(color)
-      ui.normalLabelColorPicker:invalidate()
-      ui.normalLabelColor = color
+      ui.normalLabelColor = pickedColor(ui.normalLabelColor, color)
+      showSwatch(ui.normalLabelColorPicker, ui.normalLabelColor)
     elseif(selectedColorField == "flipLabel") then
-      ui.flipLabelColorPicker:setBackgroundColor(color)
-      ui.flipLabelColorPicker:invalidate()
-      ui.flipLabelColor = color
+      ui.flipLabelColor = pickedColor(ui.flipLabelColor, color)
+      showSwatch(ui.flipLabelColorPicker, ui.flipLabelColor)
     elseif(selectedColorField == "border") then
-      ui.borderColor = color
-      if ui.borderColorPicker ~= nil then
-        ui.borderColorPicker:setBackgroundColor(color)
-        ui.borderColorPicker:invalidate()
-      end
+      ui.borderColor = pickedColor(ui.borderColor, color)
+      showSwatch(ui.borderColorPicker, ui.borderColor)
     end
   end
 })
 
 showSetEditorControls = function()
+  buttoneditorlook.hideForSetDefaults()
+  paintColorNote("picker")
   ui.buttonTargetSetRow:setVisibility(View.GONE)
   hideEssay(ui.buttonTargetSetHint)
   hideEssay(ui.othersOneLiner)

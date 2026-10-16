@@ -96,7 +96,41 @@
   	 			<item>Always. Override System Setting</item>
   	 			<item>Off</item>
   	 		</list>
-  	 		
+  	 		<list title="Button label font" key="button_label_font" summary="Typeface for button labels. A font file below replaces this list.">
+  	 			<value>0</value>
+  	 			<item>Android default</item>
+  	 			<item>Serif</item>
+  	 			<item>Sans serif</item>
+  	 			<item>Monospace</item>
+  	 			<item>DejaVu Sans Mono</item>
+  	 			<item>Fairfax HD</item>
+  	 			<item>JetBrains Mono</item>
+  	 			<item>Ubuntu Sans Mono</item>
+  	 			<item>Atkinson Hyperlegible Mono</item>
+  	 			<item>Inconsolata</item>
+  	 			<item>Liberation Mono</item>
+  	 			<item>Noto Sans Mono</item>
+  	 		</list>
+  	 		<list title="Button label style" key="button_label_style" summary="Regular, bold, italic, or bold italic on that face.">
+  	 			<value>1</value>
+  	 			<item>Regular</item>
+  	 			<item>Bold</item>
+  	 			<item>Italic</item>
+  	 			<item>Bold Italic</item>
+  	 		</list>
+  	 		<string title="Button label font file" key="button_label_font_file" summary="A .ttf or .otf path. Empty uses the font list. A missing file keeps the default face."></string>
+  	 		<list title="Button label horizontal" key="button_label_align_h" summary="Where the label sits across the button, unless a button overrides it.">
+  	 			<value>1</value>
+  	 			<item>Left</item>
+  	 			<item>Center</item>
+  	 			<item>Right</item>
+  	 		</list>
+  	 		<list title="Button label vertical" key="button_label_align_v" summary="Where the label sits down the button, unless a button overrides it.">
+  	 			<value>1</value>
+  	 			<item>Top</item>
+  	 			<item>Center</item>
+  	 			<item>Bottom</item>
+  	 		</list>
   	 	</options>
 		<script name="bootstrap" execute="true">
 		<![CDATA[

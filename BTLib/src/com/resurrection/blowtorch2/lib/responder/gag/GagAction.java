@@ -62,60 +62,47 @@ public class GagAction extends TriggerResponder implements Parcelable {
 				if(this.getFireType() == FIRE_WHEN.WINDOW_OPEN || this.getFireType() == FIRE_WHEN.WINDOW_NEVER) return false;
 			}
 		
-			int prevloc = -1;
-			if(lineNumber > tree.getLines().size() || lineNumber < 0) { return false;}
-			ListIterator<TextTree.Line> lineit = tree.getLines().listIterator(lineNumber);
-			if(lineit.hasPrevious()) {
-				//Log.e("GAG","PREVIOUS INDEX:" + iterator.previousIndex());
-				prevloc = lineit.previousIndex();
+			if (lineNumber < 0 || tree.getLines() == null) {
+				return false;
 			}
-			// A pattern may now span several lines, so a gag takes the whole
-			// block rather than the line the match started on. Removing one of
-			// three left the other two on screen, which is the same shape of
-			// wrongness as the half-line the holdover fixed.
-			//
-			// Lines are newest-first, and the match starts on its oldest line —
-			// the highest index — so the span runs downwards from lineNumber.
-			// Removing in that order keeps the lower indices valid, because a
-			// removal only shifts what is above it.
+			// Newest-first list. The match starts on its oldest line, so the
+			// block is that index and the newer ones under it. Removing high
+			// to low leaves the lower indices alone.
 			int span = linesSpanned(matched);
 			java.util.List<Line> taken = new java.util.ArrayList<Line>(span);
-			for(int i = 0; i < span; i++) {
+			for (int i = 0; i < span; i++) {
 				int at = lineNumber - i;
-				if(at < 0 || at >= tree.getLines().size()) {
+				if (at < 0 || at >= tree.getLines().size()) {
 					break;
 				}
 				taken.add(tree.getLines().remove(at));
 			}
-			if(taken.isEmpty()) {
+			if (taken.isEmpty()) {
 				return false;
 			}
 
-			if(retarget != null) {
-				// Oldest first, so the block reads in the other window the way it
-				// was sent rather than upside down.
-				for(int i = taken.size() - 1; i >= 0; i--) {
-					Message msg = dispatcher.obtainMessage(Connection.MESSAGE_LINETOWINDOW,taken.get(i));
+			if (retarget != null) {
+				// taken[0] is the oldest line. The other window appends, so
+				// that end has to go first or the block arrives upside down.
+				for (int i = 0; i < taken.size(); i++) {
+					Message msg = dispatcher.obtainMessage(Connection.MESSAGE_LINETOWINDOW, taken.get(i));
 					Bundle b = msg.getData();
 					b.putString("TARGET", retarget);
 					msg.setData(b);
 					dispatcher.sendMessage(msg);
 				}
-			} else {
-				//Log.e("GAG","NOT RETARGETING TO: " + retarget);
 			}
-			
-			if(lineit.hasPrevious()) {
-				iterator = tree.getLines().listIterator(prevloc+1);
-				IteratorModifiedException e = new IteratorModifiedException(iterator);
-				throw e;
-			} else {
-				iterator = tree.getLines().listIterator(0);
-				IteratorModifiedException e = new IteratorModifiedException(iterator);
-				throw e;
+
+			// Next newer line. Staying at lineNumber walks off the list once
+			// more than one line was removed.
+			int resumeAt = lineNumber - taken.size() + 1;
+			int sizeNow = tree.getLines().size();
+			if (resumeAt < 0) {
+				resumeAt = 0;
+			} else if (resumeAt > sizeNow) {
+				resumeAt = sizeNow;
 			}
-			
-			//return false;
+			throw new IteratorModifiedException(tree.getLines().listIterator(resumeAt));
 			
 	}
 

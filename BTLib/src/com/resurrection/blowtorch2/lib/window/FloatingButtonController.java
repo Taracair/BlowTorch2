@@ -165,11 +165,13 @@ public class FloatingButtonController {
 		}
 		int[] winLoc = new int[2];
 		window.getLocationOnScreen(winLoc);
+		boolean global = window.textAvoidsButtons();
 		if (obstacleCacheValid && winLoc[0] == obstacleCacheWinX
-				&& winLoc[1] == obstacleCacheWinY) {
+				&& winLoc[1] == obstacleCacheWinY && obstacleCacheGlobal == global) {
 			dest.addAll(obstacleCache);
 			return;
 		}
+		obstacleCacheGlobal = global;
 		obstacleCache.clear();
 		int[] loc = new int[2];
 		for (int i = 0; i < views.size(); i++) {
@@ -177,6 +179,14 @@ public class FloatingButtonController {
 			if (!isVisibleObstacle(v)) {
 				continue;
 			}
+			FloatingButtonModel obstacleModel = v.getModel();
+			if (obstacleModel != null && !obstacleModel.avoidText) {
+				continue;
+			}
+			if (!global && (obstacleModel == null || !obstacleModel.avoidForce)) {
+				continue;
+			}
+			int extra = obstacleModel == null ? 0 : obstacleModel.avoidMarginPx;
 			int w = Math.max(1, v.buttonWidthPx());
 			int h = Math.max(1, v.buttonHeightPx());
 			int left;
@@ -190,18 +200,20 @@ public class FloatingButtonController {
 				left = loc[0] + v.hintPadLeftPx() - winLoc[0];
 				top = loc[1] + v.hintPadTopPx() - winLoc[1];
 			}
-			obstacleCache.add(new ButtonTextFlow.RectPx(left, top, left + w, top + h));
+			obstacleCache.add(new ButtonTextFlow.RectPx(left - extra, top - extra,
+					left + w + extra, top + h + extra));
 		}
-		appendGridRects(window, obstacleCache, winLoc);
+		appendGridRects(obstacleCache, winLoc, global);
 		obstacleCacheWinX = winLoc[0];
 		obstacleCacheWinY = winLoc[1];
 		obstacleCacheValid = true;
 		dest.addAll(obstacleCache);
 	}
 
-	private void appendGridRects(final Window window, final List<ButtonTextFlow.RectPx> dest,
-			final int[] winLoc) {
-		if (lastGridRects.isEmpty() || host == null) {
+	private void appendGridRects(final List<ButtonTextFlow.RectPx> dest,
+			final int[] winLoc, final boolean global) {
+		List<ButtonTextFlow.RectPx> source = global ? lastGridRects : lastForcedGridRects;
+		if (source.isEmpty() || host == null) {
 			return;
 		}
 		View pad = host.getButtonWindowView();
@@ -212,8 +224,8 @@ public class FloatingButtonController {
 		pad.getLocationOnScreen(padLoc);
 		int dx = padLoc[0] - winLoc[0];
 		int dy = padLoc[1] - winLoc[1];
-		for (int i = 0; i < lastGridRects.size(); i++) {
-			ButtonTextFlow.RectPx r = lastGridRects.get(i);
+		for (int i = 0; i < source.size(); i++) {
+			ButtonTextFlow.RectPx r = source.get(i);
 			dest.add(new ButtonTextFlow.RectPx(r.left + dx, r.top + dy, r.right + dx,
 					r.bottom + dy));
 		}
@@ -269,9 +281,12 @@ public class FloatingButtonController {
 	private final List<FloatingButtonModel> lastModels = new ArrayList<FloatingButtonModel>();
 	private final List<ButtonTextFlow.RectPx> lastGridRects =
 			new ArrayList<ButtonTextFlow.RectPx>();
+	private final List<ButtonTextFlow.RectPx> lastForcedGridRects =
+			new ArrayList<ButtonTextFlow.RectPx>();
 	private final ArrayList<ButtonTextFlow.RectPx> obstacleCache =
 			new ArrayList<ButtonTextFlow.RectPx>();
 	private boolean obstacleCacheValid;
+	private boolean obstacleCacheGlobal;
 	private int obstacleCacheWinX;
 	private int obstacleCacheWinY;
 	/** org.json dump of the last {@code buttons} array; skip floater rebuild when only the grid moved. */
@@ -476,8 +491,10 @@ public class FloatingButtonController {
 			JSONObject root = new JSONObject(json);
 			editingHidden = root.optBoolean("editing", false);
 			lastGridRects.clear();
+			lastForcedGridRects.clear();
 			if (!editingHidden) {
-				GridObstacleRects.addFromJson(root.optJSONArray("grid"), lastGridRects);
+				GridObstacleRects.addFromJson(root.optJSONArray("grid"), lastGridRects,
+						lastForcedGridRects);
 			}
 			if (editingHidden || !host.isFloatingButtonsEnabled()) {
 				lastButtonsKey = "";
@@ -912,6 +929,18 @@ public class FloatingButtonController {
 	 */
 	public void onResume() {
 		resumed = true;
+	}
+
+	int overlayWindowCount() {
+		return overlays.size();
+	}
+
+	int buttonViewCount() {
+		return views.size();
+	}
+
+	int resumedFlag() {
+		return resumed ? 1 : 0;
 	}
 
 	/**

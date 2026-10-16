@@ -479,4 +479,96 @@ public class GlobalGestureSessionTest {
 		assertNull(back.command);
 		assertEquals(45f, back.dy, 0.01f);
 	}
+
+	@Test
+	public void fastSecondFingerLiftFiresInsteadOfCopying() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 40f, -80f);
+		Decision lifted = s.onPointerUp(16, 1, 1);
+		assertEquals(Decision.Kind.FIRE, lifted.kind);
+		assertEquals("look", lifted.command);
+	}
+
+	@Test
+	public void liftHistoryKeepsTheSwipeWhenTheLastPointSitsOnTheDownPoint() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 40f, -80f);
+		s.noteLift(0f, 1f, 41f, 2f);
+		Decision lifted = s.onPointerUp(16, 1, 1);
+		assertEquals(Decision.Kind.FIRE, lifted.kind);
+		assertEquals("look", lifted.command);
+	}
+
+	@Test
+	public void liftInsideTheSlopStillCopies() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 10f, 10f);
+		s.onPointerDown(8, 2, 10f, 10f, 40f, 12f);
+		s.noteLift(11f, 9f, 42f, 13f);
+		assertEquals(Decision.Kind.COPY, s.onPointerUp(16, 1, 1).kind);
+	}
+
+	@Test
+	public void liftPastTheSlopButShortOfADirectionDoesNotCopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 40f, -25f);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(16, 1, 1).kind);
+	}
+
+	@Test
+	public void fastLiftIntoAnEmptyDirectionDoesNotCopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 120f, 0f);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(16, 1, 1).kind);
+	}
+
+	@Test
+	public void liftingTheAnchorOnAFastSwipeDoesNotCopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 40f, -80f);
+		Decision lifted = s.onPointerUp(16, 1, 0);
+		assertEquals(Decision.Kind.CLEAR, lifted.kind);
+		assertNull(lifted.command);
+	}
+
+	@Test
+	public void turningIntoAnEmptySliceDoesNotCopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 30f, 0f);
+		assertEquals("look", s.onMove(40, 2, 0f, 0f, 30f, -80f).command);
+		Decision turned = s.onMove(50, 2, 0f, 0f, 70f, -80f);
+		assertNull(turned.command);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(60, 1, 1).kind);
+	}
+
+	@Test
+	public void fastTwoFingerScrollIsNotACopy() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_TWO, true, true, false, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 30f, 0f);
+		s.noteLift(0f, -40f, 30f, -40f);
+		Decision lifted = s.onPointerUp(16, 1, 1);
+		assertEquals(Decision.Kind.SCROLL, lifted.kind);
+		assertEquals(0f, lifted.dx, 0.01f);
+		assertEquals(-40f, lifted.dy, 0.01f);
+	}
 }

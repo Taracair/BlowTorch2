@@ -757,6 +757,35 @@ function setRoundness(value)
 	end
 end
 
+-- Options dialog already stored the value before OnOptionChanged. Do not write
+-- it back here: that re-enters this setter.
+local function setButtonLookOption(key, value)
+	options[key] = value
+	if UserPresent() then
+		loadOptions()
+	end
+end
+
+function setButtonLabelFont(value)
+	setButtonLookOption("button_label_font", value)
+end
+
+function setButtonLabelStyle(value)
+	setButtonLookOption("button_label_style", value)
+end
+
+function setButtonLabelFontFile(value)
+	setButtonLookOption("button_label_font_file", value)
+end
+
+function setButtonLabelAlignH(value)
+	setButtonLookOption("button_label_align_h", value)
+end
+
+function setButtonLabelAlignV(value)
+	setButtonLookOption("button_label_align_v", value)
+end
+
 function setHapticFeedbackEditor(value)
 	options.haptic_edit = value
 	if(UserPresent()) then
@@ -2375,6 +2404,42 @@ function ensureLayoutSettingsOptions()
 		pcall(function() settings:removeOptionByKey("auto_create") end)
 		added = true
 	end
+
+	local buttonlook = require("buttonlook")
+	if ensureList("button_label_font", "Button label font",
+		"Typeface for button labels. A font file below replaces this list.",
+		buttonlook.FONT_LABELS, buttonlook.FONT_PATHS, 0) then
+		added = true
+	end
+	if ensureList("button_label_style", "Button label style",
+		"Regular, bold, italic, or bold italic on that face.",
+		buttonlook.STYLE_LABELS, buttonlook.STYLE_IDS, 1) then
+		added = true
+	end
+	if ensureList("button_label_align_h", "Button label horizontal",
+		"Where the label sits across the button, unless a button overrides it.",
+		buttonlook.ALIGN_H_LABELS, { "left", "center", "right" }, 1) then
+		added = true
+	end
+	if ensureList("button_label_align_v", "Button label vertical",
+		"Where the label sits down the button, unless a button overrides it.",
+		buttonlook.ALIGN_V_LABELS, { "top", "center", "bottom" }, 1) then
+		added = true
+	end
+	if missing("button_label_font_file") then
+		local okAdd = pcall(function()
+			local StringOption = luajava.bindClass(
+				"com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption")
+			local opt = luajava.new(StringOption)
+			opt:setKey("button_label_font_file")
+			opt:setTitle("Button label font file")
+			opt:setDescription(
+				"A .ttf or .otf path. Empty uses the font list. A missing file keeps the default face.")
+			opt:setValue("")
+			settings:addOption(opt)
+		end)
+		if okAdd then added = true end
+	end
 	return added
 end
 
@@ -2562,6 +2627,11 @@ optionsTable.chrome_gestures = setChromeGestures
 optionsTable.layout_wizard_pending = setLayoutWizardPending
 optionsTable.layout_pack = setLayoutPack
 optionsTable.layout_size_preset = setLayoutSizePreset
+optionsTable.button_label_font = setButtonLabelFont
+optionsTable.button_label_style = setButtonLabelStyle
+optionsTable.button_label_font_file = setButtonLabelFontFile
+optionsTable.button_label_align_h = setButtonLabelAlignH
+optionsTable.button_label_align_v = setButtonLabelAlignV
 
 options = {}
 options.haptic_edit = 0
@@ -2580,6 +2650,11 @@ options.chrome_gestures = ""
 options.layout_wizard_pending = false
 options.layout_pack = ""
 options.layout_size_preset = ""
+options.button_label_font = 0
+options.button_label_style = 1
+options.button_label_font_file = ""
+options.button_label_align_h = 1
+options.button_label_align_v = 1
 
 function setDebug(off)
 	if(not off) then

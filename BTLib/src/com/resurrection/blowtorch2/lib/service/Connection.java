@@ -26,6 +26,8 @@ import java.util.regex.Pattern;
 import org.xml.sax.SAXException;
 
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
@@ -899,6 +901,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				doReconnect();
 				break;
 			case MESSAGE_CONNECTED:
+				if (TimingTrace.on()) {
+					long tcpMs = mTcpStartedUptime == 0L ? -1L
+							: SystemClock.uptimeMillis() - mTcpStartedUptime;
+					TimingTrace.event("socket", "phase=up"
+							+ " display=" + TimingLine.token(getDisplay())
+							+ " host=" + TimingLine.token(mHost)
+							+ " port=" + mPort
+							+ " tls=" + (mUseTls ? 1 : 0)
+							+ " tcpMs=" + tcpMs);
+				}
 				mReconnect.onConnected();
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
@@ -1377,6 +1389,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private boolean mHoldingForHiddenUi = false;
 	/** {@link SystemClock#uptimeMillis()} when hold last started; 0 if never. */
 	private volatile long mHoldStartedUptime;
+	/** Same clock, when {@link #doStartup()} last built a pump; 0 if never. */
+	private long mTcpStartedUptime;
 	/** Same clock, last flush of held text; 0 if never. */
 	private volatile long mFlushUptime;
 	/** Per window, the text its UI copy has not been given yet. */
@@ -1400,6 +1414,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		if (became) {
+			TimingTrace.event("resume", "phase=hold display="
+					+ TimingLine.token(getDisplay()));
 			ConnectionHealthProbe p = mHealth;
 			if (p != null) {
 				p.recordHoldStart(now);
@@ -1469,8 +1485,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void flushTextHeldWhileHidden() {
 		boolean wasHolding;
+		int timingBytes = 0;
+		int timingWindows = 0;
+		int timingOverflow = 0;
+		long timingFlushStart = 0L;
 		synchronized (mHeldSynch) {
 			wasHolding = mHoldingForHiddenUi;
+			if (wasHolding && TimingTrace.on()) {
+				timingFlushStart = SystemClock.uptimeMillis();
+				timingOverflow = mHeldOverflowed.size();
+				timingWindows = mHeldWhileHidden.size();
+				for (java.io.ByteArrayOutputStream held : mHeldWhileHidden.values()) {
+					if (held != null) {
+						timingBytes += held.size();
+					}
+				}
+			}
 			// Skip dead binders — a UI process killed from recents leaves corpses
 			// in mWindowCallbackMap, and a oneway call at them is a silent no-op.
 			// Always clear the hold at the end: keeping mHoldingForHiddenUi true
@@ -1521,6 +1551,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (probe != null) {
 				probe.recordFlush(mFlushUptime);
 			}
+			long holdMs = mHoldStartedUptime == 0L ? -1L : mFlushUptime - mHoldStartedUptime;
+			long flushMs = timingFlushStart == 0L ? -1L
+					: SystemClock.uptimeMillis() - timingFlushStart;
+			TimingTrace.event("resume", "phase=flush"
+					+ " display=" + TimingLine.token(getDisplay())
+					+ " holdMs=" + holdMs
+					+ " bytes=" + timingBytes
+					+ " windows=" + timingWindows
+					+ " overflow=" + timingOverflow
+					+ " flushMs=" + flushMs);
 		}
 	}
 
@@ -2855,7 +2895,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		for (int i = 0; i < span; i++) {
-			removed.add(Integer.valueOf(lineNumber - i));
+			int at = lineNumber - i;
+			if (at < 0) {
+				break;
+			}
+			removed.add(Integer.valueOf(at));
 		}
 	}
 	
@@ -3048,7 +3092,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mFinished.setBleedColor(tmpcolor);
 
 		mWorking.addBytesImpl(raw);
-		mWorking.setModCount(0);
+		mWorking.clearMatchAdjustments();
 
 		// Strip for triggers + session log. Display parsing (TextTree holdover) can
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
@@ -3108,11 +3152,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			HashSet<Integer> removedLines = new HashSet<Integer>();
 			HashSet<Integer> stoppedOnLine = new HashSet<Integer>();
 			HashSet<String> firedHits = new HashSet<String>();
-			// ReplaceResponder writes a length delta into tree.modCount. The
-			// cascade walks one trigger across every line, then the next, so a
-			// single "reset when the line changes" flag zeroes line 0 when line
-			// 1 replaces, and a later colour of "says" on line 0 becomes
-			// "sasays" again. Keep one delta per original line.
+			// The shift is stored per line so one line's inserts are not
+			// reused on another line.
 			LineModCount lineMods = new LineModCount();
 			while (!done) {
 				done = true;
@@ -3152,7 +3193,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					}
 					l = it.previous();
 					lineNumber = seated;
-					mWorking.setModCount(lineMods.load(originalLine));
+					mWorking.setMatchShift(lineMods.load(originalLine));
 
 					TriggerData t = hit.trigger;
 					Plugin p = mTriggerPluginByIdentity.get(t);
@@ -3215,7 +3256,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 									markRemovedSpan(removedLines, originalLine, matched);
 									lineMods.drop(originalLine);
 									it = e1.getIterator();
-									mWorking.setModCount(0);
+									mWorking.clearMatchAdjustments();
 									if (it.hasPrevious()) {
 										l = it.previous();
 										lineNumber = it.nextIndex();
@@ -3236,7 +3277,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								}
 							}
 							if (!lineGone) {
-								lineMods.store(originalLine, mWorking.getModCount());
+								lineMods.store(originalLine, mWorking.getMatchShift());
 							}
 							if (!gate.isKeepEvaluating()) {
 								markRemovedSpan(stoppedOnLine, originalLine, matched);
@@ -3252,7 +3293,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					// string or flush earlier lines — list order is not
 					// left-to-right, so those lines may not have been seen yet.
 					// Already-fired (trigger, start) pairs are skipped above.
-					mWorking.setModCount(0);
+					mWorking.clearMatchAdjustments();
 					lineMods.clear();
 					done = false;
 					continueScan = true;
@@ -3709,6 +3750,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private void doStartup() {
 		synchronized (mStartupLock) {
 			if (isOfflineMode()) {
+				TimingTrace.event("socket", "phase=skip reason=offline display="
+						+ TimingLine.token(getDisplay()));
 				doOfflineStartupLocked();
 				return;
 			}
@@ -3716,11 +3759,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// connect leaves a Looper thread that blocked every later initXfer.
 			if (mPump != null && mPump.isConnected()) {
 				Log.i("BlowTorch", "doStartup skipped — already connected");
+				TimingTrace.event("socket", "phase=skip reason=already display="
+						+ TimingLine.token(getDisplay()));
 				applyTerminalNaws();
 				return;
 			}
 			if (mStartupInProgress) {
 				Log.i("BlowTorch", "doStartup skipped — startup already in progress");
+				TimingTrace.event("socket", "phase=skip reason=inprogress display="
+						+ TimingLine.token(getDisplay()));
 				return;
 			}
 			Log.i("BlowTorch", "doStartup begin", new RuntimeException("doStartup caller"));
@@ -3731,6 +3778,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.updateForegroundNotification(mDisplay,
 					mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
 			
+			mTcpStartedUptime = SystemClock.uptimeMillis();
+			TimingTrace.event("socket", "phase=start"
+					+ " display=" + TimingLine.token(getDisplay())
+					+ " host=" + TimingLine.token(mHost)
+					+ " port=" + mPort
+					+ " tls=" + (mUseTls ? 1 : 0)
+					+ " open=" + (mService != null ? mService.openWorldCount() : -1));
 			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler);
 			if (mHealth != null) {
 				mPump.setHealthProbe(mHealth);

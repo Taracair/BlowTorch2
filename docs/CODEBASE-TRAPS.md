@@ -14,6 +14,7 @@ Five areas where reading the code confidently teaches you something false:
 5. [The Lua layer](#5-the-lua-layer)
 
 Then: [the input bar corner above Hide/Send](#the-input-bar-corner-above-hidesend),
+[text that avoids a button](#text-that-avoids-a-button),
 [where errors go](#where-errors-go), [per world vs app-wide](#per-world-vs-app-wide),
 [mistakes already made](#mistakes-already-made), [questions already answered](#questions-already-answered).
 
@@ -261,6 +262,40 @@ That commit's comments, not measured on the phone:
 
 ---
 
+## Text that avoids a button
+
+`ButtonTextFlow` punches the hole. `Window` paints a pocket from one `dx` and
+then advances by the cell, so the view-X of a run has to stay linear in
+`destCol`. `.avoidbuttons` and a button's own "Game text avoids this button"
+checkbox are the same rects and the same shifts. A stored `avoidText` of
+false keeps that button out of the rects even when the window switch is on.
+Advanced → Game text draws under this button writes that false.
+
+The right pocket adds half a cell, and that half is a constant. It keeps the
+glyph clear of the button until the pan is halfway through the cell.
+`rightPocketKeepsHalfACellClear` locks it. The left run does not take that
+half. One `dx` covers the whole left run, so the half indented column 0 by
+about half a character (player, 15 Oct 2026). `holedRowStartsOnTheUnholedColumn`
+locks shift 0. Do not add the half back onto the left run to even the gaps.
+
+Do not collapse a trailing space on the left, and do not add that count to
+`destCol`. The count changes with the visible slice, so a glyph that stays put
+jumps about one cell when the pan crosses a column. `trailingSpaceKeepsItsColumn`
+locks the space staying in its column.
+
+Do not clamp the right-hand run to the button edge. One `dx` for the run sticks
+every glyph, and 1px of scroll becomes about one cell. Phone, 17 Sep 2026: a
+surviving right glyph moves 1px. `rightPocketViewX` subtracts only the scroll
+fraction. A screen-fixed `destCol` jumps about one cell.
+
+Do not put that half cell into `blobColumns`. `floor` of an aligned edge plus
+half a cell stays on the same column, and `ceil` of an aligned edge plus half a
+cell grows by a whole column. The two edges also cross a column at different
+pan fractions, and `layoutInRow` does not place a dropped character on the next
+row.
+
+---
+
 ## Mistakes already made
 
 Each cost real time or real data.
@@ -282,6 +317,7 @@ Each cost real time or real data.
 | Commit message claimed "loadPlugins already rebuilt the trigger tables"; true for the paths that reach `loadPlugins`, not for the two catch branches that fall through | A commit message is a claim. Go and look, and say how you know |
 | Several commits treated a 5-row flying mini-map becoming 4 as CSI, wrap, or CR. BTPROF 4 Sep 2026: parse `abort=0` `lost=0`, then `LINE_GONE` on a line that contained `--` | Probe gag vs parse before guessing the parser. An unanchored `--` in a regex gag matches those glyphs as map tiles |
 | Put input text in the corner above Hide/Send (`8a2b93ab`: margin 0, `StaticLayout` indents as `mLayout`). A ghostline suggestion made the bar jump (maintainer, 1 Oct 2026) | The right margin stays the button column. Do not revive that commit |
+| Equalized the avoid-button remainders at a cell boundary. A small pan still opened about a character of blank on the left and slid the next letter under the button (phone, 14 Oct 2026). Collapsing the left-hand space, and clamping the right-hand run to the button, each jump about one cell. Putting that half cell on the left run indented column 0 (player, 15 Oct 2026) | The right pocket adds a constant half cell. The left run does not. Leave the space in its column. `rightPocketViewX` subtracts only the scroll fraction |
 
 ## Questions already answered
 
@@ -311,3 +347,4 @@ Do not re-derive these.
 | Was MSDP complete? | No. Transport was correct, but the client could never *ask*. `LIST`/`SEND`/`REPORT`/`UNREPORT`/`RESET` added later |
 | Are the stability bugs from the 2026 AI work? | No. All inherited from 2010 to 2018 |
 | Did that MUD send malformed GMCP? | No. That was a paste artefact |
+| Do the avoid-button sides match at a cell boundary? | No. The right glyph keeps a constant half cell so it stays clear until mid-pan. The left run is not shifted, so column 0 stays on the unholed grid (player, 15 Oct 2026). Do not put that half on the left run |

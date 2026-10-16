@@ -107,6 +107,7 @@ public final class UserManualIndex {
 		m.put("Extra text windows", CATEGORY_WINDOW);
 		m.put("Split screen", CATEGORY_WINDOW);
 		m.put("Overlay gauges (`.widget` / `.gauge`)", CATEGORY_WINDOW);
+		m.put("Button look", CATEGORY_BUTTONS);
 		m.put("On-screen buttons: swipe + accordion", CATEGORY_BUTTONS);
 		m.put("Super-buttons (buttons on top of the keyboard)", CATEGORY_BUTTONS);
 		m.put("Mapper", CATEGORY_MAP);

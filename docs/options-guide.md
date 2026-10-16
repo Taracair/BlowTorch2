@@ -1,7 +1,7 @@
 # Options (session)
 
 In-game **Options** dialog groups (Program Settings). A search field at the
-bottom of Options filters as you type; tap a result to jump there and flash the matching row.
+bottom of Options filters as you type; tap a result to jump there and flash the matching row. A checkbox or a number on the hit changes that option without opening the page.
 
 | Group | Purpose |
 |-------|---------|
@@ -323,6 +323,11 @@ it cannot be disabled or deleted.
 | **Layout template** | Compass | Compass / Newbie / Combat / Explorer / Social. Only chooses which pack the wizard offers first — **it installs nothing on its own** |
 | **Button roundness** | 6 | Corner radius of a tile (key is `roundess`, spelled that way on disk) |
 | **Haptic feedback on editor launch / on press / on flip** | — | Three separate dropdowns |
+| **Button label font** | Android default | List of built-in faces. A font file below replaces the list |
+| **Button label style** | Bold | Regular / Bold / Italic / Bold Italic. Bold keeps existing labels heavy |
+| **Button label font file** | empty | A `.ttf` or `.otf` path. Empty uses the list. A missing file keeps the default face |
+| **Button label horizontal / vertical** | Center | Where the label sits, unless that button overrides it on the Advanced tab |
+| **Avoid-buttons margin (px)** | 0 | Window → Text. Extra pixels around every button hole while text avoids buttons. `.avoidbuttons margin N` (0–200). On Advanced, a button can add its own margin, be a hole even when this is off, or let text draw under it even when this is on |
 
 A short tap on empty grid in Edit buttons still makes a new tile. Long-press an
 empty cell pastes copied buttons. The old **Automatically create buttons** /

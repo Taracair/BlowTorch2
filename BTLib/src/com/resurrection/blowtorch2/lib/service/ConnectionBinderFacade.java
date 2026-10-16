@@ -21,6 +21,8 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 
 /**
  * AIDL bind target for {@link StellarService}. Holds a reference to the service
@@ -91,8 +93,12 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		// connect used to make isAlive()==true and block all further startups.
 		if (existing != null && existing.isConnected()) {
 			android.util.Log.i("BlowTorch", "initXfer skipped — already connected");
+			TimingTrace.event("socket", "phase=skip reason=already display="
+					+ TimingLine.token(existing.getDisplay()));
 			return;
 		}
+		TimingTrace.event("socket", "phase=queued display="
+				+ TimingLine.token(existing != null ? existing.getDisplay() : null));
 		service.mHandler.sendEmptyMessage(StellarService.MESSAGE_STARTUP);
 	}
 

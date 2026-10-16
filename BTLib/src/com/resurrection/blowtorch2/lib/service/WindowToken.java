@@ -41,6 +41,20 @@ public class WindowToken implements Parcelable {
 	public static final int AVOID_BUTTONS_BREAK_LETTERS = 0;
 	/** .avoidbuttons words — do not split a word across the button hole. */
 	public static final int AVOID_BUTTONS_BREAK_WORDS = 1;
+	/** Extra pixels around each button hole. 0 matches the button rect. */
+	public static final int DEFAULT_AVOID_BUTTONS_MARGIN = 0;
+	public static final int MAX_AVOID_BUTTONS_MARGIN = 200;
+
+	public static int clampAvoidMargin(final int px) {
+		if (px < 0) {
+			return 0;
+		}
+		if (px > MAX_AVOID_BUTTONS_MARGIN) {
+			return MAX_AVOID_BUTTONS_MARGIN;
+		}
+		return px;
+	}
+
 	/** Default break mode while text_avoid_buttons is on (letters). */
 	public static final int DEFAULT_AVOID_BUTTONS_BREAK = AVOID_BUTTONS_BREAK_LETTERS;
 	/** Default font size. */
@@ -159,6 +173,8 @@ public class WindowToken implements Parcelable {
 		text_avoid_buttons,
 		/** While avoiding buttons: break letters (default) or whole words. */
 		text_avoid_buttons_break,
+		/** Extra pixels around every button hole. Default 0. */
+		text_avoid_buttons_margin,
 		/** After a send, jump the main window to the live edge. Default on. */
 		jump_on_send,
 		/** Newest game lines at the top of the window (older below). */
@@ -547,6 +563,12 @@ public class WindowToken implements Parcelable {
 		avoidButtonsBreak.addItem("Words");
 		avoidButtonsBreak.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_BREAK));
 
+		IntegerOption avoidButtonsMargin = new IntegerOption();
+		avoidButtonsMargin.setTitle("Avoid-buttons margin (px)");
+		avoidButtonsMargin.setDescription("Extra space, in pixels, around every on-screen button while text avoids them.");
+		avoidButtonsMargin.setKey("text_avoid_buttons_margin");
+		avoidButtonsMargin.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_MARGIN));
+
 		BooleanOption jumpOnSend = new BooleanOption();
 		jumpOnSend.setTitle("Jump to the live edge when you send?");
 		jumpOnSend.setDescription("After you send a line, scroll to the newest text.");
@@ -727,6 +749,7 @@ public class WindowToken implements Parcelable {
 		text.addOption(newestAtTop);
 		text.addOption(avoidButtons);
 		text.addOption(avoidButtonsBreak);
+		text.addOption(avoidButtonsMargin);
 		text.addOption(pickLoupeSize);
 		text.addOption(pickLoupeZoom);
 		text.addOption(copyLoupeSize);

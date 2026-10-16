@@ -332,6 +332,17 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case text_avoid_buttons_margin:
+						if (WindowToken.clampAvoidMargin(
+								((Integer) ((IntegerOption) o).getValue()).intValue())
+								!= WindowToken.DEFAULT_AVOID_BUTTONS_MARGIN) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(Integer.toString(WindowToken.clampAvoidMargin(
+									((Integer) ((IntegerOption) o).getValue()).intValue())));
+							out.endTag("", "option");
+						}
+						break;
 					case light_paper_shade:
 						if (((Integer) ((IntegerOption) o).getValue()).intValue()
 								!= LightPaper.SHADE_DEFAULT) {

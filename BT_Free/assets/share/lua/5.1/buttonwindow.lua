@@ -4,6 +4,7 @@ respath = string.sub(respath,0,string.find(respath,"?")-1).."res"
 require("button")
 require("serialize")
 require("bit")
+local buttonlook = require("buttonlook")
 local buttonHeatLib = require("buttonheat")
 local marshal = require("marshal")
 defaults = nil
@@ -1961,8 +1962,8 @@ function normalTouch.onTouch(v,e)
 			-- One repaint path for the pressed/flip state and the arrow together.
 			-- Only repaint when something actually changed: the direction only
 			-- changes when the finger crosses a sector edge, not on every move
-			-- event. drawButtons() clears first so the old arrow goes with it,
-			-- then the touched button is drawn on top exactly as before.
+			-- event. drawButtons() leaves the swiped tile out, so this draw
+			-- is the only picture and it stays above the fan.
 			-- outsideButton is the finger, not the draw state: swipe-to-expand
 			-- stays visually pressed while off-tile, but the callout still
 			-- needs to know the finger left.
@@ -1975,7 +1976,7 @@ function normalTouch.onTouch(v,e)
 				swipePreviewDir = previewDir
 				gestureLabelText = labelText
 				drawButtons()
-				touchedbutton:draw(normalTouchState,buttonCanvas)
+				touchedbutton:draw(normalTouchState, buttonCanvas, swipePreviewDir ~= nil)
 				if swipePreviewDir ~= nil then
 					touchedbutton:drawSwipePreview(buttonCanvas, swipePreviewDir)
 				end
@@ -2449,9 +2450,11 @@ cpaint = luajava.new(PaintClass)
 cpaint:setARGB(0x00,0x00,0x00,0x00)
 cpaint:setXfermode(xferModeClear)
 
--- Opaque black wash while editing buttons so game text does not show through.
+-- Black veil while editing. Alpha is Background opacity: 255 hides the game,
+-- 0 leaves the lines on top of the text.
 managerBgPaint = luajava.new(PaintClass)
 managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
+managerBgOpacity = 255
 
 drawManagerLayer = true
 function enterManagerMode()
@@ -2570,8 +2573,51 @@ end
 -- Grid-pad tiles in button_window pixels. Java maps them onto the game
 -- window. Skip play-mode floaters (the floating layer already reports those)
 -- and inactive / pinned-accordion sources, matching drawButtons.
+local function optionIndex(value, fallback)
+	local n = tonumber(value)
+	if n == nil then
+		return fallback
+	end
+	return n
+end
+
+local function globalButtonFontPath()
+	if options == nil then
+		return "default"
+	end
+	local file = options.button_label_font_file
+	if file ~= nil and tostring(file) ~= "" then
+		return tostring(file)
+	end
+	return buttonlook.fontPathForIndex(optionIndex(options.button_label_font, 0))
+end
+
+local function globalButtonFontStyle()
+	if options == nil then
+		return "bold"
+	end
+	return buttonlook.fontStyleForIndex(optionIndex(options.button_label_style, 1))
+end
+
+local function globalButtonAlignH()
+	if options == nil then
+		return "center"
+	end
+	return buttonlook.alignHForIndex(optionIndex(options.button_label_align_h, 1))
+end
+
+local function globalButtonAlignV()
+	if options == nil then
+		return "center"
+	end
+	return buttonlook.alignVForIndex(optionIndex(options.button_label_align_v, 1))
+end
+
 local function putGridObstacleRect(arr, JSONObject, b)
 	if b == nil or b.rect == nil or JSONObject == nil then
+		return
+	end
+	if not buttonlook.buttonParticipates(b.data) then
 		return
 	end
 	local r = b.rect
@@ -2582,6 +2628,11 @@ local function putGridObstacleRect(arr, JSONObject, b)
 	if l == nil or t == nil or right == nil or bottom == nil then
 		return
 	end
+	local margin = buttonlook.buttonMarginPx(b.data)
+	l = l - margin
+	t = t - margin
+	right = right + margin
+	bottom = bottom + margin
 	if right <= l or bottom <= t then
 		return
 	end
@@ -2590,6 +2641,9 @@ local function putGridObstacleRect(arr, JSONObject, b)
 	o:put("t", math.floor(t))
 	o:put("r", math.ceil(right))
 	o:put("b", math.ceil(bottom))
+	if buttonlook.avoidForced(b.data) then
+		o:put("force", true)
+	end
 	arr:put(o)
 end
 
@@ -2627,13 +2681,13 @@ function notifyFloatingButtonsChanged()
 		local editing = manage == true
 		root:put("editing", editing)
 		local arr = luajava.new(JSONArray)
-		local function floaterArgb(c)
+		local function floaterArgb(c, data)
 			local n = tonumber(c) or 0
 			local forced = effectiveButtonOpacityOverride()
-			if forced == nil then
-				return n
+			if forced ~= nil then
+				n = colorWithForcedAlpha(n, forced)
 			end
-			return colorWithForcedAlpha(n, forced)
+			return applyButtonOpacity(n, data)
 		end
 		if not editing and buttons ~= nil then
 			for i, b in ipairs(buttons) do
@@ -2677,17 +2731,18 @@ function notifyFloatingButtonsChanged()
 					local heat = buttonHeatVisual(b)
 					if heat ~= nil then
 						-- Session .buttonopacity must not flatten the scale.
-						o:put("primaryColor", heat.fill)
-						o:put("selectedColor", heat.fill)
-						o:put("flipColor", heat.fill)
-						o:put("labelColor", heat.label)
-						o:put("flipLabelColor", heat.label)
+						-- The button's own percent still scales pad, icon and label.
+						o:put("primaryColor", fadeButtonOpacity(heat.fill, d))
+						o:put("selectedColor", fadeButtonOpacity(heat.fill, d))
+						o:put("flipColor", fadeButtonOpacity(heat.fill, d))
+						o:put("labelColor", fadeButtonOpacity(heat.label, d))
+						o:put("flipLabelColor", fadeButtonOpacity(heat.label, d))
 					else
-						o:put("primaryColor", floaterArgb(d.primaryColor))
-						o:put("selectedColor", floaterArgb(d.selectedColor))
-						o:put("flipColor", floaterArgb(d.flipColor))
-						o:put("labelColor", floaterArgb(d.labelColor))
-						o:put("flipLabelColor", floaterArgb(d.flipLabelColor))
+						o:put("primaryColor", floaterArgb(d.primaryColor, d))
+						o:put("selectedColor", floaterArgb(d.selectedColor, d))
+						o:put("flipColor", floaterArgb(d.flipColor, d))
+						o:put("labelColor", floaterArgb(d.labelColor, d))
+						o:put("flipLabelColor", floaterArgb(d.flipLabelColor, d))
 					end
 					o:put("width", tonumber(d.width) or 80)
 					o:put("height", tonumber(d.height) or 80)
@@ -2721,13 +2776,29 @@ function notifyFloatingButtonsChanged()
 					-- which is the legacy auto-contrast outline.
 					if heat ~= nil then
 						o:put("border", true)
-						o:put("borderColor", heat.rim)
+						o:put("borderColor", fadeButtonOpacity(heat.rim, d))
 					else
 						o:put("border", d.border == true)
-						o:put("borderColor", floaterArgb(d.borderColor))
+						o:put("borderColor", floaterArgb(d.borderColor, d))
 					end
 					-- Same px radius the grid uses (options.roundness * density).
 					o:put("cornerRadiusPx", tonumber(buttonRoundness) or 0)
+					o:put("face", tostring(d.face or ""))
+					o:put("facePressed", tostring(d.facePressed or ""))
+					o:put("faceFlip", tostring(d.faceFlip or ""))
+					o:put("faceOnly", d.faceOnly == true)
+					local fontPath, fontStyle = buttonlook.resolveFont(
+						rawget(d, "fontPath"), rawget(d, "fontStyle"),
+						nil, nil, globalButtonFontPath(), globalButtonFontStyle())
+					o:put("fontPath", fontPath)
+					o:put("fontStyle", fontStyle)
+					o:put("labelAlignH", buttonlook.effectiveAlign(
+						rawget(d, "labelAlignH"), globalButtonAlignH()))
+					o:put("labelAlignV", buttonlook.effectiveAlign(
+						rawget(d, "labelAlignV"), globalButtonAlignV()))
+					o:put("avoidText", buttonlook.buttonParticipates(d))
+					o:put("avoidForce", buttonlook.avoidForced(d))
+					o:put("avoidMargin", buttonlook.buttonMarginPx(d))
 					arr:put(o)
 				end
 			end
@@ -3715,7 +3786,9 @@ function drawManagerGrid()
 		local c = managerCanvas
 		local width = view:getWidth()
 		local height = view:getHeight()
-		-- Opaque black so game text does not show through while editing.
+		-- Clear first. A translucent veil drawn over an old opaque frame never
+		-- becomes see-through.
+		c:drawRect(0,0,width,height,cpaint)
 		c:drawRect(0,0,width,height,managerBgPaint)
 		-- Trim the ends of the guides so they stop short of the screen's rounded
 		-- corners instead of disappearing into them. The lines keep their
@@ -3820,6 +3893,7 @@ function buttonOptions()
   editorValues.gridX = math.floor(gridXwidth / density + 0.5)
   editorValues.gridY = math.floor(gridYwidth / density + 0.5)
   editorValues.gridOpacity = manageropacity
+  editorValues.gridBackgroundOpacity = managerBgOpacity
   editorValues.gridIntersectionTest = intersectMode
   editorValues.gridSnap = gridsnap
   editorValues.showGestureHints = options.show_gesture_hints == true
@@ -3837,6 +3911,7 @@ function buttonOptions()
     gridXwidth = gridXwidth,
     gridYwidth = gridYwidth,
     manageropacity = manageropacity,
+    managerBgOpacity = managerBgOpacity,
     intersectMode = intersectMode,
     showGestureHints = editorValues.showGestureHints
   }
@@ -3968,6 +4043,12 @@ function buttonOptions()
     drawManagerGrid()
     view:invalidate()
   end)
+  editorOptionsDialog.setGridBackgroundOpacityCallback(function(v)
+    managerBgOpacity = v
+    managerBgPaint:setAlpha(v)
+    drawManagerGrid()
+    view:invalidate()
+  end)
   editorOptionsDialog.setGridSnapTestCallback(function(v)
     intersectMode = v
   end)
@@ -3990,8 +4071,10 @@ function buttonOptions()
     gridXwidth = editorSnapshot.gridXwidth
     gridYwidth = editorSnapshot.gridYwidth
     manageropacity = editorSnapshot.manageropacity
+    managerBgOpacity = editorSnapshot.managerBgOpacity
     intersectMode = editorSnapshot.intersectMode
     dpaint:setAlpha(manageropacity)
+    managerBgPaint:setAlpha(managerBgOpacity)
     drawManagerGrid()
     drawButtons()
     view:invalidate()
@@ -4489,6 +4572,7 @@ function buildAccordionOverlay(parent)
 				active = src.data.active,
 				border = src.data.border == true,
 				borderColor = src.data.borderColor,
+				opacity = rawget(src.data, "opacity"),
 			}
 			copyPinnedOverlayCommands(childData, src.data)
 		else
@@ -4511,6 +4595,7 @@ function buildAccordionOverlay(parent)
 					wrapLabel = parent.data.wrapLabel == true,
 					border = parent.data.border == true,
 					borderColor = parent.data.borderColor,
+					opacity = rawget(parent.data, "opacity"),
 				}
 			end
 		end
@@ -4617,9 +4702,15 @@ function drawButtons()
 	-- inline after each parent let a later neighbour paint over the children
 	-- while hit-testing still preferred the fan — taps worked, paint looked
 	-- buried. Pass two matches buttonTouched (overlays first).
+	-- The swiped tile is drawn once afterwards, on top. Painting it here
+	-- would leave the held picture under that draw.
+	local function isSwipedTile(b)
+		return swipePreviewDir ~= nil and b == touchedbutton
+	end
 	for i=1,#buttons do
 		local b = buttons[i]
-		if isPlayModeFloaterHiddenFromGrid(b)
+		if isSwipedTile(b) then
+		elseif isPlayModeFloaterHiddenFromGrid(b)
 				or isPlayModePinnedAccordionSource(b)
 				or isPlayModeInactive(b) then
 			-- skip: floating layer owns the chrome in play mode
@@ -4635,7 +4726,7 @@ function drawButtons()
 				and not isPlayModeInactive(b) then
 			for j = 1, #b.accordionOverlay do
 				local child = b.accordionOverlay[j]
-				if not isPlayModeInactive(child) then
+				if not isPlayModeInactive(child) and not isSwipedTile(child) then
 					child:draw(0, canvas)
 				end
 			end
@@ -5448,6 +5539,22 @@ local function resolveButtonColor(chosen, defaultColor)
 	return chosen
 end
 
+-- Multi-edit applies one hue. Each button keeps the alpha it already draws with.
+local function replaceRgbKeepAlpha(existing, chosen, defaultColor)
+	if chosen == nil then
+		return nil
+	end
+	local base = existing
+	if base == nil then
+		base = defaultColor
+	end
+	if base == nil then
+		return resolveButtonColor(chosen, defaultColor)
+	end
+	return resolveButtonColor(
+		colorWithForcedAlpha(chosen, alphaFromArgb(base)), defaultColor)
+end
+
 function buttonEditorDone(data)
 	--apply the settings out.
 	
@@ -5532,6 +5639,56 @@ function buttonEditorDone(data)
 		tmp.data.floatMode = floatMode
 		tmp.data.floatRound = data.floatRound == true
 		tmp.data.floatFrame = data.floatFrame == true
+		local function putOwn(key, value)
+			if value == nil or value == "" then
+				rawset(tmp.data, key, nil)
+			else
+				tmp.data[key] = value
+			end
+		end
+		if data.lookEdited == true then
+		putOwn("face", data.face)
+		putOwn("facePressed", data.facePressed)
+		putOwn("faceFlip", data.faceFlip)
+		if data.faceOnly == true then
+			tmp.data.faceOnly = true
+		else
+			rawset(tmp.data, "faceOnly", nil)
+		end
+		rawset(tmp.data, "faceNearest", nil)
+		putOwn("labelAlignH", data.labelAlignH)
+		putOwn("labelAlignV", data.labelAlignV)
+		putOwn("fontPath", data.fontPath)
+		putOwn("fontStyle", data.fontStyle)
+		-- 100 is stored: it means fully solid. Missing keeps each colour's own alpha.
+		if data.opacity ~= nil then
+			tmp.data.opacity = buttonlook.opacityPercent(data.opacity)
+		end
+		-- force writes true, skip writes false, follow clears the key.
+		-- An editor that did not build the boxes leaves the key alone.
+		if data.avoidKeep ~= true then
+			local mode = data.avoidMode
+			if mode ~= "force" and mode ~= "skip" and mode ~= "follow" then
+				if data.avoidText == true or data.avoidText == "true" then
+					mode = "force"
+				else
+					mode = "follow"
+				end
+			end
+			local stored = buttonlook.avoidValueForMode(mode)
+			if stored == nil then
+				rawset(tmp.data, "avoidText", nil)
+			else
+				rawset(tmp.data, "avoidText", stored)
+			end
+		end
+		local avoidMargin = buttonlook.clampMarginPx(data.avoidMargin)
+		if avoidMargin > 0 then
+			tmp.data.avoidMargin = avoidMargin
+		else
+			rawset(tmp.data, "avoidMargin", nil)
+		end
+		end
 		if enforceNoAccordionOnSuperButton(tmp) then
 			Note("BlowTorch: an accordion cannot work from a super button —"
 				.. " it is drawn on the button grid and its children only exist"
@@ -5570,23 +5727,23 @@ function buttonEditorDone(data)
 				end
 				
 				if(data.normalColor ~= editorValues.primaryColor) then
-					b.data.primaryColor = resolveButtonColor(data.normalColor, defaults.primaryColor)
+					b.data.primaryColor = replaceRgbKeepAlpha(b.data.primaryColor, data.normalColor, defaults.primaryColor)
 				end
 				
 				if(data.pressedColor ~= editorValues.selectedColor) then
-					b.data.selectedColor = resolveButtonColor(data.pressedColor, defaults.selectedColor)
+					b.data.selectedColor = replaceRgbKeepAlpha(b.data.selectedColor, data.pressedColor, defaults.selectedColor)
 				end
 				
 				if(data.flipColor ~= editorValues.flipColor) then
-					b.data.flipColor = resolveButtonColor(data.flipColor, defaults.flipColor)
+					b.data.flipColor = replaceRgbKeepAlpha(b.data.flipColor, data.flipColor, defaults.flipColor)
 				end
 				
 				if(data.normalLabelColor ~= editorValues.labelColor) then
-					b.data.labelColor = resolveButtonColor(data.normalLabelColor, defaults.labelColor)
+					b.data.labelColor = replaceRgbKeepAlpha(b.data.labelColor, data.normalLabelColor, defaults.labelColor)
 				end
 				
 				if(data.flipLabelColor ~= editorValues.flipLabelColor) then
-					b.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
+					b.data.flipLabelColor = replaceRgbKeepAlpha(b.data.flipLabelColor, data.flipLabelColor, defaults.flipLabelColor)
 				end
 
 				if data.border ~= nil and data.border ~= editorValues.border then
@@ -5606,7 +5763,11 @@ function buttonEditorDone(data)
 				end
 
 				if data.borderColor ~= nil and data.borderColor ~= editorValues.borderColor then
-					b.data.borderColor = resolveButtonColor(data.borderColor, defaults.borderColor)
+					b.data.borderColor = replaceRgbKeepAlpha(b.data.borderColor, data.borderColor, defaults.borderColor)
+				end
+
+				if data.opacity ~= nil then
+					b.data.opacity = buttonlook.opacityPercent(data.opacity)
 				end
 				
 				refreshRect(b)
@@ -5715,11 +5876,27 @@ function showEditorDialog()
 		editorValues.floatFrame = button.data.floatFrame == true
 		editorValues.border = button.data.border == true
 		editorValues.borderColor = button.data.borderColor
+		editorValues.face = rawget(button.data, "face") or ""
+		editorValues.facePressed = rawget(button.data, "facePressed") or ""
+		editorValues.faceFlip = rawget(button.data, "faceFlip") or ""
+		editorValues.faceOnly = rawget(button.data, "faceOnly") == true
+		editorValues.labelAlignH = rawget(button.data, "labelAlignH") or ""
+		editorValues.labelAlignV = rawget(button.data, "labelAlignV") or ""
+		editorValues.fontPath = rawget(button.data, "fontPath") or ""
+		editorValues.fontStyle = rawget(button.data, "fontStyle") or ""
+		editorValues.opacity = rawget(button.data, "opacity")
+		local avoidMode = buttonlook.avoidMode(button.data)
+		editorValues.avoidText = avoidMode == "force"
+		editorValues.avoidSkip = avoidMode == "skip"
+		editorValues.avoidMargin = rawget(button.data, "avoidMargin") or 0
 		editorValues.active = not (button.data.active == false
 			or button.data.active == "false")
 		--Note("single editor loading:"..editorValues.x)
 		--Note("single editor loading:"..editorValues.y)
 	else 
+		local opacitySeen = false
+		local sharedOpacity = nil
+		local opacityMixed = false
 		for i,b in pairs(buttons) do
 			if(b.selected == true) then
 				--start comparing values
@@ -5799,7 +5976,28 @@ function showEditorDialog()
 				elseif(editorValues.y ~= tonumber(posY(b.data))) then
 					editorValues.y = "MULTI"
 				end
+
+				local rawOpacity = rawget(b.data, "opacity")
+				local tok = nil
+				if rawOpacity ~= nil then
+					tok = buttonlook.opacityPercent(rawOpacity)
+				end
+				if not opacitySeen then
+					sharedOpacity = tok
+					opacitySeen = true
+				elseif tok ~= sharedOpacity then
+					opacityMixed = true
+				end
 			end
+		end
+		-- A shared stored percent is the slider. Anything else stays untouched
+		-- until the player drags, including buttons that have never had one.
+		if opacitySeen and not opacityMixed and sharedOpacity ~= nil then
+			editorValues.opacityMixed = false
+			editorValues.opacity = sharedOpacity
+		else
+			editorValues.opacityMixed = true
+			editorValues.opacity = nil
 		end
 		-- Float fields are single-button only (like gestures/accordion).
 		editorValues.floating = false

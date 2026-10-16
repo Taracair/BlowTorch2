@@ -184,7 +184,8 @@ Settings without reaching for the menu:
   .options           open Options (same as ⋮ → Options). Handy on a
                      button when ⋮ is out of reach. Search at the bottom
                      filters as you type; tap a result to jump to that
-                     page.
+                     page. A checkbox or a number on the row changes it
+                     there.
 
 Two you only need when something goes wrong:
   .settings          what is on disk; backup / restore the kept copy
@@ -317,7 +318,7 @@ use. Accordion data is stored with the button set (Lua); use Edit buttons
 to build your own.
 
 Expanded children draw on top of neighbouring grid buttons. To make the
-fan stand out, open the parent in Others and tick Draw / border on the
+fan stand out, open the parent in Advanced and tick Draw / border on the
 Colors grid — snapshot children reuse that border; pinned tiles keep
 their own.
 
@@ -326,7 +327,7 @@ end
 
 TOPICS.buttons_super = function()
 	noteBlock("Buttons — Super-buttons",
-[[A button does not have to stay in the grid. Edit a button, open Others,
+[[A button does not have to stay in the grid. Edit a button, open Advanced,
 and tick "Float over the game": When, Shape and Thin outline appear once
 it is ticked. A copy appears on the screen itself, on top of the game
 and on top of the keyboard. Very long press moves it.
@@ -344,7 +345,7 @@ Drawing over the keyboard needs Android's "Display over other apps"
 permission; you are asked the first time. Without it the button is still
 there, drawn clear of the keys instead of on top of them.
 
-Others → Colors → Draw Border strokes the floating copy too (Square/Round
+Advanced → Colors → Draw Border strokes the floating copy too (Square/Round
 shape). Thin outline is a separate auto-contrast frame used when Border
 is off.
 
@@ -419,8 +420,21 @@ hidden — use the strip: Undo, Redo, gear (set options), Cancel, Done.
 
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
-tile to edit label/commands/gestures/accordion. Wrap label (Others →
-Size & Position, last row) splits a long name onto two lines. Enter in the
+tile to edit label/commands/gestures/accordion. On Advanced, tap the icon
+tile (it replaces the whole button). Opacity under those tiles shows the
+pad until you drag it, then fades the pad, the icon and the label. The
+colour picker sets the colour only. With several buttons selected, drag
+Opacity on Advanced to fade all of them; until you drag it, each keeps its
+own transparency. The Label box uses the button's font, so a
+character from that font shows while you type it. In the gear, Grid opacity
+fades the lines; Background opacity under it fades the black so you can read
+the game while you place buttons. Game text avoids this button starts
+off; turn it on for a hole even when .avoidbuttons is off. Game text draws
+under this button starts off; turn it on and text paints through that tile
+even when .avoidbuttons is on. Both off follows .avoidbuttons. Turning one
+on turns the other off.
+Break around every hole is Letters or Words: .avoidbuttons letters|words. Wrap
+label sits beside Show label and splits a long name onto two lines. Enter in the
 Label field is a hard break even when that box is off. Active (same row as Name,
 on by default) hides the tile in play without deleting it. Done saves
 the set.
@@ -500,6 +514,9 @@ Triggers list itself explains what a trigger is, with examples.
 Two triggers can both fire on the same line (Keep going? is on by
 default). One can rewrite a channel tag, another can gag the spam inside
 it. Untick Keep going? to stop later triggers after this one fires.
+Lines that arrive together run from the top. On each line, a smaller order
+number runs first. A line lower in that text does not fire before a line
+above it.
 
 Using an alias as the pattern: type an alias's NAME on its own and the
 trigger watches for that alias's TEXT instead. With an alias spares that
@@ -1491,8 +1508,9 @@ plugin is loaded. Prefer nested Manage modules… / Manage packages…
 over raw Supports / Packages strings.
 
 A search field at the bottom of Options filters as you type (title,
-description, group path). Tap a result to open that page. Back clears
-the search before it closes Options.]])
+description, group path). Tap a result to open that page. A checkbox or
+a number on the row changes that option without leaving search. Back
+clears the search before it closes Options.]])
 end
 
 TOPICS.display = function()
@@ -1524,7 +1542,9 @@ Options → Window → Text → Text avoids on-screen buttons? (off by default):
 wraps around the grid pad and floating buttons instead of drawing under
 them. Maps may break. .avoidbuttons letters (default) moves one character
 at a time; .avoidbuttons words keeps whole words off the hole.
-.avoidbuttons on|off.
+.avoidbuttons margin N adds pixels around every hole (0–200).
+.avoidbuttons on|off. One button can stay a hole when that is off, or let
+text draw under it when that is on: Edit buttons, Advanced.
 Options → Window → Layout → Jump to the live edge when you send? (on by default):
 after you send a line, the window scrolls to the newest text. Incoming
 text near the live edge still snaps there. .jumpsend on|off.
@@ -1784,7 +1804,7 @@ local TIPS = {
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Layout → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Links → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways. .avoidbuttons on wraps that text around the grid pad and floating buttons (maps may break).]],
-	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. Off by default — ASCII maps may break. Live while dragging a floating button. Options → Window → Text → Text avoids on-screen buttons?.]],
+	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. .avoidbuttons margin N adds pixels around every hole. Off by default — ASCII maps may break. Live while dragging a floating button. One button can stay a hole when that is off, or let text draw under it when that is on: Edit buttons → Advanced. Options → Window → Text → Text avoids on-screen buttons?.]],
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	last = [[.last resends the newest command. .2last resends the one before it, .3last the one before that. You sent north, then look, then inventory: .last sends inventory. .last input puts that command in the bar and does not send it. .lastlist opens this world's list. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. .lastfloat off hides them. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. The game does not receive .last.]],
@@ -1821,7 +1841,7 @@ local TIPS = {
 	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste). .editrows on uses two rows in landscape so the labels fit. Off keeps one full-width row.]],
 	tapmenu = [[.tapmenu opacity N — how solid the menu a tapped word opens is.]],
 	frame = [[.frame list / close / reopen. Drawn frames some worlds ask for; still terminal text, not a web page. .frame open is the same as reopen.]],
-	options = [[.options opens Options (⋮ → Options). Search at the bottom filters as you type.]],
+	options = [[.options opens Options (⋮ → Options). Search at the bottom filters as you type. A checkbox or a number on a hit changes that option there.]],
 	settings = [[.settings backup / restore the kept copy of this world's settings file.]],
 	reconnect = [[.reconnect closes and opens the socket again.]],
 	disconnect = [[.disconnect closes the socket. The world stays in the list.]],

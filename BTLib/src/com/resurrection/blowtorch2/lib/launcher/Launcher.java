@@ -104,6 +104,8 @@ import com.resurrection.blowtorch2.lib.service.StellarService;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.util.UpdateChecker;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
@@ -191,6 +193,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
+		TimingTrace.arm(this);
 		BlowTorchLogger.ensureLogFileAsync(this);
 		fixClassLoaderIssue();
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
@@ -846,6 +849,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		@TargetApi(11)
 		public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 				long arg3) {
+			final long tapUp = android.os.SystemClock.uptimeMillis();
 			
 			// Measured 8 August: this used to be three disk operations on the tap
 		    // itself — opening the preferences file, waiting for it to load, and
@@ -885,7 +889,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					R.string.permission_feature_connect, new Runnable() {
 				@Override
 				public void run() {
-					DoNewStartup();
+					DoNewStartup(tapUp);
 				}
 			});
 		}
@@ -1695,7 +1699,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 	}
 	
-	private void DoNewStartup() {
+	private void DoNewStartup(final long tapUp) {
 		Pattern invalidchars = Pattern.compile("\\W"); 
 		Matcher replacebadchars = invalidchars.matcher(launch.getDisplayName());
 		String prefsname = replacebadchars.replaceAll("") + ".PREFS";
@@ -1708,10 +1712,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		editor.apply();
 		
 		//launch = muc;
-		DoFinalStartup();
+		DoFinalStartup(tapUp);
 	}
 	
-	private void DoFinalStartup() {
+	private void DoFinalStartup(final long tapUp) {
 		Intent the_intent = null;
 		/*if(mode == LAUNCH_MODE.TEST) {
 			the_intent = new Intent("com.resurrection.blowtorch2.lib.window.MainWindow.TEST_MODE");
@@ -1754,7 +1758,18 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     	
     	
     	edit.putString("SETTINGS_PATH", launch.getDisplayName());
+    	long commit0 = android.os.SystemClock.uptimeMillis();
     	edit.commit();
+    	long now = android.os.SystemClock.uptimeMillis();
+    	TimingTrace.event("launch", "phase=go src=list"
+    			+ " sinceTapMs=" + (commit0 - tapUp)
+    			+ " commitMs=" + (now - commit0)
+    			+ " display=" + TimingLine.token(launch.getDisplayName())
+    			+ " host=" + TimingLine.token(launch.getHostName())
+    			+ " port=" + TimingLine.token(launch.getPortString())
+    			+ " tls=" + (launch.isUseTls() ? 1 : 0));
+    	the_intent.putExtra(TimingTrace.EXTRA_LAUNCH_UP, tapUp);
+    	the_intent.putExtra(TimingTrace.EXTRA_LAUNCH_SRC, "list");
     	
     	//this.unbindService(connectionChecker);
     	

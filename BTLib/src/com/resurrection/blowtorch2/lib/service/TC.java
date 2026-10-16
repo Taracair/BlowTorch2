@@ -98,6 +98,10 @@ public final class TC {
 	/** LSB mask for a 32 bit int. */
 	public static final int LSB_MASK = 0x000000FF;
 	
+	/** Telnet NOP (241). */
+	public static final byte NOP = (byte) 241;
+	/** Telnet Data Mark (242). */
+	public static final byte DM = (byte) 242;
 	/** NVT character BRK. */
 	public static final byte BREAK = (byte) 243;
 	/** The A0 function. */

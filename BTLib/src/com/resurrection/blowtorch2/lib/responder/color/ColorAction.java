@@ -20,6 +20,7 @@ import android.os.Parcelable;
 
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
+import com.resurrection.blowtorch2.lib.window.MatchShift;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Color;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
@@ -63,6 +64,43 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		o.writeInt(p.getBgXterm());
 		o.writeInt(p.getBgRgb());
 		o.writeInt(p.getStyles());
+	}
+
+	/**
+	 * Plain text currently in {@code [start, endInclusive]}. Null when the
+	 * line does not hold that many characters, so the caller keeps the
+	 * original match snapshot.
+	 */
+	private static String textInRange(Line line, int start, int endInclusive) {
+		if (line == null || endInclusive < start) {
+			return null;
+		}
+		StringBuilder b = new StringBuilder();
+		int working = 0;
+		for (Unit u : line.getData()) {
+			if (!(u instanceof Text)) {
+				continue;
+			}
+			String s = ((Text) u).getString();
+			if (s == null || s.length() == 0) {
+				continue;
+			}
+			int unitStart = working;
+			int unitEnd = working + s.length();
+			int from = start > unitStart ? start : unitStart;
+			int to = (endInclusive + 1) < unitEnd ? (endInclusive + 1) : unitEnd;
+			if (from < to) {
+				b.append(s.substring(from - unitStart, to - unitStart));
+			}
+			working = unitEnd;
+			if (working > endInclusive) {
+				break;
+			}
+		}
+		if (b.length() != endInclusive - start + 1) {
+			return null;
+		}
+		return b.toString();
 	}
 
 	/**
@@ -315,8 +353,23 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			if(this.getFireType() == FIRE_WHEN.WINDOW_OPEN || this.getFireType() == FIRE_WHEN.WINDOW_NEVER) return false;
 		}
 		
-		int end = pend + 1 + tree.getModCount();
-		int start = pstart + tree.getModCount();
+		MatchShift shift = tree.getMatchShift();
+		int end = shift.currentInclusiveEnd(pend);
+		int start = shift.currentStart(pstart);
+		// The cascade matched the original chunk. A replace already applied
+		// inside this span is on the line; paint that text, not the snapshot.
+		// end < start means the replace removed the whole span. The snapshot
+		// would put that text back while the shift still says it is gone.
+		String painted;
+		if (end < start) {
+			end = start - 1;
+			painted = "";
+		} else {
+			painted = textInRange(line, start, end);
+			if (painted == null) {
+				painted = matched;
+			}
+		}
 		Unit u = null;
 		line.resetIterator();
 		ListIterator<Unit> it = line.getIterator();
@@ -382,7 +435,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		//here is where we would insert replaced text if this were a replacer.
 		//instead, this is where we insert a new color unit denoting which color we would like.
 		addPaint(line, newLine, tree);
-		newLine.add(line.newText(matched));
+		newLine.add(line.newText(painted));
 		Color restore = colorAfterMatch(tree, bleed);
 		if(preEmptiveChop) {
 			// Restore the pre-match colour where the match ends, when there is

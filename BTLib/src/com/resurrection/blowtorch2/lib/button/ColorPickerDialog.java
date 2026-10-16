@@ -24,6 +24,8 @@ public class ColorPickerDialog extends Dialog {
 
     private OnColorChangedListener mListener;
     private int mInitialColor;
+    /** Button colours hide this. Their Opacity slider is the alpha. */
+    private boolean mShowAlpha = true;
     //private ButtonEditorDialog.COLOR_FIELDS whichfield;
 
     private static class ColorPickerView extends View implements SeekBar.OnSeekBarChangeListener {
@@ -271,6 +273,10 @@ public class ColorPickerDialog extends Dialog {
         mInitialColor = initialColor;
         //whichfield = fieldtouse;
     }
+
+    public void setShowAlpha(boolean show) {
+        mShowAlpha = show;
+    }
     
     public ColorPickerDialog(Context context,
             OnColorChangedListener listener,
@@ -295,7 +301,8 @@ public class ColorPickerDialog extends Dialog {
         this.getWindow().setBackgroundDrawableResource(
                 com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
         this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-        int alphapart = ((mInitialColor & 0xFF000000) >> 24) & 0x000000FF;
+        int wheelColor = mInitialColor;
+        int alphapart = ((wheelColor & 0xFF000000) >> 24) & 0x000000FF;
 
         LinearLayout root = new LinearLayout(getContext());
         root.setOrientation(LinearLayout.VERTICAL);
@@ -306,7 +313,7 @@ public class ColorPickerDialog extends Dialog {
         root.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * scale)));
 
-        final ColorPickerView view = new ColorPickerView(getContext(), mInitialColor);
+        final ColorPickerView view = new ColorPickerView(getContext(), wheelColor);
         LinearLayout.LayoutParams wheelLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -314,15 +321,20 @@ public class ColorPickerDialog extends Dialog {
         wheelLp.topMargin = (int) (5 * scale);
         root.addView(view, wheelLp);
 
-        final SeekBar alphaBar = new SeekBar(getContext());
-        alphaBar.setMax(255);
-        alphaBar.setProgress(alphapart);
-        alphaBar.setOnSeekBarChangeListener(view);
-        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
-                (int) (166.66f * scale), LinearLayout.LayoutParams.WRAP_CONTENT);
-        barLp.gravity = Gravity.CENTER_HORIZONTAL;
-        barLp.topMargin = (int) (5 * scale);
-        root.addView(alphaBar, barLp);
+        final SeekBar alphaBar;
+        if (mShowAlpha) {
+            alphaBar = new SeekBar(getContext());
+            alphaBar.setMax(255);
+            alphaBar.setProgress(alphapart);
+            alphaBar.setOnSeekBarChangeListener(view);
+            LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
+                    (int) (166.66f * scale), LinearLayout.LayoutParams.WRAP_CONTENT);
+            barLp.gravity = Gravity.CENTER_HORIZONTAL;
+            barLp.topMargin = (int) (5 * scale);
+            root.addView(alphaBar, barLp);
+        } else {
+            alphaBar = null;
+        }
 
         LinearLayout presets = new LinearLayout(getContext());
         presets.setOrientation(LinearLayout.HORIZONTAL);
@@ -353,7 +365,9 @@ public class ColorPickerDialog extends Dialog {
             presetSwatch.setBackground(cell);
             presetSwatch.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    int alpha = alphaBar.getProgress() << 24;
+                    int alpha = alphaBar != null
+                            ? (alphaBar.getProgress() << 24)
+                            : (view.currentColor() & 0xFF000000);
                     view.showColor(alpha | (presetColor & 0x00FFFFFF));
                 }
             });

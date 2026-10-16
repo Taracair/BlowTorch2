@@ -43,15 +43,19 @@ local broken = assert(loadstring(serialize({ label = "LOOK\nNORTH" })))()
 check(broken.label == "LOOK\nNORTH", "a newline in the label survives serialize")
 
 print("2. editor and save paths name wrapLabel")
+local look = readAll(ROOT .. "/buttoneditorlook.lua")
+check(look:find('setText("Wrap label")', 1, true) ~= nil,
+	"Advanced tab has Wrap label next to Show label")
+check(look:find('setText("Show label")', 1, true) ~= nil,
+	"Show label is on the label section")
 local advanced = readAll(ROOT .. "/buttoneditoradvanced.lua")
-check(advanced:find('setText("Wrap label")', 1, true) ~= nil,
-	"Others tab has Wrap label checkbox")
-check(advanced:find("safeAddView(ui.labelSizeCaptionColumn, ui.wrapLabelCheck)", 1, true) == nil,
-	"Wrap label is not under Label Font Size")
-check(advanced:find("safeAddView(ui.wrapLabelRow, ui.wrapLabelCheck)", 1, true) ~= nil,
-	"Wrap label is the last SIZE & POSITION row")
-check(advanced:find("tmp.wrapLabel", 1, true) ~= nil,
-	"getEditorValues reads wrapLabel")
+check(advanced:find('setText("Wrap label")', 1, true) == nil,
+	"Wrap label is not under Size & Position")
+check(advanced:find("tmp.wrapLabel", 1, true) == nil,
+	"the size page does not own wrapLabel")
+local editor = readAll(ROOT .. "/buttoneditor.lua")
+check(editor:find("d.wrapLabel = look.wrapLabel == true", 1, true) ~= nil,
+	"Done copies wrapLabel from the label row")
 
 local window = readAll(ROOT .. "/buttonwindow.lua")
 check(window:find("tmp.data.wrapLabel = data.wrapLabel == true", 1, true) ~= nil,

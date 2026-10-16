@@ -76,6 +76,7 @@ import com.resurrection.blowtorch2.lib.service.function.PickCommand;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleInspect;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleMatchSpec;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.window.TextTree.Selection;
 import com.resurrection.blowtorch2.lib.window.TextTree.SelectionCursor;
@@ -163,9 +164,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** When true, game text wraps around floating buttons (main window only). */
 	private boolean mAvoidButtons = false;
+	private int mAvoidButtonMargin = 0;
 	/**
-	 * While {@link #mAvoidButtons}: break at whole words instead of one letter
-	 * at a time. Default false = letters (today's path).
+	 * While text wraps around button holes: break at whole words instead of
+	 * one letter at a time. Default false = letters.
 	 */
 	private boolean mAvoidBreakWords = false;
 	/** Supplies Window-local floating-button rects; null on extra-text windows. */
@@ -1000,6 +1002,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mAvoidBreakWords = ((Integer) avoidBreak.getValue()).intValue()
 					== WindowToken.AVOID_BUTTONS_BREAK_WORDS;
 		}
+		IntegerOption avoidMargin = (IntegerOption) settings.findOptionByKey("text_avoid_buttons_margin");
+		if (avoidMargin != null) {
+			mAvoidButtonMargin = WindowToken.clampAvoidMargin(
+					((Integer) avoidMargin.getValue()).intValue());
+		}
 		BooleanOption jumpOnSend = (BooleanOption) settings.findOptionByKey("jump_on_send");
 		if (jumpOnSend != null) {
 			mJumpOnSend = (Boolean) jumpOnSend.getValue();
@@ -1593,7 +1600,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		final boolean wasUp = mImeLiftPx > 0;
 		mImeLiftPx = lift;
-		if (mAvoidButtons) {
+		if (mAvoidButtons || !mAvoidButtonRects.isEmpty()) {
 			dropLineTiles();
 			invalidate();
 		}
@@ -1613,8 +1620,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFloatingButtonObstacles = src;
 	}
 
+	/** Reflow when the switch is on, a hole was showing, or a hole just appeared. */
+	static boolean shouldReflowAvoid(final boolean global, final boolean hadRects,
+			final boolean hasRects) {
+		return global || hadRects || hasRects;
+	}
+
 	public void onFloatingButtonsMoved() {
-		if (!avoidButtonsActive()) {
+		if (!"mainDisplay".equals(mName) || mFloatingButtonObstacles == null) {
+			return;
+		}
+		final boolean had = !mAvoidButtonRects.isEmpty();
+		refreshAvoidButtonRects();
+		if (!shouldReflowAvoid(mAvoidButtons, had, !mAvoidButtonRects.isEmpty())) {
 			return;
 		}
 		dropLineTiles();
@@ -1629,12 +1647,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int visualRow;
 		final int sliceFrom;
 		final int holeCol1;
+		final float blobLeft;
 		final float blobRight;
 		final ButtonTextFlow.Run[] runs;
 
 		AvoidHitSpan(final float viewTop, final float viewBottom, final float viewBaseline,
 				final int bufferLine, final int visualRow, final int sliceFrom,
-				final int holeCol1, final float blobRight, final ButtonTextFlow.Run[] runs) {
+				final int holeCol1, final float blobLeft, final float blobRight,
+				final ButtonTextFlow.Run[] runs) {
 			this.viewTop = viewTop;
 			this.viewBottom = viewBottom;
 			this.viewBaseline = viewBaseline;
@@ -1642,21 +1662,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			this.visualRow = visualRow;
 			this.sliceFrom = sliceFrom;
 			this.holeCol1 = holeCol1;
+			this.blobLeft = blobLeft;
 			this.blobRight = blobRight;
 			this.runs = runs;
 		}
 	}
 
 	private boolean avoidButtonsActive() {
-		return mAvoidButtons && "mainDisplay".equals(mName);
+		return "mainDisplay".equals(mName)
+				&& (mAvoidButtons || !mAvoidButtonRects.isEmpty());
+	}
+
+	boolean textAvoidsButtons() {
+		return mAvoidButtons;
 	}
 
 	private void refreshAvoidButtonRects() {
 		mAvoidButtonRects.clear();
-		if (!avoidButtonsActive() || mFloatingButtonObstacles == null) {
+		if (!"mainDisplay".equals(mName) || mFloatingButtonObstacles == null) {
 			return;
 		}
 		mFloatingButtonObstacles.collectWindowLocalRects(this, mAvoidButtonRects);
+		if (mAvoidButtonMargin > 0) {
+			for (int i = 0; i < mAvoidButtonRects.size(); i++) {
+				mAvoidButtonRects.set(i, ButtonTextFlow.outset(mAvoidButtonRects.get(i),
+						mAvoidButtonMargin));
+			}
+		}
 	}
 
 	private void beginAvoidWrapRow(final Line l, final ListIterator<Unit> it, final float y,
@@ -1735,12 +1767,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		int rows = visualRows < 1 ? 1 : visualRows;
 		int holeCol1 = mAvoidHoleCol1;
+		float blobLeft = mAvoidBlobPx != null ? mAvoidBlobPx.left : 0f;
 		float blobRight = mAvoidBlobPx != null ? mAvoidBlobPx.right : 0f;
 		for (int i = 0; i < rows; i++) {
 			float logical = logicalY0 + i * mPrefLineSize;
 			mAvoidHitSpans.add(new AvoidHitSpan(cellTop(logical), cellBottom(logical),
-					screenBaselineY(logical), bufferLine, i, sliceFrom, holeCol1, blobRight,
-					runs));
+					screenBaselineY(logical), bufferLine, i, sliceFrom, holeCol1, blobLeft,
+					blobRight, runs));
 		}
 	}
 
@@ -1855,8 +1888,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			String piece = s.substring(utf16, utf16End);
 			int destCol = run.destCol + (src - run.srcStart);
 			if (destCol >= mAvoidHoleCol1 && mAvoidBlobPx != null) {
-				dx = ButtonTextFlow.rightPocketViewX(destCol, mAvoidHoleCol1, mAvoidBlobPx.right,
-						mOneCharWidth, mScrollX);
+				dx = ButtonTextFlow.rightPocketViewX(destCol, mAvoidHoleCol1, mAvoidBlobPx.left,
+						mAvoidBlobPx.right, mOneCharWidth, mScrollX);
+			} else if (mAvoidBlobPx != null) {
+				dx = ButtonTextFlow.leftPocketViewX(destCol, mAvoidSliceFrom, mAvoidBlobPx.left,
+						mAvoidBlobPx.right, mOneCharWidth, mScrollX);
 			} else {
 				dx = ButtonTextFlow.panViewX(destCol, mAvoidSliceFrom, mOneCharWidth, mScrollX);
 			}
@@ -3232,6 +3268,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return true;
 	}
 
+	/** History, then the current point. The session keeps the furthest sample. */
+	private void noteGlobalGestureLift(final MotionEvent t) {
+		int count = t.getPointerCount();
+		if (count < 2) {
+			return;
+		}
+		int hist = t.getHistorySize();
+		for (int i = 0; i < hist; i++) {
+			mGlobalGesture.noteLift(
+					t.getHistoricalX(0, i), t.getHistoricalY(0, i),
+					t.getHistoricalX(1, i), t.getHistoricalY(1, i));
+		}
+		mGlobalGesture.noteLift(t.getX(0), t.getY(0), t.getX(1), t.getY(1));
+	}
+
 	private GlobalGestureSession.Decision feedGlobalGesture(final MotionEvent t) {
 		int count = t.getPointerCount();
 		float x0 = count > 0 ? t.getX(0) : 0f;
@@ -3247,6 +3298,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		case MotionEvent.ACTION_MOVE:
 			return mGlobalGesture.onMove(time, count, x0, y0, x1, y1);
 		case MotionEvent.ACTION_POINTER_UP:
+			noteGlobalGestureLift(t);
 			return mGlobalGesture.onPointerUp(time, count - 1, t.getActionIndex());
 		case MotionEvent.ACTION_UP:
 			return mGlobalGesture.onUp(time, x0, y0);
@@ -4457,6 +4509,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	// RenderNode rec 46–57ms, recN 5–24/2s reverse: jumps + black bottom half.
 	@Override
 	public final void onDraw(final Canvas hw) {
+		final long timingStart = TimingTrace.paintStart(getName());
+		boolean timingDrew = false;
+		try {
 		mDbgTiles = 0;
 		mDbgBake = 0;
 		mDbgType = 0;
@@ -5189,6 +5244,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mStyleGrabber.draw(c);
 		}
 		scheduleBlinkIfNeeded();
+		timingDrew = true;
+		} finally {
+			if (timingDrew && timingStart != 0L) {
+				TimingTrace.paint(timingStart,
+						hw != null && hw.isHardwareAccelerated() ? 1 : 0,
+						mRendererDebug ? 1 : 0,
+						mDbgTiles, mDbgBake, mDbgType);
+			}
+		}
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
@@ -6508,11 +6572,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				int destCol;
 				if (x >= s.blobRight) {
-					destCol = ButtonTextFlow.rightPocketDestCol(x, s.holeCol1, s.blobRight,
-							mOneCharWidth, mScrollX);
+					destCol = ButtonTextFlow.rightPocketDestCol(x, s.holeCol1, s.blobLeft,
+							s.blobRight, mOneCharWidth, mScrollX);
 				} else {
-					destCol = ButtonTextFlow.panDestCol(x, s.sliceFrom, mOneCharWidth,
-							mScrollX);
+					destCol = ButtonTextFlow.leftPocketDestCol(x, s.sliceFrom, s.blobLeft,
+							s.blobRight, mOneCharWidth, mScrollX);
 				}
 				if (destCol < 0) {
 					destCol = 0;
@@ -6598,11 +6662,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (src >= r.srcStart && src < r.srcEnd) {
 					int dest = r.destCol + (src - r.srcStart);
 					if (dest >= s.holeCol1) {
-						out[0] = ButtonTextFlow.rightPocketViewX(dest, s.holeCol1, s.blobRight,
-								mOneCharWidth, mScrollX);
+						out[0] = ButtonTextFlow.rightPocketViewX(dest, s.holeCol1, s.blobLeft,
+								s.blobRight, mOneCharWidth, mScrollX);
 					} else {
-						out[0] = ButtonTextFlow.panViewX(dest, s.sliceFrom, mOneCharWidth,
-								mScrollX);
+						out[0] = ButtonTextFlow.leftPocketViewX(dest, s.sliceFrom, s.blobLeft,
+								s.blobRight, mOneCharWidth, mScrollX);
 					}
 					out[1] = s.viewBaseline;
 					out[2] = s.viewTop;
@@ -8470,6 +8534,12 @@ end
 				dropLineTiles();
 				this.invalidate();
 				break;
+			case text_avoid_buttons_margin:
+				mAvoidButtonMargin = WindowToken.clampAvoidMargin(((Integer) o.getValue()).intValue());
+				((IntegerOption) o).setValue(Integer.valueOf(mAvoidButtonMargin));
+				dropLineTiles();
+				this.invalidate();
+				break;
 			case jump_on_send:
 				mJumpOnSend = (Boolean) o.getValue();
 				break;
@@ -8721,6 +8791,7 @@ end
 		text_canvas_width,
 		text_avoid_buttons,
 		text_avoid_buttons_break,
+		text_avoid_buttons_margin,
 		jump_on_send,
 		newest_at_top,
 		dim_repeated_lines,

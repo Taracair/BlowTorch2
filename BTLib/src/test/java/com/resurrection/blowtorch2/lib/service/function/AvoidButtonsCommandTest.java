@@ -25,6 +25,12 @@ public class AvoidButtonsCommandTest {
 	public void keyMatchesTheWindowOption() {
 		assertEquals("text_avoid_buttons", AvoidButtonsCommand.OPTION_KEY);
 		assertEquals("text_avoid_buttons_break", AvoidButtonsCommand.OPTION_BREAK_KEY);
+		assertEquals("text_avoid_buttons_margin", AvoidButtonsCommand.OPTION_MARGIN_KEY);
+		assertEquals(0, WindowToken.DEFAULT_AVOID_BUTTONS_MARGIN);
+		assertEquals(0, WindowToken.clampAvoidMargin(-4));
+		assertEquals(12, WindowToken.clampAvoidMargin(12));
+		assertEquals(WindowToken.MAX_AVOID_BUTTONS_MARGIN,
+				WindowToken.clampAvoidMargin(9999));
 		assertEquals("avoidbuttons", new AvoidButtonsCommand().commandName);
 	}
 

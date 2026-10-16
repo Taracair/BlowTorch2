@@ -203,6 +203,8 @@ Do not silently redefine the goal to something easier to implement.
 implementation. "You type `kk goblin` and the game receives `kill $1` instead of
 `kill goblin`" is the same fact, usable by someone holding a phone.
 
+Code, comments, commit messages and this tree stay English.
+
 ---
 
 ## Tests

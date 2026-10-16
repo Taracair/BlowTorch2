@@ -49,7 +49,7 @@ for _, line in ipairs(editorLines) do
 end
 check(sawTabStateAdd, "expected host:addTab(tabs.*) calls in buttoneditor.lua")
 
--- Editing several buttons at once registers one tab (Others), so tab index 3 no
+-- Editing several buttons at once registers one tab (Advanced), so tab index 3 no
 -- longer exists on that path: the old jump to it would land on nothing.
 for _, line in ipairs(editorLines) do
 	if line:match("setCurrentTab%(3%)") then

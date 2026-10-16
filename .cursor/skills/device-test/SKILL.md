@@ -1,11 +1,11 @@
 ---
 name: device-test
-description: Writes a Polish on-device test card for the maintainer after a player-visible change. Use when finishing a feature that needs phone verification, after scripts/deploy.sh, or when asking them to tap, type, rotate, or read logcat.
+description: Writes an on-device test card for the maintainer after a player-visible change. Use when finishing a feature that needs phone verification, after scripts/deploy.sh, or when asking them to tap, type, rotate, or read logcat.
 ---
 
 # Device test card
 
-One physical phone, and it is not yours. `scripts/deploy.sh` installs; after that it is their hands. Status to the maintainer is Polish. The card is what they will actually do, not a description of the diff.
+One physical phone, and it is not yours. `scripts/deploy.sh` installs; after that it is their hands. The card is what they will actually do, not a description of the diff.
 
 ## After deploy
 
@@ -25,16 +25,16 @@ They play on **btTest** (`com.resurrection.blowtorch2.test`). Crash log: `/sdcar
 ## Card template
 
 ```markdown
-## Do sprawdzenia (jedna runda)
+## Check (one round)
 
-1. [gdzie] [gest / komenda].
-   Sukces: [co widać / co gra dostaje].
-   Porażka: [co widać zamiast tego].
+1. [where] [gesture / command].
+   Success: [what you see / what the game receives].
+   Failure: [what you see instead].
 
 2. …
 
-Po rundzie (tylko jeśli potrzebny log):
-`ADB=~/Android/Sdk/platform-tools/adb; SERIAL=$(scripts/adb-device.sh); $ADB -s "$SERIAL" logcat -d -s BTPROF`
+After the round (only if a log is needed):
+`ADB=~/Android/Sdk/platform-tools/adb; SERIAL=$(scripts/adb-device.sh); $ADB -s "$SERIAL" logcat -d -s Tag`
 ```
 
 ## Do not

@@ -70,7 +70,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("avoidbuttons", "The window",
-				"wrap text around buttons; .avoidbuttons letters|words");
+				"wrap text around buttons; .avoidbuttons letters|words|margin");
 		cmd("jumpsend", "The window", "after a send, jump to the newest text");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
@@ -343,11 +343,13 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .avoidbuttons:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .avoidbuttons           — say whether text wraps, and letters vs words\n"
+					+ "  .avoidbuttons           — say whether text wraps, letters vs words, and the margin\n"
 					+ "  .avoidbuttons on|off|toggle\n"
 					+ "  .avoidbuttons letters|words\n"
+					+ "  .avoidbuttons margin [N] — extra pixels around every hole (0–200)\n"
 					+ "Off by default. ASCII maps may break. Grid pad and floating copies; live while dragging.\n"
 					+ "letters (default) moves one character at a time; words keeps whole words off the hole.\n"
+					+ "One button, Edit buttons → Advanced: Game text avoids this button keeps a hole when this is off. Game text draws under this button lets text paint through it when this is on.\n"
 					+ "Also: Options → Window → Text → Text avoids on-screen buttons?\n";
 		}
 		if (filter.equals("jumpsend")) {

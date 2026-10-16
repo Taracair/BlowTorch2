@@ -1,0 +1,2 @@
+Original button-face art for BlowTorch.
+MIT License, same as the project. See LICENSE at the repository root.

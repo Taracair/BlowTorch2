@@ -164,4 +164,30 @@ public class FloatingButtonModelTest {
 		assertEquals(800, draggedInLandscape.floatX);
 		assertEquals(10, draggedInLandscape.forOrientation(false).floatX);
 	}
+
+	@Test
+	public void avoidTextFalseStaysOutAndCopiesOnDrag() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 3);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+		o.put("avoidText", false);
+		o.put("avoidForce", false);
+		FloatingButtonModel original = new FloatingButtonModel(o);
+		assertFalse(original.avoidText);
+		assertFalse(original.avoidForce);
+
+		FloatingButtonModel moved = original.withFloatPosition(40, 50);
+		assertFalse(moved.avoidText);
+		assertFalse(moved.avoidForce);
+	}
+
+	@Test
+	public void missingAvoidTextParticipatesAndIsNotForced() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 1);
+		FloatingButtonModel m = new FloatingButtonModel(o);
+		assertTrue(m.avoidText);
+		assertFalse(m.avoidForce);
+	}
 }

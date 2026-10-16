@@ -78,9 +78,7 @@ you something false. Elsewhere, do not load it.
 beats "unanchored aliases do not substitute captures". The maintainer is testing
 on a phone, not reading your diff.
 
-Write to the maintainer in **Polish** — status, questions, release drafts —
-unless they switch language. Code, comments, commit messages and everything in
-`docs/` stay in English.
+Code, comments, commit messages and `docs/` stay in English.
 
 ## F-Droid
 

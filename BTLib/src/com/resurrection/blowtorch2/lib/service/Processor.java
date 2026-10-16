@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import org.json.JSONObject;
 
@@ -54,6 +55,8 @@ public class Processor {
 	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */
 	private byte[] mHoldover = null;
+	/** JVM tests: empty-message ids, instead of a {@link Handler}. */
+	private List<Integer> mEmptyMessages;
 	/** Bare CR → newline; CRLF and LFCR across packets stay one LF. */
 	private final CrToNewline mCrToNewline = new CrToNewline();
 	/** GMCP Data holder object. */
@@ -97,6 +100,17 @@ public class Processor {
 		mContext = pContext;
 		String ttype = ConfigurationLoader.getConfigurationValue("terminalTypeString", mContext);
 		mOptionHandler = new OptionNegotiator(ttype);
+		mGMCP = new GMCPData();
+		setEncoding(pEncoding);
+		rebuildGmcpHello();
+		mMxp.setClient("BlowTorch", packageVersion());
+	}
+
+	/** JVM tests: no {@link Context}. Empty-message ids go to {@code emptyMessages}. */
+	Processor(final String pEncoding, final List<Integer> emptyMessages) {
+		mReportTo = null;
+		mEmptyMessages = emptyMessages;
+		mOptionHandler = new OptionNegotiator("BlowTorch");
 		mGMCP = new GMCPData();
 		setEncoding(pEncoding);
 		rebuildGmcpHello();
@@ -402,8 +416,7 @@ public class Processor {
 						//
 						// Worlds that send neither lose nothing: the timer is
 						// still what releases their prompts.
-						mReportTo.sendEmptyMessage(
-								Connection.MESSAGE_FLUSH_LINE_HOLDOVER);
+						flushLineHoldover();
 						i++;
 						break;
 					case TC.IP:
@@ -418,10 +431,13 @@ public class Processor {
 					case TC.EL:
 						// TODO: REAL ERASE LINE
 					case TC.AYT:
+					case TC.NOP:
+					case TC.DM:
 						i++; // consume the byte.
 						break;
 					default:
-						// everything else keep
+						// Any other 2-byte IAC command. The command byte is not text.
+						i++;
 						break;
 					}
 				}
@@ -493,6 +509,14 @@ public class Processor {
 			return new byte[0];
 		}
 		return Arrays.copyOfRange(input, start, input.length);
+	}
+
+	private void flushLineHoldover() {
+		if (mEmptyMessages != null) {
+			mEmptyMessages.add(Connection.MESSAGE_FLUSH_LINE_HOLDOVER);
+			return;
+		}
+		mReportTo.sendEmptyMessage(Connection.MESSAGE_FLUSH_LINE_HOLDOVER);
 	}
 
 	/** Copy the first {@code count} bytes out of {@code buff}, then turn bare CR into LF. */

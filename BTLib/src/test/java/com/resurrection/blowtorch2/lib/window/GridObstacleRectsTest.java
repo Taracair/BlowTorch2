@@ -36,6 +36,30 @@ public class GridObstacleRectsTest {
 	}
 
 	@Test
+	public void forceFlagIsCopiedBesideTheFullList() throws Exception {
+		JSONArray arr = new JSONArray();
+		JSONObject forced = new JSONObject();
+		forced.put("l", 1);
+		forced.put("t", 2);
+		forced.put("r", 3);
+		forced.put("b", 4);
+		forced.put("force", true);
+		arr.put(forced);
+		JSONObject plain = new JSONObject();
+		plain.put("l", 5);
+		plain.put("t", 6);
+		plain.put("r", 7);
+		plain.put("b", 8);
+		arr.put(plain);
+		List<ButtonTextFlow.RectPx> dest = new ArrayList<ButtonTextFlow.RectPx>();
+		List<ButtonTextFlow.RectPx> only = new ArrayList<ButtonTextFlow.RectPx>();
+		GridObstacleRects.addFromJson(arr, dest, only);
+		assertEquals(2, dest.size());
+		assertEquals(1, only.size());
+		assertEquals(1, only.get(0).left);
+	}
+
+	@Test
 	public void nullArrayIsNoOp() {
 		List<ButtonTextFlow.RectPx> dest = new ArrayList<ButtonTextFlow.RectPx>();
 		GridObstacleRects.addFromJson(null, dest);

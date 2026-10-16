@@ -107,8 +107,7 @@ before writing them down, and say how you know.
 "You type `kk goblin` and the game receives `kill $1`" beats "unanchored aliases
 do not substitute captures".
 
-Write to the maintainer in **Polish** unless they switch language. Code,
-comments, commit messages and `docs/` stay in English.
+Code, comments, commit messages and `docs/` stay in English.
 
 ## F-Droid
 

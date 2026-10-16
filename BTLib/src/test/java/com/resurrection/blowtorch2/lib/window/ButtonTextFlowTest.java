@@ -326,21 +326,90 @@ public class ButtonTextFlowTest {
 	@Test
 	public void rightPocketViewXTracksScrollAcrossCellBoundary() {
 		final float cellW = 10f;
+		// Left edge on a cell boundary, so the shared remainder is 0. The half-cell
+		// bias is a constant, so a surviving glyph still moves 1px across the boundary.
+		final float blobLeft = 150f;
 		final float blobRight = 203f;
 		final int holeCol1 = 21;
 		final int destBefore = holeCol1 + 2;
 		final int destAfter = holeCol1 + 1;
 		final float scrollBefore = 29f;
 		final float scrollAfter = 30f;
-		float x0 = ButtonTextFlow.rightPocketViewX(destBefore, holeCol1, blobRight, cellW,
-				scrollBefore);
-		float x1 = ButtonTextFlow.rightPocketViewX(destAfter, holeCol1, blobRight, cellW,
-				scrollAfter);
+		float x0 = ButtonTextFlow.rightPocketViewX(destBefore, holeCol1, blobLeft, blobRight,
+				cellW, scrollBefore);
+		float x1 = ButtonTextFlow.rightPocketViewX(destAfter, holeCol1, blobLeft, blobRight,
+				cellW, scrollAfter);
 		assertEquals("surviving glyph moves ~1px, not ~cellW", -1f, x1 - x0, 0.01f);
-		float atFrac0 = ButtonTextFlow.rightPocketViewX(holeCol1, holeCol1, blobRight, cellW,
-				scrollAfter);
+		float atFrac0 = ButtonTextFlow.rightPocketViewX(holeCol1, holeCol1, blobLeft, blobRight,
+				cellW, scrollAfter);
 		assertTrue("frac=0 stays at or right of blob.right", atFrac0 >= blobRight);
-		assertEquals(holeCol1 + 2, ButtonTextFlow.rightPocketDestCol(x0, holeCol1, blobRight,
-				cellW, scrollBefore));
+		assertEquals(holeCol1 + 2, ButtonTextFlow.rightPocketDestCol(x0, holeCol1, blobLeft,
+				blobRight, cellW, scrollBefore));
+	}
+
+	@Test
+	public void holedRowStartsOnTheUnholedColumn() {
+		final int cell = 10;
+		final int blobLeft = 104;
+		final int blobRight = 153;
+		assertEquals(0, ButtonTextFlow.leftPocketShift(blobLeft, blobRight, cell));
+		assertEquals(ButtonTextFlow.panViewX(0, 0, cell, 0f),
+				ButtonTextFlow.leftPocketViewX(0, 0, blobLeft, blobRight, cell, 0f), 0.01f);
+		float scrolled = 4f;
+		assertEquals(ButtonTextFlow.panViewX(0, 0, cell, scrolled),
+				ButtonTextFlow.leftPocketViewX(0, 0, blobLeft, blobRight, cell, scrolled), 0.01f);
+
+		// Left remainder wider than the right. Still no indent at column 0.
+		assertEquals(0, ButtonTextFlow.leftPocketShift(107, 156, cell));
+		assertEquals(0f, ButtonTextFlow.leftPocketViewX(0, 0, 107f, 156f, cell, 0f), 0.01f);
+
+		// Phone, 15 Oct 2026: cell 17, button 439..528. The old half-cell put
+		// column 0 at 8.
+		final float phone = 17f;
+		assertEquals(0, ButtonTextFlow.leftPocketShift(439, 528, 17));
+		assertEquals(0f, ButtonTextFlow.leftPocketViewX(0, 0, 439f, 528f, phone, 0f), 0.01f);
+		assertEquals(ButtonTextFlow.panViewX(3, 0, phone, 5f),
+				ButtonTextFlow.leftPocketViewX(3, 0, 439f, 528f, phone, 5f), 0.01f);
+	}
+
+	@Test
+	public void rightPocketKeepsHalfACellClear() {
+		final int cell = 10;
+		final int blobLeft = 104;
+		final int blobRight = 153;
+		assertEquals(2, ButtonTextFlow.rightPocketShift(blobLeft, blobRight, cell));
+		int holeCol1 = 16;
+		float rightX = ButtonTextFlow.rightPocketViewX(holeCol1, holeCol1, blobLeft, blobRight,
+				cell, 0f);
+		assertTrue(rightX >= blobRight);
+		float mid = cell / 2f;
+		float rightMid = ButtonTextFlow.rightPocketViewX(holeCol1, holeCol1, blobLeft, blobRight,
+				cell, mid);
+		assertEquals(rightX - mid, rightMid, 0.01f);
+
+		assertEquals(5, ButtonTextFlow.rightPocketShift(107, 156, cell));
+		float rightMatch = ButtonTextFlow.rightPocketViewX(16, 16, 107f, 156f, cell, 0f);
+		assertTrue(rightMatch >= 156f);
+	}
+
+	@Test
+	public void trailingSpaceKeepsItsColumn() {
+		// Moving the letters into that space jumps ~cellW when the pan crosses
+		// a column, because the space count changes with the visible slice.
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(60, 0, 200, 20));
+		String text = "hello wonderful";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutInRow(text.length(), buttons, 0, 20,
+				10, 40, false, true, text);
+		assertTrue(runs.size() >= 2);
+		assertEquals("hello ", text.substring(runs.get(0).srcStart, runs.get(0).srcEnd));
+		assertEquals(0, runs.get(0).destCol);
+	}
+
+	@Test
+	public void leftPocketRoundTripIncludesTheShift() {
+		float x = ButtonTextFlow.leftPocketViewX(4, 2, 107f, 150f, 10f, 0f);
+		assertEquals(4, ButtonTextFlow.leftPocketDestCol(x, 2, 107f, 150f, 10f, 0f));
+		assertEquals(60f, x, 0.01f);
 	}
 }

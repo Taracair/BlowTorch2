@@ -9,6 +9,8 @@ Local checks first, always: `scripts/check.sh` (or `--tests` for the area
 touched). Fix failures before anything else. Most findings a reviewer would
 report are already in there and cost no tokens.
 
+Prompts to other agents, and their replies, are English.
+
 ## Several agents only when asked
 
 The default is this chat. It implements the change, then one reviewer on

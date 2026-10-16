@@ -90,6 +90,19 @@ public final class FloatingButtonModel {
 	public final int selectedColor;
 	public final int flipColor;
 	public final int flipLabelColor;
+	/** Picture that replaces the colored pad. Empty keeps the pad. */
+	public final String face;
+	public final String facePressed;
+	public final String faceFlip;
+	public final boolean faceOnly;
+	public final String labelAlignH;
+	public final String labelAlignV;
+	public final String fontPath;
+	public final String fontStyle;
+	public final boolean avoidText;
+	/** This button is a hole even when the window switch is off. */
+	public final boolean avoidForce;
+	public final int avoidMarginPx;
 
 	public FloatingButtonModel(JSONObject o) throws JSONException {
 		this(o, false);
@@ -144,6 +157,27 @@ public final class FloatingButtonModel {
 		selectedColor = (int) o.optLong("selectedColor", 0x8800FF00L);
 		flipColor = (int) o.optLong("flipColor", 0x88FF0000L);
 		flipLabelColor = (int) o.optLong("flipLabelColor", 0x880000FFL);
+		face = o.optString("face", "");
+		facePressed = o.optString("facePressed", "");
+		faceFlip = o.optString("faceFlip", "");
+		faceOnly = o.optBoolean("faceOnly", false);
+		labelAlignH = o.optString("labelAlignH", "center");
+		labelAlignV = o.optString("labelAlignV", "center");
+		fontPath = o.optString("fontPath", "default");
+		fontStyle = o.optString("fontStyle", "bold");
+		avoidText = o.optBoolean("avoidText", true);
+		avoidForce = o.optBoolean("avoidForce", false);
+		avoidMarginPx = clampMargin(o.optInt("avoidMargin", 0));
+	}
+
+	private static int clampMargin(final int px) {
+		if (px < 0) {
+			return 0;
+		}
+		if (px > 200) {
+			return 200;
+		}
+		return px;
 	}
 
 	/**
@@ -222,6 +256,17 @@ public final class FloatingButtonModel {
 		selectedColor = src.selectedColor;
 		flipColor = src.flipColor;
 		flipLabelColor = src.flipLabelColor;
+		face = src.face;
+		facePressed = src.facePressed;
+		faceFlip = src.faceFlip;
+		faceOnly = src.faceOnly;
+		labelAlignH = src.labelAlignH;
+		labelAlignV = src.labelAlignV;
+		fontPath = src.fontPath;
+		fontStyle = src.fontStyle;
+		avoidText = src.avoidText;
+		avoidForce = src.avoidForce;
+		avoidMarginPx = src.avoidMarginPx;
 	}
 
 	/**

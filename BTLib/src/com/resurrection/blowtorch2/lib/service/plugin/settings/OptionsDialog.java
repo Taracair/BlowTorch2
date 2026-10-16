@@ -16,6 +16,7 @@ import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.util.SettingsSaver;
+import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 import com.resurrection.blowtorch2.lib.window.FontCatalog;
 import com.resurrection.blowtorch2.lib.window.GlobalGestures;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
@@ -64,7 +65,6 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.RadioButton;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
@@ -132,6 +132,12 @@ public class OptionsDialog extends Dialog {
 	Stack<SettingsGroup> backStack = new Stack<SettingsGroup>();
 	private EditText mSearchField;
 	private ListView mSearchResults;
+	/** A tap on the search checkbox or number does not also open the page. */
+	private final View.OnClickListener mSearchControlSwallow = new View.OnClickListener() {
+		@Override
+		public void onClick(View v) {
+		}
+	};
 	private ViewFlipper mFlipper;
 
 	/** ~35% of {@code chrome_accent}; hold+fades land in the 1.6–2s window. */
@@ -231,6 +237,28 @@ public class OptionsDialog extends Dialog {
 			this.breadcrumb = breadcrumb == null ? "" : breadcrumb;
 			this.path = path;
 			this.option = option;
+		}
+	}
+
+	/** What a search row shows beside the title. */
+	enum SearchControl {
+		NONE,
+		CHECKBOX,
+		NUMBER
+	}
+
+	static SearchControl searchRowControl(SearchHit hit) {
+		Option option = hit == null ? null : hit.option;
+		if (option == null || option.type == null) {
+			return SearchControl.NONE;
+		}
+		switch (option.type) {
+		case BOOLEAN:
+			return SearchControl.CHECKBOX;
+		case INTEGER:
+			return SearchControl.NUMBER;
+		default:
+			return SearchControl.NONE;
 		}
 	}
 
@@ -1500,50 +1528,113 @@ public class OptionsDialog extends Dialog {
 		pendingFontIndicator = indicator;
 		final ArrayList<FontCatalog.Face> rows = collectFontPickerRows(option);
 		String current = option.getValue() == null ? "" : option.getValue().toString();
-		int selected = -1;
+		final Dialog dialog = new Dialog(getContext(), EditorDialogChrome.fullScreenTheme());
+		dialog.setContentView(R.layout.options_subdialog);
+		TextView title = (TextView) dialog.findViewById(R.id.options_subdialog_title);
+		String heading = option.getTitle();
+		if (heading == null || heading.length() == 0) {
+			heading = "Font";
+		}
+		title.setText(heading);
+		LinearLayout body = (LinearLayout) dialog.findViewById(R.id.options_subdialog_body);
+		body.setPadding(0, 0, 0, 0);
+		LayoutInflater inflater = (LayoutInflater) getContext()
+				.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+		int divider = getContext().getResources().getColor(R.color.chrome_divider, null);
+		final HashMap<String, Typeface> previewCache = new HashMap<String, Typeface>();
 		for (int i = 0; i < rows.size(); i++) {
-			if (current.equals(rows.get(i).path)) {
-				selected = i;
-				break;
+			final FontCatalog.Face face = rows.get(i);
+			View row = inflater.inflate(R.layout.options_list_row, body, false);
+			TextView label = (TextView) row.findViewById(R.id.infoTitle);
+			TextView preview = (TextView) row.findViewById(R.id.infoExtended);
+			View widget = row.findViewById(R.id.widget_frame);
+			if (widget != null) {
+				widget.setVisibility(View.GONE);
+			}
+			label.setText(face.label);
+			boolean load = FontCatalog.isLoadSentinel(face.path);
+			if (load) {
+				preview.setText("Open the file picker");
+			} else {
+				preview.setText(FontCatalog.PREVIEW_SAMPLE);
+				preview.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18);
+				preview.setMaxLines(1);
+				preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
+				// Fairfax HD's head bounds are 7 em (one private-use glyph). Default
+				// line padding uses that box: on a 1080px screen the row was 427px, others ~165px.
+				preview.setIncludeFontPadding(false);
+				preview.setFallbackLineSpacing(false);
+				preview.setElegantTextHeight(false);
+				preview.setTypeface(fontPreviewTypeface(face.path, previewCache));
+			}
+			row.setBackgroundResource(R.drawable.editor_row_selector);
+			row.setSelected(current.equals(face.path));
+			row.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (FontCatalog.isLoadSentinel(face.path)) {
+						dialog.dismiss();
+						MainWindow host = findMainWindowHost();
+						if (host != null) {
+							host.pickFontForOption();
+						} else {
+							Toast.makeText(getContext(), "Cannot open the file picker from here.",
+									Toast.LENGTH_SHORT).show();
+						}
+						return;
+					}
+					applyFontPath(option, indicator, face.path);
+					dialog.dismiss();
+				}
+			});
+			body.addView(row);
+			if (i + 1 < rows.size()) {
+				View line = new View(getContext());
+				line.setBackgroundColor(divider);
+				body.addView(line, new LinearLayout.LayoutParams(
+						LinearLayout.LayoutParams.MATCH_PARENT, 1));
 			}
 		}
-		final FontPickerAdapter adapter = new FontPickerAdapter(rows, selected);
-		ListView list = new ListView(getContext());
-		list.setAdapter(adapter);
-		list.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-		list.setDividerHeight(0);
-		if (selected >= 0) {
-			list.setSelection(selected);
-		}
-		AlertDialog.Builder builder = editorBuilder();
-		builder.setTitle(option.getTitle());
-		builder.setView(list);
-		builder.setNegativeButton("Cancel", null);
-		final AlertDialog dialog = builder.create();
-		list.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+		LinearLayout buttons = (LinearLayout) dialog.findViewById(R.id.options_subdialog_buttons);
+		Button cancel = new Button(getContext());
+		cancel.setLayoutParams(new LinearLayout.LayoutParams(0,
+				LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+		cancel.setText("Cancel");
+		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
-			public void onItemClick(android.widget.AdapterView<?> parent, View view,
-					int position, long id) {
-				FontCatalog.Face face = adapter.getItem(position);
-				if (face == null) {
-					return;
-				}
-				if (FontCatalog.isLoadSentinel(face.path)) {
-					dialog.dismiss();
-					MainWindow host = findMainWindowHost();
-					if (host != null) {
-						host.pickFontForOption();
-					} else {
-						Toast.makeText(getContext(), "Cannot open the file picker from here.",
-								Toast.LENGTH_SHORT).show();
-					}
-					return;
-				}
-				applyFontPath(option, indicator, face.path);
+			public void onClick(View v) {
 				dialog.dismiss();
 			}
 		});
+		buttons.addView(cancel);
+		EditorDialogChrome.applyFullScreen(dialog);
 		dialog.show();
+	}
+
+	private Typeface fontPreviewTypeface(String path, HashMap<String, Typeface> cache) {
+		Typeface cached = cache.get(path);
+		if (cached != null) {
+			return cached;
+		}
+		Typeface tf = Typeface.MONOSPACE;
+		try {
+			if (FontCatalog.isBundledAssetPath(path)) {
+				tf = Typeface.createFromAsset(getContext().getAssets(), path);
+			} else if ("sans serif".equals(path) || "sans serrif".equals(path)) {
+				tf = Typeface.SANS_SERIF;
+			} else if ("default".equals(path)) {
+				tf = Typeface.DEFAULT;
+			} else if (path != null && path.contains("/")) {
+				File f = new File(path);
+				if (f.isFile()) {
+					tf = Typeface.createFromFile(f);
+				}
+			}
+		} catch (RuntimeException ignored) {
+			tf = Typeface.MONOSPACE;
+		}
+		cache.put(path, tf);
+		return tf;
 	}
 
 	private ArrayList<FontCatalog.Face> collectFontPickerRows(FileOption option) {
@@ -1685,91 +1776,6 @@ public class OptionsDialog extends Dialog {
 		builder.create().show();
 	}
 
-	private class FontPickerAdapter extends BaseAdapter {
-		private final ArrayList<FontCatalog.Face> rows;
-		private final int selected;
-		private final HashMap<String, Typeface> previewCache = new HashMap<String, Typeface>();
-
-		FontPickerAdapter(ArrayList<FontCatalog.Face> rows, int selected) {
-			this.rows = rows;
-			this.selected = selected;
-		}
-
-		@Override
-		public int getCount() {
-			return rows.size();
-		}
-
-		@Override
-		public FontCatalog.Face getItem(int position) {
-			return rows.get(position);
-		}
-
-		@Override
-		public long getItemId(int position) {
-			return position;
-		}
-
-		@Override
-		public boolean hasStableIds() {
-			return true;
-		}
-
-		@Override
-		public View getView(int position, View convertView, ViewGroup parent) {
-			View row = convertView;
-			if (row == null) {
-				LayoutInflater li = (LayoutInflater) getContext()
-						.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-				row = li.inflate(R.layout.font_picker_row, parent, false);
-			}
-			FontCatalog.Face face = rows.get(position);
-			TextView label = (TextView) row.findViewById(R.id.font_label);
-			TextView preview = (TextView) row.findViewById(R.id.font_preview);
-			RadioButton radio = (RadioButton) row.findViewById(R.id.font_picked);
-			label.setText(face.label);
-			radio.setChecked(position == selected);
-			boolean load = FontCatalog.isLoadSentinel(face.path);
-			if (preview != null) {
-				if (load) {
-					preview.setVisibility(View.GONE);
-					preview.setTypeface(Typeface.DEFAULT);
-				} else {
-					preview.setVisibility(View.VISIBLE);
-					preview.setText(FontCatalog.PREVIEW_SAMPLE);
-					preview.setTypeface(previewTypeface(face.path));
-				}
-			}
-			return row;
-		}
-
-		private Typeface previewTypeface(String path) {
-			Typeface cached = previewCache.get(path);
-			if (cached != null) {
-				return cached;
-			}
-			Typeface tf = Typeface.MONOSPACE;
-			try {
-				if (FontCatalog.isBundledAssetPath(path)) {
-					tf = Typeface.createFromAsset(getContext().getAssets(), path);
-				} else if ("sans serif".equals(path) || "sans serrif".equals(path)) {
-					tf = Typeface.SANS_SERIF;
-				} else if ("default".equals(path)) {
-					tf = Typeface.DEFAULT;
-				} else if (path != null && path.contains("/")) {
-					File f = new File(path);
-					if (f.isFile()) {
-						tf = Typeface.createFromFile(f);
-					}
-				}
-			} catch (RuntimeException ignored) {
-				tf = Typeface.MONOSPACE;
-			}
-			previewCache.put(path, tf);
-			return tf;
-		}
-	}
-
 	private class FileOptionItemClickListener implements DialogInterface.OnClickListener {
 
 		private ArrayList<String> paths;
@@ -1856,9 +1862,15 @@ public class OptionsDialog extends Dialog {
 	private class IntegerOptionClickedListener implements View.OnClickListener {
 
 		private TextView widget;
+		private final String plugin;
 		
 		public IntegerOptionClickedListener(TextView widget) {
+			this(widget, null);
+		}
+
+		IntegerOptionClickedListener(TextView widget, String plugin) {
 			this.widget = widget;
+			this.plugin = plugin;
 		}
 		
 		@Override
@@ -1879,7 +1891,7 @@ public class OptionsDialog extends Dialog {
 			
 			//builder.setView(input);
 			
-			builder.setPositiveButton("Done", new IntegerOptionFinishedListener(o,input,widget));
+			builder.setPositiveButton("Done", new IntegerOptionFinishedListener(o,input,widget,plugin));
 			builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				
 				@Override
@@ -1900,12 +1912,15 @@ public class OptionsDialog extends Dialog {
 		private IntegerOption option;
 		EditText input;
 		TextView widget;
+		private final String plugin;
 		
 		
-		public IntegerOptionFinishedListener(IntegerOption option,EditText input,TextView widget) {
+		public IntegerOptionFinishedListener(IntegerOption option,EditText input,TextView widget,
+				String plugin) {
 			this.option = option;
 			this.input = input;
 			this.widget = widget;
+			this.plugin = plugin;
 		}
 		
 		@Override
@@ -1918,15 +1933,17 @@ public class OptionsDialog extends Dialog {
 				Integer number = Integer.parseInt(text);
 				option.setValue(number);
 				widget.setText(text);
-				if(selectedPlugin.equals("main")) {
+				String target = plugin != null ? plugin : selectedPlugin;
+				if(target.equals("main")) {
 					service.updateIntegerSetting(option.getKey(), number);
 				} else {
-					service.updatePluginIntegerSetting(selectedPlugin,option.getKey(), number);
+					service.updatePluginIntegerSetting(target,option.getKey(), number);
 				}
-			
+				refreshPageUnderSearch();
 			} catch(NumberFormatException ignored) {
 				// Typed something that is not a number: leave the option alone.
 			} catch (RemoteException e) {
+				refreshPageUnderSearch();
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -2459,11 +2476,106 @@ public class OptionsDialog extends Dialog {
 				extra.setVisibility(hit.breadcrumb.length() == 0 ? View.GONE : View.VISIBLE);
 			}
 			View widget = row.findViewById(R.id.widget_frame);
-			if (widget != null) {
-				widget.setVisibility(View.GONE);
+			if (widget instanceof LinearLayout) {
+				bindSearchRowWidget((LinearLayout) widget, hit);
 			}
 			return row;
 		}
+	}
+
+	private String pluginNameFor(SearchHit hit) {
+		if (hit == null || hit.path == null || hit.path.size() == 0 || mRoot == null) {
+			return "main";
+		}
+		int index = mRoot.getOptions().indexOf(hit.path.get(0));
+		if (index < 0) {
+			return "main";
+		}
+		String name = pluginSettingsMap.get(index);
+		return name != null ? name : "main";
+	}
+
+	private void refreshPageUnderSearch() {
+		if (mSearchResults != null && mSearchResults.getVisibility() == View.VISIBLE) {
+			notifyCurrentPageAdapter();
+		}
+	}
+
+	private void bindSearchRowWidget(LinearLayout widget, final SearchHit hit) {
+		widget.setOnClickListener(null);
+		widget.setClickable(false);
+		widget.setFocusable(false);
+		widget.setTag(null);
+		widget.removeAllViews();
+		SearchControl control = searchRowControl(hit);
+		if (control == SearchControl.NONE) {
+			widget.setVisibility(View.GONE);
+			return;
+		}
+		widget.setVisibility(View.VISIBLE);
+		Option option = hit.option;
+		boolean locked = isOptionLocked(option);
+		if (control == SearchControl.CHECKBOX) {
+			CheckBox cb = new CheckBox(getContext());
+			LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+					LinearLayout.LayoutParams.WRAP_CONTENT,
+					LinearLayout.LayoutParams.WRAP_CONTENT);
+			params.gravity = Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL;
+			cb.setLayoutParams(params);
+			BooleanOption bo = (BooleanOption) option;
+			if (((Boolean) bo.getValue()).booleanValue() == false) {
+				cb.setChecked(false);
+			} else {
+				cb.setChecked(true);
+			}
+			cb.setTag(option);
+			cb.setFocusable(false);
+			cb.setFocusableInTouchMode(false);
+			cb.setEnabled(!locked);
+			if (!locked) {
+				cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+					private final BooleanCheckChangeListener delegate =
+							new BooleanCheckChangeListener();
+
+					@Override
+					public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+						String previous = selectedPlugin;
+						selectedPlugin = pluginNameFor(hit);
+						try {
+							delegate.onCheckedChanged(buttonView, isChecked);
+						} finally {
+							selectedPlugin = previous;
+						}
+						refreshPageUnderSearch();
+					}
+				});
+			}
+			widget.addView(cb);
+			widget.setOnClickListener(mSearchControlSwallow);
+			return;
+		}
+		IntegerOption integerOption = (IntegerOption) option;
+		TextView indicator = new TextView(getContext());
+		indicator.setTextSize(26);
+		indicator.setTextColor(0xFFAAAAAA);
+		LinearLayout.LayoutParams iparam = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		iparam.gravity = Gravity.CENTER;
+		indicator.setText(Integer.toString((Integer) integerOption.getValue()));
+		indicator.setLayoutParams(iparam);
+		widget.addView(indicator);
+		View.OnClickListener edit = locked
+				? mSearchControlSwallow
+				: new IntegerOptionClickedListener(indicator, pluginNameFor(hit));
+		indicator.setTag(integerOption);
+		indicator.setOnClickListener(edit);
+		indicator.setFocusable(false);
+		indicator.setFocusableInTouchMode(false);
+		indicator.setEnabled(!locked);
+		widget.setTag(integerOption);
+		widget.setOnClickListener(edit);
+		widget.setFocusable(false);
 	}
 
 	private boolean isAndroidFlingOptionOn() {

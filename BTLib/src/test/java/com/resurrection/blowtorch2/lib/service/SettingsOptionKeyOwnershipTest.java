@@ -27,6 +27,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"scroll_dates", "scroll_dates_opacity",
 				"line_stamps", "line_stamps_log", "line_stamps_fields",
 				"text_canvas_width", "text_avoid_buttons", "text_avoid_buttons_break",
+				"text_avoid_buttons_margin",
 				"jump_on_send",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
 				"input_edit_tools_two_rows",

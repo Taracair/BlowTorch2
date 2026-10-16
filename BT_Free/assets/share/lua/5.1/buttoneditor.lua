@@ -36,6 +36,8 @@ local buttonEditorDone = _G["buttonEditorDone"]
 -- 'error')" instead of the message it was written to produce.
 local error = _G["error"]
 local pcall = _G["pcall"]
+-- loadOptions replaces the options table. Read it when painting.
+local globalEnv = _G
 module(...)
 
 local textSize = (14)
@@ -186,6 +188,84 @@ local swipeFlipWatcher = luajava.createProxy("android.text.TextWatcher", {
 	onTextChanged = function(s, start, before, count) end,
 })
 
+labelTypefaceGuard = false
+
+local function labelText(edit)
+	if edit == nil then
+		return ""
+	end
+	local t = edit:getText()
+	if t == nil then
+		return ""
+	end
+	return t:toString() or ""
+end
+
+function paintEditorLabelTypeface()
+	if labelTypefaceGuard then
+		return
+	end
+	labelTypefaceGuard = true
+	pcall(function()
+		if lookEditor == nil or lookEditor.paintExternalLabel == nil then
+			return
+		end
+		local look = require("buttonlook")
+		local ownPath, ownStyle = "", ""
+		if lookEditor.currentFont ~= nil then
+			ownPath, ownStyle = lookEditor.currentFont()
+		end
+		local globalPath = "default"
+		local globalStyle = "bold"
+		local opts = globalEnv["options"]
+		if opts ~= nil then
+			local file = opts.button_label_font_file
+			if file ~= nil and tostring(file) ~= "" then
+				globalPath = tostring(file)
+			else
+				globalPath = look.fontPathForIndex(tonumber(opts.button_label_font) or 0)
+			end
+			globalStyle = look.fontStyleForIndex(tonumber(opts.button_label_style) or 1)
+		end
+		if labelTypefaceWatcher == nil then
+			labelTypefaceWatcher = luajava.createProxy("android.text.TextWatcher", {
+				afterTextChanged = function(s)
+					paintEditorLabelTypeface()
+				end,
+				beforeTextChanged = function(s, start, count, after) end,
+				onTextChanged = function(s, start, before, count) end,
+			})
+		end
+		local function paintOne(edit)
+			if edit == nil then
+				return
+			end
+			local tag = look.parseFontTag(labelText(edit))
+			local path, style = look.resolveFont(ownPath, ownStyle, tag.path, tag.style,
+				globalPath, globalStyle)
+			lookEditor.paintExternalLabel(edit, path, style)
+			local tagged = false
+			pcall(function()
+				tagged = tostring(edit:getTag()) == "bt-label-font"
+			end)
+			if not tagged then
+				edit:setTag("bt-label-font")
+				edit:addTextChangedListener(labelTypefaceWatcher)
+			end
+		end
+		paintOne(clickLabelEdit)
+		paintOne(flipLabelEdit)
+		local widgets = editorLabelWidgets
+		local rows = widgets ~= nil and widgets.accordionChildLabelEdits or nil
+		if rows ~= nil then
+			for i = 1, #rows do
+				paintOne(rows[i])
+			end
+		end
+	end)
+	labelTypefaceGuard = false
+end
+
 local function trackSwipeEditForFlip(edit)
 	if edit == nil then
 		return edit
@@ -221,7 +301,7 @@ HELP_TAP = "TAP\n"
 	.. "If an accordion opens on tap, the tap command is kept but does not fire. That warning stays on the tab too.\n\n"
 	.. "If an accordion opens on swipe, Flip is kept but does not fire — drag-off is that swipe. That warning stays here too."
 
-HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (~24dp) in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at about 0.45s.\n\n"
+HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (~24dp) in a direction — eight are available, four straight and four corners. While you are aiming a swipe, the direction arrow is the only extra picture: the held icon and the flip icon stay off until the swipe ends. A second finger cancels the gesture. Hold fires at about 0.45s.\n\n"
 	.. "To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).\n\n"
 	.. "A corner with no command falls back to the nearest straight swipe, so adding diagonals never changes how the straight ones behave.\n\n"
 	.. "If an accordion opens on swipe, that expand direction's swipe command is locked and Flip is locked. Other swipe directions still fire.\n\n"
@@ -233,18 +313,40 @@ HELP_ACCORDION = "Up to 20 sub-buttons. Pin existing grid tiles: in Edit buttons
 	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas. Swipe-to-expand also locks Flip (drag-off is the same motion).\n\n"
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
 
-HELP_OTHERS = "Name is the label in the editor list, not on the tile. Active sits to the right of Name on the same row.\n\n"
+othersHelp = function(multi)
+	local iconTail
+	local padTail
+	if multi then
+		iconTail = "\n\n"
+		padTail = "Tap a swatch to change the colour. Each button keeps its transparency until you drag Opacity, which then fades every selected button. "
+	else
+		iconTail = " Opacity under those tiles shows the pad until you drag it, then fades the pad, the icon and the label together. The colour picker sets the colour only.\n\n"
+		padTail = "Tap a swatch to change the colour. Drag Opacity, above, to fade them together. Until then each colour keeps its own transparency. "
+	end
+	return "Name is the label in the editor list, not on the tile. Active sits to the right of Name on the same row.\n\n"
 	.. "Active hides the button in play without deleting it. Untick it and the tile is gone from play (taps included); Edit buttons still shows it so you can tick Active again.\n\n"
+	.. "ICON\n"
+	.. "Tap a tile. The picture replaces the colored pad. Button is the normal icon. While held is the picture under your finger: Darken keeps the same picture, darker. When flipped is after a flip: Same icon keeps the main picture." .. iconTail
+	.. "Sets along the top: Marks, Signals, Relics, Wards, Embers, Voyage. Choose image file for a PNG, JPEG, or SVG. Magenta #FF00FF is clear, and so is PNG transparency. A file over 2 MB, or with either edge over 8192 pixels, is refused. A smaller picture is drawn at most 1024 pixels on a side.\n\n"
+	.. "LABEL\n"
+	.. "Show label hides the words only when an icon actually drew. Wrap label sits beside it and splits a long name onto two lines. Enter in the Label field on Tap / Flip is a hard break even when Wrap label is off.\n\n"
+	.. "Alignment is the nine-dot grid, or Follow global button options.\n\n"
+	.. "Change opens the font list. Cancel and Done stay at the bottom. Each face is drawn in that typeface. Choose font file opens the file picker. The Label and Flip label boxes use that same font, so a character the font provides is visible while you type it. A label that starts with {font:bold} uses that face for this label only.\n\n"
 	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
-	.. "Colors: tap a swatch to change, long-press to reset to the set default. Border is the last swatch on that grid — tick Draw / border beside it. Accordion children inherit the parent's border unless they were pinned from the grid.\n\n"
+	.. "COLORED PAD\n"
+	.. "These colors show when that state has no icon. " .. padTail .. "Long-press resets a swatch to the set default. Border is the last swatch on that grid — tick Draw / border beside it. Accordion children inherit the parent's border unless they were pinned from the grid.\n\n"
 	.. "Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
+	.. "SIZE & POSITION\n"
 	.. "Width, height and position are in dp from the top-left of the button layer.\n\n"
+	.. "TEXT\n"
+	.. "Game text avoids this button is off until you turn it on and press Done. On: that button is a hole even when .avoidbuttons is off. Game text draws under this button is the other way: text paints through that button even when .avoidbuttons is on. Both off follows .avoidbuttons. Turning one on turns the other off. Break around every hole is Letters or Words, the same switch as .avoidbuttons letters and .avoidbuttons words. Extra margin is pixels on top of Avoid-buttons margin. Leave the button screen before the hole is drawn.\n\n"
 	.. "FLOATING\n"
 	.. "Tick Float over the game to put a copy of this button on the screen, over the game. When, Shape and Thin outline appear once it is ticked.\n\n"
 	.. "Always visible: the button stays on screen. In play mode only the floating copy is drawn, so it does not stack on the grid tile.\n\n"
 	.. "Show with keyboard: the button is there only while the keyboard is open, and is hidden everywhere otherwise, the grid included.\n\n"
 	.. "Both need Display over other apps. On Android 9 and 10, Show with keyboard may never appear.\n\n"
-	.. "Editing several buttons at once: size, position, colours, border and Active go to all of them. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
+	.. "Editing several buttons at once: size, position, colours, border, Opacity and Active go to all of them. Drag Opacity to fade every selected button; until you drag it, each button keeps its own transparency. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
+end
 
 showChromeHelp = function(ctx, title, body)
 	if ctx == nil then
@@ -302,8 +404,8 @@ addEditorFooterHelp = function(finishHolder, host, numediting)
 			if host ~= nil then
 				tab = host:getCurrentTab() or 0
 			end
-			local helpTitle = "Others"
-			local body = HELP_OTHERS
+			local helpTitle = "Advanced"
+			local body = othersHelp(numediting > 1)
 			if not (numediting > 1) then
 				if tab == 0 then
 					helpTitle = "Tap / Flip"
@@ -445,6 +547,7 @@ function showEditorDialog(editorValues,numediting)
 	
 	
 	local buildtabs = require("buttoneditor_buildtabs")
+	editorLabelWidgets = nil
 	local tabState = {
 		editorValues = editorValues,
 		numediting = numediting,
@@ -464,6 +567,8 @@ function showEditorDialog(editorValues,numediting)
 	-- already see that same table or Flip stays editable on first open.
 	tabState.accordionLockedSwipeEdits = {}
 	accordionLockedSwipeEdits = tabState.accordionLockedSwipeEdits
+	editorLabelWidgets = tabState.widgets
+	tabState.paintLabelTypeface = paintEditorLabelTypeface
 	buildtabs.buildClickTab(host, content, tabState)
 	editorClickLabelEditParams = tabState.clickLabelEditParams
 	local w = tabState.widgets
@@ -508,14 +613,20 @@ function showEditorDialog(editorValues,numediting)
 	updateFlipForSwipes()
 
 	local tabOthers = host:newTabSpec("tab_others_btn_tab")
-	local labelOthers = makeTabLabel("Others")
+	local labelOthers = makeTabLabel("Advanced")
 	
 	--tmpview3 = luajava.new(TextView,context)
 	--tmpview3:setText("third page")
 	--tmpview3:setId(3)
 	--tmpview3:setLayoutParams(params);	
+	lookEditor = require("buttoneditorlook")
+	lookEditor.init(context)
+	lookEditor.setOnFontChanged(paintEditorLabelTypeface)
 	advancedEditor = require("buttoneditoradvanced")
 	advancedEditor.init(context)
+	lookEditor.setOnOpacityChanged(function(pct)
+		advancedEditor.previewButtonOpacity(pct)
+	end)
 	-- Registered before makeUI: makeUI ticks the box to match the button, which
 	-- fires the listener, and the listener kept from the previous dialog would
 	-- otherwise reach into that dialog's dead widgets.
@@ -575,14 +686,14 @@ function showEditorDialog(editorValues,numediting)
 	-- greyed out: three tabs of dead boxes, and no word about which button was
 	-- being edited. A label, a command, a gesture and an accordion each belong
 	-- to one button, so for a multi-button edit those tabs are not registered at
-	-- all and only Others -- the one that does something -- is left.
+	-- all and only Advanced -- the one that does something -- is left.
 	--
 	-- The pages behind them are still built and still hold their widgets: Done
 	-- reads every field on the way out, and a page that was never built would
 	-- take the dialog down with it. They are hidden here instead, after setup
 	-- and after the tabs are registered, because TabHost only manages the
 	-- visibility of content it knows about and would otherwise leave them
-	-- stacked over the Others page.
+	-- stacked over the Advanced page.
 	local multi = numediting > 1
 	if not multi then
 		host:addTab(tabs.click)
@@ -696,6 +807,38 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     
     for i,v in pairs(tmp) do
       d[i] = v;
+    end
+
+    -- The count is showEditorDialog's parameter. This listener cannot see
+    -- it, so a check on numediting here was always false and look never saved.
+    if lookEditor ~= nil and flipGateNumEditing == 1 then
+      local look = lookEditor.getEditorValues()
+		if look ~= nil then
+			d.lookEdited = look.lookEdited == true
+			d.face = look.face
+			d.facePressed = look.facePressed
+			d.faceFlip = look.faceFlip
+			d.faceOnly = look.faceOnly == true
+			d.labelAlignH = look.labelAlignH
+			d.labelAlignV = look.labelAlignV
+			d.fontPath = look.fontPath
+			d.fontStyle = look.fontStyle
+			d.opacity = look.opacity
+			if look.wrapLabel ~= nil then
+				d.wrapLabel = look.wrapLabel == true
+			end
+			if look.avoidMode ~= nil and look.avoidMode ~= "" then
+				d.avoidMode = look.avoidMode
+			end
+			d.avoidKeep = look.avoidKeep == true
+			d.avoidText = nil
+			d.avoidMargin = look.avoidMargin
+		end
+    elseif lookEditor ~= nil and flipGateNumEditing > 1 then
+      local look = lookEditor.getEditorValues()
+      if look ~= nil and look.opacity ~= nil then
+        d.opacity = look.opacity
+      end
     end
     
     if accordionDirSpinner ~= nil then

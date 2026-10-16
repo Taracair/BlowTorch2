@@ -16,7 +16,7 @@ import org.junit.Test;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
 
 /**
- * Options search index. Display-only: breadcrumbs and jump paths, no mutation.
+ * Options search index: breadcrumbs, jump paths, and which control a hit shows.
  */
 public class OptionsDialogSearchTest {
 
@@ -169,6 +169,71 @@ public class OptionsDialogSearchTest {
 		assertEquals(at, OptionsDialog.indexOfOption(rows, sameKey));
 		assertTrue(OptionsDialog.optionMatchesHighlight(gmcp, sameKey));
 		assertFalse(OptionsDialog.optionMatchesHighlight(gmcp, null));
+	}
+
+	@Test
+	public void searchRowControlIsCheckboxNumberOrNone() {
+		SettingsGroup window = new WindowToken().getSettings();
+		OptionsDialog.SearchHit padding = named(
+				OptionsDialog.searchHits(window, "bottom padding"), "Bottom padding (px)");
+		assertNotNull(padding);
+		assertTrue(padding.option instanceof IntegerOption);
+		assertEquals(OptionsDialog.SearchControl.NUMBER, OptionsDialog.searchRowControl(padding));
+
+		IntegerOption opacity = new IntegerOption();
+		opacity.setTitle("Overflow button opacity (%)");
+		opacity.setKey("overflow_button_opacity");
+		opacity.setValue(5);
+		assertEquals(OptionsDialog.SearchControl.NUMBER,
+				OptionsDialog.searchRowControl(hit(opacity)));
+
+		OptionsDialog.SearchHit fling = named(
+				OptionsDialog.searchHits(window, "android fling"), "Android fling?");
+		assertNotNull(fling);
+		assertTrue(fling.option instanceof BooleanOption);
+		assertEquals(OptionsDialog.SearchControl.CHECKBOX, OptionsDialog.searchRowControl(fling));
+
+		OptionsDialog.SearchHit sensitivity = named(
+				OptionsDialog.searchHits(window, "scroll sensitivity"), "Scroll sensitivity");
+		assertNotNull(sensitivity);
+		assertTrue(sensitivity.option instanceof ListOption);
+		assertEquals(OptionsDialog.SearchControl.NONE,
+				OptionsDialog.searchRowControl(sensitivity));
+
+		OptionsDialog.SearchHit font = named(OptionsDialog.searchHits(window, "font"), "Font");
+		assertNotNull(font);
+		assertTrue(font.option instanceof FileOption);
+		assertEquals(OptionsDialog.SearchControl.NONE, OptionsDialog.searchRowControl(font));
+
+		OptionsDialog.SearchHit color = named(
+				OptionsDialog.searchHits(window, "hyperlink color"), "Hyperlink Color");
+		assertNotNull(color);
+		assertTrue(color.option instanceof ColorOption);
+		assertEquals(OptionsDialog.SearchControl.NONE, OptionsDialog.searchRowControl(color));
+
+		OptionsDialog.SearchHit layout = named(
+				OptionsDialog.searchHits(window, "layout"), "Layout");
+		assertNotNull(layout);
+		assertEquals(Option.TYPE.GROUP, layout.option.type);
+		assertEquals(OptionsDialog.SearchControl.NONE, OptionsDialog.searchRowControl(layout));
+
+		assertEquals(OptionsDialog.SearchControl.NONE,
+				OptionsDialog.searchRowControl(hit(new StringOption())));
+		assertEquals(OptionsDialog.SearchControl.NONE,
+				OptionsDialog.searchRowControl(hit(new EncodingOption())));
+		assertEquals(OptionsDialog.SearchControl.NONE,
+				OptionsDialog.searchRowControl(hit(new CallbackOption())));
+		assertEquals(OptionsDialog.SearchControl.NONE, OptionsDialog.searchRowControl(null));
+		assertEquals(OptionsDialog.SearchControl.NONE, OptionsDialog.searchRowControl(
+				new OptionsDialog.SearchHit("x", "", new ArrayList<SettingsGroup>(), null)));
+	}
+
+	private static OptionsDialog.SearchHit hit(Option option) {
+		return new OptionsDialog.SearchHit(
+				option == null ? "" : option.getTitle(),
+				"",
+				new ArrayList<SettingsGroup>(),
+				option);
 	}
 
 	private static OptionsDialog.SearchHit named(ArrayList<OptionsDialog.SearchHit> hits,

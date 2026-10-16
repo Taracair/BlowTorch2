@@ -7,6 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
+import com.resurrection.blowtorch2.lib.util.TimingLine;
+import com.resurrection.blowtorch2.lib.util.TimingTrace;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 
 /**
@@ -104,13 +106,22 @@ public final class WorldLaunch {
 
 		String prefsname = Pattern.compile("\\W").matcher(display).replaceAll("")
 				+ ".PREFS";
+		final long tapUp = android.os.SystemClock.uptimeMillis();
 		ctx.getSharedPreferences(prefsname, 0).edit()
 				.putBoolean("CONNECTED", false)
 				.putBoolean("FINISHSTART", true)
 				.apply();
+		long commit0 = android.os.SystemClock.uptimeMillis();
 		ctx.getSharedPreferences("SERVICE_INFO", 0).edit()
 				.putString("SETTINGS_PATH", display)
 				.commit();
+		TimingTrace.arm(ctx);
+		TimingTrace.event("launch", "phase=go src=shortcut"
+				+ " commitMs=" + (android.os.SystemClock.uptimeMillis() - commit0)
+				+ " display=" + TimingLine.token(display)
+				+ " host=" + TimingLine.token(host)
+				+ " port=" + TimingLine.token(port)
+				+ " tls=" + (tls ? 1 : 0));
 
 		String windowAction = ConfigurationLoader.getConfigurationValue(
 				"windowAction", ctx);
@@ -130,6 +141,8 @@ public final class WorldLaunch {
 			world.putExtra(LauncherShortcutExtras.TLS, tls);
 		}
 		world.putExtra(LauncherShortcutExtras.LAUNCH_FROM_SHORTCUT, true);
+		world.putExtra(TimingTrace.EXTRA_LAUNCH_UP, tapUp);
+		world.putExtra(TimingTrace.EXTRA_LAUNCH_SRC, "shortcut");
 		// Application context so the trampoline can finish (windowNoDisplay)
 		// without cancelling this start.
 		Context start = ctx.getApplicationContext();

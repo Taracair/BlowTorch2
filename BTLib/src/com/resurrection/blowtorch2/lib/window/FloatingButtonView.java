@@ -16,6 +16,10 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.resurrection.blowtorch2.lib.button.ButtonFaces;
+import com.resurrection.blowtorch2.lib.button.ButtonLabelAnchor;
+import com.resurrection.blowtorch2.lib.button.ButtonLabelPrefix;
+import com.resurrection.blowtorch2.lib.button.ButtonTypefaces;
 import com.resurrection.blowtorch2.lib.window.SuperButtonGestures.BoundSwipes;
 
 /**
@@ -213,13 +217,23 @@ public class FloatingButtonView extends View {
 		int bg = pressed ? model.selectedColor
 				: (flippedVisual ? model.flipColor : model.primaryColor);
 		int fg = flippedVisual ? model.flipLabelColor : model.labelColor;
-		fillPaint.setColor(bg);
 		oval.set(left, top, right, bottom);
-		if (model.floatRound) {
-			canvas.drawOval(oval, fillPaint);
-		} else {
-			float rx = resolveCornerRadiusPx(model);
-			canvas.drawRoundRect(oval, rx, rx, fillPaint);
+		int touchState = pressed ? ButtonFaces.STATE_PRESSED
+				: (flippedVisual ? ButtonFaces.STATE_FLIP : ButtonFaces.STATE_IDLE);
+		int faceState = ButtonFaces.pictureState(touchState, previewDir != null);
+		int fillAlphaBits = (bg >>> 24) & 0xFF;
+		boolean drewFace = ButtonFaces.draw(canvas, getContext(), oval,
+				model.floatRound ? 0f : resolveCornerRadiusPx(model),
+				model.floatRound, model.face, model.facePressed, model.faceFlip,
+				faceState, fillAlphaBits);
+		if (!drewFace) {
+			fillPaint.setColor(bg);
+			if (model.floatRound) {
+				canvas.drawOval(oval, fillPaint);
+			} else {
+				float rx = resolveCornerRadiusPx(model);
+				canvas.drawRoundRect(oval, rx, rx, fillPaint);
+			}
 		}
 		// Border (player colour) wins over floatFrame (auto-contrast). Drawing
 		// both stacked a second outline on MED/SUT-style floaters.
@@ -245,7 +259,9 @@ public class FloatingButtonView extends View {
 		if (text == null) {
 			text = "";
 		}
-		drawButtonLabel(canvas, text, left, top, right, bottom, fg);
+		if (!(model.faceOnly && drewFace)) {
+			drawButtonLabel(canvas, text, left, top, right, bottom, fg);
+		}
 
 		float midX = (left + right) / 2f;
 		float midY = (top + bottom) / 2f;
@@ -281,33 +297,73 @@ public class FloatingButtonView extends View {
 	 */
 	private void drawButtonLabel(Canvas canvas, String text, float left, float top,
 			float right, float bottom, int fg) {
+		ButtonLabelPrefix.Result parsed = ButtonLabelPrefix.parse(text);
+		text = parsed.display;
+		String path = parsed.path != null ? parsed.path : model.fontPath;
+		String style = parsed.style != null ? parsed.style : model.fontStyle;
+		boolean centerH = !"left".equals(model.labelAlignH) && !"right".equals(model.labelAlignH);
+		boolean centerV = !"top".equals(model.labelAlignV) && !"bottom".equals(model.labelAlignV);
+		boolean plainFace = (parsed.path == null && parsed.style == null)
+				&& (path == null || path.length() == 0 || "default".equals(path))
+				&& (style == null || style.length() == 0 || "bold".equals(style));
 		textPaint.setColor(fg);
 		textPaint.setTextSize(model.labelSizeSp * getResources().getDisplayMetrics().scaledDensity);
+		textPaint.setFakeBoldText(false);
+		textPaint.setTextSkewX(0f);
 		float midX = (left + right) / 2f;
 		float midY = (top + bottom) / 2f;
-		if (!ButtonLabelWrap.usesWrappedLayout(model.wrapLabel, text)) {
+		if (plainFace && centerH && centerV
+				&& !ButtonLabelWrap.usesWrappedLayout(model.wrapLabel, text)) {
+			textPaint.setTypeface(Typeface.DEFAULT_BOLD);
 			textPaint.setTextAlign(Paint.Align.CENTER);
 			Paint.FontMetrics fm = textPaint.getFontMetrics();
 			float textY = midY - (fm.ascent + fm.descent) / 2f;
 			canvas.drawText(text, midX, textY, textPaint);
 			return;
 		}
+		textPaint.setTypeface(ButtonTypefaces.resolve(getContext(), path, style));
+		textPaint.setFakeBoldText(ButtonTypefaces.fakeBold(path, style));
+		textPaint.setTextSkewX(ButtonTypefaces.textSkew(path, style));
 		float density = getResources().getDisplayMetrics().density;
 		float pad = 4f * density;
+		if (!ButtonLabelWrap.usesWrappedLayout(model.wrapLabel, text)) {
+			textPaint.setTextAlign(Paint.Align.LEFT);
+			Paint.FontMetrics fm = textPaint.getFontMetrics();
+			float textX = ButtonLabelAnchor.left(left, right, textPaint.measureText(text),
+					model.labelAlignH, pad);
+			float textY = ButtonLabelAnchor.baseline(top, bottom, fm.ascent, fm.descent,
+					model.labelAlignV, pad);
+			canvas.drawText(text, textX, textY, textPaint);
+			textPaint.setTextAlign(Paint.Align.CENTER);
+			textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+			textPaint.setFakeBoldText(false);
+			textPaint.setTextSkewX(0f);
+			return;
+		}
 		int maxWidth = Math.max(1, (int) Math.floor((right - left) - pad * 2f));
 		textPaint.setTextAlign(Paint.Align.LEFT);
 		TextPaint tp = new TextPaint(textPaint);
+		Layout.Alignment align = Layout.Alignment.ALIGN_CENTER;
+		if ("left".equals(model.labelAlignH)) {
+			align = Layout.Alignment.ALIGN_NORMAL;
+		} else if ("right".equals(model.labelAlignH)) {
+			align = Layout.Alignment.ALIGN_OPPOSITE;
+		}
 		StaticLayout layout = StaticLayout.Builder
 				.obtain(text, 0, text.length(), tp, maxWidth)
-				.setAlignment(Layout.Alignment.ALIGN_CENTER)
+				.setAlignment(align)
 				.setIncludePad(false)
 				.build();
 		canvas.save();
 		canvas.clipRect(left, top, right, bottom);
-		canvas.translate(left + pad, midY - layout.getHeight() / 2f);
+		canvas.translate(left + pad, ButtonLabelAnchor.blockTop(top, bottom,
+				layout.getHeight(), model.labelAlignV, pad));
 		layout.draw(canvas);
 		canvas.restore();
 		textPaint.setTextAlign(Paint.Align.CENTER);
+		textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+		textPaint.setFakeBoldText(false);
+		textPaint.setTextSkewX(0f);
 	}
 
 	private void drawCallout(Canvas canvas, float buttonLeft, float buttonTop, float buttonRight) {
