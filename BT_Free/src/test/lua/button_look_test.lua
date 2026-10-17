@@ -150,10 +150,16 @@ check(advancedSrc:find("multiColorEdit", 1, true) ~= nil,
 	"multi-edit changes the hue and leaves each button's transparency")
 check(advancedSrc:find("fade every selected button", 1, true) ~= nil,
 	"multi-edit can fade every selected button")
-check(lookSrc:find("Opacity: mixed", 1, true) ~= nil,
-	"mixed opacities stay untouched until the slider moves")
+check(lookSrc:find("Button opacity: mixed", 1, true) ~= nil,
+	"mixed button opacities stay untouched until the slider moves")
+check(lookSrc:find("Label opacity: mixed", 1, true) ~= nil,
+	"mixed label opacities stay untouched until the slider moves")
 check(advancedSrc:find("showUnreadOpacity(color)", 1, true) ~= nil,
 	"resetting the pad moves the opacity readout")
+check(advancedSrc:find("showUnreadLabelOpacity(color)", 1, true) ~= nil,
+	"resetting the label moves the label opacity readout")
+check(advancedSrc:find("labelOpacitySliderShown", 1, true) ~= nil,
+	"the label colour picker hides alpha only while Label opacity is on screen")
 local windowSrc = readAll(ROOT .. "/buttonwindow.lua")
 check(windowSrc:find("local function isSwipedTile(b)", 1, true) ~= nil,
 	"drawButtons leaves the swiped tile out")
@@ -168,12 +174,28 @@ check(windowSrc:find('opacity = rawget(src.data, "opacity")', 1, true) ~= nil,
 	"a pinned fan copies opacity")
 check(windowSrc:find('opacity = rawget(parent.data, "opacity")', 1, true) ~= nil,
 	"an unpinned fan copies the parent opacity")
+check(windowSrc:find('labelOpacity = rawget(src.data, "labelOpacity")', 1, true) ~= nil,
+	"a pinned fan copies label opacity")
+check(windowSrc:find('labelOpacity = rawget(parent.data, "labelOpacity")', 1, true) ~= nil,
+	"an unpinned fan copies the parent label opacity")
 check(windowSrc:find("fadeButtonOpacity(heat.fill, d)", 1, true) ~= nil,
 	"a floating heatmap keeps the use-count scale")
 check(windowSrc:find("replaceRgbKeepAlpha", 1, true) ~= nil,
 	"multi-edit keeps each button's colour alpha")
 check(windowSrc:find("b.data.opacity = buttonlook.opacityPercent(data.opacity)", 1, true) ~= nil,
 	"multi-edit stores the dragged opacity on each button")
+check(windowSrc:find("b.data.labelOpacity = buttonlook.opacityPercent(data.labelOpacity)", 1, true) ~= nil,
+	"multi-edit stores the dragged label opacity on each button")
+check(buttonSrc:find("applyLabelOpacity", 1, true) ~= nil,
+	"the label uses its own opacity")
+check(buttonSrc:find('rawget(o.data, "labelOpacity") == nil and rawget(o.data, "opacity")', 1, true) == nil,
+	"a later load does not copy button opacity onto the label")
+check(windowSrc:find("floaterArgb(d.borderColor, d, applyButtonOpacity)", 1, true) ~= nil,
+	"a floating border uses button opacity")
+check(buttonSrc:find("tileColor(self.data.labelColor)", 1, true) == nil,
+	"button opacity does not paint the label")
+check(windowSrc:find("fadeLabelOpacity(heat.label, d)", 1, true) ~= nil,
+	"a floating heatmap scales the words by label opacity")
 local editorSrc = readAll(ROOT .. "/buttoneditor.lua")
 check(editorSrc:find('globalEnv["options"]', 1, true) ~= nil,
 	"label typeface reads the live options table")

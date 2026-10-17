@@ -318,10 +318,10 @@ othersHelp = function(multi)
 	local padTail
 	if multi then
 		iconTail = "\n\n"
-		padTail = "Tap a swatch to change the colour. Each button keeps its transparency until you drag Opacity, which then fades every selected button. "
+		padTail = "Tap a swatch to change the colour. Each button keeps its transparency until you drag Button opacity or Label opacity. "
 	else
-		iconTail = " Opacity under those tiles shows the pad until you drag it, then fades the pad, the icon and the label together. The colour picker sets the colour only.\n\n"
-		padTail = "Tap a swatch to change the colour. Drag Opacity, above, to fade them together. Until then each colour keeps its own transparency. "
+		iconTail = " Button opacity under those tiles shows the pad until you drag it, then fades the pad and the icon. The colour picker sets the colour only.\n\n"
+		padTail = "Tap a swatch to change the colour. Button opacity fades the pad. Label opacity, under Label, fades the words. Until you drag one, that colour keeps its own transparency. "
 	end
 	return "Name is the label in the editor list, not on the tile. Active sits to the right of Name on the same row.\n\n"
 	.. "Active hides the button in play without deleting it. Untick it and the tile is gone from play (taps included); Edit buttons still shows it so you can tick Active again.\n\n"
@@ -329,7 +329,7 @@ othersHelp = function(multi)
 	.. "Tap a tile. The picture replaces the colored pad. Button is the normal icon. While held is the picture under your finger: Darken keeps the same picture, darker. When flipped is after a flip: Same icon keeps the main picture." .. iconTail
 	.. "Sets along the top: Marks, Signals, Relics, Wards, Embers, Voyage. Choose image file for a PNG, JPEG, or SVG. Magenta #FF00FF is clear, and so is PNG transparency. A file over 2 MB, or with either edge over 8192 pixels, is refused. A smaller picture is drawn at most 1024 pixels on a side.\n\n"
 	.. "LABEL\n"
-	.. "Show label hides the words only when an icon actually drew. Wrap label sits beside it and splits a long name onto two lines. Enter in the Label field on Tap / Flip is a hard break even when Wrap label is off.\n\n"
+	.. "Label opacity fades the words only. Show label hides the words only when an icon actually drew. Wrap label sits beside it and splits a long name onto two lines. Enter in the Label field on Tap / Flip is a hard break even when Wrap label is off.\n\n"
 	.. "Alignment is the nine-dot grid, or Follow global button options.\n\n"
 	.. "Change opens the font list. Cancel and Done stay at the bottom. Each face is drawn in that typeface. Choose font file opens the file picker. The Label and Flip label boxes use that same font, so a character the font provides is visible while you type it. A label that starts with {font:bold} uses that face for this label only.\n\n"
 	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
@@ -345,7 +345,7 @@ othersHelp = function(multi)
 	.. "Always visible: the button stays on screen. In play mode only the floating copy is drawn, so it does not stack on the grid tile.\n\n"
 	.. "Show with keyboard: the button is there only while the keyboard is open, and is hidden everywhere otherwise, the grid included.\n\n"
 	.. "Both need Display over other apps. On Android 9 and 10, Show with keyboard may never appear.\n\n"
-	.. "Editing several buttons at once: size, position, colours, border, Opacity and Active go to all of them. Drag Opacity to fade every selected button; until you drag it, each button keeps its own transparency. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
+	.. "Editing several buttons at once: size, position, colours, border, Button opacity, Label opacity and Active go to all of them. Drag Button opacity to fade every selected button. Drag Label opacity to fade the words. Until you drag one, each button keeps its own transparency. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
 end
 
 showChromeHelp = function(ctx, title, body)
@@ -627,6 +627,9 @@ function showEditorDialog(editorValues,numediting)
 	lookEditor.setOnOpacityChanged(function(pct)
 		advancedEditor.previewButtonOpacity(pct)
 	end)
+	lookEditor.setOnLabelOpacityChanged(function(pct)
+		advancedEditor.previewLabelOpacity(pct)
+	end)
 	-- Registered before makeUI: makeUI ticks the box to match the button, which
 	-- fires the listener, and the listener kept from the previous dialog would
 	-- otherwise reach into that dialog's dead widgets.
@@ -824,6 +827,7 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
 			d.fontPath = look.fontPath
 			d.fontStyle = look.fontStyle
 			d.opacity = look.opacity
+			d.labelOpacity = look.labelOpacity
 			if look.wrapLabel ~= nil then
 				d.wrapLabel = look.wrapLabel == true
 			end
@@ -838,6 +842,9 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       local look = lookEditor.getEditorValues()
       if look ~= nil and look.opacity ~= nil then
         d.opacity = look.opacity
+      end
+      if look ~= nil and look.labelOpacity ~= nil then
+        d.labelOpacity = look.labelOpacity
       end
     end
     

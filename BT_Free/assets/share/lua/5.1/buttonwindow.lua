@@ -2681,13 +2681,13 @@ function notifyFloatingButtonsChanged()
 		local editing = manage == true
 		root:put("editing", editing)
 		local arr = luajava.new(JSONArray)
-		local function floaterArgb(c, data)
+		local function floaterArgb(c, data, applyOwn)
 			local n = tonumber(c) or 0
 			local forced = effectiveButtonOpacityOverride()
 			if forced ~= nil then
 				n = colorWithForcedAlpha(n, forced)
 			end
-			return applyButtonOpacity(n, data)
+			return applyOwn(n, data)
 		end
 		if not editing and buttons ~= nil then
 			for i, b in ipairs(buttons) do
@@ -2731,18 +2731,18 @@ function notifyFloatingButtonsChanged()
 					local heat = buttonHeatVisual(b)
 					if heat ~= nil then
 						-- Session .buttonopacity must not flatten the scale.
-						-- The button's own percent still scales pad, icon and label.
+						-- Pad and icon use the button percent. The label uses labelOpacity.
 						o:put("primaryColor", fadeButtonOpacity(heat.fill, d))
 						o:put("selectedColor", fadeButtonOpacity(heat.fill, d))
 						o:put("flipColor", fadeButtonOpacity(heat.fill, d))
-						o:put("labelColor", fadeButtonOpacity(heat.label, d))
-						o:put("flipLabelColor", fadeButtonOpacity(heat.label, d))
+						o:put("labelColor", fadeLabelOpacity(heat.label, d))
+						o:put("flipLabelColor", fadeLabelOpacity(heat.label, d))
 					else
-						o:put("primaryColor", floaterArgb(d.primaryColor, d))
-						o:put("selectedColor", floaterArgb(d.selectedColor, d))
-						o:put("flipColor", floaterArgb(d.flipColor, d))
-						o:put("labelColor", floaterArgb(d.labelColor, d))
-						o:put("flipLabelColor", floaterArgb(d.flipLabelColor, d))
+						o:put("primaryColor", floaterArgb(d.primaryColor, d, applyButtonOpacity))
+						o:put("selectedColor", floaterArgb(d.selectedColor, d, applyButtonOpacity))
+						o:put("flipColor", floaterArgb(d.flipColor, d, applyButtonOpacity))
+						o:put("labelColor", floaterArgb(d.labelColor, d, applyLabelOpacity))
+						o:put("flipLabelColor", floaterArgb(d.flipLabelColor, d, applyLabelOpacity))
 					end
 					o:put("width", tonumber(d.width) or 80)
 					o:put("height", tonumber(d.height) or 80)
@@ -2779,7 +2779,7 @@ function notifyFloatingButtonsChanged()
 						o:put("borderColor", fadeButtonOpacity(heat.rim, d))
 					else
 						o:put("border", d.border == true)
-						o:put("borderColor", floaterArgb(d.borderColor, d))
+						o:put("borderColor", floaterArgb(d.borderColor, d, applyButtonOpacity))
 					end
 					-- Same px radius the grid uses (options.roundness * density).
 					o:put("cornerRadiusPx", tonumber(buttonRoundness) or 0)
@@ -4573,6 +4573,7 @@ function buildAccordionOverlay(parent)
 				border = src.data.border == true,
 				borderColor = src.data.borderColor,
 				opacity = rawget(src.data, "opacity"),
+				labelOpacity = rawget(src.data, "labelOpacity"),
 			}
 			copyPinnedOverlayCommands(childData, src.data)
 		else
@@ -4596,6 +4597,7 @@ function buildAccordionOverlay(parent)
 					border = parent.data.border == true,
 					borderColor = parent.data.borderColor,
 					opacity = rawget(parent.data, "opacity"),
+					labelOpacity = rawget(parent.data, "labelOpacity"),
 				}
 			end
 		end
@@ -5664,6 +5666,9 @@ function buttonEditorDone(data)
 		if data.opacity ~= nil then
 			tmp.data.opacity = buttonlook.opacityPercent(data.opacity)
 		end
+		if data.labelOpacity ~= nil then
+			tmp.data.labelOpacity = buttonlook.opacityPercent(data.labelOpacity)
+		end
 		-- force writes true, skip writes false, follow clears the key.
 		-- An editor that did not build the boxes leaves the key alone.
 		if data.avoidKeep ~= true then
@@ -5768,6 +5773,9 @@ function buttonEditorDone(data)
 
 				if data.opacity ~= nil then
 					b.data.opacity = buttonlook.opacityPercent(data.opacity)
+				end
+				if data.labelOpacity ~= nil then
+					b.data.labelOpacity = buttonlook.opacityPercent(data.labelOpacity)
 				end
 				
 				refreshRect(b)
@@ -5885,6 +5893,7 @@ function showEditorDialog()
 		editorValues.fontPath = rawget(button.data, "fontPath") or ""
 		editorValues.fontStyle = rawget(button.data, "fontStyle") or ""
 		editorValues.opacity = rawget(button.data, "opacity")
+		editorValues.labelOpacity = rawget(button.data, "labelOpacity")
 		local avoidMode = buttonlook.avoidMode(button.data)
 		editorValues.avoidText = avoidMode == "force"
 		editorValues.avoidSkip = avoidMode == "skip"
@@ -5897,6 +5906,9 @@ function showEditorDialog()
 		local opacitySeen = false
 		local sharedOpacity = nil
 		local opacityMixed = false
+		local labelOpacitySeen = false
+		local sharedLabelOpacity = nil
+		local labelOpacityMixed = false
 		for i,b in pairs(buttons) do
 			if(b.selected == true) then
 				--start comparing values
@@ -5988,6 +6000,18 @@ function showEditorDialog()
 				elseif tok ~= sharedOpacity then
 					opacityMixed = true
 				end
+
+				local rawLabelOpacity = rawget(b.data, "labelOpacity")
+				local labelTok = nil
+				if rawLabelOpacity ~= nil then
+					labelTok = buttonlook.opacityPercent(rawLabelOpacity)
+				end
+				if not labelOpacitySeen then
+					sharedLabelOpacity = labelTok
+					labelOpacitySeen = true
+				elseif labelTok ~= sharedLabelOpacity then
+					labelOpacityMixed = true
+				end
 			end
 		end
 		-- A shared stored percent is the slider. Anything else stays untouched
@@ -5998,6 +6022,13 @@ function showEditorDialog()
 		else
 			editorValues.opacityMixed = true
 			editorValues.opacity = nil
+		end
+		if labelOpacitySeen and not labelOpacityMixed and sharedLabelOpacity ~= nil then
+			editorValues.labelOpacityMixed = false
+			editorValues.labelOpacity = sharedLabelOpacity
+		else
+			editorValues.labelOpacityMixed = true
+			editorValues.labelOpacity = nil
 		end
 		-- Float fields are single-button only (like gestures/accordion).
 		editorValues.floating = false

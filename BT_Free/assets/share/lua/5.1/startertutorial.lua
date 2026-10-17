@@ -421,11 +421,12 @@ hidden — use the strip: Undo, Redo, gear (set options), Cancel, Done.
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
 tile to edit label/commands/gestures/accordion. On Advanced, tap the icon
-tile (it replaces the whole button). Opacity under those tiles shows the
-pad until you drag it, then fades the pad, the icon and the label. The
-colour picker sets the colour only. With several buttons selected, drag
-Opacity on Advanced to fade all of them; until you drag it, each keeps its
-own transparency. The Label box uses the button's font, so a
+tile (it replaces the whole button). Button opacity under those tiles shows
+the pad until you drag it, then fades the pad and the icon. Label opacity,
+under Label, fades the words only. The colour picker sets the colour only.
+With several buttons selected, drag either slider on Advanced to fade all of
+them; until you drag it, each keeps its own transparency. The Label box uses
+the button's font, so a
 character from that font shows while you type it. In the gear, Grid opacity
 fades the lines; Background opacity under it fades the black so you can read
 the game while you place buttons. Game text avoids this button starts

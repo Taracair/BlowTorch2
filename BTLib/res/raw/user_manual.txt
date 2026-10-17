@@ -4090,13 +4090,19 @@ Edit one button and open **Advanced**:
   colored pad still uses the flip color when there is no icon). While you
   are aiming a swipe, that held icon and the flip icon stay off; the
   direction arrow is the swipe mark.
-- **Opacity** under the icon tiles shows the pad's transparency until you
-  drag it. Then it fades the pad, the icon and the label together. 100% is
-  fully solid. The colour picker sets the colour only. With several buttons
-  selected, the same slider is on the Advanced page: drag it to store that
-  percent on each of them. Until you drag it, a colour change leaves each
-  button's transparency as it was. If they do not already match, the slider
-  says **mixed**.
+- **Button opacity** under the icon tiles shows the pad's transparency until
+  you drag it. Then it fades the pad and the icon. 100% is fully solid. The
+  colour picker sets the colour only. With several buttons selected, the same
+  slider is on the Advanced page: drag it to store that percent on each of
+  them. Until you drag it, a colour change leaves each button's transparency
+  as it was. If they do not already match, the slider says **mixed**.
+- **Label opacity** is under Label on the same Advanced page. It fades the
+  words only. With several buttons selected, drag it the same way. Until you
+  drag it, each label keeps its own transparency. If they do not already
+  match, the slider says **mixed**. A button that already faded the pad, the
+  icon and the words together keeps that fade on the pad and the icon. The
+  words go back to the transparency in the label colour until you drag Label
+  opacity.
 - **Show label** off hides the words only when an icon actually drew.
   **Wrap label** sits beside it and splits a long name onto two lines. Off by
   default. **Enter in the Label field** (Tap / Flip) is a hard break even

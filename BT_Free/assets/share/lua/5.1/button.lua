@@ -82,13 +82,37 @@ local function buttonOpacityPercent(data)
 	return buttonlook.opacityPercent(raw)
 end
 
--- Stored Opacity replaces the colour's alpha. Missing keeps that alpha.
--- .buttonopacity is a session force and wins, so this does not stack on it.
+-- Stored Opacity replaces the pad colour's alpha. Missing keeps that alpha.
+-- The label is labelOpacity. .buttonopacity is a session force and wins,
+-- so this does not stack on it.
 function applyButtonOpacity(color, data)
 	if color == nil or effectiveButtonOpacityOverride() ~= nil then
 		return color
 	end
 	local pct = buttonOpacityPercent(data)
+	if pct == nil then
+		return color
+	end
+	return colorWithForcedAlpha(color, buttonlook.opacityAlpha(pct))
+end
+
+local function labelOpacityPercent(data)
+	if data == nil then
+		return nil
+	end
+	local raw = rawget(data, "labelOpacity")
+	if raw == nil then
+		return nil
+	end
+	return buttonlook.opacityPercent(raw)
+end
+
+-- Stored label opacity replaces the label colour's alpha. Missing keeps that alpha.
+function applyLabelOpacity(color, data)
+	if color == nil or effectiveButtonOpacityOverride() ~= nil then
+		return color
+	end
+	local pct = labelOpacityPercent(data)
 	if pct == nil then
 		return color
 	end
@@ -102,6 +126,18 @@ function fadeButtonOpacity(color, data)
 		return color
 	end
 	local pct = buttonOpacityPercent(data)
+	if pct == nil then
+		return color
+	end
+	return colorWithForcedAlpha(color, buttonlook.mergedAlpha(alphaFromArgb(color), pct))
+end
+
+-- Same scale for the heatmap words, using label opacity.
+function fadeLabelOpacity(color, data)
+	if color == nil then
+		return color
+	end
+	local pct = labelOpacityPercent(data)
 	if pct == nil then
 		return color
 	end
@@ -822,12 +858,12 @@ function BUTTON:draw(state, canvas, swipePreview)
 	-- Held/flip picture only when that gesture is what a release would do.
 	local picture = buttonlook.pictureState(usestate, swipePreview == true)
 	
-	local function tileColor(c)
+	local function paintColor(c, applyOwn)
 		local colored
 		if effectiveButtonOpacityOverride() ~= nil then
 			colored = colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
 		else
-			colored = applyButtonOpacity(c, self.data)
+			colored = applyOwn(c, self.data)
 		end
 		-- Edit mode still draws inactive tiles; fade them so they read as off.
 		if manage == true then
@@ -838,6 +874,12 @@ function BUTTON:draw(state, canvas, swipePreview)
 			end
 		end
 		return colored
+	end
+	local function tileColor(c)
+		return paintColor(c, applyButtonOpacity)
+	end
+	local function labelColor(c)
+		return paintColor(c, applyLabelOpacity)
 	end
 
 	local rect = self.rect
@@ -878,13 +920,13 @@ function BUTTON:draw(state, canvas, swipePreview)
 			end
 		end
 	end
-	-- Badges reuse this alpha. tileColor already applied Opacity or .buttonopacity.
+	-- Badges reuse this alpha. tileColor already applied button opacity or .buttonopacity.
 	local fillAlpha = alphaFromArgb(fill)
 	self._fillAlpha = fillAlpha
 	
 	local label = nil
 	if heat then
-		p:setColor(fadeButtonOpacity(Color:argb(255, heatLR, heatLG, heatLB), self.data))
+		p:setColor(fadeLabelOpacity(Color:argb(255, heatLR, heatLG, heatLB), self.data))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		if(usestate == 2 and self.data.flipLabel ~= nil and self.data.flipLabel ~= "") then
 			label = self.data.flipLabel
@@ -892,12 +934,12 @@ function BUTTON:draw(state, canvas, swipePreview)
 			label = self.data.label
 		end
 	elseif(usestate == 0 or usestate == 1) then
-		p:setColor(tileColor(self.data.labelColor))
+		p:setColor(labelColor(self.data.labelColor))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		--p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 		label = self.data.label
 	elseif(usestate == 2) then
-		p:setColor(tileColor(self.data.flipLabelColor))
+		p:setColor(labelColor(self.data.flipLabelColor))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		if(self.data.flipLabel == "" or self.data.flipLabel == nil) then
 			label = self.data.label

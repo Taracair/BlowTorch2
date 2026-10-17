@@ -39,9 +39,9 @@ local DESC_TEXT = Color:argb(255, 0x9A, 0xA3, 0xAD)
 
 local ui = {}
 
-local COLOR_NOTE_SLIDER = "These colors show when that state has no icon. Drag Opacity to fade them together. Until then each colour keeps its own."
+local COLOR_NOTE_SLIDER = "These colors show when that state has no icon. Button opacity fades the pad. Label opacity, under Label, fades the words. Until you drag one, that colour keeps its own."
 local COLOR_NOTE_PICKER = "These colors show when that state has no icon. The colour picker sets how see-through they are."
-local COLOR_NOTE_MULTI = "These colors show when that state has no icon. Drag Opacity to fade every selected button. A colour change keeps each button's transparency."
+local COLOR_NOTE_MULTI = "These colors show when that state has no icon. Drag Button opacity to fade every selected button. Label opacity fades the words. A colour change keeps each button's transparency."
 
 local function paintColorNote(mode)
   if ui.colorNote == nil then
@@ -77,19 +77,30 @@ local function argbParts(color)
   return a, r, g, b
 end
 
-local function displayColor(color)
-  if color == nil or ui.previewOpacity == nil then
+local function displayColor(color, which)
+  local preview = ui.previewOpacity
+  if which == "label" then
+    preview = ui.previewLabelOpacity
+  end
+  if color == nil or preview == nil then
     return color
   end
   local _, r, g, b = argbParts(color)
-  return Color:argb(buttonlook.opacityAlpha(ui.previewOpacity), r, g, b)
+  return Color:argb(buttonlook.opacityAlpha(preview), r, g, b)
+end
+
+local function swatchWhich(view)
+  if view == ui.normalLabelColorPicker or view == ui.flipLabelColorPicker then
+    return "label"
+  end
+  return "pad"
 end
 
 local function showSwatch(view, color)
   if view == nil or color == nil then
     return
   end
-  view:setBackgroundColor(displayColor(color))
+  view:setBackgroundColor(displayColor(color, swatchWhich(view)))
   view:invalidate()
 end
 
@@ -111,16 +122,35 @@ function previewButtonOpacity(pct)
   refreshSwatches()
 end
 
--- Single button: Opacity owns the alpha once the slider has a percent.
--- Multi-edit: hue only, so a stored Opacity still replaces colour alpha.
+function previewLabelOpacity(pct)
+  if pct == nil then
+    ui.previewLabelOpacity = nil
+  else
+    ui.previewLabelOpacity = buttonlook.opacityPercent(pct)
+  end
+  refreshSwatches()
+end
+
+local function labelColorField(field)
+  return field == "label" or field == "flipLabel"
+end
+
+-- Single button: the matching slider owns the alpha once it has a percent.
+-- Multi-edit: hue only, so a stored percent still replaces colour alpha.
 -- Set defaults: the picker alpha is the transparency.
-local function pickedColor(previous, picked)
-  if ui.multiColorEdit ~= true and not buttoneditorlook.opacitySliderShown() then
+local function pickedColor(previous, picked, field)
+  local shown = buttoneditorlook.opacitySliderShown()
+  local active = buttoneditorlook.opacityActive()
+  if labelColorField(field) then
+    shown = buttoneditorlook.labelOpacitySliderShown()
+    active = buttoneditorlook.labelOpacityActive()
+  end
+  if ui.multiColorEdit ~= true and not shown then
     return picked
   end
   local _, r, g, b = argbParts(picked)
   local a = argbParts(previous)
-  if buttoneditorlook.opacitySliderShown() and buttoneditorlook.opacityActive() then
+  if shown and active then
     a = 255
   end
   return Color:argb(a, r, g, b)
@@ -144,6 +174,7 @@ local function applyDefaultColor(field)
   elseif field == "label" then
     ui.normalLabelColor = color
     showSwatch(ui.normalLabelColorPicker, color)
+    buttoneditorlook.showUnreadLabelOpacity(color)
   elseif field == "flipLabel" then
     ui.flipLabelColor = color
     showSwatch(ui.flipLabelColorPicker, color)
@@ -231,6 +262,11 @@ function makeUI(editorValues,numediting)
     ui.previewOpacity = buttonlook.opacityPercent(editorValues.opacity)
   else
     ui.previewOpacity = nil
+  end
+  if editorValues.labelOpacity ~= nil then
+    ui.previewLabelOpacity = buttonlook.opacityPercent(editorValues.labelOpacity)
+  else
+    ui.previewLabelOpacity = nil
   end
   ui.multiColorEdit = numediting ~= nil and numediting > 1
   defaultColors.normal = editorValues.defaultPrimaryColor or Color:argb(0x88,0x00,0x00,0xFF)
@@ -1157,13 +1193,16 @@ swatchClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     elseif(selectedColorField == "border") then
       color = ui.borderColor
     end
-    local shown = displayColor(color)
+    local shown = displayColor(color, labelColorField(selectedColorField) and "label" or "pad")
     if shown == nil then
       shown = color
     end
     colorpickerdialog = luajava.newInstance("com.resurrection.blowtorch2.lib.button.ColorPickerDialog",context,colorPickerDoneListener,shown)
-    colorpickerdialog:setShowAlpha(ui.multiColorEdit ~= true
-      and not buttoneditorlook.opacitySliderShown())
+    local sliderShown = buttoneditorlook.opacitySliderShown()
+    if labelColorField(selectedColorField) then
+      sliderShown = buttoneditorlook.labelOpacitySliderShown()
+    end
+    colorpickerdialog:setShowAlpha(ui.multiColorEdit ~= true and not sliderShown)
     colorpickerdialog:show()
   end
 })
@@ -1178,22 +1217,22 @@ swatchLongClickListener = luajava.createProxy("android.view.View$OnLongClickList
 colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.button.ColorPickerDialog$OnColorChangedListener",{
   colorChanged = function(color)
     if(selectedColorField == "flip") then
-      ui.flipColor = pickedColor(ui.flipColor, color)
+      ui.flipColor = pickedColor(ui.flipColor, color, "flip")
       showSwatch(ui.flipColorPicker, ui.flipColor)
     elseif(selectedColorField == "normal") then
-      ui.normalColor = pickedColor(ui.normalColor, color)
+      ui.normalColor = pickedColor(ui.normalColor, color, "normal")
       showSwatch(ui.normalColorPicker, ui.normalColor)
     elseif(selectedColorField == "pressed") then
-      ui.pressedColor = pickedColor(ui.pressedColor, color)
+      ui.pressedColor = pickedColor(ui.pressedColor, color, "pressed")
       showSwatch(ui.pressedColorPicker, ui.pressedColor)
     elseif(selectedColorField == "label") then
-      ui.normalLabelColor = pickedColor(ui.normalLabelColor, color)
+      ui.normalLabelColor = pickedColor(ui.normalLabelColor, color, "label")
       showSwatch(ui.normalLabelColorPicker, ui.normalLabelColor)
     elseif(selectedColorField == "flipLabel") then
-      ui.flipLabelColor = pickedColor(ui.flipLabelColor, color)
+      ui.flipLabelColor = pickedColor(ui.flipLabelColor, color, "flipLabel")
       showSwatch(ui.flipLabelColorPicker, ui.flipLabelColor)
     elseif(selectedColorField == "border") then
-      ui.borderColor = pickedColor(ui.borderColor, color)
+      ui.borderColor = pickedColor(ui.borderColor, color, "border")
       showSwatch(ui.borderColorPicker, ui.borderColor)
     end
   end

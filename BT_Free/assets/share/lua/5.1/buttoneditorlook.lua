@@ -210,18 +210,33 @@ function setOnOpacityChanged(fn)
 	onOpacityChanged = fn
 end
 
+function setOnLabelOpacityChanged(fn)
+	onLabelOpacityChanged = fn
+end
+
 function opacityActive()
 	return ui.opacityOwn == true or ui.opacityTouched == true
 end
 
--- Set defaults and multi-edit hide the Opacity row. Those screens still
--- store transparency in the colour, so the picker keeps its alpha bar.
+function labelOpacityActive()
+	return ui.labelOpacityOwn == true or ui.labelOpacityTouched == true
+end
+
+-- Set defaults hide these rows. That screen still stores transparency in the
+-- colour, so the picker keeps its alpha bar. Multi-edit leaves both rows up.
 function opacitySliderShown()
 	if ui.opacityRoot == nil then
 		return false
 	end
 	-- View.VISIBLE is 0. The returned int does not compare equal to the constant.
 	return ui.opacityRoot:getVisibility() == 0
+end
+
+function labelOpacitySliderShown()
+	if ui.labelOpacityRoot == nil then
+		return false
+	end
+	return ui.labelOpacityRoot:getVisibility() == 0
 end
 
 local function labelFor(spec)
@@ -845,10 +860,21 @@ local function paintOpacity()
 		return
 	end
 	if ui.opacityMixed == true and ui.opacityTouched ~= true then
-		ui.opacityLabel:setText("Opacity: mixed")
+		ui.opacityLabel:setText("Button opacity: mixed")
 		return
 	end
-	ui.opacityLabel:setText("Opacity: " .. buttonlook.opacityPercent(ui.opacity) .. "%")
+	ui.opacityLabel:setText("Button opacity: " .. buttonlook.opacityPercent(ui.opacity) .. "%")
+end
+
+local function paintLabelOpacity()
+	if ui.labelOpacityCaption == nil then
+		return
+	end
+	if ui.labelOpacityMixed == true and ui.labelOpacityTouched ~= true then
+		ui.labelOpacityCaption:setText("Label opacity: mixed")
+		return
+	end
+	ui.labelOpacityCaption:setText("Label opacity: " .. buttonlook.opacityPercent(ui.labelOpacity) .. "%")
 end
 
 -- Pad alpha changed (long-press reset) before Opacity owns the button.
@@ -865,6 +891,21 @@ function showUnreadOpacity(color)
 	ui.opacityAdjusting = false
 	ui.opacityTouched = false
 	paintOpacity()
+end
+
+-- Label alpha changed (long-press reset) before Label opacity owns the button.
+function showUnreadLabelOpacity(color)
+	if labelOpacityActive() then
+		return
+	end
+	ui.labelOpacity = buttonlook.alphaPercentFromArgb(color)
+	ui.labelOpacityAdjusting = true
+	if ui.labelOpacitySeek ~= nil then
+		ui.labelOpacitySeek:setProgress(ui.labelOpacity)
+	end
+	ui.labelOpacityAdjusting = false
+	ui.labelOpacityTouched = false
+	paintLabelOpacity()
 end
 
 local function applyIcon(values)
@@ -939,6 +980,25 @@ local function applyIcon(values)
 	ui.opacityAdjusting = false
 	ui.opacityTouched = false
 	paintOpacity()
+	ui.labelOpacityMixed = values.labelOpacityMixed == true
+	if ui.labelOpacityMixed then
+		ui.labelOpacityOwn = false
+		ui.labelOpacity = 100
+	elseif values.labelOpacity ~= nil then
+		ui.labelOpacityOwn = true
+		ui.labelOpacity = buttonlook.opacityPercent(values.labelOpacity)
+	else
+		ui.labelOpacityOwn = false
+		ui.labelOpacity = buttonlook.alphaPercentFromArgb(values.labelColor)
+	end
+	ui.labelOpacityTouched = false
+	ui.labelOpacityAdjusting = true
+	if ui.labelOpacitySeek ~= nil then
+		ui.labelOpacitySeek:setProgress(ui.labelOpacity)
+	end
+	ui.labelOpacityAdjusting = false
+	ui.labelOpacityTouched = false
+	paintLabelOpacity()
 	paintAlign()
 	paintFontSummary()
 end
@@ -1009,7 +1069,7 @@ function attachIcon(parent, values, numediting)
 				onStopTrackingTouch = function(bar) end,
 			}))
 		ui.opacityRoot:addView(ui.opacitySeek)
-		ui.opacityNote = note(ui.opacityRoot, "Shows the pad until you drag it. Then it fades the pad, the icon and the label together. The colour picker sets the colour only.")
+		ui.opacityNote = note(ui.opacityRoot, "Shows the pad until you drag it. Then it fades the pad and the icon. The colour picker sets the colour only.")
 
 		ui.labelRoot = luajava.new(LinearLayout, context)
 		ui.labelRoot:setOrientation(LinearLayout.VERTICAL)
@@ -1017,6 +1077,44 @@ function attachIcon(parent, values, numediting)
 		local labelBar = luajava.new(TextView, context)
 		styleSection(labelBar, "LABEL")
 		ui.labelRoot:addView(labelBar)
+		ui.labelOpacityRoot = luajava.new(LinearLayout, context)
+		ui.labelOpacityRoot:setOrientation(LinearLayout.VERTICAL)
+		ui.labelOpacityRoot:setLayoutParams(luajava.new(LinearLayoutParams, FILL, WRAP))
+		ui.labelOpacityCaption = luajava.new(TextView, context)
+		ui.labelOpacityCaption:setTextSize(13)
+		ui.labelOpacityCaption:setTextColor(INK)
+		ui.labelOpacityCaption:setPadding(dp(10), dp(8), dp(10), dp(2))
+		ui.labelOpacityRoot:addView(ui.labelOpacityCaption)
+		ui.labelOpacitySeek = luajava.new(SeekBar, context)
+		ui.labelOpacitySeek:setMax(100)
+		ui.labelOpacitySeek:setOnSeekBarChangeListener(luajava.createProxy(
+			"android.widget.SeekBar$OnSeekBarChangeListener", {
+				onProgressChanged = function(bar, progress, fromUser)
+					if ui.labelOpacityAdjusting == true then
+						ui.labelOpacity = progress
+						paintLabelOpacity()
+						return
+					end
+					ui.labelOpacity = progress
+					paintLabelOpacity()
+					local user = fromUser == true or tostring(fromUser) == "true"
+					if user then
+						ui.labelOpacityTouched = true
+						if onLabelOpacityChanged ~= nil then
+							onLabelOpacityChanged(buttonlook.opacityPercent(ui.labelOpacity))
+						end
+					end
+				end,
+				onStartTrackingTouch = function(bar) end,
+				onStopTrackingTouch = function(bar) end,
+			}))
+		ui.labelOpacityRoot:addView(ui.labelOpacitySeek)
+		ui.labelOpacityNote = note(ui.labelOpacityRoot, "Shows the words until you drag it. Then it fades the label only. The colour picker sets the colour only.")
+		ui.labelRoot:addView(ui.labelOpacityRoot)
+		ui.labelDetails = luajava.new(LinearLayout, context)
+		ui.labelDetails:setOrientation(LinearLayout.VERTICAL)
+		ui.labelDetails:setLayoutParams(luajava.new(LinearLayoutParams, FILL, WRAP))
+		ui.labelRoot:addView(ui.labelDetails)
 		local checks = luajava.new(LinearLayout, context)
 		checks:setOrientation(LinearLayout.HORIZONTAL)
 		checks:setPadding(dp(4), dp(2), dp(4), 0)
@@ -1028,15 +1126,15 @@ function attachIcon(parent, values, numediting)
 		ui.wrapLabel:setText("Wrap label")
 		ui.wrapLabel:setLayoutParams(luajava.new(LinearLayoutParams, 0, WRAP, 1))
 		checks:addView(ui.wrapLabel)
-		ui.labelRoot:addView(checks)
-		note(ui.labelRoot, "{font:bold} at the start of the label still wins.")
+		ui.labelDetails:addView(checks)
+		note(ui.labelDetails, "{font:bold} at the start of the label still wins.")
 
 		local alignHead = luajava.new(TextView, context)
 		alignHead:setText("Alignment")
 		alignHead:setTextSize(13)
 		alignHead:setTextColor(INK)
 		alignHead:setPadding(dp(10), dp(2), dp(10), dp(2))
-		ui.labelRoot:addView(alignHead)
+		ui.labelDetails:addView(alignHead)
 		ui.alignInheritChip = luajava.new(TextView, context)
 		ui.alignInheritChip:setText(FOLLOW)
 		ui.alignInheritChip:setTextSize(12)
@@ -1051,7 +1149,7 @@ function attachIcon(parent, values, numediting)
 				paintAlign()
 			end,
 		}))
-		ui.labelRoot:addView(ui.alignInheritChip)
+		ui.labelDetails:addView(ui.alignInheritChip)
 		local alignRow = luajava.new(LinearLayout, context)
 		alignRow:setOrientation(LinearLayout.VERTICAL)
 		alignRow:setPadding(dp(8), 0, dp(8), dp(4))
@@ -1093,14 +1191,14 @@ function attachIcon(parent, values, numediting)
 			grid:addView(line)
 		end
 		alignRow:addView(grid)
-		ui.labelRoot:addView(alignRow)
+		ui.labelDetails:addView(alignRow)
 
 		local fontHead = luajava.new(TextView, context)
 		fontHead:setText("Font")
 		fontHead:setTextSize(13)
 		fontHead:setTextColor(INK)
 		fontHead:setPadding(dp(10), dp(8), dp(10), dp(4))
-		ui.labelRoot:addView(fontHead)
+		ui.labelDetails:addView(fontHead)
 		local TruncateAt = luajava.bindClass("android.text.TextUtils$TruncateAt")
 		local fontChip = luajava.new(LinearLayout, context)
 		fontChip:setOrientation(LinearLayout.HORIZONTAL)
@@ -1142,7 +1240,7 @@ function attachIcon(parent, values, numediting)
 				showFontDialog()
 			end,
 		}))
-		ui.labelRoot:addView(fontChip)
+		ui.labelDetails:addView(fontChip)
 
 		parent:addView(ui.iconRoot)
 		parent:addView(ui.opacityRoot)
@@ -1152,15 +1250,29 @@ function attachIcon(parent, values, numediting)
 	local single = showSingle(numediting)
 	local vis = single and View.VISIBLE or View.GONE
 	ui.iconRoot:setVisibility(vis)
-	ui.labelRoot:setVisibility(vis)
+	-- Label opacity stays up for several buttons. Font, wrap and alignment do not.
+	ui.labelRoot:setVisibility(View.VISIBLE)
+	if ui.labelDetails ~= nil then
+		ui.labelDetails:setVisibility(vis)
+	end
 	if ui.opacityRoot ~= nil then
 		ui.opacityRoot:setVisibility(View.VISIBLE)
 	end
+	if ui.labelOpacityRoot ~= nil then
+		ui.labelOpacityRoot:setVisibility(View.VISIBLE)
+	end
 	if ui.opacityNote ~= nil then
 		if single then
-			ui.opacityNote:setText("Shows the pad until you drag it. Then it fades the pad, the icon and the label together. The colour picker sets the colour only.")
+			ui.opacityNote:setText("Shows the pad until you drag it. Then it fades the pad and the icon. The colour picker sets the colour only.")
 		else
 			ui.opacityNote:setText("Drag to fade every selected button. The colour picker changes the colour only.")
+		end
+	end
+	if ui.labelOpacityNote ~= nil then
+		if single then
+			ui.labelOpacityNote:setText("Shows the words until you drag it. Then it fades the label only. The colour picker sets the colour only.")
+		else
+			ui.labelOpacityNote:setText("Drag to fade the label on every selected button. The colour picker changes the colour only.")
 		end
 	end
 end
@@ -1320,6 +1432,9 @@ function hideForSetDefaults()
 	if ui.opacityRoot ~= nil then
 		ui.opacityRoot:setVisibility(View.GONE)
 	end
+	if ui.labelOpacityRoot ~= nil then
+		ui.labelOpacityRoot:setVisibility(View.GONE)
+	end
 end
 
 function getEditorValues()
@@ -1356,6 +1471,9 @@ function getEditorValues()
 	out.fontStyle = ui.styleMode or ""
 	if ui.opacityOwn == true or ui.opacityTouched == true then
 		out.opacity = buttonlook.opacityPercent(ui.opacity)
+	end
+	if ui.labelOpacityOwn == true or ui.labelOpacityTouched == true then
+		out.labelOpacity = buttonlook.opacityPercent(ui.labelOpacity)
 	end
 	if ui.avoid == nil then
 		out.avoidKeep = true
