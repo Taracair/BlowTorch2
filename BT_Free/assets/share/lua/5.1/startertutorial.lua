@@ -434,8 +434,12 @@ off; turn it on for a hole even when .avoidbuttons is off. Game text draws
 under this button starts off; turn it on and text paints through that tile
 even when .avoidbuttons is on. Both off follows .avoidbuttons. Turning one
 on turns the other off.
-Break around every hole is Letters or Words: .avoidbuttons letters|words. Wrap
-label sits beside Show label and splits a long name onto two lines. Enter in the
+Break around every hole is Letters or Words: .avoidbuttons letters|words.
+Flow is Sides or Between: .avoidbuttons sides|between. Sides is the
+default. What does not fit on that row is dropped. If the line does not
+fit beside the buttons, .width over 100 widens the canvas and you drag
+sideways. Wrap label sits beside Show label
+and splits a long name onto two lines. Enter in the
 Label field is a hard break even when that box is off. Active (same row as Name,
 on by default) hides the tile in play without deleting it. Done saves
 the set.
@@ -1544,6 +1548,10 @@ wraps around the grid pad and floating buttons instead of drawing under
 them. Maps may break. .avoidbuttons letters (default) moves one character
 at a time; .avoidbuttons words keeps whole words off the hole.
 .avoidbuttons margin N adds pixels around every hole (0–200).
+.avoidbuttons sides (default) is one solid hole; .avoidbuttons between
+puts letters in the gaps. What does not fit on that row is dropped. If
+the line does not fit beside the buttons, .width over 100 widens the
+canvas and you drag sideways.
 .avoidbuttons on|off. One button can stay a hole when that is off, or let
 text draw under it when that is on: Edit buttons, Advanced.
 Options → Window → Layout → Jump to the live edge when you send? (on by default):
@@ -1805,7 +1813,7 @@ local TIPS = {
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Layout → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Links → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways. .avoidbuttons on wraps that text around the grid pad and floating buttons (maps may break).]],
-	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. .avoidbuttons margin N adds pixels around every hole. Off by default — ASCII maps may break. Live while dragging a floating button. One button can stay a hole when that is off, or let text draw under it when that is on: Edit buttons → Advanced. Options → Window → Text → Text avoids on-screen buttons?.]],
+	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. .avoidbuttons sides|between chooses one solid hole (default) or letters in the gaps. What does not fit on that row is dropped. If the line does not fit beside the buttons, .width over 100 widens the canvas and you drag sideways. .avoidbuttons margin N adds pixels around every hole. Off by default — ASCII maps may break. Live while dragging a floating button. One button can stay a hole when that is off, or let text draw under it when that is on: Edit buttons → Advanced. Options → Window → Text → Text avoids on-screen buttons?.]],
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	last = [[.last resends the newest command. .2last resends the one before it, .3last the one before that. You sent north, then look, then inventory: .last sends inventory. .last input puts that command in the bar and does not send it. .lastlist opens this world's list. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. .lastfloat off hides them. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. The game does not receive .last.]],

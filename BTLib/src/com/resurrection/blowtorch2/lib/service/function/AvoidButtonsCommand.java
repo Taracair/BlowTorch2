@@ -7,7 +7,7 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
 /**
  * Wrap game text around on-screen buttons: {@code .avoidbuttons},
  * {@code .avoidbuttons on|off|toggle}, {@code .avoidbuttons letters|words},
- * {@code .avoidbuttons margin N}.
+ * {@code .avoidbuttons sides|between}, {@code .avoidbuttons margin N}.
  *
  * <p>Same preference as Options → Window → Text avoids on-screen buttons?
  * and Avoid-buttons break. Window options, not connection options — see
@@ -18,6 +18,7 @@ public class AvoidButtonsCommand extends SpecialCommand {
 	public static final String OPTION_KEY = "text_avoid_buttons";
 	public static final String OPTION_BREAK_KEY = "text_avoid_buttons_break";
 	public static final String OPTION_MARGIN_KEY = "text_avoid_buttons_margin";
+	public static final String OPTION_FLOW_KEY = "text_avoid_buttons_flow";
 
 	public AvoidButtonsCommand() {
 		this.commandName = "avoidbuttons";
@@ -30,12 +31,15 @@ public class AvoidButtonsCommand extends SpecialCommand {
 				WindowToken.DEFAULT_AVOID_BUTTONS_BREAK));
 		int margin = WindowToken.clampAvoidMargin(c.getMainWindowIntegerOption(OPTION_MARGIN_KEY,
 				WindowToken.DEFAULT_AVOID_BUTTONS_MARGIN));
+		int flow = WindowToken.clampAvoidFlow(c.getMainWindowIntegerOption(OPTION_FLOW_KEY,
+				WindowToken.DEFAULT_AVOID_BUTTONS_FLOW));
 
 		if (arg.length() == 0) {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "Text avoiding on-screen buttons is currently "
 					+ (on ? "on" : "off")
 					+ ", break " + breakLabel(breakMode)
+					+ ", flow " + flowLabel(flow)
 					+ ", margin " + margin + " px.\n"
 					+ usage()
 					+ "Also: Options → Window → Text avoids on-screen buttons?\n");
@@ -49,6 +53,11 @@ public class AvoidButtonsCommand extends SpecialCommand {
 		Integer asBreak = parseBreakToken(first);
 		if (asBreak != null) {
 			return setBreak(c, asBreak.intValue(), breakMode);
+		}
+		Integer asFlow = parseFlowToken(first);
+		if (asFlow != null) {
+			return setList(c, OPTION_FLOW_KEY, asFlow.intValue(), flow, "flow",
+					flowLabel(asFlow.intValue()));
 		}
 
 		Boolean desired = DimRepeatCommand.parseOnOff(first);
@@ -135,12 +144,42 @@ public class AvoidButtonsCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object setList(final Connection c, final String key, final int next, final int current,
+			final String name, final String label) {
+		if (next == current) {
+			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+					+ "Avoid-buttons " + name + " already " + label + ".\n");
+			return null;
+		}
+		if (!c.updateMainWindowIntegerOption(key, next)) {
+			c.sendDataToWindow(getErrorMessage("Avoidbuttons command error",
+					"There is no game window to change yet."));
+			return null;
+		}
+		boolean on = c.getMainWindowBooleanOption(OPTION_KEY, false);
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "Avoid-buttons " + name + " " + label + "."
+				+ (on ? "" : " Text avoiding is off (.avoidbuttons on).")
+				+ "\n");
+		return null;
+	}
+
 	static Integer parseBreakToken(final String token) {
 		if ("letters".equals(token)) {
 			return Integer.valueOf(WindowToken.AVOID_BUTTONS_BREAK_LETTERS);
 		}
 		if ("words".equals(token)) {
 			return Integer.valueOf(WindowToken.AVOID_BUTTONS_BREAK_WORDS);
+		}
+		return null;
+	}
+
+	static Integer parseFlowToken(final String token) {
+		if ("sides".equals(token)) {
+			return Integer.valueOf(WindowToken.AVOID_BUTTONS_FLOW_SIDES);
+		}
+		if ("between".equals(token)) {
+			return Integer.valueOf(WindowToken.AVOID_BUTTONS_FLOW_BETWEEN);
 		}
 		return null;
 	}
@@ -156,10 +195,16 @@ public class AvoidButtonsCommand extends SpecialCommand {
 		return mode == WindowToken.AVOID_BUTTONS_BREAK_WORDS ? "words" : "letters";
 	}
 
+	static String flowLabel(final int mode) {
+		return mode == WindowToken.AVOID_BUTTONS_FLOW_BETWEEN ? "between" : "sides";
+	}
+
 	static String usage() {
-		return "Usage: .avoidbuttons on | off | toggle | letters | words | margin N\n"
+		return "Usage: .avoidbuttons on | off | toggle | letters | words | sides | between | margin N\n"
 				+ "Game text wraps around on-screen buttons (grid pad and floating copies).\n"
 				+ "letters = one character at a time (default); words = keep whole words.\n"
+				+ "sides = one solid hole (default); between = letters in the gaps.\n"
+				+ "What does not fit on that screen row is dropped. If the line does not fit beside the buttons, .width widens the canvas and you drag sideways.\n"
 				+ "margin N is extra pixels around every button (0–"
 				+ WindowToken.MAX_AVOID_BUTTONS_MARGIN
 				+ "). A button can add its own.\n"

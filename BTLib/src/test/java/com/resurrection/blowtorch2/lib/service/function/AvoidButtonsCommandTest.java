@@ -26,6 +26,7 @@ public class AvoidButtonsCommandTest {
 		assertEquals("text_avoid_buttons", AvoidButtonsCommand.OPTION_KEY);
 		assertEquals("text_avoid_buttons_break", AvoidButtonsCommand.OPTION_BREAK_KEY);
 		assertEquals("text_avoid_buttons_margin", AvoidButtonsCommand.OPTION_MARGIN_KEY);
+		assertEquals("text_avoid_buttons_flow", AvoidButtonsCommand.OPTION_FLOW_KEY);
 		assertEquals(0, WindowToken.DEFAULT_AVOID_BUTTONS_MARGIN);
 		assertEquals(0, WindowToken.clampAvoidMargin(-4));
 		assertEquals(12, WindowToken.clampAvoidMargin(12));
@@ -48,6 +49,15 @@ public class AvoidButtonsCommandTest {
 				AvoidButtonsCommand.parseBreakToken("words"));
 		assertNull(AvoidButtonsCommand.parseBreakToken("toggle"));
 		assertNull(AvoidButtonsCommand.parseBreakToken("on"));
+		assertEquals(Integer.valueOf(WindowToken.AVOID_BUTTONS_FLOW_SIDES),
+				AvoidButtonsCommand.parseFlowToken("sides"));
+		assertEquals(Integer.valueOf(WindowToken.AVOID_BUTTONS_FLOW_BETWEEN),
+				AvoidButtonsCommand.parseFlowToken("between"));
+		assertNull(AvoidButtonsCommand.parseFlowToken("letters"));
+		assertNull(AvoidButtonsCommand.parseFlowToken("wrap"));
+		assertTrue(AvoidButtonsCommand.usage().contains("sides"));
+		assertTrue(AvoidButtonsCommand.usage().contains("between"));
+		assertTrue(AvoidButtonsCommand.usage().contains(".width"));
 	}
 
 	@Test

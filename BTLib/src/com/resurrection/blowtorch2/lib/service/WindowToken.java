@@ -41,6 +41,10 @@ public class WindowToken implements Parcelable {
 	public static final int AVOID_BUTTONS_BREAK_LETTERS = 0;
 	/** .avoidbuttons words — do not split a word across the button hole. */
 	public static final int AVOID_BUTTONS_BREAK_WORDS = 1;
+	/** .avoidbuttons sides — one solid hole; letters outside it. Index 0. */
+	public static final int AVOID_BUTTONS_FLOW_SIDES = 0;
+	/** .avoidbuttons between — letters in the gaps, not past the rightmost cluster. */
+	public static final int AVOID_BUTTONS_FLOW_BETWEEN = 1;
 	/** Extra pixels around each button hole. 0 matches the button rect. */
 	public static final int DEFAULT_AVOID_BUTTONS_MARGIN = 0;
 	public static final int MAX_AVOID_BUTTONS_MARGIN = 200;
@@ -57,6 +61,15 @@ public class WindowToken implements Parcelable {
 
 	/** Default break mode while text_avoid_buttons is on (letters). */
 	public static final int DEFAULT_AVOID_BUTTONS_BREAK = AVOID_BUTTONS_BREAK_LETTERS;
+	/** Default flow: one solid hole, same as before Between existed. */
+	public static final int DEFAULT_AVOID_BUTTONS_FLOW = AVOID_BUTTONS_FLOW_SIDES;
+
+	public static int clampAvoidFlow(final int value) {
+		if (value == AVOID_BUTTONS_FLOW_BETWEEN) {
+			return AVOID_BUTTONS_FLOW_BETWEEN;
+		}
+		return AVOID_BUTTONS_FLOW_SIDES;
+	}
 	/** Default font size. */
 	public static final int DEFAULT_FONT_SIZE = 20;
 	/** Default .pick magnifier size (percent of the original circle). */
@@ -175,6 +188,8 @@ public class WindowToken implements Parcelable {
 		text_avoid_buttons_break,
 		/** Extra pixels around every button hole. Default 0. */
 		text_avoid_buttons_margin,
+		/** Sides (one hole) or between (gaps). Default sides. */
+		text_avoid_buttons_flow,
 		/** After a send, jump the main window to the live edge. Default on. */
 		jump_on_send,
 		/** Newest game lines at the top of the window (older below). */
@@ -569,6 +584,14 @@ public class WindowToken implements Parcelable {
 		avoidButtonsMargin.setKey("text_avoid_buttons_margin");
 		avoidButtonsMargin.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_MARGIN));
 
+		ListOption avoidButtonsFlow = new ListOption();
+		avoidButtonsFlow.setTitle("Avoid-buttons flow");
+		avoidButtonsFlow.setDescription("While text avoids buttons, keep one solid hole or put letters in the gaps; what does not fit on that row is dropped, and .width widens the canvas so you can drag sideways to read it.");
+		avoidButtonsFlow.setKey("text_avoid_buttons_flow");
+		avoidButtonsFlow.addItem("Sides");
+		avoidButtonsFlow.addItem("Between");
+		avoidButtonsFlow.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_FLOW));
+
 		BooleanOption jumpOnSend = new BooleanOption();
 		jumpOnSend.setTitle("Jump to the live edge when you send?");
 		jumpOnSend.setDescription("After you send a line, scroll to the newest text.");
@@ -750,6 +773,7 @@ public class WindowToken implements Parcelable {
 		text.addOption(avoidButtons);
 		text.addOption(avoidButtonsBreak);
 		text.addOption(avoidButtonsMargin);
+		text.addOption(avoidButtonsFlow);
 		text.addOption(pickLoupeSize);
 		text.addOption(pickLoupeZoom);
 		text.addOption(copyLoupeSize);

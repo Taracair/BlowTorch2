@@ -292,7 +292,10 @@ Do not put that half cell into `blobColumns`. `floor` of an aligned edge plus
 half a cell stays on the same column, and `ceil` of an aligned edge plus half a
 cell grows by a whole column. The two edges also cross a column at different
 pan fractions, and `layoutInRow` does not place a dropped character on the next
-row.
+row. `layoutBetween` does not either. Extra screen rows from a button hole
+inserted enters and reflowed the canvas while scrolling (phone, 17 Sep 2026).
+What does not fit beside the buttons is the player's `.width` and a sideways
+drag.
 
 ---
 

@@ -328,6 +328,7 @@ it cannot be disabled or deleted.
 | **Button label font file** | empty | A `.ttf` or `.otf` path. Empty uses the list. A missing file keeps the default face |
 | **Button label horizontal / vertical** | Center | Where the label sits, unless that button overrides it on the Advanced tab |
 | **Avoid-buttons margin (px)** | 0 | Window → Text. Extra pixels around every button hole while text avoids buttons. `.avoidbuttons margin N` (0–200). On Advanced, a button can add its own margin, be a hole even when this is off, or let text draw under it even when this is on |
+| **Avoid-buttons flow** | Sides | Window → Text. Sides is one solid hole. Between puts letters in the gaps. The strip past the rightmost button is unused only when the row has two separate groups; buttons that touch are one group, so a left-hand pad still has the page beside it. What does not fit on that row is dropped. If the line does not fit beside the buttons, `.width` over 100 widens the canvas and you drag sideways. `.avoidbuttons sides` or `between` |
 
 A short tap on empty grid in Edit buttons still makes a new tile. Long-press an
 empty cell pastes copied buttons. The old **Automatically create buttons** /

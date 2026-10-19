@@ -170,6 +170,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * one letter at a time. Default false = letters.
 	 */
 	private boolean mAvoidBreakWords = false;
+	/** Sides (one hole) or between (gaps). Default sides. */
+	private int mAvoidFlow = WindowToken.DEFAULT_AVOID_BUTTONS_FLOW;
 	/** Supplies Window-local floating-button rects; null on extra-text windows. */
 	private FloatingButtonObstacles mFloatingButtonObstacles;
 	private final ArrayList<ButtonTextFlow.RectPx> mAvoidButtonRects =
@@ -1007,6 +1009,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mAvoidButtonMargin = WindowToken.clampAvoidMargin(
 					((Integer) avoidMargin.getValue()).intValue());
 		}
+		ListOption avoidFlow = (ListOption) settings.findOptionByKey("text_avoid_buttons_flow");
+		if (avoidFlow != null) {
+			mAvoidFlow = WindowToken.clampAvoidFlow(((Integer) avoidFlow.getValue()).intValue());
+		}
 		BooleanOption jumpOnSend = (BooleanOption) settings.findOptionByKey("jump_on_send");
 		if (jumpOnSend != null) {
 			mJumpOnSend = (Boolean) jumpOnSend.getValue();
@@ -1691,7 +1697,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
-	private void beginAvoidWrapRow(final Line l, final ListIterator<Unit> it, final float y,
+	private void beginAvoidWrapRow(final Line l, final int dataIndex, final float y,
 			final int bufferLine) {
 		mAvoidRemap = false;
 		mAvoidVisualRows = 1;
@@ -1701,7 +1707,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mAvoidHoleCol0 = 0;
 		mAvoidHoleCol1 = 0;
 		mAvoidRuns.clear();
-		if (!avoidButtonsActive() || mAvoidButtonRects.isEmpty() || it == null
+		if (!avoidButtonsActive() || mAvoidButtonRects.isEmpty() || dataIndex < 0
 				|| mOneCharWidth <= 0 || mCalculatedRowsInWindow <= 0) {
 			recordAvoidHitSpans(bufferLine, y, 1, 0, null);
 			return;
@@ -1716,7 +1722,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		int viewportCols = mCalculatedRowsInWindow;
-		String plain = peekWrapRowPlain(l, it);
+		String plain = peekWrapRowPlain(l, dataIndex);
 		int n = plain.length();
 		int scrollCols = (int) Math.floor(mScrollX / (float) mOneCharWidth);
 		if (scrollCols < 0) {
@@ -1743,9 +1749,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// Letters: hardBreak one character at a time. Words: break at spaces so
 		// a word is not split across the button hole. The line's own soft wraps
 		// are already Breaks. Global word-wrap is a different option.
+		// Leftover on this screen row is not placed on the next one.
 		boolean wordBreak = mAvoidBreakWords;
-		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutInRow(vis, mAvoidButtonRects,
-				rowTop, rowH, mOneCharWidth, viewportCols, wordBreak, !wordBreak, slice);
+		boolean between = mAvoidFlow == WindowToken.AVOID_BUTTONS_FLOW_BETWEEN;
+		List<ButtonTextFlow.Run> runs;
+		if (!between) {
+			runs = ButtonTextFlow.layoutInRow(vis, mAvoidButtonRects,
+					rowTop, rowH, mOneCharWidth, viewportCols, wordBreak, !wordBreak, slice);
+		} else {
+			runs = ButtonTextFlow.layoutBetween(vis, mAvoidButtonRects, rowTop, rowH,
+					mOneCharWidth, viewportCols, getWidth(), wordBreak, !wordBreak, slice);
+		}
 		mAvoidRuns.addAll(runs);
 		mAvoidRemap = true;
 		mAvoidVisualRows = 1;
@@ -1757,7 +1771,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		ButtonTextFlow.Run[] runArr = mAvoidRuns.isEmpty() ? null
 				: mAvoidRuns.toArray(new ButtonTextFlow.Run[mAvoidRuns.size()]);
-		recordAvoidHitSpans(bufferLine, y, 1, mAvoidSliceFrom, runArr);
+		recordAvoidHitSpans(bufferLine, y, mAvoidVisualRows, mAvoidSliceFrom, runArr);
 	}
 
 	private void recordAvoidHitSpans(final int bufferLine, final float logicalY0,
@@ -1766,28 +1780,42 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		int rows = visualRows < 1 ? 1 : visualRows;
-		int holeCol1 = mAvoidHoleCol1;
-		float blobLeft = mAvoidBlobPx != null ? mAvoidBlobPx.left : 0f;
-		float blobRight = mAvoidBlobPx != null ? mAvoidBlobPx.right : 0f;
 		for (int i = 0; i < rows; i++) {
 			float logical = logicalY0 + i * mPrefLineSize;
+			int holeCol1 = mAvoidHoleCol1;
+			float blobLeft = mAvoidBlobPx != null ? mAvoidBlobPx.left : 0f;
+			float blobRight = mAvoidBlobPx != null ? mAvoidBlobPx.right : 0f;
+			if (i > 0 && mAvoidFlow != WindowToken.AVOID_BUTTONS_FLOW_BETWEEN) {
+				int step = mNewestAtTop ? -mPrefLineSize : mPrefLineSize;
+				int rowTop = Math.round(cellTop(logicalY0)) + i * step;
+				ButtonTextFlow.RectPx rowBlob = ButtonTextFlow.mergedBlobPx(mAvoidButtonRects,
+						rowTop, rowTop + mPrefLineSize);
+				if (rowBlob != null) {
+					blobLeft = rowBlob.left;
+					blobRight = rowBlob.right;
+					int[] cols = ButtonTextFlow.blobColumns(rowBlob, mOneCharWidth, 0,
+							mCalculatedRowsInWindow);
+					if (cols != null) {
+						holeCol1 = cols[1];
+					}
+				}
+			}
 			mAvoidHitSpans.add(new AvoidHitSpan(cellTop(logical), cellBottom(logical),
 					screenBaselineY(logical), bufferLine, i, sliceFrom, holeCol1, blobLeft,
 					blobRight, runs));
 		}
 	}
 
-	private String peekWrapRowPlain(final Line l, final ListIterator<Unit> it) {
+	private String peekWrapRowPlain(final Line l, final int dataIndex) {
 		mAvoidWrapPlain.setLength(0);
-		if (l == null || it == null) {
+		if (l == null || dataIndex < 0) {
 			return "";
 		}
 		java.util.LinkedList<Unit> data = l.getData();
 		if (data == null) {
 			return "";
 		}
-		int idx = it.nextIndex();
-		for (int i = idx; i < data.size(); i++) {
+		for (int i = dataIndex; i < data.size(); i++) {
 			Unit u = data.get(i);
 			if (u instanceof TextTree.Break || u instanceof TextTree.NewLine) {
 				break;
@@ -1817,7 +1845,83 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	private int avoidWrapRowAdvance() {
-		return mAvoidRemap ? Math.max(1, mAvoidVisualRows) : 1;
+		return 1;
+	}
+
+	private float avoidGlyphX(final ButtonTextFlow.Run run, final int destCol) {
+		if (run != null && run.clipRight >= 0) {
+			if (run.rightPocket) {
+				return ButtonTextFlow.rightPocketViewX(destCol, run.holeCol1, run.anchorLeft,
+						run.anchorRight, mOneCharWidth, mScrollX);
+			}
+			return ButtonTextFlow.panViewX(destCol, mAvoidSliceFrom, mOneCharWidth, mScrollX);
+		}
+		ButtonTextFlow.RectPx blob = blobForAvoidRun(run);
+		int hole1 = holeCol1For(run, blob);
+		if (blob != null && destCol >= hole1) {
+			return ButtonTextFlow.rightPocketViewX(destCol, hole1, blob.left, blob.right,
+					mOneCharWidth, mScrollX);
+		}
+		if (blob != null) {
+			return ButtonTextFlow.leftPocketViewX(destCol, mAvoidSliceFrom, blob.left, blob.right,
+					mOneCharWidth, mScrollX);
+		}
+		return ButtonTextFlow.panViewX(destCol, mAvoidSliceFrom, mOneCharWidth, mScrollX);
+	}
+
+	/** Row 0 keeps the blob captured at layout. Later wrap rows recompute it. */
+	private ButtonTextFlow.RectPx blobForAvoidRun(final ButtonTextFlow.Run run) {
+		if (run == null || run.visualRow <= 0) {
+			return mAvoidBlobPx;
+		}
+		int step = mNewestAtTop ? -mPrefLineSize : mPrefLineSize;
+		int rowTop = Math.round(cellTop(mAvoidY0)) + run.visualRow * step;
+		ButtonTextFlow.RectPx blob = ButtonTextFlow.mergedBlobPx(mAvoidButtonRects, rowTop,
+				rowTop + Math.max(1, mPrefLineSize));
+		return blob != null ? blob : mAvoidBlobPx;
+	}
+
+	private int holeCol1For(final ButtonTextFlow.Run run, final ButtonTextFlow.RectPx blob) {
+		if (run == null || run.visualRow <= 0) {
+			return mAvoidHoleCol1;
+		}
+		int[] cols = ButtonTextFlow.blobColumns(blob, mOneCharWidth, 0, mCalculatedRowsInWindow);
+		if (cols == null) {
+			return mAvoidHoleCol1;
+		}
+		return cols[1];
+	}
+
+	private void clipAvoidGlyph(final Canvas c, final ButtonTextFlow.Run run, final int destCol) {
+		if (run != null && run.clipRight >= 0) {
+			int h = Math.max(1, getHeight());
+			if (run.clipRight > run.clipLeft) {
+				c.clipRect(run.clipLeft, 0, run.clipRight, h);
+			} else {
+				c.clipRect(0, 0, 0, 0);
+			}
+			return;
+		}
+		if (run != null && run.visualRow > 0) {
+			ButtonTextFlow.RectPx blob = blobForAvoidRun(run);
+			int[] cols = ButtonTextFlow.blobColumns(blob, mOneCharWidth, 0, mCalculatedRowsInWindow);
+			int hole0 = cols != null ? cols[0] : mAvoidHoleCol0;
+			int hole1 = cols != null ? cols[1] : mAvoidHoleCol1;
+			int h = Math.max(1, getHeight());
+			int w = Math.max(1, getWidth());
+			if (blob == null) {
+				return;
+			}
+			if (destCol < hole0) {
+				c.clipRect(0, 0, blob.left, h);
+			} else if (destCol >= hole1) {
+				c.clipRect(blob.right, 0, w, h);
+			} else {
+				c.clipRect(0, 0, 0, 0);
+			}
+			return;
+		}
+		clipAvoidPocket(c, destCol);
 	}
 
 	/** Clip a panned remnant to the viewport pocket so it does not smear under the button. */
@@ -1887,19 +1991,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int utf16End = s.offsetByCodePoints(utf16, take);
 			String piece = s.substring(utf16, utf16End);
 			int destCol = run.destCol + (src - run.srcStart);
-			if (destCol >= mAvoidHoleCol1 && mAvoidBlobPx != null) {
-				dx = ButtonTextFlow.rightPocketViewX(destCol, mAvoidHoleCol1, mAvoidBlobPx.left,
-						mAvoidBlobPx.right, mOneCharWidth, mScrollX);
-			} else if (mAvoidBlobPx != null) {
-				dx = ButtonTextFlow.leftPocketViewX(destCol, mAvoidSliceFrom, mAvoidBlobPx.left,
-						mAvoidBlobPx.right, mOneCharWidth, mScrollX);
-			} else {
-				dx = ButtonTextFlow.panViewX(destCol, mAvoidSliceFrom, mOneCharWidth, mScrollX);
-			}
+			dx = avoidGlyphX(run, destCol);
 			dy = mAvoidY0 + run.visualRow * mPrefLineSize;
 			c.save();
 			try {
-			clipAvoidPocket(c, destCol);
+			clipAvoidGlyph(c, run, destCol);
 			if (theSelection != null) {
 				int finishCol = workingcol + consumed + take;
 				boolean selected = false;
@@ -4786,7 +4882,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				// the screen painted empty (phone, 17 Sep 2026).
 				unitIterator = l.getIterator();
 				if (avoidButtonsActive()) {
-					beginAvoidWrapRow(l, unitIterator, y, workingline);
+					beginAvoidWrapRow(l, unitIterator.nextIndex(), y, workingline);
 				} else {
 					mAvoidRemap = false;
 				}
@@ -5150,13 +5246,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						int avoidRows = avoidWrapRowAdvance();
 						y = y + avoidRows * mPrefLineSize;
 						x = -mScrollX;
-						drawnlines += 1;
+						drawnlines += avoidRows;
 						workingcol = 0;
 						if (drawnlines > mCalculatedLinesInWindow + extraLines) {
 							stop = true;
 						}
 						if (!stop && u instanceof TextTree.Break) {
-							beginAvoidWrapRow(l, unitIterator, y, workingline);
+							beginAvoidWrapRow(l, unitIterator.nextIndex(), y, workingline);
 						}
 						break;
 					default:
@@ -5167,7 +5263,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					int avoidRows = avoidWrapRowAdvance();
 					y = y + avoidRows * mPrefLineSize;
 					x = -mScrollX;
-					drawnlines += 1;
+					drawnlines += avoidRows;
 					workingcol = 0;
 				}
 				workingline = workingline - 1;
@@ -6571,7 +6667,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					return touchXToColumn(x);
 				}
 				int destCol;
-				if (x >= s.blobRight) {
+				if (spanUsesGapClip(s)) {
+					destCol = gapDestCol(s, x);
+				} else if (x >= s.blobRight) {
 					destCol = ButtonTextFlow.rightPocketDestCol(x, s.holeCol1, s.blobLeft,
 							s.blobRight, mOneCharWidth, mScrollX);
 				} else {
@@ -6585,6 +6683,47 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 		return touchXToColumn(x);
+	}
+
+	private boolean spanUsesGapClip(final AvoidHitSpan s) {
+		if (s.runs == null) {
+			return false;
+		}
+		for (int j = 0; j < s.runs.length; j++) {
+			ButtonTextFlow.Run r = s.runs[j];
+			if (r.visualRow == s.visualRow && r.clipRight >= 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private int gapDestCol(final AvoidHitSpan s, final float x) {
+		ButtonTextFlow.Run hit = null;
+		int best = Integer.MAX_VALUE;
+		for (int j = 0; j < s.runs.length; j++) {
+			ButtonTextFlow.Run r = s.runs[j];
+			if (r.visualRow != s.visualRow || r.clipRight < 0) {
+				continue;
+			}
+			if (x >= r.clipLeft && x < r.clipRight) {
+				hit = r;
+				break;
+			}
+			int dist = x < r.clipLeft ? (int) (r.clipLeft - x) : (int) (x - r.clipRight);
+			if (dist < best) {
+				best = dist;
+				hit = r;
+			}
+		}
+		if (hit == null) {
+			return touchXToColumn(x);
+		}
+		if (hit.rightPocket) {
+			return ButtonTextFlow.rightPocketDestCol(x, hit.holeCol1, hit.anchorLeft,
+					hit.anchorRight, mOneCharWidth, mScrollX);
+		}
+		return ButtonTextFlow.panDestCol(x, s.sliceFrom, mOneCharWidth, mScrollX);
 	}
 
 	private int mapAvoidDestColToSrc(final AvoidHitSpan s, final int destCol) {
@@ -6661,7 +6800,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				if (src >= r.srcStart && src < r.srcEnd) {
 					int dest = r.destCol + (src - r.srcStart);
-					if (dest >= s.holeCol1) {
+					if (r.clipRight >= 0) {
+						if (r.rightPocket) {
+							out[0] = ButtonTextFlow.rightPocketViewX(dest, r.holeCol1,
+									r.anchorLeft, r.anchorRight, mOneCharWidth, mScrollX);
+						} else {
+							out[0] = ButtonTextFlow.panViewX(dest, s.sliceFrom, mOneCharWidth,
+									mScrollX);
+						}
+					} else if (dest >= s.holeCol1) {
 						out[0] = ButtonTextFlow.rightPocketViewX(dest, s.holeCol1, s.blobLeft,
 								s.blobRight, mOneCharWidth, mScrollX);
 					} else {
@@ -8540,6 +8687,12 @@ end
 				dropLineTiles();
 				this.invalidate();
 				break;
+			case text_avoid_buttons_flow:
+				mAvoidFlow = WindowToken.clampAvoidFlow(((Integer) o.getValue()).intValue());
+				((ListOption) o).setValue(Integer.valueOf(mAvoidFlow));
+				dropLineTiles();
+				this.invalidate();
+				break;
 			case jump_on_send:
 				mJumpOnSend = (Boolean) o.getValue();
 				break;
@@ -8792,6 +8945,7 @@ end
 		text_avoid_buttons,
 		text_avoid_buttons_break,
 		text_avoid_buttons_margin,
+		text_avoid_buttons_flow,
 		jump_on_send,
 		newest_at_top,
 		dim_repeated_lines,

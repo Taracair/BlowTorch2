@@ -2702,7 +2702,7 @@ is enabled; `.alias list` shows every alias at once.
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Input bar → Show Send button?
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Text → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text → Text width (% of screen)
-    `.avoidbuttons [on|off|toggle|letters|words|margin N]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. Does not insert extra rows into the rest of the screen. `letters` (default) moves one character at a time past the button; `words` keeps whole words on one side of the hole. `margin N` is extra pixels around every hole (0–200). Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text → Text avoids on-screen buttons? / Avoid-buttons break / Avoid-buttons margin
+    `.avoidbuttons [on|off|toggle|letters|words|sides|between|margin N]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. `sides` (default) is one solid hole from the leftmost button to the rightmost. `between` puts letters in the left strip and in every gap. The strip past the rightmost button is unused only when the row has two or more separate groups; buttons that touch are one group, so a pad on the left still has the page beside it. What does not fit on that screen row is dropped. If the line does not fit beside the buttons on the right, `.width` over 100 widens the canvas and you drag sideways. `letters` (default) moves one character at a time; `words` keeps a whole word in one gap, and moves it to the next gap on that row when it does not fit. `margin N` is extra pixels around every hole (0–200). Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text
     `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Layout → Jump to the live edge when you send?
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window → Text
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Text → Light theme?
@@ -3551,20 +3551,32 @@ in the list because it is the same design as DejaVu.
 ## Text avoids on-screen buttons
 
 **Options → Window → Text → Text avoids on-screen buttons?** (off by default), or
-`.avoidbuttons on|off`. With it on, an on-screen button is a hole: game text
-wraps in the columns left of it (and continues on the right if there is
-room) instead of drawing underneath. Leftover on that row is clipped; it
-does not insert extra rows that shove the rest of the screen. Two buttons
-that share a row are one blob from the leftmost edge to the rightmost —
-text does not squeeze between them. That includes the ordinary grid pad
-and floating copies.
+`.avoidbuttons on|off`. With it on, an on-screen button is a hole. That
+includes the ordinary grid pad and floating copies.
+
+**Avoid-buttons flow** (`.avoidbuttons sides|between`, default **sides**):
+`sides` makes every button on the row one solid hole from the leftmost edge
+to the rightmost. Letters sit to the left of that hole, and to the right of
+it when there is room. `between` puts letters in the strip left of the first
+button and in each gap. A word that does not fit one gap moves to the next
+gap on that row. The strip past the rightmost button is used only when the
+row has a single cluster. Buttons that touch or overlap are one cluster, so a
+pad that sits only on the left still has the page beside it. Two separate
+groups, one on each side, leave that right-hand strip empty, so the line does
+not run off the screen there.
+
+What does not fit in those openings on this screen row is dropped. The lines
+below stay put. If the line does not fit beside the buttons on the right,
+widen the canvas with `.width` (over 100) and drag sideways to read the rest.
 
 **Avoid-buttons break** (`.avoidbuttons letters|words`, default **letters**):
-how text packs around that hole while avoid is on. `letters` moves one
-character at a time past the button (today's behaviour). `words` keeps
-whole words on one side of the hole — it does not split a word across the
-button. Global **Word Wrap?** is a different option and is unchanged. When
-avoid is off, text paints normally and the break choice is ignored.
+how text packs around a hole while avoid is on. `letters` moves one
+character at a time. `words` keeps a whole word in one gap. With `between`,
+a word that does not fit the current gap moves to the next gap on that row.
+A word that fits nowhere on the row is split only when it is longer than
+every gap, and the rest of that word is dropped.
+Global **Word Wrap?** is a different option and is unchanged. When
+avoid is off, text paints normally and these choices are ignored.
 
 **Avoid-buttons margin** (`.avoidbuttons margin N`, default **0**, at most 200):
 extra pixels around every hole. A button's own margin on its **Advanced**
@@ -3576,10 +3588,10 @@ through that button even when this switch is on. Both off, the button follows
 this switch. The two cannot both be on. `.avoidbuttons margin` with no number
 prints the current value.
 
-This follows **Text width** (`.width`): at 100% you only wrap; over 100%
-you can still drag the canvas sideways, and the holes stay on the screen
-while the text pans. HP widgets and extra-text windows are not holes. The
-wrap updates while you drag a floating button.
+This follows **Text width** (`.width`): at 100% the line already ends at
+the screen; over 100% you can still drag the canvas sideways, and the holes
+stay on the screen while the text pans. HP widgets and extra-text windows
+are not holes. The holes update while you drag a floating button.
 
 **Caveat:** ASCII maps and other cell graphics will look wrong. Leave this
 off for those games. NAWS (the width reported to the world) does not
@@ -4127,6 +4139,8 @@ Edit one button and open **Advanced**:
   turns the other off. **Break around every hole** is **Letters** or **Words**,
   the same switch as `.avoidbuttons letters` and `.avoidbuttons words`: one
   character at a time, or a whole word kept off the hole, for every hole.
+  Flow (`sides` or `between`) is a window setting, not per button.
+  What does not fit on the row is dropped; `.width` widens the canvas.
   **Extra margin** is pixels on top of **Avoid-buttons margin**. Leave the
   button screen (not only this dialog) before the hole is drawn.
 

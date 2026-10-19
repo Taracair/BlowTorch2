@@ -142,77 +142,10 @@ public class ButtonTextFlowTest {
 	}
 
 	@Test
-	public void overflowPastShortButtonUsesFullWidthOnSecondRow() {
-		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
-		buttons.add(rect(500, 0, 800, 20));
-		StringBuilder sb = new StringBuilder(70);
-		for (int i = 0; i < 70; i++) {
-			sb.append('a');
-		}
-		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutAround(70, buttons, 0, 20, 10, 80,
-				false, true, sb);
-		assertTrue(runs.size() >= 2);
-		assertRun(runs.get(0), 0, 0, 0, 50);
-		assertRun(runs.get(1), 1, 0, 50, 70);
-	}
-
-	@Test
-	public void fullWidthBlobSkipsVisualRowThenPlacesBelow() {
-		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
-		buttons.add(rect(0, 0, 800, 20));
-		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutAround(10, buttons, 0, 20, 10, 80,
-				false, true, "0123456789");
-		assertEquals(1, runs.size());
-		assertRun(runs.get(0), 1, 0, 0, 10);
-	}
-
-	@Test
-	public void negativeRowStepSkipsFullWidthThenPlacesAbove() {
-		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
-		buttons.add(rect(0, 40, 800, 60));
-		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutAround(10, buttons, 40, 20, -20, 10,
-				80, false, true, "0123456789");
-		assertEquals(1, runs.size());
-		assertRun(runs.get(0), 1, 0, 0, 10);
-	}
-
-	@Test
-	public void tallButtonKeepsTheHoleOnEveryVisualRow() {
-		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
-		buttons.add(rect(600, 0, 800, 200));
-		int[][] free = new int[][] { { 0, 60 } };
-		List<ButtonTextFlow.Run> old = ButtonTextFlow.layout(130, free, false, true);
-		List<ButtonTextFlow.Run> neu = ButtonTextFlow.layoutAround(130, buttons, 0, 20, 10, 80,
-				false, true, null);
-		assertEquals(3, old.size());
-		assertEquals(old.size(), neu.size());
-		for (int i = 0; i < old.size(); i++) {
-			assertRun(neu.get(i), old.get(i).visualRow, old.get(i).destCol,
-					old.get(i).srcStart, old.get(i).srcEnd);
-		}
-	}
-
-	@Test
 	public void emptyFreeStillSwallowsInLayout() {
 		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layout(10, new int[0][], false, true,
 				"0123456789");
 		assertEquals(0, runs.size());
-	}
-
-	@Test
-	public void extraVisualPxIsTheSurplusOnly() {
-		assertEquals(0, ButtonTextFlow.extraVisualPx(10, 10, 20));
-		assertEquals(40, ButtonTextFlow.extraVisualPx(12, 10, 20));
-		assertEquals(0, ButtonTextFlow.extraVisualPx(8, 10, 20));
-		assertEquals(0, ButtonTextFlow.extraVisualPx(12, 10, 0));
-	}
-
-	@Test
-	public void extraOnceShiftedIsNotTheUnshiftedSurplus() {
-		int extraAtUnshifted = ButtonTextFlow.extraVisualPx(12, 10, 20);
-		int extraOnceShifted = ButtonTextFlow.extraVisualPx(10, 10, 20);
-		assertEquals(40, extraAtUnshifted);
-		assertEquals(0, extraOnceShifted);
 	}
 
 	@Test
@@ -411,5 +344,72 @@ public class ButtonTextFlowTest {
 		float x = ButtonTextFlow.leftPocketViewX(4, 2, 107f, 150f, 10f, 0f);
 		assertEquals(4, ButtonTextFlow.leftPocketDestCol(x, 2, 107f, 150f, 10f, 0f));
 		assertEquals(60f, x, 0.01f);
+	}
+
+	@Test
+	public void betweenPutsTextInTheGapAndNotPastTheRightButton() {
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(0, 0, 80, 20));
+		buttons.add(rect(720, 0, 800, 20));
+		String text = "0123456789abcdef";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutBetween(text.length(), buttons, 0, 20,
+				10, 80, 800, false, true, text);
+		assertEquals(1, runs.size());
+		assertRun(runs.get(0), 0, 8, 0, 16);
+		assertTrue(runs.get(0).clipRight <= 720);
+		assertTrue(runs.get(0).destCol + (runs.get(0).srcEnd - runs.get(0).srcStart) <= 72);
+	}
+
+	@Test
+	public void betweenKeepsThePageBesideASingleLeftButton() {
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(0, 0, 80, 20));
+		String text = "hello";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutBetween(text.length(), buttons, 0, 20,
+				10, 80, 800, false, true, text);
+		assertEquals(1, runs.size());
+		assertRun(runs.get(0), 0, 8, 0, 5);
+		assertTrue(runs.get(0).rightPocket);
+	}
+
+	@Test
+	public void betweenSendsAWordToTheNextOpeningOnTheSameRow() {
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(0, 0, 120, 20));
+		buttons.add(rect(200, 0, 400, 20));
+		buttons.add(rect(700, 0, 800, 20));
+		String text = "hi wonderful";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutBetween(text.length(), buttons, 0, 20,
+				10, 80, 800, true, false, text);
+		assertTrue(runs.size() >= 2);
+		assertEquals("hi ", text.substring(runs.get(0).srcStart, runs.get(0).srcEnd));
+		assertEquals(12, runs.get(0).destCol);
+		assertEquals("wonderful", text.substring(runs.get(1).srcStart, runs.get(1).srcEnd));
+		assertEquals(40, runs.get(1).destCol);
+		assertEquals(0, runs.get(1).visualRow);
+	}
+
+	@Test
+	public void betweenDropsAWordThatFitsNowhereOnThisRow() {
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(100, 0, 800, 20));
+		String text = "hello wonderful";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutBetween(text.length(), buttons, 0,
+				20, 10, 80, 800, true, false, text);
+		assertEquals(1, runs.size());
+		assertEquals("hello ", text.substring(runs.get(0).srcStart, runs.get(0).srcEnd));
+		assertEquals(0, runs.get(0).visualRow);
+	}
+
+	@Test
+	public void betweenSplitsAWordLongerThanTheOpeningAndDropsTheRest() {
+		List<ButtonTextFlow.RectPx> buttons = new ArrayList<ButtonTextFlow.RectPx>();
+		buttons.add(rect(40, 0, 800, 20));
+		String text = "wonderful";
+		List<ButtonTextFlow.Run> runs = ButtonTextFlow.layoutBetween(text.length(), buttons, 0, 20,
+				10, 80, 800, true, false, text);
+		assertEquals(1, runs.size());
+		assertEquals("wond", text.substring(runs.get(0).srcStart, runs.get(0).srcEnd));
+		assertEquals(0, runs.get(0).visualRow);
 	}
 }

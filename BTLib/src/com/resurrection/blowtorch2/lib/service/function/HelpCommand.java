@@ -70,7 +70,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("avoidbuttons", "The window",
-				"wrap text around buttons; .avoidbuttons letters|words|margin");
+				"wrap text around buttons; sides|between, letters|words; .width if it does not fit");
 		cmd("jumpsend", "The window", "after a send, jump to the newest text");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
@@ -343,9 +343,11 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .avoidbuttons:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .avoidbuttons           — say whether text wraps, letters vs words, and the margin\n"
+					+ "  .avoidbuttons           — say whether text avoids buttons, and the flow, break, and margin\n"
 					+ "  .avoidbuttons on|off|toggle\n"
 					+ "  .avoidbuttons letters|words\n"
+					+ "  .avoidbuttons sides|between — one solid hole, or letters in the gaps\n"
+					+ "What does not fit on that screen row is dropped. If the line does not fit beside the buttons, .width widens the canvas and you drag sideways.\n"
 					+ "  .avoidbuttons margin [N] — extra pixels around every hole (0–200)\n"
 					+ "Off by default. ASCII maps may break. Grid pad and floating copies; live while dragging.\n"
 					+ "letters (default) moves one character at a time; words keeps whole words off the hole.\n"

@@ -28,18 +28,41 @@ public final class ButtonTextFlow {
 		}
 	}
 
-	/** One packed run: glyphs {@code [srcStart, srcEnd)} at {@code destCol} on {@code visualRow}. */
+	/**
+	 * One packed run: glyphs {@code [srcStart, srcEnd)} at {@code destCol} on
+	 * {@code visualRow}. {@code clipRight &lt; 0} means the painter clips from the
+	 * single merged blob. A non-negative clip is the pixel gap this run sits in.
+	 */
 	public static final class Run {
 		public final int visualRow;
 		public final int destCol;
 		public final int srcStart;
 		public final int srcEnd;
+		public final int clipLeft;
+		public final int clipRight;
+		/** Glyphs sit just to the right of a button, so the right-pocket shift applies. */
+		public final boolean rightPocket;
+		public final int anchorLeft;
+		public final int anchorRight;
+		public final int holeCol1;
 
 		public Run(final int visualRow, final int destCol, final int srcStart, final int srcEnd) {
+			this(visualRow, destCol, srcStart, srcEnd, 0, -1, false, 0, 0, 0);
+		}
+
+		public Run(final int visualRow, final int destCol, final int srcStart, final int srcEnd,
+				final int clipLeft, final int clipRight, final boolean rightPocket,
+				final int anchorLeft, final int anchorRight, final int holeCol1) {
 			this.visualRow = visualRow;
 			this.destCol = destCol;
 			this.srcStart = srcStart;
 			this.srcEnd = srcEnd;
+			this.clipLeft = clipLeft;
+			this.clipRight = clipRight;
+			this.rightPocket = rightPocket;
+			this.anchorLeft = anchorLeft;
+			this.anchorRight = anchorRight;
+			this.holeCol1 = holeCol1;
 		}
 	}
 
@@ -150,10 +173,9 @@ public final class ButtonTextFlow {
 	}
 
 	/**
-	 * Pack {@code charCount} glyphs into free segments, producing visual runs.
-	 * Word wrap at last space in the overflowing segment unless {@code hardBreak}.
-	 * Extra visual rows reuse {@code freeCols}; for a hole that changes per row
-	 * use {@link #layoutAround}.
+	 * Pack {@code charCount} glyphs into free segments. Word wrap breaks at the
+	 * last space in the overflowing segment unless {@code hardBreak}. The game
+	 * window does not call this: leftover on a button row is dropped.
 	 */
 	public static List<Run> layout(final int charCount, final int[][] freeCols,
 			final boolean wordWrap, final boolean hardBreak) {
@@ -176,60 +198,6 @@ public final class ButtonTextFlow {
 		while (src < charCount && guard++ < guardMax) {
 			int placed = packRow(runs, visualRow, freeCols, src, charCount, wordWrap,
 					hardBreak, text);
-			src += placed;
-			if (src >= charCount) {
-				break;
-			}
-			if (placed == 0) {
-				break;
-			}
-			visualRow++;
-		}
-		return runs;
-	}
-
-	/**
-	 * Same packing as {@link #layout}, but the hole is recomputed for each
-	 * visual row from {@code buttons}. A full-width blob skips that row without
-	 * consuming glyphs. Extra rows step by {@code rowHeight} down the view.
-	 */
-	public static List<Run> layoutAround(final int charCount, final List<RectPx> buttons,
-			final int firstRowTop, final int rowHeight, final int cellW, final int viewportCols,
-			final boolean wordWrap, final boolean hardBreak, final CharSequence text) {
-		return layoutAround(charCount, buttons, firstRowTop, rowHeight, rowHeight, cellW,
-				viewportCols, wordWrap, hardBreak, text);
-	}
-
-	/**
-	 * @param rowStep signed view-Y delta to the next visual row. Negative when
-	 *        newest-at-top, because extra rows paint toward smaller screen Y.
-	 */
-	public static List<Run> layoutAround(final int charCount, final List<RectPx> buttons,
-			final int firstRowTop, final int rowHeight, final int rowStep, final int cellW,
-			final int viewportCols, final boolean wordWrap, final boolean hardBreak,
-			final CharSequence text) {
-		if (charCount <= 0 || rowHeight <= 0 || cellW <= 0 || viewportCols <= 0) {
-			return Collections.emptyList();
-		}
-		int step = rowStep == 0 ? rowHeight : rowStep;
-		ArrayList<Run> runs = new ArrayList<Run>();
-		int src = 0;
-		int visualRow = 0;
-		int guard = 0;
-		int skipBudget = skipRowBudget(buttons, firstRowTop, rowHeight);
-		final int guardMax = charCount + skipBudget + 2;
-		while (src < charCount && guard++ < guardMax) {
-			int rowTop = firstRowTop + visualRow * step;
-			int rowBottom = rowTop + rowHeight;
-			RectPx blob = mergedBlobPx(buttons, rowTop, rowBottom);
-			int[] blobCols = blobColumns(blob, cellW, 0, viewportCols);
-			int[][] free = freeColumns(blobCols, viewportCols);
-			if (free.length == 0) {
-				visualRow++;
-				continue;
-			}
-			int placed = packRow(runs, visualRow, free, src, charCount, wordWrap, hardBreak,
-					text);
 			src += placed;
 			if (src >= charCount) {
 				break;
@@ -269,6 +237,321 @@ public final class ButtonTextFlow {
 		ArrayList<Run> runs = new ArrayList<Run>();
 		packRow(runs, 0, free, 0, charCount, wordWrap, hardBreak, text);
 		return runs;
+	}
+
+	/**
+	 * Gaps between buttons on this one screen row, left to right. The strip to
+	 * the right of the rightmost button is included only when the row has a
+	 * single cluster, so a pad that sits only on the left still has the page
+	 * beside it. Two clusters leave that strip unused. What does not fit on
+	 * this row is not placed on the next one.
+	 */
+	public static List<Run> layoutBetween(final int charCount, final List<RectPx> buttons,
+			final int rowTop, final int rowHeight, final int cellW, final int viewportCols,
+			final int viewportPx, final boolean wordWrap, final boolean hardBreak,
+			final CharSequence text) {
+		if (charCount <= 0 || rowHeight <= 0 || cellW <= 0 || viewportCols <= 0) {
+			return Collections.emptyList();
+		}
+		int viewPx = viewportPx > 0 ? viewportPx : viewportCols * cellW;
+		Opening[] openings = betweenOpenings(buttons, rowTop, rowTop + rowHeight, cellW,
+				viewportCols, viewPx);
+		if (openings.length == 0) {
+			return Collections.emptyList();
+		}
+		ArrayList<Run> runs = new ArrayList<Run>();
+		packOpenings(runs, 0, openings, 0, charCount, wordWrap, hardBreak, text);
+		return runs;
+	}
+
+	private static final class Opening {
+		final int col0;
+		final int col1;
+		final int clipLeft;
+		final int clipRight;
+		final boolean rightPocket;
+		final int anchorLeft;
+		final int anchorRight;
+		final int holeCol1;
+
+		Opening(final int col0, final int col1, final int clipLeft, final int clipRight,
+				final boolean rightPocket, final int anchorLeft, final int anchorRight,
+				final int holeCol1) {
+			this.col0 = col0;
+			this.col1 = col1;
+			this.clipLeft = clipLeft;
+			this.clipRight = clipRight;
+			this.rightPocket = rightPocket;
+			this.anchorLeft = anchorLeft;
+			this.anchorRight = anchorRight;
+			this.holeCol1 = holeCol1;
+		}
+
+		int width() {
+			return col1 - col0;
+		}
+
+		Run place(final int visualRow, final int destCol, final int src0, final int src1) {
+			return new Run(visualRow, destCol, src0, src1, clipLeft, clipRight, rightPocket,
+					anchorLeft, anchorRight, holeCol1);
+		}
+	}
+
+	private static final class Cluster {
+		int col0;
+		int col1;
+		int pixLeft;
+		int pixRight;
+	}
+
+	private static Opening[] betweenOpenings(final List<RectPx> buttons, final int rowTop,
+			final int rowBottom, final int cellW, final int viewportCols, final int viewportPx) {
+		List<Cluster> clusters = clustersOnRow(buttons, rowTop, rowBottom, cellW, viewportCols);
+		if (clusters.isEmpty()) {
+			return new Opening[] {
+					new Opening(0, viewportCols, 0, viewportPx, false, 0, 0, 0) };
+		}
+		ArrayList<Opening> out = new ArrayList<Opening>();
+		Cluster first = clusters.get(0);
+		if (first.col0 > 0 && first.pixLeft > 0) {
+			out.add(new Opening(0, first.col0, 0, first.pixLeft, false, 0, 0, 0));
+		}
+		for (int i = 0; i < clusters.size() - 1; i++) {
+			Cluster a = clusters.get(i);
+			Cluster b = clusters.get(i + 1);
+			if (a.col1 < b.col0 && a.pixRight < b.pixLeft) {
+				out.add(new Opening(a.col1, b.col0, a.pixRight, b.pixLeft, false, 0, 0, 0));
+			}
+		}
+		if (clusters.size() == 1) {
+			Cluster last = clusters.get(0);
+			if (last.col1 < viewportCols && last.pixRight < viewportPx) {
+				out.add(new Opening(last.col1, viewportCols, last.pixRight, viewportPx, true,
+						last.pixLeft, last.pixRight, last.col1));
+			}
+		}
+		return out.toArray(new Opening[out.size()]);
+	}
+
+	private static List<Cluster> clustersOnRow(final List<RectPx> buttons, final int rowTop,
+			final int rowBottom, final int cellW, final int viewportCols) {
+		ArrayList<Cluster> raw = new ArrayList<Cluster>();
+		if (buttons == null) {
+			return raw;
+		}
+		for (int i = 0; i < buttons.size(); i++) {
+			RectPx b = buttons.get(i);
+			if (b == null || b.bottom <= rowTop || b.top >= rowBottom || b.right <= b.left) {
+				continue;
+			}
+			int[] cols = blobColumns(b, cellW, 0, viewportCols);
+			if (cols == null) {
+				continue;
+			}
+			Cluster c = new Cluster();
+			c.col0 = cols[0];
+			c.col1 = cols[1];
+			c.pixLeft = b.left;
+			c.pixRight = b.right;
+			raw.add(c);
+		}
+		Collections.sort(raw, new java.util.Comparator<Cluster>() {
+			@Override
+			public int compare(final Cluster a, final Cluster b) {
+				if (a.col0 != b.col0) {
+					return a.col0 < b.col0 ? -1 : 1;
+				}
+				return a.pixLeft < b.pixLeft ? -1 : (a.pixLeft == b.pixLeft ? 0 : 1);
+			}
+		});
+		ArrayList<Cluster> merged = new ArrayList<Cluster>();
+		for (int i = 0; i < raw.size(); i++) {
+			Cluster c = raw.get(i);
+			if (merged.isEmpty()) {
+				merged.add(c);
+				continue;
+			}
+			Cluster prev = merged.get(merged.size() - 1);
+			if (c.col0 <= prev.col1) {
+				if (c.col1 > prev.col1) {
+					prev.col1 = c.col1;
+				}
+				if (c.pixLeft < prev.pixLeft) {
+					prev.pixLeft = c.pixLeft;
+				}
+				if (c.pixRight > prev.pixRight) {
+					prev.pixRight = c.pixRight;
+				}
+			} else {
+				merged.add(c);
+			}
+		}
+		return merged;
+	}
+
+	private static int packOpenings(final List<Run> runs, final int visualRow,
+			final Opening[] openings, final int src0, final int charCount,
+			final boolean wordWrap, final boolean hardBreak, final CharSequence text) {
+		if (!wordWrap || hardBreak || text == null) {
+			return packLetters(runs, visualRow, openings, src0, charCount, text);
+		}
+		return packWords(runs, visualRow, openings, src0, charCount, text);
+	}
+
+	private static int packLetters(final List<Run> runs, final int visualRow,
+			final Opening[] openings, final int src0, final int charCount,
+			final CharSequence text) {
+		int src = src0;
+		int placed = 0;
+		for (int i = 0; i < openings.length; i++) {
+			if (src >= charCount) {
+				break;
+			}
+			Opening o = openings[i];
+			int width = o.width();
+			if (width <= 0) {
+				continue;
+			}
+			int take = charCount - src;
+			if (take > width) {
+				take = width;
+			}
+			take = snapTake(text, src, take);
+			if (take <= 0) {
+				continue;
+			}
+			runs.add(o.place(visualRow, o.col0, src, src + take));
+			src += take;
+			placed += take;
+		}
+		return placed;
+	}
+
+	/**
+	 * Whole words, left to right. A word that does not fit moves to a later
+	 * opening; leftovers stay unplaced so the caller can start the next row.
+	 */
+	private static int packWords(final List<Run> runs, final int visualRow,
+			final Opening[] openings, final int src0, final int charCount,
+			final CharSequence text) {
+		int src = src0;
+		int placed = 0;
+		int cursor = 0;
+		int[] room = new int[openings.length];
+		int[] filled = new int[openings.length];
+		for (int i = 0; i < openings.length; i++) {
+			room[i] = openings[i].width();
+		}
+		int guard = 0;
+		while (src < charCount && guard++ < charCount + 2) {
+			int word = wordLength(text, src, charCount);
+			if (word <= 0) {
+				break;
+			}
+			boolean spaces = text.charAt(src) == ' ';
+			int fit = -1;
+			if (!spaces) {
+				int raw = word;
+				if (src + word <= charCount && src + word - 1 < text.length()
+						&& text.charAt(src + word - 1) == ' ' && word > 1) {
+					raw = word - 1;
+				}
+				for (int i = cursor; i < openings.length; i++) {
+					if (room[i] >= word || (raw < word && room[i] >= raw)) {
+						fit = i;
+						if (room[i] < word) {
+							word = raw;
+						}
+						break;
+					}
+				}
+			} else {
+				for (int i = cursor; i < openings.length; i++) {
+					if (room[i] > 0) {
+						fit = i;
+						if (word > room[i]) {
+							word = room[i];
+						}
+						break;
+					}
+				}
+			}
+			if (fit >= 0) {
+				int take = snapTake(text, src, word);
+				if (take <= 0) {
+					break;
+				}
+				if (take > room[fit]) {
+					take = room[fit];
+				}
+				Opening o = openings[fit];
+				runs.add(o.place(visualRow, o.col0 + filled[fit], src, src + take));
+				filled[fit] += take;
+				room[fit] -= take;
+				src += take;
+				placed += take;
+				cursor = fit;
+				continue;
+			}
+			int widest = 0;
+			for (int i = cursor; i < openings.length; i++) {
+				int w = openings[i].width();
+				if (w > widest) {
+					widest = w;
+				}
+			}
+			if (word > widest && widest > 0) {
+				int splitAt = -1;
+				for (int i = cursor; i < openings.length; i++) {
+					if (room[i] > 0) {
+						splitAt = i;
+						break;
+					}
+				}
+				if (splitAt < 0) {
+					break;
+				}
+				int take = snapTake(text, src, room[splitAt]);
+				if (take <= 0) {
+					break;
+				}
+				if (take > room[splitAt]) {
+					take = room[splitAt];
+				}
+				Opening o = openings[splitAt];
+				runs.add(o.place(visualRow, o.col0 + filled[splitAt], src, src + take));
+				filled[splitAt] += take;
+				room[splitAt] -= take;
+				src += take;
+				placed += take;
+				cursor = splitAt;
+				continue;
+			}
+			break;
+		}
+		return placed;
+	}
+
+	/** Next word, including one trailing space. A run of spaces is its own token. */
+	private static int wordLength(final CharSequence text, final int src, final int limit) {
+		if (text == null || src < 0 || src >= limit || src >= text.length()) {
+			return 0;
+		}
+		int end = limit < text.length() ? limit : text.length();
+		int i = src;
+		if (text.charAt(src) == ' ') {
+			while (i < end && text.charAt(i) == ' ') {
+				i++;
+			}
+			return i - src;
+		}
+		while (i < end && text.charAt(i) != ' ') {
+			i++;
+		}
+		if (i < end && text.charAt(i) == ' ') {
+			i++;
+		}
+		return i - src;
 	}
 
 	private static int packRow(final List<Run> runs, final int visualRow, final int[][] freeCols,
@@ -346,48 +629,6 @@ public final class ButtonTextFlow {
 		int[] slack = sideSlack(blobLeft, blobRight, cellW);
 		int half = cellW <= 0 ? 0 : cellW / 2;
 		return Math.min(slack[0], slack[1]) - slack[1] + half;
-	}
-
-	private static int skipRowBudget(final List<RectPx> buttons, final int firstRowTop,
-			final int rowHeight) {
-		if (buttons == null || buttons.isEmpty() || rowHeight <= 0) {
-			return 0;
-		}
-		int maxAbs = 0;
-		for (int i = 0; i < buttons.size(); i++) {
-			RectPx b = buttons.get(i);
-			if (b == null) {
-				continue;
-			}
-			int dTop = b.top - firstRowTop;
-			if (dTop < 0) {
-				dTop = -dTop;
-			}
-			int dBot = b.bottom - firstRowTop;
-			if (dBot < 0) {
-				dBot = -dBot;
-			}
-			if (dTop > maxAbs) {
-				maxAbs = dTop;
-			}
-			if (dBot > maxAbs) {
-				maxAbs = dBot;
-			}
-		}
-		return maxAbs / rowHeight + 2;
-	}
-
-	/** Surplus pixels from extra visual rows versus buffer wrap rows. Never negative. */
-	public static int extraVisualPx(final int visualRowsDrawn, final int wrapRowsDrawn,
-			final int lineSize) {
-		if (lineSize <= 0) {
-			return 0;
-		}
-		int extra = visualRowsDrawn - wrapRowsDrawn;
-		if (extra <= 0) {
-			return 0;
-		}
-		return extra * lineSize;
 	}
 
 	/**
