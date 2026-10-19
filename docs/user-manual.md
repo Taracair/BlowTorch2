@@ -303,6 +303,7 @@ your own commands are printed into the game window at all.
 ### `button_window` (default Free build)
 
     `.loadset <name>`   Load named button set
+    `.icon`             Change a button's picture, or choose the icon folder
     `.clearbuttons`     Hide every button for a clear view of the game
     `.layoutwizard`     Open the button layout wizard (packs, set names, size)
 
@@ -2727,6 +2728,7 @@ is enabled; `.alias list` shows every alias at once.
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.rev <directions>`                 Same letters as `.run`, walked backwards. Reverse per letter in Speedwalk Directions; compass n↔s / in↔out if Reverse is blank; door/cave need Reverse filled. Comma text stays (not close door)
     `.loadset <setname>`                Load that button set. No name prints usage and does not look up a set
+    `.icon`                             The icon folder. `.icon set LOOK marks/sword` sets that button's picture. A tile with no words is `.icon set b12` — `b12` is the grey id beside Name on Advanced. `.icon folder` chooses the folder. `.icon list` names the built-in sets. See Buttons
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
     `.heatmap`                          Show the heatmap and list the counts. Taps, holds, swipes and accordion opens are kept for this world. While it is on, every tile is the same white and brighter means used more. `.heatmap off` hides that and the numbers; counting continues. `.heatmap reset` forgets this world's counts. Any other word is an error and does not show the overlay.
     `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
@@ -4096,6 +4098,41 @@ Edit one button and open **Advanced**:
   refused. A smaller picture is drawn at most 1024 pixels on a side, so a
   5000 pixel photo is not loaded at full size. If the file cannot be read, the
   colored pad stays and the label stays.
+- **From the input bar.** `.icon` prints the icon folder. `.icon folder` opens
+  the system folder picker. The same row is **Options → Button → Icon folder**.
+  One folder for the whole app. `.icon set LOOK marks/sword` puts that built-in
+  picture on the button labelled LOOK in the set on screen. `marks/sword` stays
+  built-in even when the folder also has `sword.png`. A name with no slash,
+  `.icon set LOOK sword`, uses a file in the folder when exactly one of
+  `sword.png`, `sword.svg`, `sword.jpg`, or `sword.jpeg` is there. Two of
+  them: the command refuses, and you write `sword.png`. None of them: the
+  built-in with that name, when only one set has it. `bell`, `diamond`,
+  `rune`, `spark`, and `spiral` are in two sets, so name the set
+  (`signals/bell`). The button stores the file name. Replacing that file
+  changes the picture. A second file beside it does not. If the file is
+  missing when you type the command, the button stays as it was. A file over
+  2 MB, or with either edge over 8192 pixels, is refused the same way. If the file
+  disappears later, the colored pad shows until that name is back. The
+  words on the tile come first, and `LOOK` and `look` are different
+  buttons. Two tiles that say LOOK: nothing changes, until you name one
+  of them another way. **Name** on Advanced is that other way, an optional
+  word: `.icon set door marks/sword` is the button whose Name is door,
+  when no single tile says door. Every button has a small grey id on
+  that same row, such as `b12`. A tile with no words and no Name is
+  `.icon set b12 marks/sword`. The id still works after you type a Name.
+  It is not the set called default.
+  A row inside an accordion is not a button, so it does not count, and a
+  label that is only a row does not change. A label with a space is quoted:
+  `.icon set "look north" sword.png`. A file name with a space is quoted
+  too: `.icon set LOOK "my icon.png"`. `.icon set LOOK held wards/lock` is the
+  picture under your finger. `.icon set LOOK held darken` darkens the main
+  picture instead. `.icon set LOOK flip relics/mask` is the picture after a
+  flip. `.icon set LOOK flip same` keeps the main picture.
+  `.icon set LOOK off` clears the main picture only. `.icon list` names the
+  six sets. `.icon list marks` names that set. `.icon list files` names the
+  folder. Built-in names ignore capitals. A file name is exact, capitals
+  included. Choosing one image in the button editor still copies that file
+  into the app. Those buttons are unchanged.
 - **While held** is the icon under your finger. Tap it and choose
   **Darken** and the main icon darkens instead. **When flipped** is the
   icon after a flip. Choose **Same icon** and the main icon stays (the
@@ -4200,9 +4237,12 @@ copied buttons, and only when something has been copied.
 
 **Enter in the Label field** (Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
 then `NORTH` shows as two lines. Typed `\\n` is not a break.
-**Draw / border** (Advanced → Colors) paints a coloured outline. **Active** (same
-row as Name, on by default) hides the tile in play without deleting it — Edit
-buttons still shows it, so you can tick Active again.
+**Draw / border** (Advanced → Colors) paints a coloured outline. **Name** on
+Advanced is an optional word for `.icon set`. The small grey id beside it
+(`b12`) is the same command when the words on the tile and Name do not
+pick one button.
+**Active** (same row, on by default) hides the tile in play without deleting
+it — Edit buttons still shows it, so you can tick Active again.
 
 The default `button_window` plugin supports more than tap:
 

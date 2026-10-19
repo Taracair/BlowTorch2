@@ -1777,6 +1777,10 @@ function showLayoutWizardCmd(args)
 	WindowXCallS(buttonWindowName, "showLayoutWizard", args ~= nil and tostring(args) or "")
 end
 
+function showIconFolderCmd()
+	WindowXCallS(buttonWindowName, "pickIconFolder", "")
+end
+
 -- Install one or more named packs. Never rebuilds/deletes sibling player sets.
 -- args: serialized table (preferred) or legacy "packId|sizePreset" / "packId".
 --
@@ -2386,6 +2390,20 @@ function ensureLayoutSettingsOptions()
 			opt:setDescription(
 				"Pick templates and set names, size, alignment, and colors. Does not remove other button sets.")
 			opt:setValue("showLayoutWizardCmd")
+			settings:addOption(opt)
+		end)
+		if okAdd then added = true end
+	end
+	if missing("icon_folder_open") then
+		local okAdd = pcall(function()
+			local CallbackOption = luajava.bindClass(
+				"com.resurrection.blowtorch2.lib.service.plugin.settings.CallbackOption")
+			local opt = luajava.new(CallbackOption)
+			opt:setKey("icon_folder_open")
+			opt:setTitle("Icon folder")
+			opt:setDescription(
+				"Choose the folder whose file names commands use as button icons.")
+			opt:setValue("showIconFolderCmd")
 			settings:addOption(opt)
 		end)
 		if okAdd then added = true end

@@ -85,6 +85,7 @@ import com.resurrection.blowtorch2.lib.service.function.WaitCommand;
 import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
+import com.resurrection.blowtorch2.lib.service.function.IconCommand;
 import com.resurrection.blowtorch2.lib.service.function.WidgetCommand;
 import com.resurrection.blowtorch2.lib.service.function.HyphenCommand;
 import com.resurrection.blowtorch2.lib.service.function.UnaccentCommand;
@@ -777,6 +778,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		WidgetCommand widgetcmd = new WidgetCommand();
 		mSpecialCommands.put(widgetcmd.commandName, widgetcmd);
 		mSpecialCommands.put(WidgetCommand.ALIAS_NAME, widgetcmd);
+		IconCommand iconcmd = new IconCommand();
+		mSpecialCommands.put(iconcmd.commandName, iconcmd);
 		com.resurrection.blowtorch2.lib.service.function.ChatCommand chatcmd = new com.resurrection.blowtorch2.lib.service.function.ChatCommand();
 		mSpecialCommands.put(chatcmd.commandName, chatcmd);
 		SettingsCommand settingscmd = new SettingsCommand();

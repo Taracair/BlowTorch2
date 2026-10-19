@@ -2,24 +2,30 @@ package com.resurrection.blowtorch2.lib.button;
 
 import java.util.Locale;
 
-/** {@code builtin:set/id} or a file path. No directory traversal in a built-in id. */
+/**
+ * {@code builtin:set/id}, a copied file path, or {@code named:sword.png}.
+ * {@code named:} is a file name in the icon folder, not a path.
+ */
 public final class ButtonFaceRef {
 
 	public static final class Spec {
 		public final String assetPng;
 		public final String file;
+		/** File name in the icon folder, such as {@code sword.png}. */
+		public final String named;
 
-		Spec(final String assetPng, final String file) {
+		Spec(final String assetPng, final String file, final String named) {
 			this.assetPng = assetPng;
 			this.file = file;
+			this.named = named;
 		}
 
 		public boolean isNone() {
-			return assetPng == null && file == null;
+			return assetPng == null && file == null && named == null;
 		}
 	}
 
-	private static final Spec NONE = new Spec(null, null);
+	private static final Spec NONE = new Spec(null, null, null);
 
 	private ButtonFaceRef() {
 	}
@@ -37,7 +43,14 @@ public final class ButtonFaceRef {
 			if (asset == null) {
 				return NONE;
 			}
-			return new Spec(asset, null);
+			return new Spec(asset, null, null);
+		}
+		if (s.startsWith("named:")) {
+			String name = namedFile(s.substring("named:".length()));
+			if (name == null) {
+				return NONE;
+			}
+			return new Spec(null, null, name);
 		}
 		if (s.startsWith("file:")) {
 			s = s.substring("file:".length()).trim();
@@ -45,7 +58,41 @@ public final class ButtonFaceRef {
 				return NONE;
 			}
 		}
-		return new Spec(null, s);
+		return new Spec(null, s, null);
+	}
+
+	/**
+	 * One file name in the icon folder: {@code sword.png}, {@code My Icon.png},
+	 * {@code épée.svg}. No slash. Not a path.
+	 */
+	public static String namedFile(final String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String name = raw.trim();
+		if (name.length() == 0 || name.length() > 240 || name.charAt(0) == '.') {
+			return null;
+		}
+		int dot = name.lastIndexOf('.');
+		if (dot <= 0 || dot == name.length() - 1) {
+			return null;
+		}
+		String stem = name.substring(0, dot);
+		if (".".equals(stem) || "..".equals(stem) || stem.endsWith(".")) {
+			return null;
+		}
+		String ext = name.substring(dot).toLowerCase(Locale.US);
+		if (!".png".equals(ext) && !".svg".equals(ext) && !".jpg".equals(ext)
+				&& !".jpeg".equals(ext)) {
+			return null;
+		}
+		for (int i = 0; i < name.length(); i++) {
+			char c = name.charAt(i);
+			if (c == '/' || c == '\\' || c < 32 || c == 127) {
+				return null;
+			}
+		}
+		return name;
 	}
 
 	/** {@code marks/sword} → {@code buttonfaces/marks/sword.png}, or null. */

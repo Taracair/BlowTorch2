@@ -5290,6 +5290,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				this, requestCode, resultCode, data)) {
 			return;
 		}
+		if (com.resurrection.blowtorch2.lib.button.IconFolderPick.onActivityResult(
+				this, requestCode, resultCode, data)) {
+			return;
+		}
 		if (requestCode == com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.REQUEST_PICK_SOUND) {
 			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
 				// Hold the read permission past this activity: the responder keeps
@@ -10105,6 +10109,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if ("editbuttons".equals(action)) {
 			windowCall("button_window", "doEdit", "");
+			return;
+		}
+		if ("icon:folder".equals(action)) {
+			windowCall("button_window", "pickIconFolder", "");
+			return;
+		}
+		if (action != null && action.startsWith("icon:apply:")) {
+			com.resurrection.blowtorch2.lib.button.ButtonFaces.forgetNamed();
+			windowCall("button_window", "setButtonIcon", action.substring("icon:apply:".length()));
 			return;
 		}
 		if ("gesture-edit".equals(action)) {

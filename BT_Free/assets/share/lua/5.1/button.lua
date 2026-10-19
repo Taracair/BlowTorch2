@@ -316,6 +316,7 @@ local function drawWrappedLabel(canvas, paint, label, rect, density, alignH, ali
 end
 
 local ButtonFacesClass = nil
+local IconFolderClass = nil
 local ButtonTypefacesClass = nil
 
 local function optionIndex(value, fallback)
@@ -425,6 +426,24 @@ local function tryDrawButtonFace(canvas, data, dest, usestate, alpha)
 	local flip = tostring(rawget(data, "faceFlip") or "")
 	if face == "" and pressed == "" and flip == "" then
 		return false
+	end
+	if view ~= nil and (string.sub(face, 1, 6) == "named:"
+			or string.sub(pressed, 1, 6) == "named:"
+			or string.sub(flip, 1, 6) == "named:") then
+		if IconFolderClass == nil then
+			local ok, cls = pcall(function()
+				return luajava.bindClass(
+					"com.resurrection.blowtorch2.lib.button.IconFolder")
+			end)
+			if ok then
+				IconFolderClass = cls
+			end
+		end
+		if IconFolderClass ~= nil then
+			pcall(function()
+				IconFolderClass:noteDrawing(view)
+			end)
+		end
 	end
 	if ButtonFacesClass == nil then
 		local ok, cls = pcall(function()

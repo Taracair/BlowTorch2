@@ -5,6 +5,7 @@ require("button")
 require("serialize")
 require("bit")
 local buttonlook = require("buttonlook")
+local buttonicon = require("buttonicon")
 local buttonHeatLib = require("buttonheat")
 local marshal = require("marshal")
 defaults = nil
@@ -2918,6 +2919,167 @@ function applyFloatPosition(data)
 	end
 end
 
+-- Java windowCall("button_window", "pickIconFolder", "") from .icon folder
+-- and Options → Button → Icon folder.
+function pickIconFolder()
+	if view == nil then
+		Note("\nCannot open the folder picker from here.\n")
+		return
+	end
+	local ok = pcall(function()
+		local Pick = luajava.bindClass(
+			"com.resurrection.blowtorch2.lib.button.IconFolderPick")
+		Pick:launch(view:getContext())
+	end)
+	if not ok then
+		Note("\nCould not open the folder picker.\n")
+	end
+end
+
+-- Java windowCall("button_window", "setButtonIcon", json) after .icon set
+-- has already chosen builtin: or named:. This only finds the one label.
+function setButtonIcon(arg)
+	if type(arg) ~= "string" or arg == "" then
+		Note("\nIcon command: nothing to set.\n")
+		return
+	end
+	local JSONObject = luajava.bindClass("org.json.JSONObject")
+	local ok, o = pcall(function()
+		return luajava.new(JSONObject, arg)
+	end)
+	if not ok or o == nil then
+		Note("\nIcon command: could not read that request.\n")
+		return
+	end
+	local function jsonString(key)
+		local readOk, value = pcall(function()
+			return o:getString(key)
+		end)
+		if not readOk or value == nil then
+			return ""
+		end
+		return tostring(value)
+	end
+	local label = jsonString("label")
+	local slot = jsonString("slot")
+	local spec = jsonString("spec")
+	local name = jsonString("name")
+	if label == "" then
+		Note("\nName the button.\n")
+		return
+	end
+	if buttons == nil then
+		Note("\nNo button labelled " .. label .. ".\n")
+		return
+	end
+	local function shownLabel(data)
+		if data == nil then
+			return ""
+		end
+		local raw = rawget(data, "label")
+		if raw == nil then
+			raw = data.label
+		end
+		local tag = buttonlook.parseFontTag(raw)
+		if tag == nil or tag.display == nil then
+			return tostring(raw or "")
+		end
+		return tostring(tag.display)
+	end
+	local entries = {}
+	local matched = {}
+	for _, b in pairs(buttons) do
+		if type(b) == "table" and b.data ~= nil then
+			entries[#entries + 1] = {
+				label = shownLabel(b.data),
+				name = tostring(rawget(b.data, "name") or ""),
+				id = tostring(ensureButtonId(b) or ""),
+			}
+			matched[#entries] = b
+		end
+	end
+	local rows = 0
+	for _, b in pairs(buttons) do
+		if type(b) == "table" and b.data ~= nil then
+			local kids = rawget(b.data, "accordionChildren")
+			if type(kids) == "table" then
+				for i = 1, #kids do
+					local child = kids[i]
+					if type(child) == "table" and (child.id == nil or tostring(child.id) == "")
+							and shownLabel({ label = child.label }) == label then
+						rows = rows + 1
+					end
+				end
+			end
+		end
+	end
+	local index, why, count = buttonicon.resolve(entries, label)
+	if index == nil and why == "missing" and rows > 0 then
+		Note("\n" .. label .. " is an accordion row, not a button. Nothing changed.\n")
+		return
+	end
+	if index == nil and why == "labelled" then
+		Note("\n" .. count .. " buttons are labelled " .. label
+			.. ". Nothing changed.\n")
+		return
+	end
+	if index == nil and why == "named" then
+		Note("\n" .. count .. " buttons are named " .. label
+			.. ". Nothing changed.\n")
+		return
+	end
+	if index == nil and why == "called" then
+		Note("\n" .. count .. " buttons are called " .. label
+			.. ". Nothing changed.\n")
+		return
+	end
+	if index == nil or matched[index] == nil then
+		Note("\nNo button called " .. label .. ".\n")
+		return
+	end
+	local target = matched[index]
+	local key = "face"
+	if slot == "held" then
+		key = "facePressed"
+	elseif slot == "flip" then
+		key = "faceFlip"
+	end
+	local data = target.data
+	if spec == "" then
+		rawset(data, key, nil)
+	else
+		data[key] = spec
+	end
+	persistFloatingButtons()
+	for _, b in pairs(buttons) do
+		if type(b) == "table" and b.expanded and b.data ~= nil then
+			b.accordionOverlay = buildAccordionOverlay(b, true)
+		end
+	end
+	drawButtons()
+	if view ~= nil then
+		view:invalidate()
+	end
+	notifyFloatingButtonsChanged()
+	if slot == "held" then
+		if spec == "" then
+			Note("\n" .. label .. ", while held, darkens.\n")
+		else
+			Note("\n" .. label .. ", while held, is now " .. name .. ".\n")
+		end
+	elseif slot == "flip" then
+		if spec == "" then
+			Note("\n" .. label .. ", when flipped, keeps the same icon.\n")
+		else
+			Note("\n" .. label .. ", when flipped, is now " .. name .. ".\n")
+		end
+	elseif spec == "" then
+		Note("\n" .. label .. " icon cleared.\n")
+	else
+		Note("\n" .. label .. " is now " .. name .. ".\n")
+	end
+end
+
 -- Java windowCall("button_window", "persistFloatingButtons", "") after a drag drop.
 -- Same saveButtons path as exitManagerMode; skips saveSetDefaults (positions only).
 function persistFloatingButtons()
@@ -4520,7 +4682,7 @@ function collapseAllAccordions(skipRedraw)
 	end
 end
 
-function buildAccordionOverlay(parent)
+function buildAccordionOverlay(parent, quiet)
 	local overlay = {}
 	local kids = parent.data.accordionChildren or {}
 	local count = math.min(#kids, MAX_ACCORDION_CHILDREN)
@@ -4574,6 +4736,10 @@ function buildAccordionOverlay(parent)
 				borderColor = src.data.borderColor,
 				opacity = rawget(src.data, "opacity"),
 				labelOpacity = rawget(src.data, "labelOpacity"),
+				face = src.data.face or "",
+				facePressed = src.data.facePressed or "",
+				faceFlip = src.data.faceFlip or "",
+				faceOnly = src.data.faceOnly == true,
 			}
 			copyPinnedOverlayCommands(childData, src.data)
 		else
@@ -4608,7 +4774,7 @@ function buildAccordionOverlay(parent)
 			table.insert(overlay, btn)
 		end
 	end
-	if dropped > 0 then
+	if dropped > 0 and quiet ~= true then
 		Note("BlowTorch: accordion shows " .. #overlay .. " of " .. count
 			.. " sub-buttons — not enough room on screen for the rest."
 			.. " Move the parent or use fewer children.\n")
@@ -5860,6 +6026,7 @@ function showEditorDialog()
 		editorValues.name = button.data.name
 		--editorValues.name = "OMGANYTHING"
 		if(not editorValues.name) then editorValues.name = "" end
+		editorValues.id = ensureButtonId(button) or ""
 		editorValues.primaryColor = button.data.primaryColor
 		editorValues.labelColor = button.data.labelColor
 		editorValues.selectedColor = button.data.selectedColor

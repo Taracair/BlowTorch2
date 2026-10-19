@@ -54,6 +54,8 @@ public final class ButtonFaces {
 	static final int MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 	private static final int CACHE_MAX = 32;
 
+	private static final java.util.HashSet<String> MISSES = new java.util.HashSet<String>();
+
 	private static final Map<String, Bitmap> CACHE = new LinkedHashMap<String, Bitmap>(16, 0.75f, true) {
 		private static final long serialVersionUID = 1L;
 
@@ -166,12 +168,36 @@ public final class ButtonFaces {
 			if (cached != null && !cached.isRecycled()) {
 				return cached;
 			}
+			if (MISSES.contains(key)) {
+				return null;
+			}
 			Bitmap loaded = load(context, parsed, w, h);
 			if (loaded == null) {
+				if (parsed.named != null) {
+					MISSES.add(key);
+				}
 				return null;
 			}
 			CACHE.put(key, loaded);
 			return loaded;
+		}
+	}
+
+	/** Drop decoded {@code named:} pictures so a replaced file is read again. */
+	public static void forgetNamed() {
+		synchronized (CACHE) {
+			java.util.Iterator<String> keys = CACHE.keySet().iterator();
+			while (keys.hasNext()) {
+				if (keys.next().startsWith("named:")) {
+					keys.remove();
+				}
+			}
+			java.util.Iterator<String> misses = MISSES.iterator();
+			while (misses.hasNext()) {
+				if (misses.next().startsWith("named:")) {
+					misses.remove();
+				}
+			}
 		}
 	}
 
@@ -203,6 +229,17 @@ public final class ButtonFaces {
 			if (raw == null) {
 				String svg = spec.assetPng.substring(0, spec.assetPng.length() - 4) + ".svg";
 				raw = decodeAssetSvg(context, svg, width, height);
+			}
+		} else if (spec.named != null) {
+			InputStream in = IconFolder.open(context, spec.named);
+			try {
+				if (in != null && ButtonFaceRef.isSvg(spec.named)) {
+					raw = renderSvg(in, width, height);
+				} else if (in != null && ButtonFaceRef.isRaster(spec.named)) {
+					raw = decodeStream(in);
+				}
+			} finally {
+				close(in);
 			}
 		} else if (spec.file != null) {
 			if (ButtonFaceRef.isSvg(spec.file)) {
@@ -364,6 +401,8 @@ public final class ButtonFaces {
 		} catch (com.caverock.androidsvg.SVGParseException ignored) {
 			return null;
 		} catch (RuntimeException ignored) {
+			return null;
+		} catch (OutOfMemoryError ignored) {
 			return null;
 		}
 	}

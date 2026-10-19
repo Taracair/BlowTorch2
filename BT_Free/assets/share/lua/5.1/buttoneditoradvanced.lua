@@ -386,6 +386,24 @@ function makeUI(editorValues,numediting)
 
   -- Same row as Name, to the right. Keep the row visible for multi-edit so
   -- Active is still reachable when the name field is disabled.
+  if ui.buttonIdText == nil then
+    ui.buttonIdText = fnew(TextView, context)
+    ui.buttonIdText:setTextSize(textSizeSmall)
+    ui.buttonIdText:setTextColor(DESC_TEXT)
+    ui.buttonIdText:setSingleLine(true)
+    ui.buttonIdText:setGravity(Gravity.CENTER_VERTICAL)
+    local idParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+    idParams:setMargins(math.floor(8 * density), 0, math.floor(6 * density), 0)
+    ui.buttonIdText:setLayoutParams(idParams)
+  end
+  local showId = numediting == 1 and editorValues.id ~= nil and tostring(editorValues.id) ~= ""
+  if showId then
+    ui.buttonIdText:setText(tostring(editorValues.id))
+    ui.buttonIdText:setVisibility(View.VISIBLE)
+  else
+    ui.buttonIdText:setVisibility(View.GONE)
+  end
+  safeAddView(ui.buttonNameRow, ui.buttonIdText)
   if(ui.activeCheck == nil) then
     ui.activeCheck = fnew(CheckBox,context)
     local activeParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)

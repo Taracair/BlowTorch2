@@ -385,6 +385,20 @@ Do not want to build a pad from nothing? Options → Button → Load button
 set from wizard (or .layoutwizard) offers ready-made packs — Compass,
 Newbie, Combat, Explorer, Social — each written to a set name you pick.
 
+Change the picture on a button without opening the editor:
+
+  .icon                         the icon folder, or that none is set
+  .icon folder                  choose a folder of your own pictures
+  .icon set LOOK marks/sword    built-in sword on the button labelled LOOK
+  .icon set LOOK sword.png      the file sword.png in that folder
+  .icon set b12 marks/sword     a tile with no words; b12 is the grey id beside Name
+  .icon list                    built-in set names
+  .icon list marks              names in the Marks set
+
+LOOK must match the label on the tile. Two tiles with that label: nothing
+changes — use Name on Advanced, or that grey id. The folder is
+Options → Button → Icon folder, one for the whole app.
+
 Next lesson: make your own .loadset button.]])
 end
 

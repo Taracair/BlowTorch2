@@ -61,6 +61,7 @@
   	 		<boolean title="Show swipe direction arrow" key="show_swipe_preview" summary="Draw the arrow across a button while you drag it. The command callout above the button shows either way.">true</boolean>
   	 		<boolean title="Offer button layout wizard" key="layout_wizard_pending" summary="Show the pack picker once after connect on a new profile. Finish, skip, or start clean to clear it. Re-enable anytime, or use Options → Button → Load button set from wizard.">true</boolean>
   	 		<callback title="Load button set from wizard" key="layout_wizard_open" summary="Pick templates or start with no buttons. Set names, size, alignment, and colors. Does not remove other button sets.">showLayoutWizardCmd</callback>
+  	 		<callback title="Icon folder" key="icon_folder_open" summary="Choose the folder whose file names commands use as button icons.">showIconFolderCmd</callback>
   	 		<list title="Button size" key="layout_size_preset" summary="Size of the tiles in the current button set. Changing this resizes the set on screen and becomes the wizard's default.">
   	 			<value>1</value>
   	 			<item>Compact</item>

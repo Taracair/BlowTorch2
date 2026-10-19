@@ -244,6 +244,9 @@ local function labelFor(spec)
 	if spec == "" then
 		return "Colored pad"
 	end
+	if string.sub(spec, 1, 6) == "named:" then
+		return fileName(string.sub(spec, 7))
+	end
 	for _, set in ipairs(buttonlook.FACE_CATALOG) do
 		for _, icon in ipairs(set.icons) do
 			if spec == "builtin:" .. set.set .. "/" .. icon.id then
@@ -420,6 +423,9 @@ local function showPicker(title, current, noneLabel, onPick)
 	local currentFile = trim(current)
 	if string.sub(currentFile, 1, 5) == "file:" then
 		currentFile = trim(string.sub(currentFile, 6))
+	end
+	if string.sub(currentFile, 1, 6) == "named:" then
+		currentFile = trim(string.sub(currentFile, 7))
 	end
 	local isFile = currentFile ~= "" and string.sub(currentFile, 1, 8) ~= "builtin:"
 	fileRow:setText(isFile and fileName(currentFile) or "Choose image file")

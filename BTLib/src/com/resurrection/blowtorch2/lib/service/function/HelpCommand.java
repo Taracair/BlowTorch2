@@ -154,6 +154,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("map", "The map", "prints help; .map open shows the map");
 
 		cmd("loadset", "Buttons", "prints usage; .loadset name loads that set");
+		cmd("icon", "Buttons", "prints the icon folder; .icon set changes a button's picture");
 		cmd("layoutwizard", "Buttons",
 				"open the button layout wizard (packs, set names, size)");
 		cmd("clearbuttons", "Buttons", "take the buttons away until the next set");
@@ -927,6 +928,24 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .loadset           — usage; name a set to load it\n"
 					+ "  .loadset <name>    — load that button set\n";
+		}
+		if (filter.equals("icon")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .icon:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .icon                         — the icon folder\n"
+					+ "  .icon folder                  — choose that folder\n"
+					+ "  .icon list                    — built-in sets\n"
+					+ "  .icon list <set>              — names in that set\n"
+					+ "  .icon list files              — files in the folder\n"
+					+ "  .icon set <label> <icon>      — main picture\n"
+					+ "  .icon set <label> held <icon> — picture under your finger\n"
+					+ "  .icon set <label> held darken\n"
+					+ "  .icon set <label> flip <icon> — picture after a flip\n"
+					+ "  .icon set <label> flip same\n"
+					+ "  .icon set <label> off         — colored pad again\n"
+					+ "  .icon help                    — the same list\n"
+					+ "  No label, or two the same: Name on Advanced, or the id beside it (b12).\n";
 		}
 		if (filter.equals("osc8")) {
 			return "\n"

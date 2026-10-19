@@ -222,6 +222,11 @@ public class FloatingButtonView extends View {
 				: (flippedVisual ? ButtonFaces.STATE_FLIP : ButtonFaces.STATE_IDLE);
 		int faceState = ButtonFaces.pictureState(touchState, previewDir != null);
 		int fillAlphaBits = (bg >>> 24) & 0xFF;
+		if (com.resurrection.blowtorch2.lib.button.IconFolder.isNamed(model.face)
+				|| com.resurrection.blowtorch2.lib.button.IconFolder.isNamed(model.facePressed)
+				|| com.resurrection.blowtorch2.lib.button.IconFolder.isNamed(model.faceFlip)) {
+			com.resurrection.blowtorch2.lib.button.IconFolder.noteDrawing(this);
+		}
 		boolean drewFace = ButtonFaces.draw(canvas, getContext(), oval,
 				model.floatRound ? 0f : resolveCornerRadiusPx(model),
 				model.floatRound, model.face, model.facePressed, model.faceFlip,

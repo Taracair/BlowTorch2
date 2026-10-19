@@ -319,6 +319,7 @@ it cannot be disabled or deleted.
 | **Show gesture hints** | on | Draw swipe arrows, hold (**H**) and accordion chevrons on the tiles. Off is a cleaner pad you have to remember. The same switch is in Edit mode under the gear, as **Markings on buttons**, which is where to look on a profile too old to have this row. It is the master: with it off nothing is drawn anywhere, and with it on each button may still opt out in its own Swipe tab |
 | **Offer button layout wizard** | on | Show the pack picker once after connect on a new profile. Cleared when you finish, skip, or start clean; turn it back on to see the prompt again |
 | **Load button set from wizard** | — | Opens the wizard right now, at any time. Same as `.layoutwizard`. First launch can start with no buttons. Writes only the sets you name; removes nothing |
+| **Icon folder** | — | Opens the system folder picker. Commands look up an icon file by name in that folder. One folder for the whole app. Same as `.icon folder` |
 | **Button size** | Comfortable | Compact / Comfortable / Large / Extra large / **Fit to screen**. Picking one resizes the **current** set immediately, keeping its arrangement — tile size and grid spacing move together, so a compass rose stays a rose. Also becomes the wizard's default |
 | **Layout template** | Compass | Compass / Newbie / Combat / Explorer / Social. Only chooses which pack the wizard offers first — **it installs nothing on its own** |
 | **Button roundness** | 6 | Corner radius of a tile (key is `roundess`, spelled that way on disk) |
