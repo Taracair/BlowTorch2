@@ -4757,16 +4757,23 @@ public class MapperController {
 			if (buffer == null) {
 				return out;
 			}
-			LinkedList<Line> lines = buffer.getLines();
-			if (lines == null || lines.isEmpty()) {
-				return out;
-			}
-			int start = Math.max(0, lines.size() - max);
-			for (int i = start; i < lines.size(); i++) {
-				Line line = lines.get(i);
-				out.add(TextTree.deColorLine(line).toString());
-			}
+			return newestLines(buffer.getLines(), max);
 		} catch (Exception ignored) {
+		}
+		return out;
+	}
+
+	/**
+	 * The newest {@code max} lines, oldest first. {@link TextTree#getLines()} is
+	 * newest-first; the tail of that list is the start of the scrollback.
+	 */
+	static List<String> newestLines(final LinkedList<Line> lines, final int max) {
+		List<String> out = new ArrayList<String>();
+		if (lines == null || lines.isEmpty()) {
+			return out;
+		}
+		for (int i = Math.min(lines.size(), max) - 1; i >= 0; i--) {
+			out.add(TextTree.deColorLine(lines.get(i)).toString());
 		}
 		return out;
 	}
