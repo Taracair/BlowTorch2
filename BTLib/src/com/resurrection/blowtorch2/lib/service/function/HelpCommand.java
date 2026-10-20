@@ -55,6 +55,9 @@ public class HelpCommand extends SpecialCommand {
 		cmd("help", "Other", "this list; .help word shows matches, and one close miss names that command");
 		cmd("echo", "Playing", "says whether what you type is shown when the server has "
 				+ "masked it");
+		cmd("login", "Playing", "send the login stored for this world in the launcher");
+		cmd("password", "Playing", "send the stored password; never echoed or logged");
+		cmd("accounts", "Playing", "list this world's launcher accounts for .login/.password");
 		cmd("run", "Playing", "walk a speedwalk string, like 4n2e");
 		cmd("rev", "Playing", "walk that speedwalk string backwards");
 		cmd("disconnect", "Playing", "close the connection");
@@ -291,6 +294,14 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .echo              — say whether the input bar is masked\n"
 					+ "  .echo on|off       — show or hide what you type (telnet ECHO)\n";
+		}
+		if (filter.equals("login") || filter.equals("password") || filter.equals("accounts")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .login / .password:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .login [n|label]    — send account n's login (default 1)\n"
+					+ "  .password [n|label] — send its password, not shown anywhere\n"
+					+ "  .accounts           — list the accounts, without passwords\n";
 		}
 		if (filter.equals("run")) {
 			return "\n"

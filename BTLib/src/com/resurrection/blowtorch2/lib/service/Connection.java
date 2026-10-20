@@ -45,6 +45,7 @@ import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableOp;
 import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ButtonHeatCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
+import com.resurrection.blowtorch2.lib.service.function.CredentialCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.DebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
@@ -390,6 +391,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private boolean mCallbacksStarted = false;
 	/** String builder used by the alias parsing routine. */
 	private final StringBuffer mDataToServer = new StringBuffer();
+	/** Unaccent flag of the send being walked, for a mid-line credential flush. */
+	private boolean mOutboundUnaccent = false;
+	private volatile List<com.resurrection.blowtorch2.lib.launcher.ServerAccount> mLauncherAccounts =
+			new ArrayList<com.resurrection.blowtorch2.lib.launcher.ServerAccount>();
 	/** String builder used by the alias parsing routine. */
 	private final StringBuffer mDataToWindow = new StringBuffer();
 	/** Used by the trigger processor to map line start/end to line number. */
@@ -771,6 +776,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.EchoCommand echocmd =
 				new com.resurrection.blowtorch2.lib.service.function.EchoCommand();
 		mSpecialCommands.put(echocmd.commandName, echocmd);
+		for (int mode : new int[] { CredentialCommand.LOGIN, CredentialCommand.PASSWORD,
+				CredentialCommand.LIST }) {
+			CredentialCommand credcmd = new CredentialCommand(mode);
+			mSpecialCommands.put(credcmd.commandName, credcmd);
+		}
 		MapCommand mapcmd = new MapCommand();
 		mSpecialCommands.put(mapcmd.commandName, mapcmd);
 		WindowCommand windowcmd = new WindowCommand();
@@ -4052,6 +4062,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (mud == null) {
 				return;
 			}
+			ArrayList<com.resurrection.blowtorch2.lib.launcher.ServerAccount> accounts =
+					new ArrayList<com.resurrection.blowtorch2.lib.launcher.ServerAccount>();
+			for (com.resurrection.blowtorch2.lib.launcher.ServerAccount a : mud.getAccounts()) {
+				if (a != null && !a.isEmpty()) {
+					accounts.add(a.copy());
+				}
+			}
+			mLauncherAccounts = accounts;
 			com.resurrection.blowtorch2.lib.launcher.ServerAccount acc = mud.primaryAccount();
 			if (acc != null) {
 				mProcessor.setLoginCredentials(acc.getLogin(), acc.getPassword());
@@ -4059,6 +4077,54 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} catch (Exception e) {
 			Log.w("BlowTorch", "Char.Login credential load failed", e);
 		}
+	}
+
+	/** Launcher accounts for {@code .login}/{@code .password}, as of the last connect. */
+	public final List<com.resurrection.blowtorch2.lib.launcher.ServerAccount> getLauncherAccounts() {
+		return mLauncherAccounts;
+	}
+
+	/**
+	 * Write one line to the socket, bypassing aliases, echo, the session log,
+	 * the mapper and unaccent folding. Plain text already queued earlier on the
+	 * same input line goes out first so "name;.password" keeps its order.
+	 *
+	 * @return false when there is no live connection; nothing is sent then.
+	 */
+	public final boolean sendCredentialToServer(final String value) {
+		if (mPump == null || !mPump.isConnected() || value == null) {
+			return false;
+		}
+		try {
+			if (mDataToServer.length() > 0) {
+				Data pending = new Data();
+				pending.mCmdString = mDataToServer.toString();
+				pending.mVisString = "";
+				mDataToServer.setLength(0);
+				emitOutbound(pending, mOutboundUnaccent);
+			}
+			String line = value;
+			if (mMcpEngine != null && mMcpEngine.isUse()) {
+				line = mMcpEngine.quoteOutboundInBand(line);
+			}
+			byte[] raw = (line + mCRLF).getBytes(mSettings.getEncoding());
+			ByteBuffer buf = ByteBuffer.allocate(raw.length * 2);
+			for (byte b : raw) {
+				buf.put(b);
+				if (b == TC.IAC) {
+					buf.put(TC.IAC);
+				}
+			}
+			byte[] tosend = new byte[buf.position()];
+			buf.rewind();
+			buf.get(tosend);
+			mPump.sendData(tosend);
+		} catch (IOException e) {
+			cancelCommandWaits();
+			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
+			return false;
+		}
+		return true;
 	}
 
 
@@ -4238,6 +4304,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				
 				if (cmd.startsWith(mScriptBlock)) {
 					mSettings.runLuaString(cmd.substring(mScriptBlock.length(), cmd.length()));
+				} else if (mSettings.isProcessPeriod()
+						&& CredentialCommand.handleInline(cmd, this)) {
+					d = null;
 				} else {
 					d = processCommand(cmd);
 				}
@@ -4438,6 +4507,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (paused.holdover != null && paused.holdover.length() > 0) {
 				holdover.append(paused.holdover);
 			}
+			mOutboundUnaccent = paused.unaccent;
 			Data d = processPreparedSegments(paused.segments, paused.inheritedEcho,
 					holdover, paused.holdoverPolicy);
 			if (mJustPaused != null) {
@@ -7809,6 +7879,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		Data d = null;
+		mOutboundUnaccent = unaccent;
 		try {
 			d = processOutputData(new String(bytes, mSettings.getEncoding()));
 		} catch (UnsupportedEncodingException e2) {
