@@ -22,8 +22,10 @@ public class WaitCommand extends SpecialCommand {
 		CommandWait.Result r = CommandWait.parseArgument(arg);
 		if (r.kind == CommandWait.Kind.STOP) {
 			c.cancelCommandWaits();
-			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
-					+ "[wait cancelled]\n");
+			if (!r.silent) {
+				c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+						+ "[wait cancelled]\n");
+			}
 			return null;
 		}
 		if (r.kind == CommandWait.Kind.SHOW) {
@@ -31,7 +33,7 @@ public class WaitCommand extends SpecialCommand {
 			return null;
 		}
 		if (r.kind == CommandWait.Kind.CHANGE) {
-			c.retargetCommandWait(r.index, r.delayMs);
+			c.retargetCommandWait(r.index, r.delayMs, r.silent);
 			return null;
 		}
 		if (r.kind == CommandWait.Kind.ERROR) {

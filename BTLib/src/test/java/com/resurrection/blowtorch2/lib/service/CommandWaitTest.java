@@ -3,6 +3,8 @@ package com.resurrection.blowtorch2.lib.service;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -160,5 +162,18 @@ public class CommandWaitTest {
 	@Test
 	public void delayResultHasNoMessage() {
 		assertNull(CommandWait.parseSegment("#wait 5s").message);
+	}
+
+	@Test
+	public void trailingSilentKeepsTheMeaningAndHidesTheLine() {
+		CommandWait.Result r = CommandWait.parseSegment(".wait 5s silent");
+		assertSame(CommandWait.Kind.DELAY, r.kind);
+		assertEquals(5000L, r.delayMs);
+		assertTrue(r.silent);
+		assertTrue(CommandWait.parseArgument("stop SILENT").silent);
+		assertSame(CommandWait.Kind.CHANGE, CommandWait.parseArgument("change 1 60s silent").kind);
+		assertFalse(CommandWait.parseArgument("5s").silent);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("silent").kind);
+		assertSame(CommandWait.Kind.ERROR, CommandWait.parseArgument("5x silent").kind);
 	}
 }

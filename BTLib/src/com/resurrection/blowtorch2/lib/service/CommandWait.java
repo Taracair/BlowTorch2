@@ -17,6 +17,7 @@ public final class CommandWait {
 			"Usage: .wait 5s | #wait 5m10s | .wait 1h | .wait 500ms\n"
 					+ "       .wait stop   (or #wait 0) cancels a wait still running\n"
 					+ "       .wait show   (or .wait info) lists queued waits and when they fire\n"
+					+ "       .wait 5s silent   no [wait] line (also stop and change)\n"
 					+ "       .wait change 1 60s  (or #wait change) retargets that row from now\n"
 					+ "Units h, m, s, ms in any order. A bare number is seconds. Max 1h.\n"
 					+ "Only the rest of this line waits (north;.wait 2s;south). "
@@ -36,16 +37,24 @@ public final class CommandWait {
 		public final long delayMs;
 		public final String message;
 		public final int index;
+		/** Trailing {@code silent}: no confirmation line. Errors still print. */
+		public final boolean silent;
 
 		Result(final Kind kind, final long delayMs, final String message) {
 			this(kind, delayMs, message, 0);
 		}
 
 		Result(final Kind kind, final long delayMs, final String message, final int index) {
+			this(kind, delayMs, message, index, false);
+		}
+
+		Result(final Kind kind, final long delayMs, final String message, final int index,
+				final boolean silent) {
 			this.kind = kind;
 			this.delayMs = delayMs;
 			this.message = message;
 			this.index = index;
+			this.silent = silent;
 		}
 
 		public static Result notWait() {
@@ -109,9 +118,21 @@ public final class CommandWait {
 		return parseArgument(arg == null ? "" : arg);
 	}
 
-	/** Argument after {@code .wait} / {@code #wait}. */
+	private static final Pattern SILENT = Pattern.compile("(?i)^(.*\\S)\\s+silent$");
+
+	/** Argument after {@code .wait} / {@code #wait}; a trailing {@code silent} hides the confirmation. */
 	public static Result parseArgument(final String raw) {
 		String arg = raw == null ? "" : raw.trim();
+		Matcher silent = SILENT.matcher(arg);
+		if (silent.matches()) {
+			Result r = parseLoud(silent.group(1));
+			return r.kind == Kind.ERROR ? r
+					: new Result(r.kind, r.delayMs, r.message, r.index, true);
+		}
+		return parseLoud(arg);
+	}
+
+	private static Result parseLoud(final String arg) {
 		if (arg.length() == 0) {
 			return Result.error(USAGE);
 		}

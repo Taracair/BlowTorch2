@@ -129,7 +129,7 @@ public final class WidgetCommandParser {
 		if ("list".equals(verb)) {
 			return parseList(parts);
 		}
-		if ("add".equals(verb)) {
+		if ("add".equals(verb) || "create".equals(verb)) {
 			return parseAdd(parts);
 		}
 		if ("remove".equals(verb) || "delete".equals(verb) || "rm".equals(verb)) {
@@ -194,7 +194,10 @@ public final class WidgetCommandParser {
 
 	public static String usage() {
 		return "Usage: .widget list\n"
-				+ "       .widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]\n"
+				+ "       .widget add|create <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]\n"
+				+ "           (an existing id is kept as it is, not an error)\n"
+				+ "       (remove of an id that is not there is not an error either)\n"
+				+ "       any subcommand + silent: no confirmation line (errors still show)\n"
 				+ "       .widget remove|delete|rm <id>\n"
 				+ "       .widget show|hide <id>\n"
 				+ "       .widget shape <id> hbar|vbar|ring|timer\n"

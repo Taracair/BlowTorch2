@@ -4235,8 +4235,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				if (waitTok.kind == CommandWait.Kind.STOP) {
 					cancelCommandWaits();
-					sendDataToWindow("\n" + Colorizer.getWhiteColor()
-							+ "[wait cancelled]\n");
+					if (!waitTok.silent) {
+						sendDataToWindow("\n" + Colorizer.getWhiteColor()
+								+ "[wait cancelled]\n");
+					}
 					continue;
 				}
 				if (waitTok.kind == CommandWait.Kind.SHOW) {
@@ -4244,12 +4246,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					continue;
 				}
 				if (waitTok.kind == CommandWait.Kind.CHANGE) {
-					retargetCommandWait(waitTok.index, waitTok.delayMs);
+					retargetCommandWait(waitTok.index, waitTok.delayMs, waitTok.silent);
 					continue;
 				}
-				sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
-						+ CommandWait.format(waitTok.delayMs) + "]"
-						+ Colorizer.getWhiteColor() + "\n");
+				if (!waitTok.silent) {
+					sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+							+ CommandWait.format(waitTok.delayMs) + "]"
+							+ Colorizer.getWhiteColor() + "\n");
+				}
 				PausedOutbound paused = new PausedOutbound();
 				paused.delayMs = waitTok.delayMs;
 				paused.holdover = holdover.toString();
@@ -4454,6 +4458,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** {@code .wait change N 60s}: retarget that row from now. */
 	public final void retargetCommandWait(final int index1, final long delayMs) {
+		retargetCommandWait(index1, delayMs, false);
+	}
+
+	/** @param silent skip the "[wait N now …]" line; a bad index still reports. */
+	public final void retargetCommandWait(final int index1, final long delayMs,
+			final boolean silent) {
 		int slot = WaitQueueText.resolveSlot(mCommandWaits.size(),
 				mJustPaused != null, index1);
 		if (slot == WaitQueueText.INVALID) {
@@ -4470,7 +4480,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		if (slot == WaitQueueText.JUST_PAUSED) {
 			mJustPaused.delayMs = delayMs;
-			sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+			if (!silent) sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
 					+ index1 + " now " + CommandWait.format(delayMs) + "]\n");
 			return;
 		}
@@ -4482,7 +4492,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mHandler.sendMessageDelayed(
 					mHandler.obtainMessage(MESSAGE_WAIT_RESUME, paused), delayMs);
 		}
-		sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
+		if (!silent) sendDataToWindow("\n" + Colorizer.getWhiteColor() + "[wait "
 				+ index1 + " now " + CommandWait.format(delayMs) + "]\n");
 	}
 

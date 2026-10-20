@@ -14,6 +14,10 @@ public class WidgetCommand extends SpecialCommand {
 
 	public static final String ALIAS_NAME = "gauge";
 
+	/** Trailing {@code silent}: no confirmation line. Errors still print. */
+	static final java.util.regex.Pattern SILENT =
+			java.util.regex.Pattern.compile("(?i)^(.*\\S)\\s+silent$");
+
 	public WidgetCommand() {
 		this.commandName = "widget";
 	}
@@ -25,6 +29,12 @@ public class WidgetCommand extends SpecialCommand {
 	@Override
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
+		boolean silent = false;
+		java.util.regex.Matcher quiet = SILENT.matcher(arg);
+		if (quiet.matches()) {
+			arg = quiet.group(1);
+			silent = true;
+		}
 		WidgetCommandParser.Result r = WidgetCommandParser.parse(arg);
 		if (r.error != null) {
 			c.sendDataToWindow(getErrorMessage("Widget command usage:", r.error));
@@ -44,7 +54,7 @@ public class WidgetCommand extends SpecialCommand {
 			c.sendDataToWindow(getErrorMessage("Widget command error", r.error));
 			return null;
 		}
-		if (note != null && note.length() > 0) {
+		if (!silent && note != null && note.length() > 0) {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor() + note + "\n");
 		}
 		return null;

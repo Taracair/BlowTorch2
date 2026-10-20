@@ -2682,7 +2682,7 @@ is enabled; `.alias list` shows every alias at once.
     `.timer dump` / `.timer list` / `.timer info`   Every timer's status in the game window
     `.timer duration <name>`   Same as `.timer info <name>` (time left, including time added with `50s`)
     `.timer duration <name> <seconds> [silent]`   Bare number sets the length and restarts from full. `50s` / `2m` / `1h` add to the time left and keep the stored length. `-50s` / `-2m` subtract (floor 0)
-    `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue. `.wait change 1 60s` retargets that row from now
+    `.wait <duration>` / `#wait <duration>`  Pause the rest of this line (`5s`, `5m10s`, `500ms`; max 1h). `.wait stop` / `#wait 0` cancels. `.wait show` / `.wait info` lists the queue. `.wait change 1 60s` retargets that row from now. Add `silent` at the end (`.wait 5s silent`) and no `[wait …]` line is printed; errors still are
     `.options`                          Open the Options screen, the same one the ⋮ menu opens. Takes no arguments. Put it on a button to reach settings without the menu — useful in landscape or with the keyboard up, where ⋮ can be hard to reach
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. Any other word is an error and does not change it. The next change from the server wins
@@ -4050,13 +4050,20 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 
 `.bind` is the same verb as `.source`. Bare `.widget` prints usage.
 
+`create` is the same as `add`. Adding an id that already exists keeps the
+widget as it is instead of failing, so a trigger can run `.widget create mob hbar`
+every time a fight starts, and removing an id that is not there is not an
+error either, so `.widget remove mob` on a second death message is harmless. Any form ending in `silent` prints no confirmation
+(`.widget set mob 30 100 silent`); errors still print. A label that really ends
+in the word silent loses that word.
+
 ### `.widget` / `.gauge` forms
 
 ```
 .widget
 .gauge
 .widget list
-.widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
+.widget add|create <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
 .widget remove|delete|rm <id>
 .widget show|hide <id>
 .widget shape <id> hbar|vbar|ring|timer

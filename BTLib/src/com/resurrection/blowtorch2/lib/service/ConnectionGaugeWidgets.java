@@ -622,9 +622,9 @@ final class ConnectionGaugeWidgets {
 	}
 
 	private String applyAdd(final WidgetCommandParser.Result r) {
+		// Kept, not an error, so a trigger can add a bar each time a fight starts.
 		if (GaugeWidgetsStore.find(list, r.id) != null) {
-			r.error = "Widget '" + r.id + "' already exists.";
-			return null;
+			return "Widget " + r.id + " already exists; kept.";
 		}
 		if (list.size() >= GaugeWidgetsStore.MAX) {
 			r.error = "At most " + GaugeWidgetsStore.MAX + " widgets.";
@@ -642,9 +642,10 @@ final class ConnectionGaugeWidgets {
 	}
 
 	private String applyRemove(final WidgetCommandParser.Result r) {
-		GaugeWidget g = requireWidget(r);
+		// Not an error, like add: a second death message removes nothing.
+		GaugeWidget g = GaugeWidgetsStore.find(list, r.id);
 		if (g == null) {
-			return null;
+			return "No widget " + r.id + " to remove.";
 		}
 		list.remove(g);
 		deadlines.remove(g.getId());
