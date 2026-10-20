@@ -339,7 +339,7 @@ othersHelp = function(multi)
 	.. "SIZE & POSITION\n"
 	.. "Width, height and position are in dp from the top-left of the button layer.\n\n"
 	.. "TEXT\n"
-	.. "Game text avoids this button is off until you turn it on and press Done. On: that button is a hole even when .avoidbuttons is off. Game text draws under this button is the other way: text paints through that button even when .avoidbuttons is on. Both off follows .avoidbuttons. Turning one on turns the other off. Break around every hole is Letters or Words, the same switch as .avoidbuttons letters and .avoidbuttons words. Extra margin is pixels on top of Avoid-buttons margin. Leave the button screen before the hole is drawn.\n\n"
+	.. "Game text avoids this button is off until you turn it on and press Done. On: that button is a hole even when .avoidbuttons is off. Game text draws under this button is the other way: text paints through that button even when .avoidbuttons is on. Both off follows .avoidbuttons. Turning one on turns the other off. Break around every hole is Letters or Words, the same switch as .avoidbuttons letters and .avoidbuttons words. Extra margin is pixels on top of Avoid buttons → Margin (px). Leave the button screen before the hole is drawn.\n\n"
 	.. "FLOATING\n"
 	.. "Tick Float over the game to put a copy of this button on the screen, over the game. When, Shape and Thin outline appear once it is ticked.\n\n"
 	.. "Always visible: the button stays on screen. In play mode only the floating copy is drawn, so it does not stack on the grid tile.\n\n"

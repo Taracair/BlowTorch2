@@ -63,6 +63,48 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
+	public void textPageDrillsIntoAvoidButtons() {
+		SettingsGroup window = new WindowToken().getSettings();
+		SettingsGroup text = (SettingsGroup) childNamed(window, "Text");
+		SettingsGroup avoid = (SettingsGroup) childNamed(text, "Avoid buttons");
+		assertNotNull(avoid);
+		assertEquals("window_avoid_buttons_group", avoid.getKey());
+
+		ArrayList<OptionsDialog.PageRow> textRows = OptionsDialog.pageRows(text);
+		assertSame(avoid, optionNamed(textRows, "Avoid buttons"));
+		assertFalse(hasHeader(textRows, "Avoid buttons"));
+		assertNull(optionNamed(textRows, "Wrap around buttons?"));
+		assertNull(optionNamed(textRows, "Flow"));
+
+		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(avoid);
+		assertEquals(4, rows.size());
+		assertEquals("text_avoid_buttons", rows.get(0).option.getKey());
+		assertEquals("Wrap around buttons?", rows.get(0).option.getTitle());
+		assertEquals("text_avoid_buttons_flow", rows.get(1).option.getKey());
+		assertEquals("Flow", rows.get(1).option.getTitle());
+		assertEquals("text_avoid_buttons_break", rows.get(2).option.getKey());
+		assertEquals("Break", rows.get(2).option.getTitle());
+		assertEquals("text_avoid_buttons_margin", rows.get(3).option.getKey());
+		assertEquals("Margin (px)", rows.get(3).option.getTitle());
+
+		ListOption flow = (ListOption) rows.get(1).option;
+		assertEquals("Sides", flow.getItems().get(0));
+		assertEquals("Between", flow.getItems().get(1));
+		ListOption brk = (ListOption) rows.get(2).option;
+		assertEquals("Letters", brk.getItems().get(0));
+		assertEquals("Words", brk.getItems().get(1));
+
+		assertSame(avoid.findOptionByKey("text_avoid_buttons"),
+				window.findOptionByKey("text_avoid_buttons"));
+		assertSame(avoid.findOptionByKey("text_avoid_buttons_flow"),
+				window.findOptionByKey("text_avoid_buttons_flow"));
+		assertSame(avoid.findOptionByKey("text_avoid_buttons_break"),
+				window.findOptionByKey("text_avoid_buttons_break"));
+		assertSame(avoid.findOptionByKey("text_avoid_buttons_margin"),
+				window.findOptionByKey("text_avoid_buttons_margin"));
+	}
+
+	@Test
 	public void windowFontPickerDoesNotDumpSystemFonts() {
 		SettingsGroup window = new WindowToken().getSettings();
 		Option found = window.findOptionByKey("font_path");

@@ -353,7 +353,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "Off by default. ASCII maps may break. Grid pad and floating copies; live while dragging.\n"
 					+ "letters (default) moves one character at a time; words keeps whole words off the hole.\n"
 					+ "One button, Edit buttons → Advanced: Game text avoids this button keeps a hole when this is off. Game text draws under this button lets text paint through it when this is on.\n"
-					+ "Also: Options → Window → Text → Text avoids on-screen buttons?\n";
+					+ "Also: Options → Window → Text → Avoid buttons.\n";
 		}
 		if (filter.equals("jumpsend")) {
 			return "\n"

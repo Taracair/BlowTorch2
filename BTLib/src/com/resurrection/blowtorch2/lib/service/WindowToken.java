@@ -448,6 +448,11 @@ public class WindowToken implements Parcelable {
 		inputBar.setTitle("Input bar");
 		inputBar.setDescription("The Edit and Send buttons on the input bar.");
 		inputBar.setKey("window_input_bar_group");
+
+		SettingsGroup avoidButtonsPage = new SettingsGroup();
+		avoidButtonsPage.setTitle("Avoid buttons");
+		avoidButtonsPage.setDescription("Whether game text wraps around on-screen buttons, and how the holes are shaped.");
+		avoidButtonsPage.setKey("window_avoid_buttons_group");
 		
 		BooleanOption hyperlinksEnabled = new BooleanOption();
 		hyperlinksEnabled.setTitle("Enable Hyperlinks?");
@@ -565,28 +570,28 @@ public class WindowToken implements Parcelable {
 		canvasWidth.setValue(100);
 
 		BooleanOption avoidButtons = new BooleanOption();
-		avoidButtons.setTitle("Text avoids on-screen buttons?");
-		avoidButtons.setDescription("Game text wraps around on-screen buttons instead of drawing under them.");
+		avoidButtons.setTitle("Wrap around buttons?");
+		avoidButtons.setDescription("Game text wraps around the grid pad and floating buttons instead of drawing under them.");
 		avoidButtons.setKey("text_avoid_buttons");
 		avoidButtons.setValue(false);
 
 		ListOption avoidButtonsBreak = new ListOption();
-		avoidButtonsBreak.setTitle("Avoid-buttons break");
-		avoidButtonsBreak.setDescription("While text avoids buttons, move one character at a time past the hole, or keep whole words on one side.");
+		avoidButtonsBreak.setTitle("Break");
+		avoidButtonsBreak.setDescription("Letters moves one character at a time, and Words keeps a whole word on one side.");
 		avoidButtonsBreak.setKey("text_avoid_buttons_break");
 		avoidButtonsBreak.addItem("Letters");
 		avoidButtonsBreak.addItem("Words");
 		avoidButtonsBreak.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_BREAK));
 
 		IntegerOption avoidButtonsMargin = new IntegerOption();
-		avoidButtonsMargin.setTitle("Avoid-buttons margin (px)");
-		avoidButtonsMargin.setDescription("Extra space, in pixels, around every on-screen button while text avoids them.");
+		avoidButtonsMargin.setTitle("Margin (px)");
+		avoidButtonsMargin.setDescription("Extra empty pixels around every button hole.");
 		avoidButtonsMargin.setKey("text_avoid_buttons_margin");
 		avoidButtonsMargin.setValue(Integer.valueOf(DEFAULT_AVOID_BUTTONS_MARGIN));
 
 		ListOption avoidButtonsFlow = new ListOption();
-		avoidButtonsFlow.setTitle("Avoid-buttons flow");
-		avoidButtonsFlow.setDescription("While text avoids buttons, keep one solid hole or put letters in the gaps; what does not fit on that row is dropped, and .width widens the canvas so you can drag sideways to read it.");
+		avoidButtonsFlow.setTitle("Flow");
+		avoidButtonsFlow.setDescription("Sides is one solid hole, and Between puts letters in the gaps.");
 		avoidButtonsFlow.setKey("text_avoid_buttons_flow");
 		avoidButtonsFlow.addItem("Sides");
 		avoidButtonsFlow.addItem("Between");
@@ -770,10 +775,11 @@ public class WindowToken implements Parcelable {
 		text.addOption(lineStampsFields);
 		text.addOption(canvasWidth);
 		text.addOption(newestAtTop);
-		text.addOption(avoidButtons);
-		text.addOption(avoidButtonsBreak);
-		text.addOption(avoidButtonsMargin);
-		text.addOption(avoidButtonsFlow);
+		avoidButtonsPage.addOption(avoidButtons);
+		avoidButtonsPage.addOption(avoidButtonsFlow);
+		avoidButtonsPage.addOption(avoidButtonsBreak);
+		avoidButtonsPage.addOption(avoidButtonsMargin);
+		text.addOption(avoidButtonsPage);
 		text.addOption(pickLoupeSize);
 		text.addOption(pickLoupeZoom);
 		text.addOption(copyLoupeSize);

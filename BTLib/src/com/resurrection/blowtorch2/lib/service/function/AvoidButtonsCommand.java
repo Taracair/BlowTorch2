@@ -9,8 +9,8 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
  * {@code .avoidbuttons on|off|toggle}, {@code .avoidbuttons letters|words},
  * {@code .avoidbuttons sides|between}, {@code .avoidbuttons margin N}.
  *
- * <p>Same preference as Options → Window → Text avoids on-screen buttons?
- * and Avoid-buttons break. Window options, not connection options — see
+ * <p>Same preference as Options → Window → Text → Avoid buttons.
+ * Window options, not connection options — see
  * {@link Connection#updateMainWindowBooleanOption}.
  */
 public class AvoidButtonsCommand extends SpecialCommand {
@@ -42,7 +42,7 @@ public class AvoidButtonsCommand extends SpecialCommand {
 					+ ", flow " + flowLabel(flow)
 					+ ", margin " + margin + " px.\n"
 					+ usage()
-					+ "Also: Options → Window → Text avoids on-screen buttons?\n");
+					+ "Also: Options → Window → Text → Avoid buttons.\n");
 			return null;
 		}
 

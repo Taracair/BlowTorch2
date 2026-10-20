@@ -5,7 +5,7 @@ bottom of Options filters as you type; tap a result to jump there and flash the 
 
 | Group | Purpose |
 |-------|---------|
-| **Window** | Drill in: **Text** (font, colours, wrap, light theme, timestamps, loupes), **Layout** (padding, scrolling, the keyboard, the ⋮ button), **Links**, **Input bar** (Edit and Send) |
+| **Window** | Drill in: **Text** (font, colours, wrap, light theme, timestamps, loupes, **Avoid buttons**), **Layout** (padding, scrolling, the keyboard, the ⋮ button), **Links**, **Input bar** (Edit and Send) |
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
 | **Typing** | The input bar: history, keep last, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation. Edit and Send are under Window → Input bar |
 | **Suggestions** | Words the game just used. Four section titles stay on that page |
@@ -309,6 +309,17 @@ From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
   they depend on. **Reset Settings** is here too (throws away this world's
   settings after a confirm).
 
+## Avoid buttons
+
+Under **Options → Window → Text → Avoid buttons**. Off by default. ASCII maps and cell graphics may break. `.avoidbuttons`.
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Wrap around buttons?** | off | Game text wraps around the grid pad and floating buttons instead of drawing under them. `.avoidbuttons on\|off` |
+| **Flow** | Sides | Sides is one solid hole. Between puts letters in the gaps. The strip past the rightmost button is unused only when the row has two separate groups; buttons that touch are one group, so a left-hand pad still has the page beside it. What does not fit on that row is dropped. If the line does not fit beside the buttons, `.width` over 100 widens the canvas and you drag sideways. `.avoidbuttons sides` or `between` |
+| **Break** | Letters | One character at a time, or a whole word kept on one side. `.avoidbuttons letters` or `words` |
+| **Margin (px)** | 0 | Extra pixels around every button hole (0–200). `.avoidbuttons margin N`. On a button's Advanced tab, Extra margin is added on top, and that button can stay a hole when this is off, or let text draw under it when this is on |
+
 ## Button (plugin `button_window`)
 
 Appears while the button plugin is loaded, which in the Free build is always —
@@ -328,8 +339,6 @@ it cannot be disabled or deleted.
 | **Button label style** | Bold | Regular / Bold / Italic / Bold Italic. Bold keeps existing labels heavy |
 | **Button label font file** | empty | A `.ttf` or `.otf` path. Empty uses the list. A missing file keeps the default face |
 | **Button label horizontal / vertical** | Center | Where the label sits, unless that button overrides it on the Advanced tab |
-| **Avoid-buttons margin (px)** | 0 | Window → Text. Extra pixels around every button hole while text avoids buttons. `.avoidbuttons margin N` (0–200). On Advanced, a button can add its own margin, be a hole even when this is off, or let text draw under it even when this is on |
-| **Avoid-buttons flow** | Sides | Window → Text. Sides is one solid hole. Between puts letters in the gaps. The strip past the rightmost button is unused only when the row has two separate groups; buttons that touch are one group, so a left-hand pad still has the page beside it. What does not fit on that row is dropped. If the line does not fit beside the buttons, `.width` over 100 widens the canvas and you drag sideways. `.avoidbuttons sides` or `between` |
 
 A short tap on empty grid in Edit buttons still makes a new tile. Long-press an
 empty cell pastes copied buttons. The old **Automatically create buttons** /

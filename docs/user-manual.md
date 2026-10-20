@@ -2703,7 +2703,7 @@ is enabled; `.alias list` shows every alias at once.
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Input bar → Show Send button?
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–96. Also Options → Window → Text → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. The copy widget at the right or left edge pans the same way. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text → Text width (% of screen)
-    `.avoidbuttons [on|off|toggle|letters|words|sides|between|margin N]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. `sides` (default) is one solid hole from the leftmost button to the rightmost. `between` puts letters in the left strip and in every gap. The strip past the rightmost button is unused only when the row has two or more separate groups; buttons that touch are one group, so a pad on the left still has the page beside it. What does not fit on that screen row is dropped. If the line does not fit beside the buttons on the right, `.width` over 100 widens the canvas and you drag sideways. `letters` (default) moves one character at a time; `words` keeps a whole word in one gap, and moves it to the next gap on that row when it does not fit. `margin N` is extra pixels around every hole (0–200). Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text
+    `.avoidbuttons [on|off|toggle|letters|words|sides|between|margin N]`  Wrap game text around on-screen buttons on the rows they overlap (grid pad and floating copies) instead of drawing under them. `sides` (default) is one solid hole from the leftmost button to the rightmost. `between` puts letters in the left strip and in every gap. The strip past the rightmost button is unused only when the row has two or more separate groups; buttons that touch are one group, so a pad on the left still has the page beside it. What does not fit on that screen row is dropped. If the line does not fit beside the buttons on the right, `.width` over 100 widens the canvas and you drag sideways. `letters` (default) moves one character at a time; `words` keeps a whole word in one gap, and moves it to the next gap on that row when it does not fit. `margin N` is extra pixels around every hole (0–200). Off by default — ASCII maps and cell graphics may break. Not HP widgets or extra-text windows. Reflows while you drag a floating button. Also Options → Window → Text → Avoid buttons
     `.jumpsend [on|off|toggle]`         After you send a line, scroll to the newest text. On by default. Incoming text near the live edge still snaps there. Also Options → Window → Layout → Jump to the live edge when you send?
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window → Text
     `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Text → Light theme?
@@ -3552,11 +3552,11 @@ in the list because it is the same design as DejaVu.
 
 ## Text avoids on-screen buttons
 
-**Options → Window → Text → Text avoids on-screen buttons?** (off by default), or
-`.avoidbuttons on|off`. With it on, an on-screen button is a hole. That
-includes the ordinary grid pad and floating copies.
+**Options → Window → Text → Avoid buttons → Wrap around buttons?** (off by
+default), or `.avoidbuttons on|off`. With it on, an on-screen button is a
+hole. That includes the ordinary grid pad and floating copies.
 
-**Avoid-buttons flow** (`.avoidbuttons sides|between`, default **sides**):
+**Flow** (`.avoidbuttons sides|between`, default **sides**):
 `sides` makes every button on the row one solid hole from the leftmost edge
 to the rightmost. Letters sit to the left of that hole, and to the right of
 it when there is room. `between` puts letters in the strip left of the first
@@ -3571,7 +3571,7 @@ What does not fit in those openings on this screen row is dropped. The lines
 below stay put. If the line does not fit beside the buttons on the right,
 widen the canvas with `.width` (over 100) and drag sideways to read the rest.
 
-**Avoid-buttons break** (`.avoidbuttons letters|words`, default **letters**):
+**Break** (`.avoidbuttons letters|words`, default **letters**):
 how text packs around a hole while avoid is on. `letters` moves one
 character at a time. `words` keeps a whole word in one gap. With `between`,
 a word that does not fit the current gap moves to the next gap on that row.
@@ -3580,7 +3580,7 @@ every gap, and the rest of that word is dropped.
 Global **Word Wrap?** is a different option and is unchanged. When
 avoid is off, text paints normally and these choices are ignored.
 
-**Avoid-buttons margin** (`.avoidbuttons margin N`, default **0**, at most 200):
+**Margin (px)** (`.avoidbuttons margin N`, default **0**, at most 200):
 extra pixels around every hole. A button's own margin on its **Advanced**
 tab sits beside two checkboxes and is added on top when that button is a hole.
 **Game text avoids this button** starts off. Turn it on and press Done, then
@@ -4178,7 +4178,7 @@ Edit one button and open **Advanced**:
   character at a time, or a whole word kept off the hole, for every hole.
   Flow (`sides` or `between`) is a window setting, not per button.
   What does not fit on the row is dropped; `.width` widens the canvas.
-  **Extra margin** is pixels on top of **Avoid-buttons margin**. Leave the
+  **Extra margin** is pixels on top of **Avoid buttons → Margin (px)**. Leave the
   button screen (not only this dialog) before the hole is drawn.
 
 ## On-screen buttons: swipe + accordion
