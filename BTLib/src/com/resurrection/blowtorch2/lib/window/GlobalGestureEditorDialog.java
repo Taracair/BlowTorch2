@@ -17,6 +17,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -32,6 +34,8 @@ public final class GlobalGestureEditorDialog {
 		void onMode(int mode);
 
 		void onScroll(int scroll);
+
+		void onBlankScroll(boolean on);
 	}
 
 	private static final String[][] ROWS = {
@@ -133,7 +137,7 @@ public final class GlobalGestureEditorDialog {
 	}
 
 	public static void showMode(final Activity activity, final int currentMode,
-			final int currentScroll, final ModeChoice choice) {
+			final int currentScroll, final boolean blankScroll, final ModeChoice choice) {
 		if (activity == null || choice == null) {
 			return;
 		}
@@ -149,7 +153,7 @@ public final class GlobalGestureEditorDialog {
 		int pad = (int) (16 * density);
 		form.setPadding(pad, pad, pad, pad);
 		TextView note = bodyText(activity, density);
-		note.setText("Same scrolling choice as Options → Gestures. Grey when this mode does not use it.");
+		note.setText("Same choices as Options → Gestures. Grey when this mode does not use them.");
 		form.addView(note);
 
 		form.addView(sectionLabel(activity, density, "Scrolling"));
@@ -157,19 +161,26 @@ public final class GlobalGestureEditorDialog {
 		RadioGroup scrollGroup = new RadioGroup(activity);
 		scrollGroup.setOrientation(LinearLayout.VERTICAL);
 		final int[] scrollIds = new int[scrollRadios.length];
-		int scrollChecked = GlobalGestures.clampScroll(currentScroll);
+		final int[] modeHolder = new int[] { GlobalGestures.clampMode(currentMode) };
+		final int[] scrollHolder = new int[] { GlobalGestures.clampScroll(currentScroll) };
+		final CheckBox blankBox = choiceCheck(activity, density,
+				"A direction with no command scrolls with that finger",
+				"The finger that moved scrolls the text in Two fingers, and in Both unless Scrolling is With two fingers.");
+		blankBox.setChecked(blankScroll);
 		for (int i = 0; i < scrollRadios.length; i++) {
 			scrollRadios[i] = choiceRadio(activity, density,
 					GlobalGestures.SCROLL_CHOICES[i], SCROLL_NOTES[i]);
 			scrollIds[i] = scrollRadios[i].getId();
 			scrollGroup.addView(scrollRadios[i]);
 		}
-		scrollGroup.check(scrollIds[scrollChecked]);
+		scrollGroup.check(scrollIds[scrollHolder[0]]);
 		scrollGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
 			@Override
 			public void onCheckedChanged(RadioGroup g, int checkedId) {
 				for (int i = 0; i < scrollIds.length; i++) {
 					if (scrollIds[i] == checkedId) {
+						scrollHolder[0] = i;
+						paintBlank(blankBox, modeHolder[0], i);
 						choice.onScroll(i);
 						return;
 					}
@@ -177,12 +188,12 @@ public final class GlobalGestureEditorDialog {
 			}
 		});
 		form.addView(scrollGroup);
+		form.addView(blankBox);
 
 		form.addView(sectionLabel(activity, density, "Mode"));
 		RadioGroup group = new RadioGroup(activity);
 		group.setOrientation(LinearLayout.VERTICAL);
 		final int[] ids = new int[MODES.length];
-		final int[] modeHolder = new int[] { GlobalGestures.clampMode(currentMode) };
 		for (int i = 0; i < MODES.length; i++) {
 			RadioButton radio = choiceRadio(activity, density, MODES[i], MODE_NOTES[i]);
 			ids[i] = radio.getId();
@@ -190,6 +201,16 @@ public final class GlobalGestureEditorDialog {
 		}
 		group.check(ids[modeHolder[0]]);
 		paintScrollRadios(scrollRadios, modeHolder[0]);
+		paintBlank(blankBox, modeHolder[0], scrollHolder[0]);
+		blankBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+			@Override
+			public void onCheckedChanged(CompoundButton button, boolean isChecked) {
+				if (!button.isEnabled()) {
+					return;
+				}
+				choice.onBlankScroll(isChecked);
+			}
+		});
 		group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
 			@Override
 			public void onCheckedChanged(RadioGroup g, int checkedId) {
@@ -197,6 +218,7 @@ public final class GlobalGestureEditorDialog {
 					if (ids[i] == checkedId) {
 						modeHolder[0] = i;
 						paintScrollRadios(scrollRadios, i);
+						paintBlank(blankBox, i, scrollHolder[0]);
 						choice.onMode(i);
 						return;
 					}
@@ -270,6 +292,26 @@ public final class GlobalGestureEditorDialog {
 		return radio;
 	}
 
+	private static CheckBox choiceCheck(final Activity activity, final float density,
+			final String title, final String note) {
+		CheckBox box = new CheckBox(activity);
+		String line = title + "\n" + note;
+		SpannableString span = new SpannableString(line);
+		int split = title.length() + 1;
+		span.setSpan(new RelativeSizeSpan(0.78f), split, line.length(),
+				Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		span.setSpan(new ForegroundColorSpan(0xFFB0B6BE), split, line.length(),
+				Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		box.setText(span);
+		box.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
+		box.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+		box.setLineSpacing(2f * density, 1f);
+		box.setMinHeight((int) (56 * density));
+		box.setPadding(box.getPaddingLeft(), (int) (6 * density),
+				box.getPaddingRight(), (int) (6 * density));
+		return box;
+	}
+
 	/** Classic and Two fingers do not use this choice. The stored value stays. */
 	private static void paintScrollRadios(final RadioButton[] radios, final int mode) {
 		boolean live = mode == GlobalGestures.MODE_ONE || mode == GlobalGestures.MODE_BOTH;
@@ -277,6 +319,14 @@ public final class GlobalGestureEditorDialog {
 			radios[i].setEnabled(live);
 			radios[i].setAlpha(live ? 1f : 0.4f);
 		}
+	}
+
+	/** Stored value stays. Grey when this mode does not look up a two-finger direction. */
+	private static void paintBlank(final CheckBox box, final int mode, final int scroll) {
+		boolean live = !GlobalGestures.optionUnused(
+				GlobalGestures.KEY_BLANK_SCROLL, mode, scroll);
+		box.setEnabled(live);
+		box.setAlpha(live ? 1f : 0.4f);
 	}
 
 	private static TextView titleBar(final Activity activity, final String title,

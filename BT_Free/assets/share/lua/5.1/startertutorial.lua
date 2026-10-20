@@ -1480,6 +1480,12 @@ The both-fingers switch is only while Scrolling is Hold or Off. While
 it is on, fingers moving the same way scroll even when one is faster.
 A finger that stays put can still draw a gesture.
 
+A direction with no command scrolls with that finger is a checkbox in
+⋮ → Gesture mode, and under Options → Gestures. Off by default. In Two
+fingers, and in Both unless Scrolling is With two fingers, the finger
+that moved scrolls when that direction has no command. It does nothing
+while One finger stays put, the other moves is off.
+
 A blank direction sends no command. Before the hold, a move still scrolls.
 After the hold, a blank direction scrolls the text. Lifting
 without a direction sends nothing. A second finger cancels a one-finger

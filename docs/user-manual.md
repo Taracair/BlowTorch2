@@ -3491,6 +3491,14 @@ scrolls, two fingers copy. One mode at a time, saved with that world.
   and it is grey in the other modes. While it is on, fingers moving the same
   way scroll even when one is faster. A finger that stays put can still draw
   a gesture.
+- **A direction with no command scrolls with that finger** is off by default.
+  The switch is in ⋮ → Gesture mode and under Options → Gestures. In Two
+  fingers, and in Both unless Scrolling is With two fingers, the finger that
+  moved scrolls the text when that direction has no command. It is grey in
+  Classic, in One finger, and while Scrolling is With two fingers. It does
+  nothing while **One finger stays put, the other moves** is off. While
+  **Both fingers moving together scroll the text** is on, fingers moving the
+  same way still scroll together.
 - A blank direction sends no command. Before the hold, a move still scrolls. After
   the hold, a blank direction scrolls the text. Lift without a direction
   and nothing is sent. A second finger cancels a one-finger gesture, including

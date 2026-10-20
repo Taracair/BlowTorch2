@@ -79,6 +79,8 @@ public final class GlobalGestureSession {
 	private int activeFinger;
 	private boolean seenTwo;
 	private boolean ownedScroll;
+	/** Blank-direction scroll follows one finger. A both-fingers pan still averages. */
+	private boolean scrollLeadOnly;
 	private boolean twoMoved;
 	private String lockedDir;
 	private String lockedCmd;
@@ -99,6 +101,7 @@ public final class GlobalGestureSession {
 		bypass = false;
 		seenTwo = false;
 		ownedScroll = false;
+		scrollLeadOnly = false;
 		twoMoved = false;
 		lockedDir = null;
 		lockedCmd = null;
@@ -213,6 +216,7 @@ public final class GlobalGestureSession {
 		phase = Phase.TRACK2;
 		seenTwo = true;
 		ownedScroll = false;
+		scrollLeadOnly = false;
 		twoMoved = false;
 		lockedDir = null;
 		lockedCmd = null;
@@ -419,6 +423,9 @@ public final class GlobalGestureSession {
 			if (fingers == 1 && blankOneFingerScrolls()) {
 				return beginOwnedScroll(x - tipX, y - tipY);
 			}
+			if (fingers == 2 && blankTwoFingerScrolls()) {
+				return beginLeadScroll(x - tipX, y - tipY);
+			}
 			rebase(x, y, fingers);
 			return dropPreview(fingers == 1 ? Phase.DEAD1 : Phase.TRACK2);
 		}
@@ -494,6 +501,12 @@ public final class GlobalGestureSession {
 		// Once a two-finger pan has started, a paused finger does not turn it
 		// back into a gesture.
 		if (phase == Phase.SCROLL2) {
+			if (scrollLeadOnly) {
+				if (activeFinger == 0) {
+					return Decision.scroll(pdx0, pdy0);
+				}
+				return Decision.scroll(pdx1, pdy1);
+			}
 			return scrollFingers(pdx0, pdy0, pdx1, pdy1);
 		}
 		// With two fingers, in One finger or Both: two fingers are the scroll.
@@ -529,6 +542,10 @@ public final class GlobalGestureSession {
 		}
 		String cmd = config.binding(2, dir);
 		if (cmd == null) {
+			if (blankTwoFingerScrolls()) {
+				activeFinger = finger;
+				return beginLeadScroll(dx, dy);
+			}
 			return dropPreview(Phase.TRACK2);
 		}
 		activeFinger = finger;
@@ -597,6 +614,19 @@ public final class GlobalGestureSession {
 	/** Hold, then gesture: a direction with no command scrolls. Off does not. */
 	private boolean blankOneFingerScrolls() {
 		return config.scroll() == GlobalGestures.SCROLL_HOLD && config.oneFingerGestures();
+	}
+
+	/** The finger that moved scrolls when that two-finger direction has no command. */
+	private boolean blankTwoFingerScrolls() {
+		return config.blankScroll() && twoDirOn();
+	}
+
+	private Decision beginLeadScroll(final float dx, final float dy) {
+		scrollLeadOnly = true;
+		phase = Phase.SCROLL2;
+		lockedDir = null;
+		lockedCmd = null;
+		return Decision.scroll(dx, dy);
 	}
 
 	private Decision cancelGesture() {

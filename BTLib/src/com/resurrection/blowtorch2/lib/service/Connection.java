@@ -6468,6 +6468,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case global_gesture_two_dir:
 			case global_gesture_two_copy:
 			case global_gesture_two_scroll:
+			case global_gesture_blank_scroll:
 			case global_gesture_bindings:
 				mService.doExecuteRequestLoadSettings();
 				break;
@@ -7760,6 +7761,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		global_gesture_two_copy,
 		/** Both fingers moving together scroll. */
 		global_gesture_two_scroll,
+		/** Empty two-finger direction scrolls with the finger that moved. */
+		global_gesture_blank_scroll,
 		/** Direction commands. Stored on the Edit global gestures row. */
 		global_gesture_bindings
 	}

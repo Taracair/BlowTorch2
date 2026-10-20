@@ -445,6 +445,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "One finger: a one-finger swipe sends a command.\n"
 					+ "Two fingers: a two-finger swipe sends a command; a short tap can copy.\n"
 					+ "Both: one-finger and two-finger swipes send commands.\n"
+					+ "A direction with no command can scroll with that finger.\n"
+					+ "The switch is in Gesture mode and Options → Gestures. Off by default.\n"
 					+ "Options → Gestures\n";
 		}
 		if (filter.equals("editbuttons")) {

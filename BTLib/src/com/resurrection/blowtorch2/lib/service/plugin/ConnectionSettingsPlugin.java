@@ -484,6 +484,12 @@ public class ConnectionSettingsPlugin extends Plugin {
 		gestureTwoScroll.setKey("global_gesture_two_scroll");
 		gestureTwoScroll.setValue(false);
 
+		BooleanOption gestureBlankScroll = new BooleanOption();
+		gestureBlankScroll.setTitle("A direction with no command scrolls with that finger");
+		gestureBlankScroll.setDescription("The finger that moved scrolls the text in Two fingers, and in Both unless Scrolling is With two fingers.");
+		gestureBlankScroll.setKey("global_gesture_blank_scroll");
+		gestureBlankScroll.setValue(false);
+
 		CallbackOption editGlobalGestures = new CallbackOption();
 		editGlobalGestures.setTitle("Edit global gestures");
 		editGlobalGestures.setDescription("Eight directions for one finger, and eight for two fingers; a blank direction sends no command.");
@@ -499,6 +505,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		globalGestures.addOption(gestureTwoDir);
 		globalGestures.addOption(gestureTwoCopy);
 		globalGestures.addOption(gestureTwoScroll);
+		globalGestures.addOption(gestureBlankScroll);
 		globalGestures.addOption(editGlobalGestures);
 
 		// The phone itself, as something triggers can read. Its own group

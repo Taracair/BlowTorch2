@@ -136,6 +136,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		global_gesture_two_dir,
 		global_gesture_two_copy,
 		global_gesture_two_scroll,
+		global_gesture_blank_scroll,
 		global_gesture_bindings
 	}
 	
@@ -1207,6 +1208,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case global_gesture_two_scroll:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case global_gesture_blank_scroll:
+						// Default false in ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}

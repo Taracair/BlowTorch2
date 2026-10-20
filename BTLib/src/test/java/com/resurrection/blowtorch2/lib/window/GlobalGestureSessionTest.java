@@ -12,8 +12,14 @@ public class GlobalGestureSessionTest {
 	private static GlobalGestures gestures(final int mode, final int scroll,
 			final boolean twoDir, final boolean twoCopy, final boolean twoScroll,
 			final String bindings) {
+		return gestures(mode, scroll, twoDir, twoCopy, twoScroll, false, bindings);
+	}
+
+	private static GlobalGestures gestures(final int mode, final int scroll,
+			final boolean twoDir, final boolean twoCopy, final boolean twoScroll,
+			final boolean blankScroll, final String bindings) {
 		return new GlobalGestures(mode, scroll, 200, false, true, true,
-				twoDir, twoCopy, twoScroll, bindings);
+				twoDir, twoCopy, twoScroll, blankScroll, bindings);
 	}
 
 	private static GlobalGestureSession session(final GlobalGestures config) {
@@ -557,6 +563,131 @@ public class GlobalGestureSessionTest {
 		Decision turned = s.onMove(50, 2, 0f, 0f, 70f, -80f);
 		assertNull(turned.command);
 		assertEquals(Decision.Kind.EAT, s.onPointerUp(60, 1, 1).kind);
+	}
+
+	@Test
+	public void blankDirectionScrollsWithTheFingerThatMoved() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision scroll = s.onMove(40, 2, 0f, 4f, 40f, 80f);
+		assertEquals(Decision.Kind.SCROLL, scroll.kind);
+		assertNull(scroll.command);
+		assertEquals(0f, scroll.dx, 0.01f);
+		assertEquals(80f, scroll.dy, 0.01f);
+	}
+
+	@Test
+	public void blankDirectionDoesNothingWhenTheSwitchIsOff() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		assertEquals(Decision.Kind.EAT, s.onMove(40, 2, 0f, 4f, 40f, 80f).kind);
+	}
+
+	@Test
+	public void blankDirectionScrollIncludesTheTravelThatDecidedIt() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_OFF, true, true, false, true, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		assertEquals(Decision.Kind.EAT, s.onMove(20, 2, 0f, 0f, 40f, 30f).kind);
+		Decision scroll = s.onMove(30, 2, 0f, 0f, 40f, 50f);
+		assertEquals(Decision.Kind.SCROLL, scroll.kind);
+		assertEquals(0f, scroll.dx, 0.01f);
+		assertEquals(50f, scroll.dy, 0.01f);
+	}
+
+	@Test
+	public void blankScrollKeepsUsingTheFingerThatHadNoCommand() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		assertEquals(Decision.Kind.SCROLL, s.onMove(40, 2, 0f, -80f, 40f, -4f).kind);
+		Decision kept = s.onMove(50, 2, 30f, -100f, 80f, -40f);
+		assertEquals(Decision.Kind.SCROLL, kept.kind);
+		assertEquals(30f, kept.dx, 0.01f);
+		assertEquals(-20f, kept.dy, 0.01f);
+	}
+
+	@Test
+	public void aBoundDirectionStillFiresWhenBlankScrollIsOn() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision preview = s.onMove(40, 2, 0f, -15f, 40f, -80f);
+		assertEquals(Decision.Kind.PREVIEW, preview.kind);
+		assertEquals("look", preview.command);
+		assertEquals("look", s.onPointerUp(50, 1, 1).command);
+	}
+
+	@Test
+	public void turningIntoAnEmptySliceScrollsThatFinger() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 30f, 0f);
+		assertEquals("look", s.onMove(40, 2, 0f, 0f, 30f, -80f).command);
+		Decision turned = s.onMove(50, 2, 0f, 0f, 70f, -80f);
+		assertEquals(Decision.Kind.SCROLL, turned.kind);
+		assertNull(turned.command);
+		assertEquals(40f, turned.dx, 0.01f);
+		assertEquals(0f, turned.dy, 0.01f);
+		assertEquals(Decision.Kind.EAT, s.onPointerUp(60, 1, 1).kind);
+	}
+
+	@Test
+	public void fastLiftIntoAnEmptyDirectionScrollsWhenTheSwitchIsOn() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, "2.n=look"));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(8, 2, 0f, 0f, 40f, 0f);
+		s.noteLift(0f, 0f, 120f, 0f);
+		Decision lifted = s.onPointerUp(16, 1, 1);
+		assertEquals(Decision.Kind.SCROLL, lifted.kind);
+		assertEquals(80f, lifted.dx, 0.01f);
+		assertEquals(0f, lifted.dy, 0.01f);
+	}
+
+	@Test
+	public void blankScrollStillCopiesAStillTap() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, true, true, false, true, ""));
+		s.onDown(0, 10f, 10f);
+		s.onPointerDown(10, 2, 10f, 10f, 40f, 12f);
+		assertEquals(Decision.Kind.COPY, s.onPointerUp(20, 1).kind);
+	}
+
+	@Test
+	public void blankScrollDoesNothingWhileDirectionGesturesAreOff() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_TWO,
+				GlobalGestures.SCROLL_HOLD, false, true, false, true, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		assertEquals(Decision.Kind.EAT, s.onMove(40, 2, 0f, 0f, 40f, 80f).kind);
+	}
+
+	@Test
+	public void blankScrollDoesNotScrollAOneFingerSwipe() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_ONE,
+				GlobalGestures.SCROLL_OFF, true, true, false, true, "1.n=north"));
+		s.onDown(0, 0f, 0f);
+		assertEquals(Decision.Kind.EAT, s.onMove(30, 1, 80f, 0f, 0f, 0f).kind);
+	}
+
+	@Test
+	public void fingersMovingTogetherStillScrollTogetherWhenBlankScrollIsOn() {
+		GlobalGestureSession s = session(gestures(GlobalGestures.MODE_BOTH,
+				GlobalGestures.SCROLL_HOLD, true, true, true, true, ""));
+		s.onDown(0, 0f, 0f);
+		s.onPointerDown(10, 2, 0f, 0f, 40f, 0f);
+		Decision moved = s.onMove(40, 2, 0f, -80f, 40f, -20f);
+		assertEquals(Decision.Kind.SCROLL, moved.kind);
+		assertEquals(-50f, moved.dy, 0.01f);
 	}
 
 	@Test

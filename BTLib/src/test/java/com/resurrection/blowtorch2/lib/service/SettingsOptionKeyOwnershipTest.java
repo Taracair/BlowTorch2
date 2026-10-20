@@ -198,6 +198,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"global_gesture_show_mode", "global_gesture_show_arrow",
 				"global_gesture_show_command", "global_gesture_two_dir",
 				"global_gesture_two_copy", "global_gesture_two_scroll",
+				"global_gesture_blank_scroll",
 				"global_gesture_bindings" };
 		for (String key : keys) {
 			assertTrue(key + " must be persisted by the connection writer",

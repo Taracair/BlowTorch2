@@ -38,6 +38,8 @@ public final class GlobalGestures {
 	public static final String KEY_TWO_DIR = "global_gesture_two_dir";
 	public static final String KEY_TWO_COPY = "global_gesture_two_copy";
 	public static final String KEY_TWO_SCROLL = "global_gesture_two_scroll";
+	/** Empty two-finger direction: the finger that moved scrolls. */
+	public static final String KEY_BLANK_SCROLL = "global_gesture_blank_scroll";
 	public static final String KEY_BINDINGS = "global_gesture_bindings";
 
 	/** Clockwise from north, matching the editor rows. */
@@ -58,6 +60,7 @@ public final class GlobalGestures {
 	private final boolean twoDir;
 	private final boolean twoCopy;
 	private final boolean twoScroll;
+	private final boolean blankScroll;
 	private final Map<String, String> bindings;
 
 	private static volatile GlobalGestures sCurrent = defaults();
@@ -65,7 +68,7 @@ public final class GlobalGestures {
 	public GlobalGestures(final int mode, final int scroll, final int holdMs,
 			final boolean showMode, final boolean showArrow, final boolean showCommand,
 			final boolean twoDir, final boolean twoCopy, final boolean twoScroll,
-			final String storedBindings) {
+			final boolean blankScroll, final String storedBindings) {
 		this.mode = clampMode(mode);
 		this.scroll = clampScroll(scroll);
 		this.holdMs = clampHold(holdMs);
@@ -75,12 +78,13 @@ public final class GlobalGestures {
 		this.twoDir = twoDir;
 		this.twoCopy = twoCopy;
 		this.twoScroll = twoScroll;
+		this.blankScroll = blankScroll;
 		this.bindings = Collections.unmodifiableMap(parseBindings(storedBindings));
 	}
 
 	public static GlobalGestures defaults() {
 		return new GlobalGestures(MODE_CLASSIC, SCROLL_HOLD, DEFAULT_HOLD_MS,
-				false, true, true, true, true, false, "");
+				false, true, true, true, true, false, false, "");
 	}
 
 	public static void publish(final GlobalGestures next) {
@@ -128,6 +132,10 @@ public final class GlobalGestures {
 		return twoScroll;
 	}
 
+	public boolean blankScroll() {
+		return blankScroll;
+	}
+
 	public boolean oneFingerGestures() {
 		return mode == MODE_ONE || mode == MODE_BOTH;
 	}
@@ -164,27 +172,32 @@ public final class GlobalGestures {
 
 	public GlobalGestures withMode(final int next) {
 		return copy(next, scroll, holdMs, showMode, showArrow, showCommand,
-				twoDir, twoCopy, twoScroll, formatBindings());
+				twoDir, twoCopy, twoScroll, blankScroll, formatBindings());
 	}
 
 	public GlobalGestures withScroll(final int next) {
 		return copy(mode, next, holdMs, showMode, showArrow, showCommand,
-				twoDir, twoCopy, twoScroll, formatBindings());
+				twoDir, twoCopy, twoScroll, blankScroll, formatBindings());
 	}
 
 	public GlobalGestures withBindings(final String stored) {
 		return copy(mode, scroll, holdMs, showMode, showArrow, showCommand,
-				twoDir, twoCopy, twoScroll, stored);
+				twoDir, twoCopy, twoScroll, blankScroll, stored);
 	}
 
 	public GlobalGestures withShow(final boolean show) {
 		return copy(mode, scroll, holdMs, show, showArrow, showCommand,
-				twoDir, twoCopy, twoScroll, formatBindings());
+				twoDir, twoCopy, twoScroll, blankScroll, formatBindings());
 	}
 
 	public GlobalGestures withPreview(final boolean on) {
 		return copy(mode, scroll, holdMs, showMode, on, on,
-				twoDir, twoCopy, twoScroll, formatBindings());
+				twoDir, twoCopy, twoScroll, blankScroll, formatBindings());
+	}
+
+	public GlobalGestures withBlankScroll(final boolean on) {
+		return copy(mode, scroll, holdMs, showMode, showArrow, showCommand,
+				twoDir, twoCopy, twoScroll, on, formatBindings());
 	}
 
 	/** Nearest of the eight directions, or null when the finger has not travelled enough.
@@ -222,7 +235,7 @@ public final class GlobalGestures {
 		if (KEY_SHOW_ARROW.equals(key) || KEY_SHOW_COMMAND.equals(key)) {
 			return m == MODE_CLASSIC;
 		}
-		if (KEY_TWO_DIR.equals(key)) {
+		if (KEY_TWO_DIR.equals(key) || KEY_BLANK_SCROLL.equals(key)) {
 			if (m == MODE_BOTH && s == SCROLL_TWO) {
 				return true;
 			}
@@ -332,9 +345,9 @@ public final class GlobalGestures {
 	private GlobalGestures copy(final int mode, final int scroll, final int holdMs,
 			final boolean showMode, final boolean showArrow, final boolean showCommand,
 			final boolean twoDir, final boolean twoCopy, final boolean twoScroll,
-			final String stored) {
+			final boolean blankScroll, final String stored) {
 		return new GlobalGestures(mode, scroll, holdMs, showMode, showArrow, showCommand,
-				twoDir, twoCopy, twoScroll, stored);
+				twoDir, twoCopy, twoScroll, blankScroll, stored);
 	}
 
 	static Map<String, String> parseBindings(final String stored) {

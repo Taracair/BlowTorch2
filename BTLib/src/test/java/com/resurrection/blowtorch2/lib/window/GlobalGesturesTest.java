@@ -18,6 +18,7 @@ public class GlobalGesturesTest {
 		assertEquals(false, g.showMode());
 		assertEquals(true, g.twoDir());
 		assertEquals(false, g.twoScroll());
+		assertEquals(false, g.blankScroll());
 		assertNull(g.binding(1, "n"));
 	}
 
@@ -37,7 +38,7 @@ public class GlobalGesturesTest {
 	@Test
 	public void bindingsRoundTripAndSkipBlanks() {
 		GlobalGestures g = new GlobalGestures(GlobalGestures.MODE_ONE,
-				GlobalGestures.SCROLL_OFF, 280, false, true, true, true, true, false,
+				GlobalGestures.SCROLL_OFF, 280, false, true, true, true, true, false, false,
 				"1.n=north\n2.sw=southwest\nbad\n1.nope=x\n");
 		assertEquals("north", g.binding(1, "n"));
 		assertEquals("southwest", g.binding(2, "sw"));
@@ -91,6 +92,30 @@ public class GlobalGesturesTest {
 	}
 
 	@Test
+	public void blankDirectionScrollIsLiveWhereATwoFingerCommandIs() {
+		assertTrue(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_CLASSIC, GlobalGestures.SCROLL_HOLD));
+		assertTrue(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_ONE, GlobalGestures.SCROLL_OFF));
+		assertFalse(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_TWO, GlobalGestures.SCROLL_HOLD));
+		assertFalse(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_BOTH, GlobalGestures.SCROLL_HOLD));
+		assertFalse(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_BOTH, GlobalGestures.SCROLL_OFF));
+		assertTrue(GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL,
+				GlobalGestures.MODE_BOTH, GlobalGestures.SCROLL_TWO));
+	}
+
+	@Test
+	public void blankScrollSurvivesAModeChange() {
+		GlobalGestures on = GlobalGestures.defaults().withBlankScroll(true);
+		assertTrue(on.blankScroll());
+		assertTrue(on.withMode(GlobalGestures.MODE_TWO).blankScroll());
+		assertFalse(on.withBlankScroll(false).blankScroll());
+	}
+
+	@Test
 	public void scrollCommandMatchesTheGreyRow() {
 		assertEquals(Integer.valueOf(GlobalGestures.SCROLL_TWO), GlobalGestures.scrollIndex("two"));
 		assertEquals(Integer.valueOf(GlobalGestures.SCROLL_TWO), GlobalGestures.scrollIndex("With"));
@@ -111,15 +136,15 @@ public class GlobalGesturesTest {
 	@Test
 	public void chromeLabelAddsScrollOnlyWhenThatChoiceApplies() {
 		GlobalGestures both = new GlobalGestures(GlobalGestures.MODE_BOTH,
-				GlobalGestures.SCROLL_HOLD, 280, true, true, true, true, true, false, "");
+				GlobalGestures.SCROLL_HOLD, 280, true, true, true, true, true, false, false, "");
 		assertEquals("1+2 · Hold, then gesture", both.chromeLabel());
 		assertEquals("Classic", both.withMode(GlobalGestures.MODE_CLASSIC).chromeLabel());
 		assertEquals("2 fingers", both.withMode(GlobalGestures.MODE_TWO).chromeLabel());
 		GlobalGestures one = new GlobalGestures(GlobalGestures.MODE_ONE,
-				GlobalGestures.SCROLL_TWO, 280, true, true, true, true, true, false, "");
+				GlobalGestures.SCROLL_TWO, 280, true, true, true, true, true, false, false, "");
 		assertEquals("1 finger · With two fingers", one.chromeLabel());
 		GlobalGestures off = new GlobalGestures(GlobalGestures.MODE_BOTH,
-				GlobalGestures.SCROLL_OFF, 280, true, true, true, true, true, false, "");
+				GlobalGestures.SCROLL_OFF, 280, true, true, true, true, true, false, false, "");
 		assertEquals("1+2 · Off", off.chromeLabel());
 	}
 }

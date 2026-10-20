@@ -132,6 +132,11 @@ public class GestureCommand extends SpecialCommand {
 					.append(". Copy tap: ").append(onOffWord(bool(c, GlobalGestures.KEY_TWO_COPY, true)))
 					.append(".\n");
 		}
+		if (!GlobalGestures.optionUnused(GlobalGestures.KEY_BLANK_SCROLL, mode, scroll)) {
+			sb.append("Blank direction scrolls: ")
+					.append(onOffWord(bool(c, GlobalGestures.KEY_BLANK_SCROLL, false)))
+					.append(".\n");
+		}
 		sb.append("Mode label: ").append(onOffWord(bool(c, GlobalGestures.KEY_SHOW_MODE, false)))
 				.append(". Preview: arrow ")
 				.append(onOffWord(bool(c, GlobalGestures.KEY_SHOW_ARROW, true)))

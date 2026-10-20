@@ -8705,6 +8705,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				optBool(group, GlobalGestures.KEY_TWO_DIR, true),
 				optBool(group, GlobalGestures.KEY_TWO_COPY, true),
 				optBool(group, GlobalGestures.KEY_TWO_SCROLL, false),
+				optBool(group, GlobalGestures.KEY_BLANK_SCROLL, false),
 				optString(group, GlobalGestures.KEY_BINDINGS, "")));
 		refreshGlobalGestureWindows();
 	}
@@ -10173,6 +10174,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				GlobalGestureEditorDialog.showMode(MainWindow.this,
 						GlobalGestures.current().mode(),
 						GlobalGestures.current().scroll(),
+						GlobalGestures.current().blankScroll(),
 						new GlobalGestureEditorDialog.ModeChoice() {
 							@Override
 							public void onMode(final int which) {
@@ -10199,6 +10201,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 											"MainWindow.openGestureModeDialog", e);
 								}
 								GlobalGestures.publish(GlobalGestures.current().withScroll(which));
+								refreshGlobalGestureWindows();
+							}
+
+							@Override
+							public void onBlankScroll(final boolean on) {
+								try {
+									if (service != null) {
+										service.updateBooleanSetting(
+												GlobalGestures.KEY_BLANK_SCROLL, on);
+									}
+								} catch (RemoteException e) {
+									com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+											"MainWindow.openGestureModeDialog", e);
+								}
+								GlobalGestures.publish(GlobalGestures.current().withBlankScroll(on));
 								refreshGlobalGestureWindows();
 							}
 						});
