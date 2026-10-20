@@ -4550,6 +4550,23 @@ auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/Map/View** chi
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture`).
 
+**Map from game text (no GMCP):** set **Capture Room ID Regex**
+(`mapper_capture_id_regex`, empty = off). A line matching it opens a room; group
+1 (or a group named `id`) is the room's unique id. The title regex fills the
+name from the lines after it, and the exits regex closes the room. In the exits
+regex a group named `exits` is the exits list (commas, spaces or `and`), and an
+optional group named `move` is the way the server says you came, which beats the
+command you typed. Without named groups, group 1 is the exits. The room is then
+mapped as a GMCP room would be, under the same Room Sync policy. If no exits
+line comes, the next id or your next command closes it. Example for a world
+that prints `@roomid oefjo#3eijfk` and `@dir north, south,east,west`:
+
+    Capture Room ID Regex:  ^@roomid (.*)$
+    Capture Exits Regex:    ^@dir (?<move>[^,]*), (?<exits>.*)$
+
+The mapper reads the text before triggers run, so gagging those lines hides
+them without stopping the map.
+
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:
 - **num/id/vnum** → stable tile identity (IRE games and others)

@@ -3132,6 +3132,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mGauges != null) {
 			mGauges.onOutputText(stripped);
 		}
+		if (mMapper != null) {
+			mMapper.onOutputText(stripped);
+		}
 		
 		if (triggersDirty) {
 			buildTriggerSystem();
@@ -6493,6 +6496,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setCaptureExitsRegex((String) o.getValue());
 				}
 				break;
+			case mapper_capture_id_regex:
+				if (mMapper != null) {
+					mMapper.setCaptureIdRegex((String) o.getValue());
+				}
+				break;
 			case mapper_level_up_commands:
 				if (mMapper != null) {
 					mMapper.setLevelUpCommands((String) o.getValue());
@@ -7802,6 +7810,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_toolbar_actions,
 		mapper_capture_title_regex,
 		mapper_capture_exits_regex,
+		mapper_capture_id_regex,
 		mapper_level_up_commands,
 		mapper_level_down_commands,
 		mapper_move_effects,

@@ -160,6 +160,14 @@ public class MapperController {
 	private String mToolbarActions = DEFAULT_TOOLBAR;
 	private String mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
 	private String mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
+	/** Empty = no mapping from game text. Group 1 is the room's id. */
+	private String mCaptureIdRegex = "";
+	/** Written last, so a reader that sees it also sees the title and exits patterns. */
+	private volatile java.util.regex.Pattern mCaptureIdPattern;
+	private java.util.regex.Pattern mCaptureTitlePattern;
+	private java.util.regex.Pattern mCaptureExitsPattern;
+	/** Room whose id line has been seen; committed by its exits line, the next id or the next command. */
+	private CapturedRoom mCapturedRoom;
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
 	private String mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
 	private Map<String, Integer> mLevelDeltas = MapDirections.parseLevelCommandLists(
@@ -196,6 +204,13 @@ public class MapperController {
 			this.command = command;
 			this.fromTileId = fromTileId;
 		}
+	}
+
+	private static final class CapturedRoom {
+		String id;
+		String title;
+		List<String> exits;
+		String move;
 	}
 
 	private RememberedMove mLastMove;
@@ -376,6 +391,7 @@ public class MapperController {
 		} else {
 			mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
 		}
+		compileCapturePatterns();
 	}
 
 	public void setCaptureExitsRegex(final String regex) {
@@ -384,6 +400,38 @@ public class MapperController {
 		} else {
 			mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
 		}
+		compileCapturePatterns();
+	}
+
+	public String getCaptureIdRegex() {
+		return mCaptureIdRegex;
+	}
+
+	public void setCaptureIdRegex(final String regex) {
+		mCaptureIdRegex = regex != null ? regex.trim() : "";
+		compileCapturePatterns();
+	}
+
+	/** Once per option change, not per line: this runs on every packet. A bad regex turns capture off. */
+	private void compileCapturePatterns() {
+		mCapturedRoom = null;
+		mCaptureIdPattern = null;
+		if (mCaptureIdRegex == null || mCaptureIdRegex.length() == 0) {
+			return;
+		}
+		java.util.regex.Pattern id;
+		java.util.regex.Pattern title;
+		java.util.regex.Pattern exits;
+		try {
+			id = java.util.regex.Pattern.compile(mCaptureIdRegex);
+			title = java.util.regex.Pattern.compile(getCaptureTitleRegex());
+			exits = java.util.regex.Pattern.compile(getCaptureExitsRegex());
+		} catch (java.util.regex.PatternSyntaxException bad) {
+			return;
+		}
+		mCaptureTitlePattern = title;
+		mCaptureExitsPattern = exits;
+		mCaptureIdPattern = id;
 	}
 
 	public void setUiBridge(final MapperUiBridge bridge) {
@@ -1190,7 +1238,7 @@ public class MapperController {
 		}
 		preview.matchedLines = matched.toString();
 		preview.title = matchGroup1(titleRegex, preview.matchedLines);
-		preview.exits = matchGroup1(exitsRegex, preview.matchedLines);
+		preview.exits = matchGroup(exitsRegex, preview.matchedLines, "exits");
 		return preview;
 	}
 
@@ -1221,6 +1269,11 @@ public class MapperController {
 	}
 
 	private static String matchGroup1(final String regex, final String text) {
+		return matchGroup(regex, text, null);
+	}
+
+	/** Named group {@code name} when the regex has one, else group 1, else the whole match. */
+	private static String matchGroup(final String regex, final String text, final String name) {
 		if (regex == null || regex.trim().length() == 0 || text == null) {
 			return null;
 		}
@@ -1229,14 +1282,112 @@ public class MapperController {
 					java.util.regex.Pattern.MULTILINE);
 			java.util.regex.Matcher m = p.matcher(text);
 			if (m.find()) {
-				if (m.groupCount() >= 1 && m.group(1) != null) {
-					return m.group(1).trim();
-				}
-				return m.group().trim();
+				return pickGroup(m, name);
 			}
 		} catch (Exception ignored) {
 		}
 		return null;
+	}
+
+	private static String pickGroup(final java.util.regex.Matcher m, final String name) {
+		if (name != null) {
+			try {
+				String named = m.group(name);
+				return named != null ? named.trim() : null;
+			} catch (IllegalArgumentException noSuchGroup) {
+				// fall through to group 1
+			}
+		}
+		if (m.groupCount() >= 1 && m.group(1) != null) {
+			return m.group(1).trim();
+		}
+		return m.group().trim();
+	}
+
+	private static String namedGroupOrNull(final java.util.regex.Matcher m, final String name) {
+		try {
+			String g = m.group(name);
+			return g != null && g.trim().length() > 0 ? g.trim() : null;
+		} catch (IllegalArgumentException noSuchGroup) {
+			return null;
+		}
+	}
+
+	/** "south,east, west" or "north and up" → each direction word. */
+	static List<String> splitExits(final String raw) {
+		List<String> out = new ArrayList<String>();
+		if (raw == null) {
+			return out;
+		}
+		for (String part : raw.split("(?i)\\s*(?:,|\\band\\b)\\s*|\\s+")) {
+			String t = part.trim();
+			if (t.length() > 0 && !t.equals(".")) {
+				out.add(t.endsWith(".") ? t.substring(0, t.length() - 1) : t);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Game text, already stripped of colour, before triggers run. With a Room ID
+	 * regex set, an id line opens a room, title and exits lines fill it, and the
+	 * exits line, the next id or the next command commits it like a GMCP room.
+	 */
+	public void onOutputText(final String stripped) {
+		if (mCaptureIdPattern == null || !mEnabled || stripped == null) {
+			return;
+		}
+		for (String line : stripped.split("\r?\n|\r")) {
+			if (line.length() == 0) {
+				continue;
+			}
+			java.util.regex.Matcher id = mCaptureIdPattern.matcher(line);
+			if (id.find()) {
+				commitCapturedRoom();
+				CapturedRoom room = new CapturedRoom();
+				room.id = pickGroup(id, "id");
+				mCapturedRoom = room;
+				continue;
+			}
+			CapturedRoom room = mCapturedRoom;
+			if (room == null) {
+				continue;
+			}
+			java.util.regex.Matcher ex = mCaptureExitsPattern.matcher(line);
+			if (ex.find()) {
+				room.exits = splitExits(pickGroup(ex, "exits"));
+				room.move = namedGroupOrNull(ex, "move");
+				commitCapturedRoom();
+				continue;
+			}
+			if (room.title == null) {
+				java.util.regex.Matcher t = mCaptureTitlePattern.matcher(line);
+				if (t.find()) {
+					room.title = pickGroup(t, "title");
+				}
+			}
+		}
+	}
+
+	private void commitCapturedRoom() {
+		CapturedRoom room = mCapturedRoom;
+		mCapturedRoom = null;
+		if (room == null || room.id == null || room.id.length() == 0 || mMap == null) {
+			return;
+		}
+		if (room.move != null) {
+			// The server's word for the way we went beats a typed one: speedwalks,
+			// aliases and buttons may not leave a direction we recognise.
+			RememberedMove typed = mLastMove;
+			boolean fresh = typed != null
+					&& System.currentTimeMillis() - mLastMoveAt <= MOVE_MEMORY_MS;
+			MapTile here = currentTile();
+			mLastMove = new RememberedMove(normalize(room.move),
+					fresh ? typed.fromTileId : (here != null ? here.getId() : null));
+			mLastMoveAt = System.currentTimeMillis();
+		}
+		onRoomArrival(room.title, room.id, true, null, null, null,
+				room.exits != null ? room.exits : new ArrayList<String>(), null);
 	}
 
 	/** Reload option values from the connection settings plugin. */
@@ -1268,6 +1419,11 @@ public class MapperController {
 		if (toolbar != null && toolbar.trim().length() > 0) {
 			mToolbarActions = toolbar.trim();
 		}
+		mCaptureIdRegex = stringOpt("mapper_capture_id_regex", "");
+		if (mCaptureIdRegex == null) {
+			mCaptureIdRegex = "";
+		}
+		mCaptureIdRegex = mCaptureIdRegex.trim();
 		String titleRx = stringOpt("mapper_capture_title_regex", null);
 		if (titleRx != null && titleRx.trim().length() > 0) {
 			mCaptureTitleRegex = titleRx.trim();
@@ -1280,6 +1436,7 @@ public class MapperController {
 		} else {
 			mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
 		}
+		compileCapturePatterns();
 		String upCsv = stringOpt("mapper_level_up_commands", null);
 		if (upCsv != null) {
 			mLevelUpCommands = upCsv.trim();
@@ -2173,6 +2330,8 @@ public class MapperController {
 		if (!mEnabled || cmd == null) {
 			return;
 		}
+		// A room still open from game text belongs to the move before this one.
+		commitCapturedRoom();
 		String raw = cmd.trim();
 		if (raw.length() == 0) {
 			return;
@@ -2292,6 +2451,20 @@ public class MapperController {
 		if (!mEnabled || !mUseGmcp || mMap == null) {
 			return;
 		}
+		onRoomArrival(name, roomNum, mGmcpUseNum, x, y, z, exits, exitDestNums);
+	}
+
+	/**
+	 * One room arrival, from GMCP or from captured game text.
+	 *
+	 * @param useNum match and stamp rooms by {@code roomNum}
+	 */
+	private void onRoomArrival(final String name, final String roomNum, final boolean useNum,
+			final Integer x, final Integer y, final Integer z,
+			final List<String> exits, final Map<String, String> exitDestNums) {
+		if (!mEnabled || mMap == null) {
+			return;
+		}
 		ensureDefaultLevel();
 		boolean changed = false;
 		String levelId = mMap.getCurrentLevelId();
@@ -2323,7 +2496,7 @@ public class MapperController {
 		// has already stepped us along the exit by now.
 		final MapTile movedFrom = moved != null && moved.fromTileId != null
 				? findTileById(moved.fromTileId) : current;
-		String num = (mGmcpUseNum && roomNum != null && roomNum.length() > 0)
+		String num = (useNum && roomNum != null && roomNum.length() > 0)
 				? roomNum.trim() : null;
 
 		if (num != null) {
@@ -2338,6 +2511,18 @@ public class MapperController {
 			// an arrival to a tile that already exists, so grow mode treats every
 			// revisit as a discovery and pacing between two rooms fills the map.
 			tile = findRevisitedTile(movedFrom, movedBy, levelId, name);
+		}
+
+		if (tile == null && num != null && mGmcpGrow && movedBy != null && movedFrom != null) {
+			// The exit we walked already leads to a placeholder with no id (made from
+			// an exits list with no destination ids): this is that room. Creating a
+			// new tile put it on top of the placeholder, unlinked.
+			MapExit walked = findExit(movedFrom, movedBy);
+			MapTile stub = walked != null ? findTileById(walked.getToId()) : null;
+			if (stub != null && !stub.getId().equals(movedFrom.getId())
+					&& (stub.getExternalId() == null || stub.getExternalId().length() == 0)) {
+				tile = stub;
+			}
 		}
 
 		if (tile == null) {
@@ -3722,6 +3907,19 @@ public class MapperController {
 				.append("\n");
 		sb.append("  exits: ").append(preview.exits != null ? preview.exits : "(no match)")
 				.append("\n");
+		String idRx = getCaptureIdRegex();
+		String id;
+		if (idRx == null || idRx.length() == 0) {
+			id = "(off — Capture Room ID Regex is empty)";
+		} else if (mCaptureIdPattern == null) {
+			id = "(invalid regex — text mapping is off)";
+		} else {
+			id = matchGroup(idRx, text.toString(), "id");
+			if (id == null) {
+				id = "(no match)";
+			}
+		}
+		sb.append("  room id: ").append(id).append("\n");
 		sb.append("Use .map capture apply to write matches onto the current tile.\n");
 		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
 		return sb.toString();

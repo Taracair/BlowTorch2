@@ -1033,6 +1033,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapper_capture_exits.setValue("(?i)exits?:\\s*(.*)");
 		mapperOptions.addOption(mapper_capture_exits);
 
+		StringOption mapper_capture_id = new StringOption();
+		mapper_capture_id.setTitle("Capture Room ID Regex");
+		mapper_capture_id.setDescription("For worlds without GMCP: a line matching this (group 1 = a unique room id) maps the room from game text, using the title and exits regexes for the lines after it. Empty = off.");
+		mapper_capture_id.setKey("mapper_capture_id_regex");
+		mapper_capture_id.setValue("");
+		mapperOptions.addOption(mapper_capture_id);
+
 		StringOption mapper_level_up = new StringOption();
 		mapper_level_up.setTitle("Level-Up Commands (CSV)");
 		mapper_level_up.setDescription("While recording, these commands create a higher floor.");

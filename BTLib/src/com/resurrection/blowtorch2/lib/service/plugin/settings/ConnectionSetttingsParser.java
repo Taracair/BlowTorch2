@@ -121,7 +121,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_gmcp_grow, mapper_gmcp_policy,
 		mapper_auto_reverse_link, mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
-		mapper_capture_title_regex, mapper_capture_exits_regex,
+		mapper_capture_title_regex, mapper_capture_exits_regex, mapper_capture_id_regex,
 		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
 		extra_text_windows_enabled, extra_text_windows,
 		gauge_widgets_enabled, gauge_widgets,
@@ -1101,6 +1101,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case mapper_capture_title_regex:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals(
 								"^([A-Z].*)$")) {
+							dooutput = true;
+						}
+						break;
+					case mapper_capture_id_regex:
+						if (opt.getValue() != null && ((String) opt.getValue()).length() > 0) {
 							dooutput = true;
 						}
 						break;

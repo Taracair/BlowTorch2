@@ -200,7 +200,8 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`). Polic
 | **Level-Down Commands (CSV)** | Recording moves that create a lower floor (`d,down,descend` default) |
 | **Toolbar actions** | Legacy CSV (still stored); map chrome uses the **Nav / Floors / Edit / Map / View** radial chips instead of the bottom strip |
 | **Capture Title Regex** | Regex for `.map capture` and the Capture dialog title field (`mapper_capture_title_regex`). Group 1 when present; else whole match. Default: `^([A-Z].*)$` |
-| **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). Group 1 when present (e.g. after `Exits:`). Default: `(?i)exits?:\s*(.*)` |
+| **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). A group named `exits` when present, else group 1 (e.g. after `Exits:`); a group named `move` is the direction walked. Default: `(?i)exits?:\s*(.*)` |
+| **Capture Room ID Regex** | For worlds without GMCP (`mapper_capture_id_regex`). A matching line (group 1 = unique room id) maps the room from text, using the two regexes above for the lines after it. Empty = off (default) |
 
 Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Browse|Edit,
 **Nav/Floors/Build/File** radials, Draw/Links/Paths, tile-anchored levels (List
