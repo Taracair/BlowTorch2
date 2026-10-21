@@ -1304,9 +1304,11 @@ Aliases, Triggers and Timers lists — what that kind of thing is for, with
 examples — and one beside Done in each of the three editors, for the fields in
 front of you. (**More** on a list is its actions menu, not help.)
 
-**Trying a trigger without the game:** `.note some text` prints a line into the
-game window and sends nothing to the server, so a colour, a gag or a tappable
-word can be checked on a line you wrote yourself.
+**Trying a trigger without the game:** `.simulate some text` feeds a line in as
+if the server had sent it, so the trigger fires and a colour, a gag or a
+tappable word can be checked on a line you wrote yourself. Nothing is sent to
+the server. `\n` starts a new line: `.simulate You are hungry.\nYou are thirsty.`
+`.note some text` only prints the line; triggers do not see it.
 
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
@@ -2670,7 +2672,8 @@ is enabled; `.alias list` shows every alias at once.
     `.osc8 [on|off]`                    Words the game marks (OSC 8); tap to send / fill the prompt / open a link
     `.prompt [on|off]`                  Pin the world's prompt above the input bar
     `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches. Any other word is an error and does not reprint the survey
-    `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
+    `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Triggers do not see it. Useful for button tips and debugging
+    `.simulate <text>`                  As if the game sent that text: triggers, gauges and the mapper see it; nothing goes to the MUD. `\n` starts a new line
     `.probe`                            List available probes in this window. Type `.probe` for the list; `.probe connection` dumps why a freeze looks frozen
     `.probe connection on|off|report|reset`  When the game looks frozen: socket vs held UI vs silence. A one-shot `.probe connection` dump works without turning it on; `on` adds a 15s heartbeat. Also session log; logcat tag `BlowTorchNet`
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
@@ -4147,7 +4150,9 @@ Edit one button and open **Advanced**:
   flip. `.icon set LOOK flip same` keeps the main picture.
   `.icon set LOOK off` clears the main picture only. `.icon list` names the
   six sets. `.icon list marks` names that set. `.icon list files` names the
-  folder. Built-in names ignore capitals. A file name is exact, capitals
+  folder and its subfolders (not what is inside them). A file in a subfolder
+  is its path with the extension: `.icon set LOOK portrait/knight.png`. A
+  slash without an extension is still a built-in set. Built-in names ignore capitals. A file name is exact, capitals
   included. Choosing one image in the button editor still copies that file
   into the app. Those buttons are unchanged.
 - **While held** is the icon under your finger. Tap it and choose
@@ -4377,7 +4382,8 @@ the **Floors** radial.
 Bottom chrome: **Nav** · **Floors** · **Edit** · **Map** · **View**, plus
 **Browse|Edit** and **Float|Full**. The chip row scrolls if it does not fit. Tap
 **▾ tools** in the title to hide that chrome when you want more map. Each
-category opens an in-map pie menu (no system status-bar flash). Toggle wedges
+category opens an in-map pie menu (no system status-bar flash) that fills the
+map window, so it grows and shrinks with it. Toggle wedges
 show their current state under the label (e.g. Follow **on**).
 
     **Nav**
@@ -4539,7 +4545,7 @@ Print the summary with `.map dirs`.
     `.map conflict resolve|ignore <id|n>`                                   Mark one conflict resolved
     `.map conflict resolve|ignore all`                                      Mark all open conflicts resolved
     `.map conflict purge`                                                   Remove resolved conflicts (open ones kept)
-    `.map capture preview`                                                  Match Options title/exits regex on recent buffer
+    `.map capture preview`                                                  Match Options title/exits/room id regex on the last 20 lines
     `.map capture apply`                                                    Apply last preview to the current tile
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
@@ -4566,6 +4572,17 @@ that prints `@roomid oefjo#3eijfk` and `@dir north, south,east,west`:
 
 The mapper reads the text before triggers run, so gagging those lines hides
 them without stopping the map.
+
+`.map capture preview` shows what the three regexes match in the last 20 lines.
+When the room id line is not among them, it says why: an id followed by *seen
+in the game text, but not in these lines* means the mapper caught it and the
+line is gagged or scrolled away. *The last exits line came with no room id
+open* is followed by the lines just before that exits line, exactly as the
+mapper got them, so a prompt stuck in front of `@roomid` shows up there. To try
+the regexes without walking, turn on **Edit** and **Record** and type:
+
+    .simulate @roomid a1\n@dir north, south,east
+    .simulate @roomid b2\n@dir south, north
 
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:

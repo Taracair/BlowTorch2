@@ -180,6 +180,10 @@ Client-only echo (never sent to the MUD):
   .note <text>
 Try:  .note hello from the tutorial
 
+As if the game sent it (triggers and the mapper see it; nothing is sent):
+  .simulate <text>          \n starts a new line
+Try:  .simulate You are hungry.
+
 Settings without reaching for the menu:
   .options           open Options (same as ⋮ → Options). Handy on a
                      button when ⋮ is out of reach. Search at the bottom
@@ -391,6 +395,7 @@ Change the picture on a button without opening the editor:
   .icon folder                  choose a folder of your own pictures
   .icon set LOOK marks/sword    built-in sword on the button labelled LOOK
   .icon set LOOK sword.png      the file sword.png in that folder
+  .icon set LOOK pics/sword.png the same file in the subfolder pics
   .icon set b12 marks/sword     a tile with no words; b12 is the grey id beside Name
   .icon list                    built-in set names
   .icon list marks              names in the Marks set
@@ -547,8 +552,9 @@ which: no such alias, several commands (a;b), $1-style captures from what
 you type, or an alias naming another alias. Then the pattern is left as
 you wrote it, so the trigger visibly does not fire.
 
-Testing without the game: .note some text prints a line to the window and
-nothing else, so you can see a trigger colour or a tappable word fire.
+Testing without the game: .simulate some text feeds that line in as if the
+game sent it, so you can see a trigger colour or a tappable word fire.
+.note only prints the line; triggers do not see it.
 
 Enable / disable:
   • Each trigger has an on/off toggle in the Triggers list (row toolbar).
@@ -1159,6 +1165,9 @@ Useful .map commands
   .map link|unlink …   .map dirs   .map zoom in|out|reset|<factor>
   .map conflict [list [all]|resolve|ignore <id|n>|all|purge]
   .map capture preview|apply   (Options regex; or toolbar Capture dialog)
+
+No GMCP? Options → Mapper → Capture Room ID Regex maps from game text: a line
+matching it opens a room, the exits regex closes it. Try it with .simulate.
 
 Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, Auto-Send Path?,

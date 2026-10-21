@@ -1294,6 +1294,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
 		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");
 		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");
+		sb.append("    preview checks title, exits and Room ID; try lines with .simulate\n");
 		sb.append("  Browse: no record / Draw / Links / tile edit. Follow tracks known exits while walking.\n");
 		return sb.toString();
 	}
