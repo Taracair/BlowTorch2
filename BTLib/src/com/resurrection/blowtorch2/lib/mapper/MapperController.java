@@ -1347,28 +1347,29 @@ public class MapperController {
 			if (line.length() == 0) {
 				continue;
 			}
-			String before = recentCaptureLines();
-			mRecentCaptureLines.addLast(line);
-			if (mRecentCaptureLines.size() > 3) {
-				mRecentCaptureLines.removeFirst();
-			}
 			java.util.regex.Matcher id = mCaptureIdPattern.matcher(line);
 			if (id.find()) {
+				rememberCaptureLine(line);
 				commitCapturedRoom();
 				CapturedRoom room = new CapturedRoom();
 				room.id = pickGroup(id, "id");
 				mCapturedRoom = room;
+				// The preview explains only the latest event, not an old one.
 				mLiveIdSeen = room.id;
+				mOrphanExitsContext = null;
 				continue;
 			}
 			CapturedRoom room = mCapturedRoom;
 			java.util.regex.Matcher ex = mCaptureExitsPattern.matcher(line);
 			if (room == null) {
 				if (ex.find()) {
-					mOrphanExitsContext = before;
+					mOrphanExitsContext = recentCaptureLines();
+					mLiveIdSeen = null;
 				}
+				rememberCaptureLine(line);
 				continue;
 			}
+			rememberCaptureLine(line);
 			if (ex.find()) {
 				room.exits = splitExits(pickGroup(ex, "exits"));
 				room.move = namedGroupOrNull(ex, "move");
@@ -1381,6 +1382,13 @@ public class MapperController {
 					room.title = pickGroup(t, "title");
 				}
 			}
+		}
+	}
+
+	private void rememberCaptureLine(final String line) {
+		mRecentCaptureLines.addLast(line);
+		if (mRecentCaptureLines.size() > 3) {
+			mRecentCaptureLines.removeFirst();
 		}
 	}
 
