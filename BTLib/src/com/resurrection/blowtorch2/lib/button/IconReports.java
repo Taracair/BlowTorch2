@@ -54,10 +54,23 @@ public final class IconReports {
 		return sb.toString();
 	}
 
-	public static String files(final String folderName, final List<String> names) {
+	public static String files(final String folderName, final List<String> names,
+			final List<String> folders) {
 		String title = folderName == null || folderName.length() == 0 ? "Icon folder" : folderName;
 		StringBuilder sb = new StringBuilder();
 		sb.append(title).append(":\n");
+		if (folders != null && !folders.isEmpty()) {
+			List<String> dirs = new ArrayList<String>(folders);
+			Collections.sort(dirs);
+			for (int i = 0; i < dirs.size(); i++) {
+				sb.append("  ").append(dirs.get(i)).append("/\n");
+			}
+			sb.append("  A file in a subfolder: .icon set <label> ").append(dirs.get(0))
+					.append("/<file>.png\n");
+		}
+		if ((names == null || names.isEmpty()) && folders != null && !folders.isEmpty()) {
+			return sb.toString();
+		}
 		if (names == null || names.isEmpty()) {
 			sb.append("  (none)\n");
 			return sb.toString();

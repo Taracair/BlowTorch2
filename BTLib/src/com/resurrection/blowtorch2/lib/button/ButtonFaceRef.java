@@ -4,14 +4,14 @@ import java.util.Locale;
 
 /**
  * {@code builtin:set/id}, a copied file path, or {@code named:sword.png}.
- * {@code named:} is a file name in the icon folder, not a path.
+ * {@code named:} is a file in the icon folder, maybe in a subfolder: {@code portrait/knight.png}.
  */
 public final class ButtonFaceRef {
 
 	public static final class Spec {
 		public final String assetPng;
 		public final String file;
-		/** File name in the icon folder, such as {@code sword.png}. */
+		/** File in the icon folder, such as {@code sword.png} or {@code portrait/knight.png}. */
 		public final String named;
 
 		Spec(final String assetPng, final String file, final String named) {
@@ -46,7 +46,7 @@ public final class ButtonFaceRef {
 			return new Spec(asset, null, null);
 		}
 		if (s.startsWith("named:")) {
-			String name = namedFile(s.substring("named:".length()));
+			String name = namedPath(s.substring("named:".length()));
 			if (name == null) {
 				return NONE;
 			}
@@ -93,6 +93,42 @@ public final class ButtonFaceRef {
 			}
 		}
 		return name;
+	}
+
+	/**
+	 * A file in the icon folder or below it: {@code knight.png}, {@code portrait/knight.png}.
+	 * No leading slash, no {@code .} or {@code ..} segment, no backslash.
+	 */
+	public static String namedPath(final String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String path = raw.trim();
+		if (path.length() == 0 || path.length() > 240) {
+			return null;
+		}
+		String[] parts = path.split("/", -1);
+		if (parts.length > 8) {
+			return null;
+		}
+		for (int p = 0; p < parts.length - 1; p++) {
+			String dir = parts[p];
+			if (dir.length() == 0 || dir.trim().length() != dir.length()
+					|| ".".equals(dir) || "..".equals(dir)) {
+				return null;
+			}
+			for (int i = 0; i < dir.length(); i++) {
+				char c = dir.charAt(i);
+				if (c == '\\' || c < 32 || c == 127) {
+					return null;
+				}
+			}
+		}
+		String file = parts[parts.length - 1];
+		if (!file.equals(file.trim()) || namedFile(file) == null) {
+			return null;
+		}
+		return path;
 	}
 
 	/** {@code marks/sword} → {@code buttonfaces/marks/sword.png}, or null. */

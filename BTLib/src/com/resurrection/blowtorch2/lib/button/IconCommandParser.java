@@ -49,6 +49,7 @@ public final class IconCommandParser {
 				+ ".icon set <label> flip same   — keep the main picture\n"
 				+ ".icon set <label> off         — colored pad again\n"
 				+ ".icon help                    — this text\n"
+				+ "A file in a subfolder: .icon set <label> portrait/knight.png\n"
 				+ "A label with a space is quoted: .icon set \"look north\" sword.png\n"
 				+ "No label, or two the same: Name on Advanced, or the id beside it: .icon set b12 sword.png";
 	}

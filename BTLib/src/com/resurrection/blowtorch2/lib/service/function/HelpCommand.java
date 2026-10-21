@@ -958,6 +958,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .icon set <label> flip same\n"
 					+ "  .icon set <label> off         — colored pad again\n"
 					+ "  .icon help                    — the same list\n"
+					+ "  A file in a subfolder: .icon set <label> portrait/knight.png\n"
 					+ "  No label, or two the same: Name on Advanced, or the id beside it (b12).\n";
 		}
 		if (filter.equals("osc8")) {

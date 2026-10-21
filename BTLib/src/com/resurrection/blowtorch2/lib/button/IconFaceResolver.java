@@ -8,8 +8,9 @@ import java.util.Map;
 
 /**
  * Picks {@code builtin:set/id} or {@code named:file.png} from a catalog and
- * the names in the icon folder. A slash is always built-in. A bare name
- * prefers one matching file. No Android.
+ * the names in the icon folder. A slash with an image extension is a file in a
+ * subfolder; any other slash is built-in. A bare name prefers one matching file.
+ * No Android.
  */
 public final class IconFaceResolver {
 
@@ -74,8 +75,17 @@ public final class IconFaceResolver {
 				? Collections.<String, List<String>>emptyMap() : builtins;
 		Folder files = folder == null ? Folder.none() : folder;
 		int slash = token.indexOf('/');
+		if (slash >= 0 && explicitFile(token)) {
+			return pathFile(token, files);
+		}
 		if (slash >= 0) {
-			return builtinPath(token, catalog);
+			Outcome builtin = builtinPath(token, catalog);
+			if (builtin.error != null && files.configured
+					&& findKey(catalog, token.substring(0, slash)) == null) {
+				return Outcome.error(builtin.error
+						+ " A file in a subfolder needs its extension: " + token + ".png.");
+			}
+			return builtin;
 		}
 		if (explicitFile(token)) {
 			return exactFile(token, files);
@@ -115,6 +125,21 @@ public final class IconFaceResolver {
 			return Outcome.error("No built-in icon " + token + ".");
 		}
 		return Outcome.spec("builtin:" + set + "/" + id);
+	}
+
+	/** The folder list holds top-level names only; whether the file exists is checked when it is opened. */
+	private static Outcome pathFile(final String token, final Folder files) {
+		if (!files.configured) {
+			return Outcome.error("No icon folder. .icon folder chooses one.");
+		}
+		if (!files.readable) {
+			return Outcome.error("Cannot read the icon folder.");
+		}
+		String named = ButtonFaceRef.namedPath(token);
+		if (named == null) {
+			return Outcome.error("No file " + token + " in the icon folder.");
+		}
+		return Outcome.spec("named:" + named);
 	}
 
 	private static Outcome exactFile(final String token, final Folder files) {

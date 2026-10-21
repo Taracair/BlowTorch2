@@ -85,6 +85,43 @@ public class IconCommandTest {
 	}
 
 	@Test
+	public void slashWithAnExtensionIsAFileInASubfolder() {
+		IconFaceResolver.Folder folder = IconFaceResolver.Folder.of(Arrays.asList("sword.png"));
+		IconFaceResolver.Outcome path = IconFaceResolver.resolve("portrait/knight.png", catalog(), folder);
+		assertEquals("named:portrait/knight.png", path.spec);
+		assertNull(path.error);
+
+		IconFaceResolver.Outcome none = IconFaceResolver.resolve("portrait/knight.png", catalog(),
+				IconFaceResolver.Folder.none());
+		assertEquals("No icon folder. .icon folder chooses one.", none.error);
+
+		IconFaceResolver.Outcome bare = IconFaceResolver.resolve("portrait/knight", catalog(), folder);
+		assertTrue(bare.error, bare.error.endsWith("needs its extension: portrait/knight.png."));
+	}
+
+	@Test
+	public void namedPathRefusesTraversalAndEmptySegments() {
+		assertEquals("portrait/knight.png", ButtonFaceRef.namedPath("portrait/knight.png"));
+		assertEquals("a b/c/knight.png", ButtonFaceRef.namedPath("a b/c/knight.png"));
+		assertEquals("knight.png", ButtonFaceRef.namedPath("knight.png"));
+		assertNull(ButtonFaceRef.namedPath("/knight.png"));
+		assertNull(ButtonFaceRef.namedPath("../knight.png"));
+		assertNull(ButtonFaceRef.namedPath("portrait/../knight.png"));
+		assertNull(ButtonFaceRef.namedPath("./knight.png"));
+		assertNull(ButtonFaceRef.namedPath("portrait//knight.png"));
+		assertNull(ButtonFaceRef.namedPath("portrait\\knight.png"));
+		assertNull(ButtonFaceRef.namedPath("portrait/"));
+		assertNull(ButtonFaceRef.namedPath("portrait/knight.txt"));
+		assertEquals("portrait/knight.png", ButtonFaceRef.parse("named:portrait/knight.png").named);
+	}
+
+	@Test
+	public void fileListShowsSubfolders() {
+		assertEquals("mud:\n  portrait/\n  A file in a subfolder: .icon set <label> portrait/<file>.png\n"
+				+ "  a.png\n", IconReports.files("mud", Arrays.asList("a.png"), Arrays.asList("portrait")));
+	}
+
+	@Test
 	public void slashIsBuiltinEvenWhenTheFileExists() {
 		IconFaceResolver.Folder folder = IconFaceResolver.Folder.of(Arrays.asList("sword.png", "sword.svg"));
 		IconFaceResolver.Outcome slash = IconFaceResolver.resolve("marks/sword", catalog(), folder);
@@ -160,12 +197,13 @@ public class IconCommandTest {
 	}
 
 	@Test
-	public void namedSpecRejectsAPath() {
+	public void namedSpecRejectsTraversal() {
 		assertEquals("sword.png", ButtonFaceRef.parse("named:sword.png").named);
 		assertEquals("My Icon.png", ButtonFaceRef.parse("named:My Icon.png").named);
 		assertEquals("épée.png", ButtonFaceRef.parse("named:épée.png").named);
 		assertTrue(ButtonFaceRef.parse("named:../sword.png").isNone());
-		assertTrue(ButtonFaceRef.parse("named:a/b.png").isNone());
+		assertEquals("a/b.png", ButtonFaceRef.parse("named:a/b.png").named);
+		assertTrue(ButtonFaceRef.parse("named:/a/b.png").isNone());
 		assertTrue(ButtonFaceRef.parse("named:sword.txt").isNone());
 		assertTrue(ButtonFaceRef.parse("builtin:marks/sword").assetPng.endsWith("sword.png"));
 		assertEquals("/tmp/sword.png", ButtonFaceRef.parse("file:/tmp/sword.png").file);
@@ -177,7 +215,7 @@ public class IconCommandTest {
 		assertTrue(sets.contains("marks (2)"));
 		assertTrue(sets.contains("Icon folder: mud"));
 		assertTrue(IconReports.oneSet("marks", catalog().get("marks")).contains("  shield\n"));
-		assertTrue(IconReports.files("mud", Arrays.asList("b.png", "a.png")).startsWith("mud:\n  a.png\n"));
+		assertTrue(IconReports.files("mud", Arrays.asList("b.png", "a.png"), null).startsWith("mud:\n  a.png\n"));
 		assertTrue(IconReports.status("").contains(".icon folder"));
 		assertTrue(IconReports.status("Icon folder: mud").contains("sword.png"));
 	}

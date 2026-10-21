@@ -41,13 +41,16 @@ public final class IconFolder {
 		public final boolean readable;
 		public final String displayName;
 		public final List<String> names;
+		/** Subfolders directly in the icon folder. */
+		public final List<String> folders;
 
 		private Snapshot(final boolean configured, final boolean readable,
-				final String displayName, final List<String> names) {
+				final String displayName, final List<String> names, final List<String> folders) {
 			this.configured = configured;
 			this.readable = readable;
 			this.displayName = displayName;
 			this.names = names;
+			this.folders = folders;
 		}
 
 		public IconFaceResolver.Folder folder() {
@@ -131,18 +134,22 @@ public final class IconFolder {
 	public static Snapshot snapshot(final Context context) {
 		String raw = readUri(context);
 		if (raw == null) {
-			return new Snapshot(false, true, null, Collections.<String>emptyList());
+			return new Snapshot(false, true, null, Collections.<String>emptyList(),
+					Collections.<String>emptyList());
 		}
 		try {
 			Uri tree = Uri.parse(raw);
 			String name = displayName(context, tree);
-			List<String> names = childNames(context, tree);
+			List<String> folders = new ArrayList<String>();
+			List<String> names = childNames(context, tree, folders);
 			if (names == null) {
-				return new Snapshot(true, false, name, Collections.<String>emptyList());
+				return new Snapshot(true, false, name, Collections.<String>emptyList(),
+						Collections.<String>emptyList());
 			}
-			return new Snapshot(true, true, name, names);
+			return new Snapshot(true, true, name, names, folders);
 		} catch (RuntimeException e) {
-			return new Snapshot(true, false, null, Collections.<String>emptyList());
+			return new Snapshot(true, false, null, Collections.<String>emptyList(),
+					Collections.<String>emptyList());
 		}
 	}
 
@@ -168,7 +175,7 @@ public final class IconFolder {
 	 * Same byte and edge caps as the editor's copied image.
 	 */
 	public static String rejection(final Context context, final String filename) {
-		if (ButtonFaceRef.namedFile(filename) == null) {
+		if (ButtonFaceRef.namedPath(filename) == null) {
 			return "No file " + filename + " in the icon folder.";
 		}
 		InputStream in = openAt(context, filename, readUri(context));
@@ -237,12 +244,16 @@ public final class IconFolder {
 	}
 
 	private static InputStream openAt(final Context context, final String filename, final String raw) {
-		if (context == null || raw == null || ButtonFaceRef.namedFile(filename) == null) {
+		if (context == null || raw == null || ButtonFaceRef.namedPath(filename) == null) {
 			return null;
 		}
 		try {
 			Uri tree = Uri.parse(raw);
-			String docId = childId(context, tree, filename);
+			String[] parts = filename.trim().split("/");
+			String docId = DocumentsContract.getTreeDocumentId(tree);
+			for (int i = 0; i < parts.length && docId != null; i++) {
+				docId = childId(context, tree, docId, parts[i], i < parts.length - 1);
+			}
 			if (docId == null) {
 				return null;
 			}
@@ -301,10 +312,11 @@ public final class IconFolder {
 		return null;
 	}
 
-	private static List<String> childNames(final Context context, final Uri tree) {
+	private static List<String> childNames(final Context context, final Uri tree,
+			final List<String> folders) {
 		Cursor cursor = null;
 		try {
-			cursor = queryChildren(context, tree);
+			cursor = queryChildren(context, tree, DocumentsContract.getTreeDocumentId(tree));
 			if (cursor == null) {
 				return null;
 			}
@@ -317,6 +329,7 @@ public final class IconFolder {
 				}
 				if (mimeCol >= 0 && !cursor.isNull(mimeCol)
 						&& DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeCol))) {
+					folders.add(cursor.getString(nameCol));
 					continue;
 				}
 				names.add(cursor.getString(nameCol));
@@ -331,10 +344,12 @@ public final class IconFolder {
 		}
 	}
 
-	private static String childId(final Context context, final Uri tree, final String filename) {
+	/** The one child of {@code parentId} with this name: a folder when {@code dir}, else a file. */
+	private static String childId(final Context context, final Uri tree, final String parentId,
+			final String filename, final boolean dir) {
 		Cursor cursor = null;
 		try {
-			cursor = queryChildren(context, tree);
+			cursor = queryChildren(context, tree, parentId);
 			if (cursor == null) {
 				return null;
 			}
@@ -346,8 +361,9 @@ public final class IconFolder {
 				if (nameCol < 0 || idCol < 0 || cursor.isNull(nameCol) || cursor.isNull(idCol)) {
 					continue;
 				}
-				if (mimeCol >= 0 && !cursor.isNull(mimeCol)
-						&& DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeCol))) {
+				boolean isDir = mimeCol >= 0 && !cursor.isNull(mimeCol)
+						&& DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeCol));
+				if (isDir != dir) {
 					continue;
 				}
 				if (!filename.equals(cursor.getString(nameCol))) {
@@ -368,9 +384,8 @@ public final class IconFolder {
 		}
 	}
 
-	private static Cursor queryChildren(final Context context, final Uri tree) {
-		String treeId = DocumentsContract.getTreeDocumentId(tree);
-		Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, treeId);
+	private static Cursor queryChildren(final Context context, final Uri tree, final String parentId) {
+		Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId);
 		return context.getContentResolver().query(children, new String[] {
 				DocumentsContract.Document.COLUMN_DISPLAY_NAME,
 				DocumentsContract.Document.COLUMN_DOCUMENT_ID,

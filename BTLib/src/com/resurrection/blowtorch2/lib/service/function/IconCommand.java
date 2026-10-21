@@ -86,7 +86,7 @@ public class IconCommand extends SpecialCommand {
 			c.sendDataToWindow(getErrorMessage("Icon command", "Cannot read the icon folder."));
 			return;
 		}
-		say(c, IconReports.files(snap.displayName, snap.names));
+		say(c, IconReports.files(snap.displayName, snap.names, snap.folders));
 	}
 
 	private static void listSet(final Connection c, final Map<String, List<String>> catalog,
