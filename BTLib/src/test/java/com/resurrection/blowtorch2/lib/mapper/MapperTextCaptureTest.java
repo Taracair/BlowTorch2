@@ -88,6 +88,23 @@ public class MapperTextCaptureTest {
 	}
 
 	@Test
+	public void previewNamesALiveIdThatIsNotOnScreen() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("@roomid oefjo#3eijfk\n");
+		String line = mapper.roomIdPreview("@dir north, south,east\n");
+		assertTrue(line, line.startsWith("oefjo#3eijfk (seen in the game text"));
+	}
+
+	@Test
+	public void previewQuotesTheLinesBeforeAnExitsLineWithNoId() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("HP:100 > @roomid oefjo#3eijfk\n@dir north, south,east\n");
+		String line = mapper.roomIdPreview("HP:100 > @roomid oefjo#3eijfk\n@dir north, south,east");
+		assertTrue(line, line.startsWith("(no match) The last exits line came with no room id open."));
+		assertTrue(line, line.contains("\u00abHP:100 > @roomid oefjo#3eijfk\u00bb"));
+	}
+
+	@Test
 	public void exitListsSplitOnCommasSpacesAndAnd() {
 		assertEquals("[south, east, west]",
 				MapperController.splitExits("south,east, west").toString());

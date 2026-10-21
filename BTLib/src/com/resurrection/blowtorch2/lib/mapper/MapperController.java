@@ -168,6 +168,10 @@ public class MapperController {
 	private java.util.regex.Pattern mCaptureExitsPattern;
 	/** Room whose id line has been seen; committed by its exits line, the next id or the next command. */
 	private CapturedRoom mCapturedRoom;
+	/** What the live text path saw, for the preview: it reads before gags and has no line window. */
+	private volatile String mLiveIdSeen;
+	private volatile String mOrphanExitsContext;
+	private final LinkedList<String> mRecentCaptureLines = new LinkedList<String>();
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
 	private String mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
 	private Map<String, Integer> mLevelDeltas = MapDirections.parseLevelCommandLists(
@@ -416,6 +420,8 @@ public class MapperController {
 	private void compileCapturePatterns() {
 		mCapturedRoom = null;
 		mCaptureIdPattern = null;
+		mLiveIdSeen = null;
+		mOrphanExitsContext = null;
 		if (mCaptureIdRegex == null || mCaptureIdRegex.length() == 0) {
 			return;
 		}
@@ -1341,19 +1347,28 @@ public class MapperController {
 			if (line.length() == 0) {
 				continue;
 			}
+			String before = recentCaptureLines();
+			mRecentCaptureLines.addLast(line);
+			if (mRecentCaptureLines.size() > 3) {
+				mRecentCaptureLines.removeFirst();
+			}
 			java.util.regex.Matcher id = mCaptureIdPattern.matcher(line);
 			if (id.find()) {
 				commitCapturedRoom();
 				CapturedRoom room = new CapturedRoom();
 				room.id = pickGroup(id, "id");
 				mCapturedRoom = room;
+				mLiveIdSeen = room.id;
 				continue;
 			}
 			CapturedRoom room = mCapturedRoom;
+			java.util.regex.Matcher ex = mCaptureExitsPattern.matcher(line);
 			if (room == null) {
+				if (ex.find()) {
+					mOrphanExitsContext = before;
+				}
 				continue;
 			}
-			java.util.regex.Matcher ex = mCaptureExitsPattern.matcher(line);
 			if (ex.find()) {
 				room.exits = splitExits(pickGroup(ex, "exits"));
 				room.move = namedGroupOrNull(ex, "move");
@@ -1367,6 +1382,14 @@ public class MapperController {
 				}
 			}
 		}
+	}
+
+	private String recentCaptureLines() {
+		StringBuilder sb = new StringBuilder();
+		for (String l : mRecentCaptureLines) {
+			sb.append("\n    \u00ab").append(l).append("\u00bb");
+		}
+		return sb.toString();
 	}
 
 	private void commitCapturedRoom() {
@@ -3907,6 +3930,14 @@ public class MapperController {
 				.append("\n");
 		sb.append("  exits: ").append(preview.exits != null ? preview.exits : "(no match)")
 				.append("\n");
+		sb.append("  room id: ").append(roomIdPreview(text.toString())).append("\n");
+		sb.append("Use .map capture apply to write matches onto the current tile.\n");
+		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
+		return sb.toString();
+	}
+
+	/** The preview's room id line: the scrollback first, then what the live text path saw. */
+	String roomIdPreview(final String text) {
 		String idRx = getCaptureIdRegex();
 		String id;
 		if (idRx == null || idRx.length() == 0) {
@@ -3914,15 +3945,19 @@ public class MapperController {
 		} else if (mCaptureIdPattern == null) {
 			id = "(invalid regex — text mapping is off)";
 		} else {
-			id = matchGroup(idRx, text.toString(), "id");
-			if (id == null) {
+			id = matchGroup(idRx, text, "id");
+			String live = mLiveIdSeen;
+			String orphan = mOrphanExitsContext;
+			if (id == null && live != null) {
+				id = live + " (seen in the game text, but not in these lines: gagged or scrolled past)";
+			} else if (id == null && orphan != null) {
+				id = "(no match) The last exits line came with no room id open."
+						+ " The lines just before it, exactly as the mapper saw them:" + orphan;
+			} else if (id == null) {
 				id = "(no match)";
 			}
 		}
-		sb.append("  room id: ").append(id).append("\n");
-		sb.append("Use .map capture apply to write matches onto the current tile.\n");
-		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
-		return sb.toString();
+		return id;
 	}
 
 	/**
