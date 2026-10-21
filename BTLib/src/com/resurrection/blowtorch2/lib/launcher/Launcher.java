@@ -65,7 +65,10 @@ import android.os.Message;
 import android.os.RemoteException;
 import androidx.core.app.ActivityCompat;
 import androidx.appcompat.app.AppCompatActivity;
+import android.text.Editable;
+import android.text.InputType;
 import android.text.SpannableString;
+import android.text.TextWatcher;
 import android.text.format.Time;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
@@ -825,7 +828,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 							connectionModifier.sendMessage(modmsg);
 							break;
 						case 3:
-							connectionModifier.sendMessage(delmsg);
+							confirmDelete(muc, delmsg);
 							break;
 						default:
 							break;
@@ -842,6 +845,43 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		
 	}
+	/** Delete is armed only once the world's name has been typed exactly. */
+	private void confirmDelete(final MudConnection muc, final Message delmsg) {
+		final String name = muc.getDisplayName();
+		final EditText input = new EditText(Launcher.this);
+		input.setSingleLine(true);
+		input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+		input.setHint(name);
+		LinearLayout box = new LinearLayout(Launcher.this);
+		box.setPadding(dpToPx(20), dpToPx(8), dpToPx(20), 0);
+		box.addView(input, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+		final AlertDialog dialog = new AlertDialog.Builder(Launcher.this)
+			.setTitle(getString(R.string.launcher_delete_title, name))
+			.setMessage(R.string.launcher_delete_msg)
+			.setView(box)
+			.setPositiveButton(R.string.launcher_delete_confirm, new DialogInterface.OnClickListener() {
+				public void onClick(DialogInterface d, int which) {
+					if (name.equals(input.getText().toString().trim())) {
+						connectionModifier.sendMessage(delmsg);
+					}
+				}
+			})
+			.setNegativeButton("Cancel", null)
+			.create();
+		dialog.show();
+		final Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+		delete.setEnabled(false);
+		input.addTextChangedListener(new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+			public void onTextChanged(CharSequence s, int start, int before, int count) { }
+			public void afterTextChanged(Editable s) {
+				delete.setEnabled(name.equals(s.toString().trim()));
+			}
+		});
+	}
+
 	boolean debug = true;
 	private class listItemClicked implements ListView.OnItemClickListener {
 		

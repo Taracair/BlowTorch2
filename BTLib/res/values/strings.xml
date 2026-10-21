@@ -42,6 +42,9 @@
     <string name="launcher_star">Add to favorites</string>
     <string name="launcher_unstar">Remove from favorites</string>
     <string name="launcher_pin_to_home">Pin to home</string>
+    <string name="launcher_delete_title">Delete %1$s?</string>
+    <string name="launcher_delete_msg">Type the server name exactly to delete it. This cannot be undone.</string>
+    <string name="launcher_delete_confirm">Delete</string>
     <string name="launcher_shortcut_unsupported">Pinning shortcuts is not supported on this home screen.</string>
     <string name="launcher_shortcut_missing">That world is no longer in your list.</string>
     <string name="launcher_tls_label">Use TLS (encrypted)</string>
