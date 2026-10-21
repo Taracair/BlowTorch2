@@ -626,6 +626,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
 		ButtonHeatCommand heatcmd = new ButtonHeatCommand();
 		NoteCommand notecmd = new NoteCommand();
+		com.resurrection.blowtorch2.lib.service.function.SimulateCommand simulatecmd =
+				new com.resurrection.blowtorch2.lib.service.function.SimulateCommand();
 		WrapCommand wrapcmd = new WrapCommand();
 		UnaccentCommand unaccentcmd = new UnaccentCommand();
 		HyphenCommand hyphencmd = new HyphenCommand();
@@ -665,6 +667,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(heatcmd.commandName, heatcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
+		mSpecialCommands.put(simulatecmd.commandName, simulatecmd);
 		ProbeCommand probecmd = new ProbeCommand();
 		mSpecialCommands.put(probecmd.commandName, probecmd);
 		com.resurrection.blowtorch2.lib.service.function.PromptBarCommand promptcmd =
@@ -8632,6 +8635,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final Handler getHandler() {
 		return mHandler;
+	}
+
+	/** Text in as if the server sent it, after telnet: triggers, gauges and the mapper see it. */
+	public void simulateIncoming(final String text) throws UnsupportedEncodingException {
+		mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_PROCESS,
+				text.getBytes(mSettings.getEncoding())));
 	}
 	
 	/** Getter for the plugin list.

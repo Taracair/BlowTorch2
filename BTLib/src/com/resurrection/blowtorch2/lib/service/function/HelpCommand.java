@@ -67,6 +67,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("settings", "Playing", "back up the settings file, or put the kept "
 				+ "copy back");
 		cmd("note", "Playing", "print a line in the window, without sending it");
+		cmd("simulate", "Playing", "text in as if the game sent it; triggers and mapper see it");
 		cmd("tutorial", "Playing", "lessons; .tutorial <topic> in any world");
 		cmd("tips", "Playing", "short reminders when you type .commands (.tips on|always|off)");
 
@@ -342,6 +343,13 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .note:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .note <text>       — print locally; never sent to the world\n";
+		}
+		if (filter.equals("simulate")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .simulate:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .simulate <text>   — as if the game sent it; never sent to the world\n"
+					+ "  \\n in the text     — a new line: .simulate @roomid a1\\n@dir north, south\n";
 		}
 		if (filter.equals("width")) {
 			return "\n"
