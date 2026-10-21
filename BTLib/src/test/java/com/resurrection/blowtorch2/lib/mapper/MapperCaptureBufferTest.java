@@ -34,4 +34,11 @@ public class MapperCaptureBufferTest {
 		assertEquals("oefjo#3eijfk", preview.title);
 		assertEquals("north", preview.exits);
 	}
+
+	/** The on-device scrollback keeps these as text (probe 2026-10-21); a JVM TextTree parses them, so this feeds the strip directly. */
+	@Test
+	public void stampAndColourCodesAreStrippedFromAScrollbackLine() {
+		assertEquals("@dir south, north", com.resurrection.blowtorch2.lib.service.Colorizer.stripAnsiEscapes(
+				"\u001b]1337;btstamp=1792606063382\u0007\u001b[36m@dir south, north\u001b[0m"));
+	}
 }

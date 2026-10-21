@@ -4999,6 +4999,7 @@ public class MapperController {
 	/**
 	 * The newest {@code max} lines, oldest first. {@link TextTree#getLines()} is
 	 * newest-first; the tail of that list is the start of the scrollback.
+	 * Measured on device: the lines keep the btstamp OSC and colour codes as text.
 	 */
 	static List<String> newestLines(final LinkedList<Line> lines, final int max) {
 		List<String> out = new ArrayList<String>();
@@ -5006,7 +5007,8 @@ public class MapperController {
 			return out;
 		}
 		for (int i = Math.min(lines.size(), max) - 1; i >= 0; i--) {
-			out.add(TextTree.deColorLine(lines.get(i)).toString());
+			out.add(com.resurrection.blowtorch2.lib.service.Colorizer.stripAnsiEscapes(
+					TextTree.deColorLine(lines.get(i)).toString()));
 		}
 		return out;
 	}
