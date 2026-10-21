@@ -19,11 +19,13 @@ public class SimulateCommand extends SpecialCommand {
 		String arg = o == null ? "" : ((String) o);
 		if (arg.trim().length() == 0) {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
-					+ "Usage: .simulate <text>   (\\n starts a new line)\n");
+					+ "Usage: .simulate <text>   (\\n starts a new line, ;; is a ;)\n");
 			return null;
 		}
 		try {
-			c.simulateIncoming(incomingText(arg));
+			if (!c.simulateIncoming(incomingText(arg))) {
+				c.sendDataToWindow(getErrorMessage("Simulate command", "Not connected. Connect to a world first."));
+			}
 		} catch (UnsupportedEncodingException e) {
 			c.sendDataToWindow(getErrorMessage("Simulate command", "The world's encoding cannot carry that text."));
 		}

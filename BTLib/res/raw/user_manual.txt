@@ -1308,6 +1308,9 @@ front of you. (**More** on a list is its actions menu, not help.)
 if the server had sent it, so the trigger fires and a colour, a gag or a
 tappable word can be checked on a line you wrote yourself. Nothing is sent to
 the server. `\n` starts a new line: `.simulate You are hungry.\nYou are thirsty.`
+Write `;;` for a `;` in the text: a single `;` ends the command, and what
+follows it is sent to the world as usual. It needs a connection; the offline
+tutorial world counts.
 `.note some text` only prints the line; triggers do not see it.
 
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
@@ -2673,7 +2676,7 @@ is enabled; `.alias list` shows every alias at once.
     `.prompt [on|off]`                  Pin the world's prompt above the input bar
     `.protocols`                        What this world offered vs what is on; `.protocols enable` turns on offered-but-off switches. Any other word is an error and does not reprint the survey
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Triggers do not see it. Useful for button tips and debugging
-    `.simulate <text>`                  As if the game sent that text: triggers, gauges and the mapper see it; nothing goes to the MUD. `\n` starts a new line
+    `.simulate <text>`                  As if the game sent that text: triggers, gauges and the mapper see it; nothing goes to the MUD. `\n` starts a new line. A single `;` still ends the command and the rest is sent as usual; write `;;` for a `;`. Needs a connection (the offline tutorial counts)
     `.probe`                            List available probes in this window. Type `.probe` for the list; `.probe connection` dumps why a freeze looks frozen
     `.probe connection on|off|report|reset`  When the game looks frozen: socket vs held UI vs silence. A one-shot `.probe connection` dump works without turning it on; `on` adds a 15s heartbeat. Also session log; logcat tag `BlowTorchNet`
     `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below

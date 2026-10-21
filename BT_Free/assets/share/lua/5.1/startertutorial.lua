@@ -181,7 +181,7 @@ Client-only echo (never sent to the MUD):
 Try:  .note hello from the tutorial
 
 As if the game sent it (triggers and the mapper see it; nothing is sent):
-  .simulate <text>          \n starts a new line
+  .simulate <text>          \n starts a new line, ;; is a ;
 Try:  .simulate You are hungry.
 
 Settings without reaching for the menu:

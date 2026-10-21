@@ -8637,10 +8637,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mHandler;
 	}
 
-	/** Text in as if the server sent it, after telnet: triggers, gauges and the mapper see it. */
-	public void simulateIncoming(final String text) throws UnsupportedEncodingException {
+	/**
+	 * Text in as if the server sent it: triggers, gauges and the mapper see it.
+	 * False when there is no connection; dispatch drops bytes without a processor.
+	 */
+	public boolean simulateIncoming(final String text) throws UnsupportedEncodingException {
+		if (mProcessor == null) {
+			return false;
+		}
 		mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_PROCESS,
 				text.getBytes(mSettings.getEncoding())));
+		return true;
 	}
 	
 	/** Getter for the plugin list.

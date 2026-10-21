@@ -349,7 +349,9 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .simulate:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .simulate <text>   — as if the game sent it; never sent to the world\n"
-					+ "  \\n in the text     — a new line: .simulate @roomid a1\\n@dir north, south\n";
+					+ "  \\n in the text     — a new line: .simulate @roomid a1\\n@dir north, south\n"
+					+ "  ;; in the text     — a ; (a single ; still ends the command)\n"
+					+ "  Needs a connection (the offline tutorial counts)\n";
 		}
 		if (filter.equals("width")) {
 			return "\n"
