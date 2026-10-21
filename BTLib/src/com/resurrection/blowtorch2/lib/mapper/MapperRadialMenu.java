@@ -309,9 +309,12 @@ public final class MapperRadialMenu {
 						dismissExisting(parent);
 					}
 				});
+		// Fills the map window, so the pie follows its size; a tap outside the circle still dismisses.
 		float density = ctx.getResources().getDisplayMetrics().density;
-		int size = (int) (300 * density);
-		FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
+		FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+		int margin = (int) (8 * density);
+		lp.setMargins(margin, margin, margin, margin);
 		lp.gravity = Gravity.CENTER;
 		pie.setLayoutParams(lp);
 		dim.addView(pie);
@@ -382,6 +385,15 @@ public final class MapperRadialMenu {
 			setClickable(true);
 		}
 
+		private static void fitText(final Paint paint, final String text, final float size,
+				final float room) {
+			paint.setTextSize(size);
+			float width = text == null ? 0f : paint.measureText(text);
+			if (width > room && room > 0f) {
+				paint.setTextSize(size * room / width);
+			}
+		}
+
 		@Override
 		protected void onDraw(Canvas canvas) {
 			float w = getWidth();
@@ -391,9 +403,11 @@ public final class MapperRadialMenu {
 			float radius = Math.min(w, h) * 0.48f;
 			float hubR = radius * 0.28f;
 			float density = getResources().getDisplayMetrics().density;
-			textPaint.setTextSize(11f * density);
-			statePaint.setTextSize(9f * density);
-			hubText.setTextSize(13f * density);
+			// 1x at the old fixed 300dp pie (radius 144dp).
+			float scale = Math.max(0.7f, Math.min(1.6f, radius / (144f * density)));
+			float labelSize = 11f * density * scale;
+			float stateSize = 9f * density * scale;
+			hubText.setTextSize(13f * density * scale);
 
 			oval.set(cx - radius, cy - radius, cx + radius, cy + radius);
 			int n = actions.length;
@@ -415,15 +429,19 @@ public final class MapperRadialMenu {
 				float lr = radius * 0.68f;
 				float lx = cx + (float) Math.cos(midRad) * lr;
 				float ly = cy + (float) Math.sin(midRad) * lr;
+				// A label wider than its wedge at that radius shrinks to fit, so neighbours do not overlap.
+				float room = n > 1 ? 2f * lr * (float) Math.sin(Math.PI / n) * 0.9f : 2f * lr;
+				fitText(textPaint, labels[i], labelSize, room);
 				boolean hasState = states != null && i < states.length
 						&& states[i] != null && states[i].length() > 0;
 				textPaint.setColor(i == highlight ? 0xFF1A1A1A : COLOR_LABEL);
 				statePaint.setColor(i == highlight ? 0xFF333333 : COLOR_STATE);
 				if (hasState) {
+					fitText(statePaint, states[i], stateSize, room);
 					canvas.drawText(labels[i], lx,
-							ly - 5f * density, textPaint);
+							ly - 5f * density * scale, textPaint);
 					canvas.drawText(states[i], lx,
-							ly + 8f * density, statePaint);
+							ly + 8f * density * scale, statePaint);
 				} else {
 					canvas.drawText(labels[i], lx,
 							ly - (textPaint.descent() + textPaint.ascent()) / 2f,
