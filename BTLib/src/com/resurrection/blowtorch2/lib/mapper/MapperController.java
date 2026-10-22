@@ -171,6 +171,8 @@ public class MapperController {
 	/** What the live text path saw, for the preview: it reads before gags and has no line window. */
 	private volatile String mLiveIdSeen;
 	private volatile String mOrphanExitsContext;
+	/** The last room the text path committed, as the preview shows it. */
+	private volatile String mLastDrawnRoom;
 	private final LinkedList<String> mRecentCaptureLines = new LinkedList<String>();
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
 	private String mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
@@ -422,6 +424,7 @@ public class MapperController {
 		mCaptureIdPattern = null;
 		mLiveIdSeen = null;
 		mOrphanExitsContext = null;
+		mLastDrawnRoom = null;
 		if (mCaptureIdRegex == null || mCaptureIdRegex.length() == 0) {
 			return;
 		}
@@ -1244,7 +1247,8 @@ public class MapperController {
 		}
 		preview.matchedLines = matched.toString();
 		preview.title = matchGroup1(titleRegex, preview.matchedLines);
-		preview.exits = matchGroup(exitsRegex, preview.matchedLines, "exits");
+		// Newest: the window often still holds the room before this one.
+		preview.exits = matchGroup(exitsRegex, preview.matchedLines, "exits", true);
 		return preview;
 	}
 
@@ -1275,11 +1279,12 @@ public class MapperController {
 	}
 
 	private static String matchGroup1(final String regex, final String text) {
-		return matchGroup(regex, text, null);
+		return matchGroup(regex, text, null, false);
 	}
 
 	/** Named group {@code name} when the regex has one, else group 1, else the whole match. */
-	private static String matchGroup(final String regex, final String text, final String name) {
+	private static String matchGroup(final String regex, final String text, final String name,
+			final boolean newest) {
 		if (regex == null || regex.trim().length() == 0 || text == null) {
 			return null;
 		}
@@ -1287,9 +1292,14 @@ public class MapperController {
 			java.util.regex.Pattern p = java.util.regex.Pattern.compile(regex.trim(),
 					java.util.regex.Pattern.MULTILINE);
 			java.util.regex.Matcher m = p.matcher(text);
-			if (m.find()) {
-				return pickGroup(m, name);
+			String found = null;
+			while (m.find()) {
+				found = pickGroup(m, name);
+				if (!newest) {
+					break;
+				}
 			}
+			return found;
 		} catch (Exception ignored) {
 		}
 		return null;
@@ -1417,6 +1427,10 @@ public class MapperController {
 					fresh ? typed.fromTileId : (here != null ? here.getId() : null));
 			mLastMoveAt = System.currentTimeMillis();
 		}
+		mLastDrawnRoom = room.id
+				+ (room.title != null ? ", title \"" + room.title + "\"" : ", no title")
+				+ (room.exits != null ? ", exits " + room.exits : ", no exits")
+				+ (room.move != null ? ", came by " + room.move : "");
 		onRoomArrival(room.title, room.id, true, null, null, null,
 				room.exits != null ? room.exits : new ArrayList<String>(), null);
 	}
@@ -3939,9 +3953,17 @@ public class MapperController {
 		sb.append("  exits: ").append(preview.exits != null ? preview.exits : "(no match)")
 				.append("\n");
 		sb.append("  room id: ").append(roomIdPreview(text.toString())).append("\n");
+		String drawn = lastDrawnRoom();
+		if (drawn != null) {
+			sb.append("Last room the mapper drew from the game text: ").append(drawn).append("\n");
+		}
 		sb.append("Use .map capture apply to write matches onto the current tile.\n");
 		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
 		return sb.toString();
+	}
+
+	String lastDrawnRoom() {
+		return mLastDrawnRoom;
 	}
 
 	/** The preview's room id line: the scrollback first, then what the live text path saw. */
@@ -3953,7 +3975,7 @@ public class MapperController {
 		} else if (mCaptureIdPattern == null) {
 			id = "(invalid regex — text mapping is off)";
 		} else {
-			id = matchGroup(idRx, text, "id");
+			id = matchGroup(idRx, text, "id", true);
 			String live = mLiveIdSeen;
 			String orphan = mOrphanExitsContext;
 			if (id == null && live != null) {

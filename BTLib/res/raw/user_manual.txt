@@ -4577,6 +4577,12 @@ The mapper reads the text before triggers run, so gagging those lines hides
 them without stopping the map.
 
 `.map capture preview` shows what the three regexes match in the last 20 lines.
+The room id and exits come from the newest match there, so a room you just
+walked out of no longer shows up instead of the one you are in. The title is
+still the first matching line (Name relies on that), so with two rooms in view
+it can be the older one. The last line, *Last room the mapper drew from the game
+text*, is what the mapper last handed to the map: id, title, exits, and the way
+the server says you came (the exits regex's `move` group).
 When the room id line is not among them, it says why: an id followed by *seen
 in the game text, but not in these lines* means the mapper caught it and the
 line is gagged or scrolled away. *The last exits line came with no room id

@@ -139,4 +139,37 @@ public class MapperTextCaptureTest {
 		assertEquals(dump.toString(), 2, mapper.getMap().getTiles().size());
 		assertEquals("B", mapper.currentTile().getExternalId());
 	}
+
+	/** The player's scrollback after walking e then s: both rooms are still in the 20-line window. */
+	private static final String CHURCH_THEN_TOWER = "e\n"
+			+ "[ ]-( )-[ ]  Church of all Gods\n"
+			+ "@myloc laenor 8555 8664 0\n"
+			+ "@roomid acoOalAfoxAOQewBzEi2v1\n"
+			+ "@dir east, north,east,south,west\n"
+			+ "s\n"
+			+ "    ( )      Entrance to Church Tower\n"
+			+ "@myloc laenor 8557 8665 0\n"
+			+ "@roomid NkvW90b1CScEwEaq7bkWL1\n"
+			+ "@dir south, north,south\n"
+			+ "Entered area church of all gods with direction south";
+
+	@Test
+	public void previewShowsTheNewestRoomInTheWindowNotTheOldest() {
+		MapperController mapper = batmud();
+		mapper.onOutputText(CHURCH_THEN_TOWER);
+		assertTrue(mapper.roomIdPreview(CHURCH_THEN_TOWER).startsWith("NkvW90b1CScEwEaq7bkWL1"));
+		CapturePreview preview = mapper.previewCapture("^@roomname (.*)$", EXITS,
+				CHURCH_THEN_TOWER, 20);
+		assertEquals("north,south", preview.exits);
+	}
+
+	@Test
+	public void previewNamesTheLastRoomTheMapperDrew() {
+		MapperController mapper = batmud();
+		mapper.setCaptureTitleRegex("^@roomname (.*)$");
+		mapper.onOutputText("@roomid a1\n@roomname Temple entrance\n@dir west, east,west\n");
+		mapper.onOutputText("@roomid b2\n@roomname Church of all Gods\n@dir east, north,south\n");
+		String drawn = mapper.lastDrawnRoom();
+		assertEquals("b2, title \"Church of all Gods\", exits [north, south], came by east", drawn);
+	}
 }
