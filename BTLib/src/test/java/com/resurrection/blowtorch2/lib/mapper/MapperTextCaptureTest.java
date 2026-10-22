@@ -238,4 +238,63 @@ public class MapperTextCaptureTest {
 			}
 		}
 	}
+
+	@Test
+	public void lastRoomLineSaysWhenFollowPolicyLeftTheRoomOffTheMap() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("@roomid a\n@dir , south\n");
+		mapper.setGmcpPolicy(MapperController.GMCP_POLICY_FOLLOW);
+		mapper.onPlayerCommand("s");
+		mapper.onOutputText("@roomid b\n@dir south, north\n");
+		assertTrue(mapper.lastDrawnRoom(), mapper.lastDrawnRoom().startsWith("no room with id b on the map (Room Sync policy is Follow"));
+	}
+
+	@Test
+	public void lastRoomLineShowsTheTitleTheTileKept() {
+		MapperController mapper = batmud();
+		mapper.setCaptureTitleRegex("^@roomname (.*)$");
+		mapper.onOutputText("@roomid a\n@roomname Mine\n@dir , south\n");
+		mapper.currentTile().setLockTitle(true);
+		mapper.onOutputText("@roomid a\n@roomname Server name\n@dir , south\n");
+		assertTrue(mapper.lastDrawnRoom(), mapper.lastDrawnRoom().startsWith("a, title \"Mine\""));
+	}
+
+	@Test
+	public void lastRoomLineIsForgottenWithANewMap() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("@roomid a\n@dir , south\n");
+		mapper.newMap("other");
+		assertNull(mapper.lastDrawnRoom());
+	}
+
+	@Test
+	public void applyTakesTheTitleOfTheNewestRoomNotTheOneBefore() {
+		MapperController mapper = batmud();
+		mapper.setCaptureTitleRegex("^@roomname (.*)$");
+		String window = "@roomid church\n@roomname Church of all Gods\n@dir east, north,east,south,west\n"
+				+ "s\n@roomid tower\n@roomname Entrance to Church Tower\n@dir south, north,south";
+		CapturePreview preview = mapper.currentRoomPreview(window, 20);
+		assertEquals("Entrance to Church Tower", preview.title);
+		assertEquals("north,south", preview.exits);
+	}
+
+	@Test
+	public void applyKeepsALockedTitle() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("@roomid a\n@dir , south\n");
+		mapper.currentTile().setTitle("Mine");
+		mapper.currentTile().setLockTitle(true);
+		CapturePreview preview = new CapturePreview();
+		preview.title = "Other";
+		mapper.applyCapture(preview);
+		assertEquals("Mine", mapper.currentTile().getTitle());
+	}
+
+	@Test
+	public void previewTitleNeverComesFromTheIdLineItself() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setCaptureIdRegex("^Room #(?<id>\\d+)");
+		CapturePreview preview = mapper.currentRoomPreview("Room #12\nyou see dust\nexits: north", 20);
+		assertNull(preview.title);
+	}
 }

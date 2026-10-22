@@ -105,8 +105,12 @@ public class MapperCapturePreviewDialog extends Dialog {
 		done.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				// The regex boxes may have changed since the last Preview.
+				runPreview();
 				if (previewTitle == null && previewExits == null) {
-					runPreview();
+					Toast.makeText(getContext(), "Nothing matched; nothing applied",
+							Toast.LENGTH_SHORT).show();
+					return;
 				}
 				if (previewTitle != null) {
 					controller.setTitle(previewTitle);
@@ -141,6 +145,9 @@ public class MapperCapturePreviewDialog extends Dialog {
 		previewMatched = shown.toString();
 		previewTitle = null;
 		previewExits = null;
+		// Errors are shown only; Done applies matched values.
+		String titleError = null;
+		String exitsError = null;
 		try {
 			String tr = titleRegex.getText().toString();
 			if (tr.length() > 0) {
@@ -154,7 +161,7 @@ public class MapperCapturePreviewDialog extends Dialog {
 				}
 			}
 		} catch (Throwable t) {
-			previewTitle = "(bad title regex)";
+			titleError = "(bad title regex)";
 		}
 		try {
 			String er = exitsRegex.getText().toString();
@@ -169,12 +176,14 @@ public class MapperCapturePreviewDialog extends Dialog {
 				}
 			}
 		} catch (Throwable t) {
-			previewExits = "(bad exits regex)";
+			exitsError = "(bad exits regex)";
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("Matched buffer:\n").append(previewMatched);
-		sb.append("\n\nTitle: ").append(previewTitle != null ? previewTitle : "(none)");
-		sb.append("\nExits: ").append(previewExits != null ? previewExits : "(none)");
+		sb.append("\n\nTitle: ").append(previewTitle != null ? previewTitle
+				: titleError != null ? titleError : "(none)");
+		sb.append("\nExits: ").append(previewExits != null ? previewExits
+				: exitsError != null ? exitsError : "(none)");
 		previewView.setText(sb.toString());
 	}
 

@@ -1263,7 +1263,7 @@ public class MapperController {
 			mMap.setCurrentTileId(tile.getId());
 		}
 		pushUndo();
-		if (preview.title != null && preview.title.length() > 0) {
+		if (preview.title != null && preview.title.length() > 0 && !tile.isLockTitle()) {
 			tile.setTitle(preview.title);
 		}
 		if (preview.exits != null && preview.exits.length() > 0) {
@@ -1427,12 +1427,20 @@ public class MapperController {
 					fresh ? typed.fromTileId : (here != null ? here.getId() : null));
 			mLastMoveAt = System.currentTimeMillis();
 		}
-		mLastDrawnRoom = room.id
-				+ (room.title != null ? ", title \"" + room.title + "\"" : ", no title")
-				+ (room.exits != null ? ", exits " + room.exits : ", no exits")
-				+ (room.move != null ? ", came by " + room.move : "");
 		onRoomArrival(room.title, room.id, true, null, null, null,
 				room.exits != null ? room.exits : new ArrayList<String>(), null);
+		// Read back from the map: Follow skips unknown rooms, a locked title stays.
+		MapTile here = currentTile();
+		if (here != null && room.id.equals(here.getExternalId())) {
+			String title = here.getTitle();
+			mLastDrawnRoom = room.id
+					+ (title != null && title.length() > 0 ? ", title \"" + title + "\"" : ", no title")
+					+ (room.exits != null ? ", exits " + room.exits : ", no exits")
+					+ (room.move != null ? ", came by " + room.move : "");
+		} else {
+			mLastDrawnRoom = "no room with id " + room.id + " on the map"
+					+ (!mGmcpGrow ? " (Room Sync policy is Follow: it only moves to rooms already drawn)" : "");
+		}
 	}
 
 	/** Reload option values from the connection settings plugin. */
@@ -2154,6 +2162,7 @@ public class MapperController {
 	 */
 	public String openMap(final String name) {
 		String mapName = TextUtils.isEmpty(name) ? DEFAULT_MAP_NAME : name.trim();
+		mLastDrawnRoom = null;
 		Context ctx = context();
 		if (ctx == null) {
 			ensureBlankMap(mapName);
@@ -2198,6 +2207,7 @@ public class MapperController {
 			return "Mapper: map \"" + MapStore.safeName(mapName)
 					+ "\" already exists. Open it from Maps, or choose another name.";
 		}
+		mLastDrawnRoom = null;
 		ensureBlankMap(mapName);
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
@@ -3942,8 +3952,7 @@ public class MapperController {
 			}
 			text.append(lines.get(i));
 		}
-		CapturePreview preview = previewCapture(getCaptureTitleRegex(),
-				getCaptureExitsRegex(), text.toString(), lines.size());
+		CapturePreview preview = currentRoomPreview(text.toString(), lines.size());
 		mLastCapturePreview = preview;
 		StringBuilder sb = new StringBuilder();
 		sb.append("Mapper capture preview (last ").append(lines.size())
@@ -3955,11 +3964,37 @@ public class MapperController {
 		sb.append("  room id: ").append(roomIdPreview(text.toString())).append("\n");
 		String drawn = lastDrawnRoom();
 		if (drawn != null) {
-			sb.append("Last room the mapper drew from the game text: ").append(drawn).append("\n");
+			sb.append("Last room from the game text: ").append(drawn).append("\n");
 		}
 		sb.append("Use .map capture apply to write matches onto the current tile.\n");
 		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
 		return sb.toString();
+	}
+
+	/**
+	 * With a room id in the window, the title is looked for from the newest id
+	 * line on, so apply never pairs the old room's name with the new room's exits.
+	 */
+	CapturePreview currentRoomPreview(final String text, final int lines) {
+		CapturePreview preview = previewCapture(getCaptureTitleRegex(),
+				getCaptureExitsRegex(), text, lines);
+		java.util.regex.Pattern idPattern = mCaptureIdPattern;
+		if (idPattern == null) {
+			return preview;
+		}
+		java.util.regex.Matcher m = java.util.regex.Pattern.compile(idPattern.pattern(),
+				java.util.regex.Pattern.MULTILINE).matcher(preview.matchedLines);
+		int newest = -1;
+		while (m.find()) {
+			newest = m.start();
+		}
+		if (newest >= 0) {
+			// From the line after the id, as the live path reads it.
+			int next = preview.matchedLines.indexOf('\n', newest);
+			preview.title = next < 0 ? null : matchGroup1(getCaptureTitleRegex(),
+					preview.matchedLines.substring(next + 1));
+		}
+		return preview;
 	}
 
 	String lastDrawnRoom() {
@@ -4035,9 +4070,8 @@ public class MapperController {
 	}
 
 	public String captureApply() {
-		if (mLastCapturePreview == null) {
-			capturePreview(20);
-		}
+		// Fresh: a preview from before the last walk would write that room here.
+		capturePreview(20);
 		if (mLastCapturePreview == null) {
 			return "Mapper capture apply: nothing to apply (empty buffer).";
 		}
@@ -4049,9 +4083,13 @@ public class MapperController {
 			return "Mapper capture apply: no title/exits matched — try the Capture dialog"
 					+ " (toolbar CSV token \"capture\") with custom regex.";
 		}
+		MapTile target = currentOrSelectedTile();
+		boolean titleLocked = hasTitle && target != null && target.isLockTitle();
 		applyCapture(mLastCapturePreview);
 		StringBuilder sb = new StringBuilder("Mapper capture apply: updated current tile");
-		if (hasTitle) {
+		if (titleLocked) {
+			sb.append(" (title is locked, kept)");
+		} else if (hasTitle) {
 			sb.append(" title=\"").append(mLastCapturePreview.title).append("\"");
 		}
 		if (hasExits) {

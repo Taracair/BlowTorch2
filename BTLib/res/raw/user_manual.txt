@@ -4578,11 +4578,16 @@ them without stopping the map.
 
 `.map capture preview` shows what the three regexes match in the last 20 lines.
 The room id and exits come from the newest match there, so a room you just
-walked out of no longer shows up instead of the one you are in. The title is
-still the first matching line (Name relies on that), so with two rooms in view
-it can be the older one. The last line, *Last room the mapper drew from the game
-text*, is what the mapper last handed to the map: id, title, exits, and the way
-the server says you came (the exits regex's `move` group).
+walked out of no longer shows up instead of the one you are in. With a room id
+in view, the title is looked for only in the lines after the newest id line, so the name
+of the room before is not paired with this room's exits. `.map capture apply`
+reads the lines again when you run it and leaves a locked title alone. The line
+*Last room from the game text* is read back from the map after the room arrives:
+its id, the title the room now has, its exits, and the way the server says you
+came (the exits regex's `move` group). If no room with that id is on the
+map, it says so, for example because the Room Sync policy is Follow, which only moves to
+rooms already drawn. It is empty after you open another map or change a capture
+regex.
 When the room id line is not among them, it says why: an id followed by *seen
 in the game text, but not in these lines* means the mapper caught it and the
 line is gagged or scrolled away. *The last exits line came with no room id
