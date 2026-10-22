@@ -4549,7 +4549,8 @@ Print the summary with `.map dirs`.
     `.map conflict resolve|ignore all`                                      Mark all open conflicts resolved
     `.map conflict purge`                                                   Remove resolved conflicts (open ones kept)
     `.map capture preview`                                                  Match Options title/exits/room id regex on the last 20 lines
-    `.map capture apply`                                                    Apply last preview to the current tile
+    `.map capture apply`                                                    Read the last 20 lines again and apply them to the current tile
+    `.map route <cmd>`                                                      Send `cmd`; when the room id changes, link the two rooms by it
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, **Auto-Send Path?**, **Use GMCP Room Sync?**,
@@ -4606,6 +4607,22 @@ actually walked, turn off **Create missing exit neighbors** (Options → Mapper 
 Configure Room Sync…); otherwise each listed exit gets a neighbour: a new
 empty room, or whatever room already sits in that direction. A
 special exit such as `drawbridge` is linked when the `move` group names it.
+
+When the server names no move (an empty `move` group), a typed `drawbridge`
+is not taken as a move, because the mapper cannot tell it from `say hi`. Send it
+as `.map route drawbridge` instead: the command goes to the game as typed, and
+if a new room id arrives within 4 seconds, the two rooms are linked by
+`drawbridge`. Nothing is drawn if no new room arrives (the bridge is up). Give it
+its own line: on a line such as `n;.map route drawbridge` or
+`.map route drawbridge;look` it is sent but not linked, and so is a route typed
+while the room for your last move (or last route) has not arrived yet or that
+move failed; it says so. After a speedwalk such as `n;n`, wait until you stand
+in the last room. The mapper only remembers directions, so a route sent right
+after another special command (`enter`) can take the room `enter` leads to:
+wait for that room first. Any other command sent before the room arrives cancels it,
+including one a trigger, timer or script sends. The server's `move` still
+wins when it names one. Aliases do not run on the routed command, so an alias
+`drawbridge` → `.map route drawbridge` is safe; a button works the same way.
 
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:

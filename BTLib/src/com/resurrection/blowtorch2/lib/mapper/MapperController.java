@@ -205,10 +205,17 @@ public class MapperController {
 	private static final class RememberedMove {
 		private final String command;
 		private final String fromTileId;
+		/** From {@code .map route}: any other command typed before the room arrives cancels it. */
+		private final boolean declared;
 
 		RememberedMove(final String command, final String fromTileId) {
+			this(command, fromTileId, false);
+		}
+
+		RememberedMove(final String command, final String fromTileId, final boolean declared) {
 			this.command = command;
 			this.fromTileId = fromTileId;
+			this.declared = declared;
 		}
 	}
 
@@ -220,6 +227,8 @@ public class MapperController {
 	}
 
 	private RememberedMove mLastMove;
+	/** A declared move whose own line has not been sent yet. */
+	private boolean mDeclaredAwaitingSend;
 	private long mLastMoveAt;
 	/**
 	 * The GMCP map file whose coordinate space this map is drawn in -- learnt
@@ -1443,6 +1452,44 @@ public class MapperController {
 		}
 	}
 
+	/**
+	 * {@code .map route <cmd>}: the caller sends {@code cmd} next; when the room id
+	 * changes, that is the exit. Nothing is drawn if no new room arrives.
+	 */
+	public String declareMove(final String cmd) {
+		if (cmd == null || cmd.trim().length() == 0) {
+			return null;
+		}
+		if (!mEnabled) {
+			return "Mapper is off, so \"" + cmd.trim() + "\" is sent but not linked.";
+		}
+		RememberedMove pending = mLastMove;
+		if (pending != null && System.currentTimeMillis() - mLastMoveAt <= MOVE_MEMORY_MS) {
+			// Any move still waiting for its room would hand that room to this route.
+			return "Mapper: no room has arrived yet for \"" + pending.command
+					+ "\" (or that move failed), so \"" + cmd.trim()
+					+ "\" is sent but not linked. Try again in a few seconds.";
+		}
+		// A room still open belongs to the move before this one.
+		commitCapturedRoom();
+		MapTile here = currentTile();
+		mLastMove = new RememberedMove(normalize(cmd.trim()),
+				here != null ? here.getId() : null, true);
+		mLastMoveAt = System.currentTimeMillis();
+		mDeclaredAwaitingSend = true;
+		return null;
+	}
+
+	/** The route's line was not sent (processing threw): forget the route. */
+	public void cancelDeclaredMove() {
+		if (mDeclaredAwaitingSend) {
+			mDeclaredAwaitingSend = false;
+			if (mLastMove != null && mLastMove.declared) {
+				mLastMove = null;
+			}
+		}
+	}
+
 	/** Reload option values from the connection settings plugin. */
 	public void applySettingsFromConnection() {
 		mEnabled = boolOpt("mapper_enabled", true);
@@ -2382,6 +2429,9 @@ public class MapperController {
 	 * </ul>
 	 */
 	public void onPlayerCommand(final String cmd) {
+		// Read and cleared first: only the batch right after declareMove is the route's own.
+		boolean routeLine = mDeclaredAwaitingSend;
+		mDeclaredAwaitingSend = false;
 		if (!mEnabled || cmd == null) {
 			return;
 		}
@@ -2395,12 +2445,28 @@ public class MapperController {
 		if (raw.startsWith(".")) {
 			return;
 		}
+		String[] moves = raw.split("[\\r\\n;]+");
+		RememberedMove declared = mLastMove;
+		boolean keepDeclared = false;
+		if (declared != null && declared.declared) {
+			int pieces = 0;
+			for (String piece : moves) {
+				if (piece.trim().length() > 0) {
+					pieces++;
+				}
+			}
+			// Only the route's own line, sent alone: "n;.map route x" would hand x to
+			// the room n reaches, and a "say hi" sent later must not become the exit.
+			keepDeclared = routeLine && pieces == 1;
+			if (!keepDeclared) {
+				mLastMove = null;
+			}
+		}
 		// Remembered before anything else can return early. Recording mode used to
 		// jump straight to recordMove and out, so in the one mode where the player
 		// is deliberately building a map, the room that arrived next had no idea
 		// which way they had gone.
-		String[] moves = raw.split("[\\r\\n;]+");
-		for (int i = moves.length - 1; i >= 0; i--) {
+		for (int i = moves.length - 1; !keepDeclared && i >= 0; i--) {
 			String piece = moves[i].trim();
 			if (piece.length() == 0) {
 				continue;

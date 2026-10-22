@@ -4090,6 +4090,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mLauncherAccounts;
 	}
 
+	/** Echo policy of the segment whose {@code .command} is running, for {@link #queueCommandPastAliases}. */
+	private AliasLocalEcho mCommandEchoPolicy;
+
+	/**
+	 * Add {@code cmd} to the input line now being processed, as if an alias had
+	 * already expanded to it: it is sent in order with the rest of the line,
+	 * echoed and seen by the mapper, but no alias runs on it again. Only valid
+	 * while a {@code .command} on that line is executing.
+	 */
+	public final void queueCommandPastAliases(final String cmd) {
+		if (cmd == null || cmd.length() == 0) {
+			return;
+		}
+		String line = CommandCase.softenForSend(cmd,
+				readBoolOption("lowercase_command_start", false), mLocalEcho);
+		mDataToServer.append(line).append(mCRLF);
+		appendVisIfAllowed(line + ";", mCommandEchoPolicy != null
+				? mCommandEchoPolicy : AliasLocalEcho.INHERIT);
+	}
+
 	/**
 	 * Write one line to the socket, bypassing aliases, echo, the session log,
 	 * the mapper and unaccent folding. Plain text already queued earlier on the
@@ -4318,7 +4338,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						&& CredentialCommand.handleInline(cmd, this)) {
 					d = null;
 				} else {
-					d = processCommand(cmd);
+					AliasLocalEcho outerPolicy = mCommandEchoPolicy;
+					mCommandEchoPolicy = segmentPolicy;
+					try {
+						d = processCommand(cmd);
+					} finally {
+						mCommandEchoPolicy = outerPolicy;
+					}
 				}
 				//3 - do special command processing.
 				
@@ -4533,6 +4559,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			armPendingWait();
 		} catch (Exception e) {
 			reportRuntimeError("wait resume", e);
+		} finally {
+			if (mMapper != null) {
+				mMapper.cancelDeclaredMove();
+			}
 		}
 	}
 
@@ -7897,6 +7927,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 *        {@code SendToServer} and Ack (STRING)
 	 */
 	private void sendToServer(final byte[] bytes, final boolean unaccent) {
+		try {
+			sendToServerOnce(bytes, unaccent);
+		} finally {
+			// No-op when the route's line reached the mapper; otherwise it never went out.
+			if (mMapper != null) {
+				mMapper.cancelDeclaredMove();
+			}
+		}
+	}
+
+	private void sendToServerOnce(final byte[] bytes, final boolean unaccent) {
 		if (bytes == null || mSettings == null) {
 			return;
 		}

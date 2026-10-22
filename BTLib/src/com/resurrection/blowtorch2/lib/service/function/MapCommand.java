@@ -30,6 +30,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map link|unlink …
  * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
+ * .map route &lt;cmd&gt;
  * .map conflict[s] [list [all]|resolve|ignore …]
  * </pre>
  */
@@ -89,6 +90,18 @@ public class MapCommand extends SpecialCommand {
 		case "go":
 		case "walkto":
 			return doPath(c, mapper, rest, true, true);
+		case "route":
+			if (rest.length() == 0) {
+				note(c, "Usage: .map route <command>  (sends it; when the room id changes,"
+						+ " the map links the rooms by that command)");
+				return null;
+			}
+			String refused = mapper.declareMove(rest);
+			if (refused != null) {
+				note(c, refused);
+			}
+			c.queueCommandPastAliases(rest);
+			return null;
 		case "title":
 			if (!requireEdit(c, mapper)) {
 				return null;
@@ -1275,6 +1288,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
+		sb.append("  .map route <cmd>  (send cmd; the next new room id is linked by it, e.g. drawbridge)\n");
 		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
 		sb.append("  .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]\n");
 		sb.append("  .map opacity [40-100]\n");
