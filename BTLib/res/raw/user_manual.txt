@@ -2541,11 +2541,18 @@ the block, which is what makes the box example above readable.
 
 ### 10. Start mapping
 
+First check which kind of world you are on (Help → Mapper → *Which way of
+mapping fits your world*). Record is only for worlds that send neither GMCP
+nor room ids:
+
 1. Open the map: ⋮ → **Map**, or `.map open`
 2. Switch **Browse** → **Edit**
 3. **Nav → Record** on, then walk. Rooms appear as you go.
 
-If your MUD sends GMCP `Room.Info`, turn on **Options → Protocols →
+No GMCP, but the game text has room ids (BatMUD with a proxy, for
+example)? Leave Record off and see *Map from game text* in the Mapper section.
+
+If your MUD sends GMCP `Room.Info`, leave Record off and turn on **Options → Protocols →
 Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
 and **View & sync → GMCP sync** already default on — tapping that wedge
 turns sync *off*. Then just walk. `.map find <text>`
@@ -4357,6 +4364,37 @@ leaves the window fill at the opacity you already set. A two-finger tap on
 the map brings that chrome back. The overlay
 stays under the ⋮ chrome so overflow remains reachable.
 
+**Work in progress.** A mapper that builds itself while you play is usually a
+desktop client feature, with a big screen, a mouse and a side panel. Here it
+has to fit in a small window over the game text on a phone, so some things
+take more steps than they would on a PC, and some are still missing or rough.
+Treat it as work in progress: if the map draws something wrong, `.map capture
+preview` and `.map undo` are your friends, and a report with what you typed and
+what the game printed helps more than anything.
+
+### Which way of mapping fits your world
+
+There are three ways to build a map. Pick the one your world supports; they
+are not meant to be mixed.
+
+1. **The world sends GMCP `Room.Info`** (IRE games, many modern MUDs). Turn on
+   **Options → Protocols → Use GMCP?** and just walk. Rooms, ids and exits come
+   from the server. Record stays off.
+2. **The world prints a room id in its text** (or a proxy or trigger adds one),
+   for example BatMUD with a proxy printing:
+
+        @roomid acoOalAfoxAOQewBzEi2v1
+        @roomname Church of all Gods
+        @dir east, north,east,south,west
+
+   Set **Options → Mapper → Capture Room ID Regex** to `^@roomid (.*)$`,
+   **Capture Title Regex** to `^@roomname (.*)$` and **Capture Exits Regex**
+   to `^@dir (?<move>[^,]*), (?<exits>.*)$`, then walk. Record stays off.
+   See *Map from game text* below.
+3. **Nothing of the above** (many MOOs and older MUDs). Switch to **Edit**,
+   turn **Nav → Record** on and walk: each move you type draws the next room.
+   Draw and Links fix what Record got wrong.
+
 ### Concepts
 
     **Tile**         One room cell on a grid (x, y) plus a **level**
@@ -4635,9 +4673,9 @@ modules…), `Room.Info` builds the map as you walk:
 
 Does not delete verified or hand-edited exits absent from GMCP; it may remove
 **guessed** exits that contradict the current Room exits list. Does **not** parse
-ASCII maps from game text — that is Capture regex / Record / Draw. Without GMCP (typical on
-many MOOs), use **Rec** while walking, **Edit** for **Draw** / **Links**,
-and/or `.map capture`.
+ASCII maps from game text. Without GMCP, use a Capture Room ID Regex if the
+text has room ids (*Map from game text* above); otherwise **Rec** while walking
+and **Edit** for **Draw** / **Links**.
 
 ### Typical workflows (mini-tutorial)
 
@@ -4647,6 +4685,30 @@ and/or `.map capture`.
    (new or existing) / Independent floor / Another map….
 4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
 5. **Fix layout:** long-press-drag a tile. Use **Edit → Spacing** (spread) to see arrow labels.
+6. **Map from game text:** set the three Capture regexes (see *Which way of
+   mapping fits your world*), leave Record off, turn off **Options → Mapper →
+   GMCP: Create exit neighbors?** (the same switch as *Create missing exit
+   neighbors* in Configure Room Sync…; it applies to text mapping too), then walk. Try the regexes first without walking:
+
+        .simulate @roomid a1\n@roomname Hall\n@dir , north
+        .simulate @roomid b2\n@roomname Yard\n@dir north, south
+
+   The map now shows Hall with Yard north of it, linked by `n`.
+7. **Check what the mapper saw:** `.map capture preview`. The *Last room from
+   the game text* line is what the map got, for example
+   `b2, title "Yard", exits [south], came by north`. *no room with id b2 on the
+   map* means it was not drawn (often: Room Sync policy is Follow).
+8. **A special exit the game does not name:** `.map route drawbridge` instead of
+   `drawbridge`, alone on its line. When the next room arrives, the two rooms
+   are linked by `drawbridge`. An alias `db` → `.map route drawbridge` or a
+   button does the same with one tap.
+9. **Rooms that do not fit the grid:** the world goes east, south, west, north
+   and you are somewhere new, but the cell is taken, so the room lands beside it,
+   joined by an amber link that turns a corner. Stand in the room next to the gap, switch to **Edit** and
+   type `.map shift east` (or `west`, `north`, `south`, `southeast`, …): every
+   room on this floor beyond you moves one cell that way and a free column
+   (or row, for north and south) opens next to you. Other floors stay put. `.map shift south 2` moves two cells. Then long-press-drag
+   the room into the gap. `.map undo` puts everything back.
 
 ### `.run` / `.rev` defaults
 

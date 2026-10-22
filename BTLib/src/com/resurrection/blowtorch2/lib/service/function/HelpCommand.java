@@ -803,7 +803,10 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .map follow on|off|toggle | level list|prev|next|set …\n"
 					+ "  .map find|search|path|goto|go <query>\n"
 					+ "  .map title|note|locktitle|lockposition|relayout|tidy …\n"
-					+ "  (type .map alone for the full list)\n";
+					+ "  .map capture preview — what the mapper read from the game text\n"
+					+ "  .map route drawbridge — send it; link the next room by it\n"
+					+ "  .map shift east [n] — open a column beside Here (Edit)\n"
+					+ "  (type .map alone for the full list; ⋮ → Help → Mapper has examples)\n";
 		}
 		if (filter.equals("gmcp")) {
 			return "\n"
