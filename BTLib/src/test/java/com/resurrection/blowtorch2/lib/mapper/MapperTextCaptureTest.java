@@ -172,4 +172,70 @@ public class MapperTextCaptureTest {
 		String drawn = mapper.lastDrawnRoom();
 		assertEquals("b2, title \"Church of all Gods\", exits [north, south], came by east", drawn);
 	}
+
+	/** The player's loop a→b→c→d→e→a with Record off: a revisit is found by id and every walk is a link. */
+	@Test
+	public void recordOffClosesALoopByIdWithOnlyWalkedLinks() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid a\n@dir , south\n");
+		String[][] steps = { { "s", "b", "south" }, { "e", "c", "east" }, { "n", "d", "north" },
+				{ "nw", "e", "northwest" }, { "w", "a", "west" }, { "s", "b", "south" } };
+		for (String[] step : steps) {
+			mapper.onPlayerCommand(step[0]);
+			mapper.onOutputText("@roomid " + step[1] + "\n@dir " + step[2] + ", north,south\n");
+		}
+		assertEquals(5, mapper.getMap().getTiles().size());
+		MapTile e = null;
+		for (MapTile t : mapper.getMap().getTiles()) {
+			if ("e".equals(t.getExternalId())) {
+				e = t;
+			}
+		}
+		assertEquals("[w]", commands(e).toString());
+		assertEquals("a", mapper.getMap().findTile(e.getExits().get(0).getToId()).getExternalId());
+		assertEquals("b", mapper.currentTile().getExternalId());
+	}
+
+	@Test
+	public void aSpecialMoveNamedByTheServerLinksBothWays() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid a\n@dir , north\n");
+		mapper.onPlayerCommand("drawbridge");
+		mapper.onOutputText("@roomid keep\n@dir drawbridge, out\n");
+		mapper.onPlayerCommand("out");
+		mapper.onOutputText("@roomid a\n@dir out, north\n");
+		assertEquals(2, mapper.getMap().getTiles().size());
+		assertEquals("a", mapper.currentTile().getExternalId());
+		assertEquals("[drawbridge]", commands(mapper.currentTile()).toString());
+		MapTile keep = mapper.getMap().findTile(mapper.currentTile().getExits().get(0).getToId());
+		assertEquals("[out]", commands(keep).toString());
+		assertEquals("a", mapper.getMap().findTile(keep.getExits().get(0).getToId()).getExternalId());
+	}
+
+	/** What the manual warns about: Record on draws ahead of the game and the walk back to a loses its link. */
+	@Test
+	public void recordOnLosesTheLinkThatClosesTheLoop() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.setEditMode(true);
+		mapper.setRecording(true);
+		mapper.onOutputText("@roomid a\n@dir , south\n");
+		String[][] steps = { { "s", "b", "south" }, { "e", "c", "east" }, { "n", "d", "north" },
+				{ "nw", "e", "northwest" }, { "w", "a", "west" } };
+		for (String[] step : steps) {
+			mapper.onPlayerCommand(step[0]);
+			mapper.onOutputText("@roomid " + step[1] + "\n@dir " + step[2] + ", north,south\n");
+		}
+		assertTrue(mapper.getMap().getTiles().size() > 5);
+		for (MapTile t : mapper.getMap().getTiles()) {
+			if ("e".equals(t.getExternalId())) {
+				for (MapExit x : t.getExits()) {
+					MapTile to = mapper.getMap().findTile(x.getToId());
+					assertTrue(to == null || !"a".equals(to.getExternalId()));
+				}
+			}
+		}
+	}
 }

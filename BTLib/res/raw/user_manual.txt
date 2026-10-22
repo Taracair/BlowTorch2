@@ -4588,10 +4588,19 @@ in the game text, but not in these lines* means the mapper caught it and the
 line is gagged or scrolled away. *The last exits line came with no room id
 open* is followed by the lines just before that exits line, exactly as the
 mapper got them, so a prompt stuck in front of `@roomid` shows up there. To try
-the regexes without walking, turn on **Edit** and **Record** and type:
+the regexes without walking, type:
 
     .simulate @roomid a1\n@dir north, south,east
     .simulate @roomid b2\n@dir south, north
+
+Leave **Record** off while mapping from text; the id lines draw the map without
+it. Record draws a room for every move you type, so a move that fails (a wall,
+a guard) leaves a room that is not there, and walking back into a room you know
+can lose the link that closes the loop. To link rooms only by where you
+actually walked, turn off **Create missing exit neighbors** (Options → Mapper →
+Configure Room Sync…); otherwise each listed exit gets a neighbour: a new
+empty room, or whatever room already sits in that direction. A
+special exit such as `drawbridge` is linked when the `move` group names it.
 
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:
