@@ -30,7 +30,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map link|unlink …
  * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
- * .map route &lt;cmd&gt;
+ * .map route &lt;cmd&gt; | .map shift &lt;dir&gt; [n]
  * .map conflict[s] [list [all]|resolve|ignore …]
  * </pre>
  */
@@ -102,6 +102,8 @@ public class MapCommand extends SpecialCommand {
 			}
 			c.queueCommandPastAliases(rest);
 			return null;
+		case "shift":
+			return doShift(c, mapper, rest);
 		case "title":
 			if (!requireEdit(c, mapper)) {
 				return null;
@@ -692,6 +694,31 @@ public class MapCommand extends SpecialCommand {
 		} else if (gotoMode) {
 			note(c, "Mapper: path_auto_send off — path printed only. Use .map go to send.");
 		}
+		return null;
+	}
+
+	private Object doShift(Connection c, MapperController mapper, String rest) {
+		if (!requireEdit(c, mapper)) {
+			return null;
+		}
+		String[] p = rest.split("\\s+");
+		if (rest.length() == 0 || p.length > 2) {
+			note(c, "Usage: .map shift <direction> [n]  (e.g. .map shift east 2)");
+			return null;
+		}
+		int n = 1;
+		if (p.length == 2) {
+			try {
+				n = Integer.parseInt(p[1]);
+			} catch (NumberFormatException e) {
+				n = 0;
+			}
+			if (n < 1 || n > 50) {
+				note(c, "Usage: .map shift <direction> [n]  (n is 1 to 50 cells; the direction says which way)");
+				return null;
+			}
+		}
+		note(c, mapper.shiftRooms(p[0], n));
 		return null;
 	}
 
@@ -1288,6 +1315,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
+		sb.append("  .map shift <dir> [n]  (Edit; rooms on this floor beyond Here move n cells that way)\n");
 		sb.append("  .map route <cmd>  (send cmd; the next new room id is linked by it, e.g. drawbridge)\n");
 		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
 		sb.append("  .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]\n");

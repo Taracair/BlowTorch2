@@ -1171,6 +1171,9 @@ matching it opens a room, the exits regex closes it. Try it with .simulate.
 Leave Record off then: it would also draw a room for a move that failed.
 A special exit the game does not name: .map route drawbridge sends it and
 links the rooms when the room id changes.
+Rooms that do not fit the grid: in Edit, .map shift east moves every room
+east of you one cell over, so a free column opens beside you. .map undo
+puts them back.
 
 Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, Auto-Send Path?,

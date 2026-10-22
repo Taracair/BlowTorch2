@@ -1490,6 +1490,58 @@ public class MapperController {
 		}
 	}
 
+	/**
+	 * Open a row or column next to Here: every room on this floor beyond Here in
+	 * {@code dir} moves {@code n} cells that way. A diagonal does both axes.
+	 */
+	public String shiftRooms(final String dir, final int n) {
+		MapTile here = currentTile();
+		if (mMap == null || here == null) {
+			return "Mapper: no current room to shift from.";
+		}
+		int[] delta = dir != null ? gridDeltaFor(normalize(dir.trim())) : null;
+		if (delta == null || (delta[0] == 0 && delta[1] == 0)) {
+			return "Mapper: shift takes a compass direction: east, west, north, south or a diagonal.";
+		}
+		int steps = Math.max(1, Math.min(n, 50));
+		String level = here.getLevelId() != null ? here.getLevelId() : "";
+		int hx = here.getGridX();
+		int hy = here.getGridY();
+		List<MapTile> moving = new ArrayList<MapTile>();
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null || !level.equals(t.getLevelId() != null ? t.getLevelId() : "")) {
+				continue;
+			}
+			boolean beyondX = delta[0] != 0 && (t.getGridX() - hx) * delta[0] > 0;
+			boolean beyondY = delta[1] != 0 && (t.getGridY() - hy) * delta[1] > 0;
+			if (beyondX || beyondY) {
+				moving.add(t);
+			}
+		}
+		if (moving.isEmpty()) {
+			return "Mapper: no rooms beyond Here in that direction.";
+		}
+		pushUndo();
+		int locked = 0;
+		for (MapTile t : moving) {
+			// Locks keep GMCP from moving a room; this is the player moving it.
+			if (t.isLockPosition()) {
+				locked++;
+			}
+			if (delta[0] != 0 && (t.getGridX() - hx) * delta[0] > 0) {
+				t.setGridX(t.getGridX() + delta[0] * steps);
+			}
+			if (delta[1] != 0 && (t.getGridY() - hy) * delta[1] > 0) {
+				t.setGridY(t.getGridY() + delta[1] * steps);
+			}
+		}
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: shifted " + moving.size() + (moving.size() == 1 ? " room" : " rooms")
+				+ (locked > 0 ? " (" + locked + " with a locked position)" : "")
+				+ " by " + steps + ". Undo puts them back.";
+	}
+
 	/** Reload option values from the connection settings plugin. */
 	public void applySettingsFromConnection() {
 		mEnabled = boolOpt("mapper_enabled", true);

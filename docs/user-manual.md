@@ -4540,6 +4540,7 @@ Print the summary with `.map dirs`.
     `.map delete [id]`                                                      Remove a tile (and links to it)
     `.map neighbor <cmd> [from <id>]`                                       Create/link a neighbor by walk verb
     `.map move [id] <x> <y>`                                                Reposition a tile on the grid
+    `.map shift <dir> [n]`                                                  Edit: move every room on this floor beyond Here n cells that way (default 1)
     `.map title` / `.map note`                                              Edit current tile text. A note keeps its line breaks (Enter in the tile editor)
     `.map title for <id> <text>` / `.map note for <id> <text>`              Edit a specific tile
     `.map link <cmd> [from <id>] to <tileId>`                               Manual link
