@@ -119,9 +119,9 @@ public class MapperView extends View {
 	private final Paint linkLabelBg = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/**
 	 * Links whose drawn line does not mean what the command means -- a {@code w}
-	 * that lands diagonally because the world does not fit a grid. Amber and
-	 * dashed, and routed along the axes rather than straight, so the diagonal is
-	 * never read as a diagonal move.
+	 * that lands diagonally because the world does not fit a grid. Amber, solid
+	 * (it has been walked), and routed along the axes rather than straight, so
+	 * the diagonal is never read as a diagonal move.
 	 */
 	private final Paint mismatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/** Same amber, solid: a dash effect on a filled arrow head eats the head. */
@@ -1086,8 +1086,9 @@ public class MapperView extends View {
 	private float elbowLabelY;
 
 	/**
-	 * A link whose geometry disagrees with its command: dashed amber, and routed
-	 * along the axes with one right-angled turn instead of running straight.
+	 * A link whose geometry disagrees with its command (solid amber), or one
+	 * nobody has walked (dashed grey): routed along the axes with one
+	 * right-angled turn instead of running straight.
 	 *
 	 * The turn is what carries the meaning. A straight diagonal reads as "there
 	 * is a southwest exit here"; a line that leaves west and then drops south
@@ -1096,7 +1097,7 @@ public class MapperView extends View {
 	 *
 	 * The corner goes through whichever of the two candidate cells is empty, so
 	 * the detour does not cut across a room. With both occupied there is no room
-	 * to turn in, and it stays straight -- still dashed and amber, so the link is
+	 * to turn in, and it stays straight -- still in its colour, so the link is
 	 * marked either way.
 	 */
 	private void drawMismatchLink(Canvas canvas, float bodySize,

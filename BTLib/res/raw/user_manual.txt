@@ -4711,8 +4711,12 @@ and **Edit** for **Draw** / **Links**.
    are linked by `drawbridge`. An alias `db` → `.map route drawbridge` or a
    button does the same with one tap.
 9. **Rooms that do not fit the grid:** the world goes east, south, west, north
-   and you are somewhere new, but the cell is taken, so the room lands beside it,
-   joined by an amber link that turns a corner. Stand in the room next to the gap, switch to **Edit** and
+   and you are somewhere new, but the cell is taken, so the room lands beside it.
+   With **Create missing exit neighbors** off, the way you walked is drawn as a
+   solid amber link, with a corner when there is a free cell for one. With it
+   on, that exit was usually already linked, dashed, to the room in the way;
+   the mapper keeps that guess and draws no link to the new room (and the new
+   room's own exits may get empty neighbours). Stand in the room next to the gap, switch to **Edit** and
    type `.map shift east` (or `west`, `north`, `south`, `southeast`, …): every
    room on this floor beyond you moves one cell that way and a free column
    (or row, for north and south) opens next to you. Other floors stay put. `.map shift south 2` moves two cells. Then long-press-drag
