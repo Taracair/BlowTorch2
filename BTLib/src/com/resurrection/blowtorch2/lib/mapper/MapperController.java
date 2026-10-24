@@ -2724,6 +2724,17 @@ public class MapperController {
 					&& (current.getExternalId() == null
 							|| current.getExternalId().length() == 0)) {
 				tile = current;
+			} else if (current != null && z == null && movedBy != null
+					&& gridDeltaFor(movedBy) == null && levelDeltaFor(movedBy) != null) {
+				// up/down with no z from the server: the floor above or below, the
+				// same cell when it is free, as Record does.
+				pushUndo();
+				MapLevel level = levelRelativeTo(current, levelDeltaFor(movedBy).intValue());
+				int[] slot = findTileAt(level.getId(), current.getGridX(), current.getGridY()) == null
+						? new int[] { current.getGridX(), current.getGridY() }
+						: findFreeNear(level.getId(), current.getGridX(), current.getGridY());
+				tile = createTileAt(level.getId(), slot[0], slot[1]);
+				changed = true;
 			} else if (current != null) {
 				pushUndo();
 				int[] delta = gridDeltaFor(movedBy);
@@ -4447,6 +4458,16 @@ public class MapperController {
 
 	private MapTile tileOnRelativeLevel(final MapTile from, final int levelDelta,
 			final String norm) {
+		MapLevel level = levelRelativeTo(from, levelDelta);
+		MapTile at = findTileAt(level.getId(), from.getGridX(), from.getGridY());
+		if (at != null) {
+			return at;
+		}
+		MapTile tile = createTileAt(level.getId(), from.getGridX(), from.getGridY());
+		return tile;
+	}
+
+	private MapLevel levelRelativeTo(final MapTile from, final int levelDelta) {
 		List<MapLevel> sorted = sortedLevels();
 		int idx = 0;
 		for (int i = 0; i < sorted.size(); i++) {
@@ -4465,12 +4486,7 @@ public class MapperController {
 		} else {
 			level = sorted.get(target);
 		}
-		MapTile at = findTileAt(level.getId(), from.getGridX(), from.getGridY());
-		if (at != null) {
-			return at;
-		}
-		MapTile tile = createTileAt(level.getId(), from.getGridX(), from.getGridY());
-		return tile;
+		return level;
 	}
 
 	private int[] findFreeNear(final String levelId, final int ox, final int oy) {

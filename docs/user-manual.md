@@ -4534,8 +4534,8 @@ Planar grid: **+x = east**, **+y = south** (north decreases y).
 
     `n`/`north`, `s`/`south`, `e`/`east`, `w`/`west` (and `go`/`walk`/`move` prefixes)   Neighbor on the same level
     `ne`/`nw`/`se`/`sw`                                                                  Diagonal
-    `u`/`up`/`climb`/`ascend`                                                            Level +1 (while Recording)
-    `d`/`down`/`descend`                                                                 Level −1 (while Recording)
+    `u`/`up`/`climb`/`ascend`                                                            Level +1 (Record, or a new room id after it)
+    `d`/`down`/`descend`                                                                 Level −1 (Record, or a new room id after it)
     `in`/`enter`, `out`/`leave`/`exit`, other text                                       Special exit (nearby cell, not a compass step)
 
 Recording prefers this built-in compass lexicon before Speedwalk key bindings
@@ -4646,6 +4646,9 @@ actually walked, turn off **Create missing exit neighbors** (Options → Mapper 
 Configure Room Sync…); otherwise each listed exit gets a neighbour: a new
 empty room, or whatever room already sits in that direction. A
 special exit such as `drawbridge` is linked when the `move` group names it.
+`up` and `down` (from the `move` group or typed) put a new room on the floor
+above or below, in the same cell when it is free; a room you already know
+is found by its id wherever it is.
 
 When the server names no move (an empty `move` group), a typed `drawbridge`
 is not taken as a move, because the mapper cannot tell it from `say hi`. Send it

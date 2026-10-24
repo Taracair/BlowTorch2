@@ -297,4 +297,60 @@ public class MapperTextCaptureTest {
 		CapturePreview preview = mapper.currentRoomPreview("Room #12\nyou see dust\nexits: north", 20);
 		assertNull(preview.title);
 	}
+
+	/** The BatMUD player's tower: "@dir up, ..." went onto the same floor as a special exit. */
+	@Test
+	public void upAndDownFromTheServerChangeFloor() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid L303\n@roomshort Main level of southwest tower\n@dir south, north,east,up,down\n");
+		MapTile main = mapper.currentTile();
+		mapper.onOutputText("@roomid top\n@dir up, down\n");
+		MapTile top = mapper.currentTile();
+		assertTrue(!main.getLevelId().equals(top.getLevelId()));
+		assertEquals(top.getLevelId(), mapper.getMap().getCurrentLevelId());
+		assertEquals(main.getGridX(), top.getGridX());
+		assertEquals(main.getGridY(), top.getGridY());
+		mapper.onOutputText("@roomid L303\n@dir down, north,east,up,down\n");
+		assertEquals(main.getId(), mapper.currentTile().getId());
+		mapper.onOutputText("@roomid cellar\n@dir down, up\n");
+		MapTile cellar = mapper.currentTile();
+		assertTrue(!cellar.getLevelId().equals(main.getLevelId()));
+		assertTrue(!cellar.getLevelId().equals(top.getLevelId()));
+		assertEquals(3, mapper.getMap().getTiles().size());
+		assertEquals("[u, d]", commands(main).toString());
+	}
+
+	@Test
+	public void upNeverTakesOverADifferentRoomOnTheFloorAbove() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid a\n@dir , up,east\n");
+		mapper.onOutputText("@roomid a2\n@dir up, down,east\n");
+		mapper.onOutputText("@roomid a3\n@dir east, west\n");
+		MapTile a3 = mapper.currentTile();
+		mapper.onOutputText("@roomid a2\n@dir west, down,east\n");
+		mapper.onOutputText("@roomid a\n@dir down, up,east\n");
+		mapper.onOutputText("@roomid b\n@dir east, west,up\n");
+		MapTile b = mapper.currentTile();
+		assertEquals(a3.getGridX(), b.getGridX());
+		mapper.onOutputText("@roomid b2\n@dir up, down\n");
+		MapTile b2 = mapper.currentTile();
+		assertEquals("b2", b2.getExternalId());
+		assertEquals("a3", a3.getExternalId());
+		assertEquals(a3.getLevelId(), b2.getLevelId());
+		assertEquals(5, mapper.getMap().getTiles().size());
+	}
+
+	@Test
+	public void aTypedUpChangesFloorWhenTheServerNamesNoMove() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid a\n@dir , up\n");
+		MapTile a = mapper.currentTile();
+		mapper.onPlayerCommand("u");
+		mapper.onOutputText("@roomid b\n@dir , down\n");
+		assertTrue(!a.getLevelId().equals(mapper.currentTile().getLevelId()));
+		assertEquals("[u]", commands(a).toString());
+	}
 }
