@@ -237,6 +237,46 @@ public class MapperController {
 	}
 
 	private RememberedMove mLastMove;
+
+	/** One step Follow took along a known exit before the game confirmed it. */
+	private static final class FollowStep {
+		final String fromId;
+		final String toId;
+		final String command;
+
+		FollowStep(final String fromId, final String toId, final String command) {
+			this.fromId = fromId;
+			this.toId = toId;
+			this.command = command;
+		}
+	}
+
+	/**
+	 * Steps Follow is ahead of the game, oldest first. A room arriving for one of
+	 * them is a step already shown, not a reason to jump back (the BatMUD player's
+	 * eight quick "e": the marker ran ahead, snapped back to the first room, then ran again).
+	 */
+	private final LinkedList<FollowStep> mFollowAhead = new LinkedList<FollowStep>();
+	private long mFollowAheadAt;
+	/**
+	 * A move that failed in the middle of a burst never sends its room, so the
+	 * marker would stay ahead for good: once the game is quiet for
+	 * MOVE_MEMORY_MS, Here goes back to the last room the game confirmed.
+	 */
+	private final Runnable mFollowAheadExpiry = new Runnable() {
+		@Override
+		public void run() {
+			long wait = expireFollowAhead(System.currentTimeMillis());
+			if (wait > 0) {
+				mAutosaveHandler.postDelayed(this, wait);
+			}
+		}
+	};
+	/**
+	 * Follow only runs ahead of a feed that names rooms. Without one nothing
+	 * would ever confirm a step, and every step would be undone.
+	 */
+	private boolean mRoomIdsSeen;
 	/** A declared move whose own line has not been sent yet. */
 	private boolean mDeclaredAwaitingSend;
 	private long mLastMoveAt;
@@ -527,6 +567,7 @@ public class MapperController {
 			return;
 		}
 		mMap.setCurrentTileId(tileId);
+		mFollowAhead.clear();
 		mMap.setCurrentLevelId(t.getLevelId());
 		notifyChanged();
 	}
@@ -2413,6 +2454,7 @@ public class MapperController {
 				return "Mapper: created map \"" + mapName + "\".";
 			}
 			mMap = loaded;
+			mFollowAhead.clear();
 			rememberOpenedMap(ctx, mapName);
 			String priorHint = loaded.getHostHint();
 			stampHostHintFromConnection();
@@ -2566,6 +2608,7 @@ public class MapperController {
 			loaded.setName(mapName);
 		}
 		mMap = loaded;
+		mFollowAhead.clear();
 		ensureDefaultLevel();
 		clearUndo();
 		try {
@@ -2743,7 +2786,78 @@ public class MapperController {
 		}
 		mMap.setCurrentTileId(to.getId());
 		mMap.setCurrentLevelId(to.getLevelId());
+		if (!mRoomIdsSeen) {
+			return true;
+		}
+		if (System.currentTimeMillis() - mFollowAheadAt > MOVE_MEMORY_MS) {
+			mFollowAhead.clear();
+		}
+		mFollowAhead.addLast(new FollowStep(from.getId(), to.getId(), norm));
+		mFollowAheadAt = System.currentTimeMillis();
+		mAutosaveHandler.removeCallbacks(mFollowAheadExpiry);
+		mAutosaveHandler.postDelayed(mFollowAheadExpiry, MOVE_MEMORY_MS);
 		return true;
+	}
+
+	/**
+	 * Undo Follow's unconfirmed steps once the game has been quiet for
+	 * MOVE_MEMORY_MS.
+	 *
+	 * @return ms still to wait, or 0 when nothing is left to expire
+	 */
+	long expireFollowAhead(final long now) {
+		if (mFollowAhead.isEmpty() || mMap == null) {
+			return 0;
+		}
+		long age = now - mFollowAheadAt;
+		if (age < MOVE_MEMORY_MS) {
+			return MOVE_MEMORY_MS - age;
+		}
+		// A room with no exits line is still open; it is an answer, not silence.
+		commitCapturedRoom();
+		if (mFollowAhead.isEmpty()) {
+			return 0;
+		}
+		MapTile confirmed = findTileById(mFollowAhead.getFirst().fromId);
+		mFollowAhead.clear();
+		if (confirmed != null && !confirmed.getId().equals(mMap.getCurrentTileId())) {
+			mMap.setCurrentTileId(confirmed.getId());
+			mMap.setCurrentLevelId(confirmed.getLevelId());
+			notifyChanged();
+		}
+		return 0;
+	}
+
+	/**
+	 * The step Follow already took into {@code tile}, with every older step
+	 * dropped; {@code null} (and the queue cleared) when the game went elsewhere.
+	 */
+	private FollowStep takeFollowStepInto(final MapTile tile) {
+		if (mFollowAhead.isEmpty()) {
+			return null;
+		}
+		if (System.currentTimeMillis() - mFollowAheadAt > MOVE_MEMORY_MS) {
+			mFollowAhead.clear();
+			return null;
+		}
+		int at = -1;
+		for (int i = 0; i < mFollowAhead.size(); i++) {
+			if (mFollowAhead.get(i).toId.equals(tile.getId())) {
+				at = i;
+				break;
+			}
+		}
+		if (at < 0) {
+			mFollowAhead.clear();
+			return null;
+		}
+		FollowStep step = null;
+		for (int i = 0; i <= at; i++) {
+			step = mFollowAhead.removeFirst();
+		}
+		// The game is still answering the burst.
+		mFollowAheadAt = System.currentTimeMillis();
+		return step;
 	}
 
 	/**
@@ -2799,17 +2913,34 @@ public class MapperController {
 		MapTile tile = null;
 		// Read once for the whole arrival: it decides where a new room is put and
 		// then, further down, which exit this walk has proved.
-		final RememberedMove moved = consumeLastMove();
-		final String movedBy = moved != null ? moved.command : null;
+		RememberedMove moved = consumeLastMove();
+		String movedBy = moved != null ? moved.command : null;
 		// Where the move was typed, which is not necessarily where we are: Follow
 		// has already stepped us along the exit by now.
-		final MapTile movedFrom = moved != null && moved.fromTileId != null
+		MapTile movedFrom = moved != null && moved.fromTileId != null
 				? findTileById(moved.fromTileId) : current;
 		String num = (useNum && roomNum != null && roomNum.length() > 0)
 				? roomNum.trim() : null;
+		// Follow is still ahead of the game after this room: Here stays where it is.
+		boolean followAhead = false;
 
 		if (num != null) {
+			mRoomIdsSeen = true;
 			tile = findTileByExternalId(num);
+		}
+		if (tile != null) {
+			FollowStep step = takeFollowStepInto(tile);
+			if (step != null) {
+				// The remembered move is the newest typed one, typed from the room
+				// Follow had reached, not the one that led here.
+				MapTile from = findTileById(step.fromId);
+				moved = from != null ? new RememberedMove(step.command, step.fromId) : null;
+				movedBy = from != null ? step.command : null;
+				movedFrom = from != null ? from : current;
+				followAhead = !mFollowAhead.isEmpty();
+			}
+		} else {
+			mFollowAhead.clear();
 		}
 		if (tile == null && mGmcpUseCoords && x != null && y != null) {
 			tile = findTileAt(levelId, x.intValue(), y.intValue());
@@ -3004,17 +3135,19 @@ public class MapperController {
 			postNote(misfit.hint);
 		}
 
-		if (current != null && !tile.getId().equals(current.getId())) {
-			addGmcpMismatch(current, tile, name);
-		}
-		if (!tile.getId().equals(mMap.getCurrentTileId())) {
-			mMap.setCurrentTileId(tile.getId());
-			changed = true;
-		}
-		if (tile.getLevelId() != null
-				&& !tile.getLevelId().equals(mMap.getCurrentLevelId())) {
-			mMap.setCurrentLevelId(tile.getLevelId());
-			changed = true;
+		if (!followAhead) {
+			if (current != null && !tile.getId().equals(current.getId())) {
+				addGmcpMismatch(current, tile, name);
+			}
+			if (!tile.getId().equals(mMap.getCurrentTileId())) {
+				mMap.setCurrentTileId(tile.getId());
+				changed = true;
+			}
+			if (tile.getLevelId() != null
+					&& !tile.getLevelId().equals(mMap.getCurrentLevelId())) {
+				mMap.setCurrentLevelId(tile.getLevelId());
+				changed = true;
+			}
 		}
 
 		if (mGmcpGrow && mGmcpCreateExits && exits != null && exits.size() > 0) {
@@ -4041,6 +4174,7 @@ public class MapperController {
 		String json = mUndoStack.removeLast();
 		try {
 			mMap = MapStore.fromJson(json);
+			mFollowAhead.clear();
 			notifyChanged();
 			return true;
 		} catch (JSONException e) {
@@ -4868,6 +5002,7 @@ public class MapperController {
 
 	private void ensureBlankMap(final String name) {
 		mMap = new MudMap();
+		mFollowAhead.clear();
 		mMap.setName(name);
 		MapLevel level = new MapLevel(null, DEFAULT_LEVEL_NAME, 0);
 		mMap.getLevels().add(level);
