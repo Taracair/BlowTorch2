@@ -4579,6 +4579,7 @@ Print the summary with `.map dirs`.
     `.map neighbor <cmd> [from <id>]`                                       Create/link a neighbor by walk verb
     `.map move [id] <x> <y>`                                                Reposition a tile on the grid
     `.map shift <dir> [n]`                                                  Edit: move every room on this floor beyond Here n cells that way (default 1)
+    `.map shift`                                                            Edit: alone, put the last new room that did not fit where you walked
     `.map title` / `.map note`                                              Edit current tile text. A note keeps its line breaks (Enter in the tile editor)
     `.map title for <id> <text>` / `.map note for <id> <text>`              Edit a specific tile
     `.map link <cmd> [from <id>] to <tileId>`                               Manual link
@@ -4712,6 +4713,12 @@ and **Edit** for **Draw** / **Links**.
    room on this floor beyond you moves one cell that way and a free column
    (or row, for north and south) opens next to you. Other floors stay put. `.map shift south 2` moves two cells. Then long-press-drag
    the room into the gap. `.map undo` puts everything back.
+   When the map draws a room away from where you walked, it says so in the
+   game window: *you went east from «West wall», but the map already has
+   «Main level of southwest tower» east of it…*. Then `.map shift` on its own
+   (Edit) does both steps for you: it moves the rooms east of «West wall» one
+   cell east and puts the new room in the gap. It works until the map draws
+   another new room; after that, use `.map shift east` and drag.
 
 ### `.run` / `.rev` defaults
 

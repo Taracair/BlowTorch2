@@ -30,7 +30,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map link|unlink …
  * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
- * .map route &lt;cmd&gt; | .map shift &lt;dir&gt; [n]
+ * .map route &lt;cmd&gt; | .map shift [&lt;dir&gt; [n]]
  * .map conflict[s] [list [all]|resolve|ignore …]
  * </pre>
  */
@@ -701,8 +701,12 @@ public class MapCommand extends SpecialCommand {
 		if (!requireEdit(c, mapper)) {
 			return null;
 		}
+		if (rest.length() == 0) {
+			note(c, mapper.shiftLastMisfit());
+			return null;
+		}
 		String[] p = rest.split("\\s+");
-		if (rest.length() == 0 || p.length > 2) {
+		if (p.length > 2) {
 			note(c, "Usage: .map shift <direction> [n]  (e.g. .map shift east 2)");
 			return null;
 		}
@@ -1316,6 +1320,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
 		sb.append("  .map shift <dir> [n]  (Edit; rooms on this floor beyond Here move n cells that way)\n");
+		sb.append("  .map shift  (Edit; alone: make room for the last new room that did not fit)\n");
 		sb.append("  .map route <cmd>  (send cmd; the next new room id is linked by it, e.g. drawbridge)\n");
 		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
 		sb.append("  .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]\n");

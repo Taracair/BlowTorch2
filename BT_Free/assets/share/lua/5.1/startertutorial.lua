@@ -1174,6 +1174,8 @@ links the rooms when the room id changes.
 Rooms that do not fit the grid: in Edit, .map shift east moves every room
 east of you one cell over, so a free column opens beside you. .map undo
 puts them back.
+When a new room cannot go where you walked, the mapper says so in the
+game window; .map shift on its own then puts it there.
 
 Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, Auto-Send Path?,

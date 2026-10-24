@@ -353,4 +353,76 @@ public class MapperTextCaptureTest {
 		assertTrue(!a.getLevelId().equals(mapper.currentTile().getLevelId()));
 		assertEquals("[u]", commands(a).toString());
 	}
+
+	/** a b on one row, c above a and d above b; then c east is a new room x, but d is there. */
+	private static MapperController clashEastOfC() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.setEditMode(true);
+		mapper.setCaptureTitleRegex("^@roomshort (.*)$");
+		mapper.onOutputText("@roomid a\n@dir , east,north\n");
+		mapper.onOutputText("@roomid b\n@dir east, west,north\n");
+		mapper.onOutputText("@roomid d\n@dir north, south\n");
+		mapper.onOutputText("@roomid b\n@dir south, west,north\n");
+		mapper.onOutputText("@roomid a\n@dir west, east,north\n");
+		mapper.onOutputText("@roomid c\n@roomshort West wall\n@dir north, south,east\n");
+		assertNull(mapper.lastMisfitHint());
+		mapper.onOutputText("@roomid x\n@dir east, west\n");
+		return mapper;
+	}
+
+	private static MapTile byId(final MapperController mapper, final String id) {
+		for (MapTile t : mapper.getMap().getTiles()) {
+			if (id.equals(t.getExternalId())) {
+				return t;
+			}
+		}
+		return null;
+	}
+
+	@Test
+	public void aRoomThatDoesNotFitSaysWhyAndHowToFixIt() {
+		MapperController mapper = clashEastOfC();
+		String hint = mapper.lastMisfitHint();
+		assertNotNull(hint);
+		assertTrue(hint, hint.startsWith("Mapper: you went east from \u00abWest wall\u00bb, but the map already has the room with id d east of it"));
+		assertTrue(hint, hint.contains(".map shift on its own"));
+		MapTile c = byId(mapper, "c");
+		MapTile x = byId(mapper, "x");
+		assertTrue(x.getGridX() != c.getGridX() + 1 || x.getGridY() != c.getGridY());
+	}
+
+	@Test
+	public void shiftAlonePutsTheMisfitWhereItWasWalked() {
+		MapperController mapper = clashEastOfC();
+		MapTile c = byId(mapper, "c");
+		MapTile d = byId(mapper, "d");
+		int dx = d.getGridX();
+		String status = mapper.shiftLastMisfit();
+		assertTrue(status, status.startsWith("Mapper: moved 2 rooms east"));
+		MapTile x = byId(mapper, "x");
+		assertEquals(c.getGridX() + 1, x.getGridX());
+		assertEquals(c.getGridY(), x.getGridY());
+		assertEquals(dx + 1, d.getGridX());
+		assertEquals(c.getGridX(), byId(mapper, "a").getGridX());
+		assertTrue(mapper.shiftLastMisfit().startsWith("Mapper: no room is waiting"));
+		mapper.undo();
+		assertEquals(dx, byId(mapper, "d").getGridX());
+	}
+
+	@Test
+	public void shiftAloneRefusesWhenTheMapChangedSince() {
+		MapperController mapper = clashEastOfC();
+		MapTile d = byId(mapper, "d");
+		d.setGridY(d.getGridY() - 5);
+		String status = mapper.shiftLastMisfit();
+		assertTrue(status, status.startsWith("Mapper: the map has changed"));
+	}
+
+	@Test
+	public void anotherNewRoomForgetsTheMisfit() {
+		MapperController mapper = clashEastOfC();
+		mapper.onOutputText("@roomid y\n@dir west, east\n");
+		assertTrue(mapper.shiftLastMisfit().startsWith("Mapper: no room is waiting"));
+	}
 }

@@ -173,6 +173,9 @@ public class MapperController {
 	private volatile String mOrphanExitsContext;
 	/** The last room the text path committed, as the preview shows it. */
 	private volatile String mLastDrawnRoom;
+	/** The last new room that could not go where it was walked; {@code .map shift} alone puts it there. */
+	private Misfit mLastMisfit;
+	private volatile String mLastMisfitHint;
 	private final LinkedList<String> mRecentCaptureLines = new LinkedList<String>();
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
 	private String mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
@@ -434,6 +437,7 @@ public class MapperController {
 		mLiveIdSeen = null;
 		mOrphanExitsContext = null;
 		mLastDrawnRoom = null;
+		mLastMisfit = null;
 		if (mCaptureIdRegex == null || mCaptureIdRegex.length() == 0) {
 			return;
 		}
@@ -1491,6 +1495,47 @@ public class MapperController {
 	}
 
 	/**
+	 * {@code .map shift} with no direction: move the rooms beyond the room the
+	 * last misfit was walked from, then put the misfit into the freed cell.
+	 */
+	public String shiftLastMisfit() {
+		Misfit m = mLastMisfit;
+		if (mMap == null || m == null) {
+			return "Mapper: no room is waiting for a free cell. "
+					+ ".map shift <direction> [n] moves the rooms beyond Here.";
+		}
+		MapTile from = findTileById(m.fromId);
+		MapTile occupant = findTileById(m.occupantId);
+		MapTile misfit = findTileById(m.newId);
+		if (misfit == null) {
+			mLastMisfit = null;
+			return "Mapper: the room that did not fit is no longer on the map (undo?), so there is nothing to move.";
+		}
+		if (from == null || occupant == null
+				|| !sameLevel(from, occupant) || !sameLevel(from, misfit)
+				|| occupant.getGridX() != from.getGridX() + m.dx
+				|| occupant.getGridY() != from.getGridY() + m.dy) {
+			mLastMisfit = null;
+			return "Mapper: the map has changed since that room was placed, so .map shift "
+					+ "alone does nothing. Stand in the room you came from and use "
+					+ ".map shift " + m.dirName + ", then drag the room into the gap.";
+		}
+		pushUndo();
+		String level = from.getLevelId() != null ? from.getLevelId() : "";
+		int[] moved = shiftBeyond(level, from.getGridX(), from.getGridY(),
+				new int[] { m.dx, m.dy }, 1, misfit);
+		misfit.setGridX(from.getGridX() + m.dx);
+		misfit.setGridY(from.getGridY() + m.dy);
+		mLastMisfit = null;
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: moved " + moved[0] + (moved[0] == 1 ? " room " : " rooms ") + m.dirName
+				+ (moved[1] > 0 ? " (" + moved[1] + " with a locked position)" : "")
+				+ " and put " + label(misfit) + " " + m.dirName + " of " + label(from)
+				+ ". .map undo puts it back.";
+	}
+
+	/**
 	 * Open a row or column next to Here: every room on this floor beyond Here in
 	 * {@code dir} moves {@code n} cells that way. A diagonal does both axes.
 	 */
@@ -1505,23 +1550,46 @@ public class MapperController {
 		}
 		int steps = Math.max(1, Math.min(n, 50));
 		String level = here.getLevelId() != null ? here.getLevelId() : "";
-		int hx = here.getGridX();
-		int hy = here.getGridY();
-		List<MapTile> moving = new ArrayList<MapTile>();
-		for (MapTile t : mMap.getTiles()) {
-			if (t == null || !level.equals(t.getLevelId() != null ? t.getLevelId() : "")) {
-				continue;
-			}
-			boolean beyondX = delta[0] != 0 && (t.getGridX() - hx) * delta[0] > 0;
-			boolean beyondY = delta[1] != 0 && (t.getGridY() - hy) * delta[1] > 0;
-			if (beyondX || beyondY) {
-				moving.add(t);
-			}
-		}
-		if (moving.isEmpty()) {
+		if (!anyBeyond(level, here.getGridX(), here.getGridY(), delta)) {
 			return "Mapper: no rooms beyond Here in that direction.";
 		}
 		pushUndo();
+		int[] moved = shiftBeyond(level, here.getGridX(), here.getGridY(), delta, steps, null);
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: shifted " + moved[0] + (moved[0] == 1 ? " room" : " rooms")
+				+ (moved[1] > 0 ? " (" + moved[1] + " with a locked position)" : "")
+				+ " by " + steps + ". Undo puts them back.";
+	}
+
+	private boolean anyBeyond(final String level, final int hx, final int hy, final int[] delta) {
+		for (MapTile t : mMap.getTiles()) {
+			if (t != null && level.equals(t.getLevelId() != null ? t.getLevelId() : "")
+					&& isBeyond(t, hx, hy, delta)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean isBeyond(final MapTile t, final int hx, final int hy, final int[] delta) {
+		return (delta[0] != 0 && (t.getGridX() - hx) * delta[0] > 0)
+				|| (delta[1] != 0 && (t.getGridY() - hy) * delta[1] > 0);
+	}
+
+	/** @return {rooms moved, of which locked}; {@code skip} stays put. */
+	private int[] shiftBeyond(final String level, final int hx, final int hy, final int[] delta,
+			final int steps, final MapTile skip) {
+		List<MapTile> moving = new ArrayList<MapTile>();
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null || t == skip
+					|| !level.equals(t.getLevelId() != null ? t.getLevelId() : "")) {
+				continue;
+			}
+			if (isBeyond(t, hx, hy, delta)) {
+				moving.add(t);
+			}
+		}
 		int locked = 0;
 		for (MapTile t : moving) {
 			// Locks keep GMCP from moving a room; this is the player moving it.
@@ -1535,11 +1603,55 @@ public class MapperController {
 				t.setGridY(t.getGridY() + delta[1] * steps);
 			}
 		}
-		refreshConflicts();
-		notifyChanged();
-		return "Mapper: shifted " + moving.size() + (moving.size() == 1 ? " room" : " rooms")
-				+ (locked > 0 ? " (" + locked + " with a locked position)" : "")
-				+ " by " + steps + ". Undo puts them back.";
+		return new int[] { moving.size(), locked };
+	}
+
+	private static boolean sameLevel(final MapTile a, final MapTile b) {
+		String la = a.getLevelId() != null ? a.getLevelId() : "";
+		String lb = b.getLevelId() != null ? b.getLevelId() : "";
+		return la.equals(lb);
+	}
+
+	private static String label(final MapTile t) {
+		String title = t.getTitle();
+		if (title != null && title.trim().length() > 0) {
+			return "\u00ab" + title.trim() + "\u00bb";
+		}
+		if (t.getExternalId() != null && t.getExternalId().length() > 0) {
+			return "the room with id " + t.getExternalId();
+		}
+		return "an untitled room";
+	}
+
+	private String misfitHint(final Misfit m) {
+		MapTile from = findTileById(m.fromId);
+		MapTile occupant = findTileById(m.occupantId);
+		MapTile misfit = findTileById(m.newId);
+		if (from == null || occupant == null || misfit == null) {
+			return null;
+		}
+		return "Mapper: you went " + m.dirName + " from " + label(from) + ", but the map already has "
+				+ label(occupant) + " " + m.dirName + " of it, so " + label(misfit)
+				+ " was drawn in the nearest free cell instead. "
+				+ "In Edit, .map shift on its own moves the rooms " + m.dirName + " of "
+				+ label(from) + " one cell " + m.dirName + " and puts " + label(misfit)
+				+ " in the gap; .map undo puts it back. Do it before the map draws another new room.";
+	}
+
+	/** Shown in the game window via the connection's handler, after the line being processed. */
+	private void postNote(final String text) {
+		if (text == null || mConnection == null || !mEchoWindow) {
+			return;
+		}
+		android.os.Handler h = mConnection.getHandler();
+		if (h != null) {
+			h.sendMessage(h.obtainMessage(Connection.MESSAGE_PROCESSORWARNING,
+					"\n" + com.resurrection.blowtorch2.lib.service.Colorizer.getWhiteColor() + text + "\n"));
+		}
+	}
+
+	String lastMisfitHint() {
+		return mLastMisfitHint;
 	}
 
 	/** Reload option values from the connection settings plugin. */
@@ -2262,6 +2374,7 @@ public class MapperController {
 	public String openMap(final String name) {
 		String mapName = TextUtils.isEmpty(name) ? DEFAULT_MAP_NAME : name.trim();
 		mLastDrawnRoom = null;
+		mLastMisfit = null;
 		Context ctx = context();
 		if (ctx == null) {
 			ensureBlankMap(mapName);
@@ -2307,6 +2420,7 @@ public class MapperController {
 					+ "\" already exists. Open it from Maps, or choose another name.";
 		}
 		mLastDrawnRoom = null;
+		mLastMisfit = null;
 		ensureBlankMap(mapName);
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
@@ -2715,6 +2829,8 @@ public class MapperController {
 				}
 				return;
 			}
+			// A clash further back is stale once another new room is drawn.
+			mLastMisfit = null;
 			if (mGmcpUseCoords && x != null && y != null
 					&& canPlaceAtAbsolute(current, x.intValue(), y.intValue())) {
 				pushUndo();
@@ -2739,13 +2855,15 @@ public class MapperController {
 				pushUndo();
 				int[] delta = gridDeltaFor(movedBy);
 				int[] slot = null;
+				MapTile blocking = null;
 				// The direction the player actually walked beats anything inferred
 				// from exit lists. Only when it is unknown or the cell is taken do
 				// we fall back to guessing.
 				if (delta != null) {
 					int nx = current.getGridX() + delta[0];
 					int ny = current.getGridY() + delta[1];
-					if (findTileAt(levelId, nx, ny) == null) {
+					blocking = findTileAt(levelId, nx, ny);
+					if (blocking == null) {
 						slot = new int[] { nx, ny };
 					}
 				}
@@ -2757,6 +2875,8 @@ public class MapperController {
 				}
 				tile = createTileAt(levelId, slot[0], slot[1]);
 				changed = true;
+				mLastMisfit = blocking == null || blocking == current ? null
+						: new Misfit(current, blocking, tile, delta);
 			} else {
 				pushUndo();
 				int gx = (mGmcpUseCoords && x != null) ? x.intValue() : 0;
@@ -2843,6 +2963,13 @@ public class MapperController {
 			if (maybeApplyOrQueueTitle(tile, name)) {
 				changed = true;
 			}
+		}
+
+		Misfit misfit = mLastMisfit;
+		if (misfit != null && misfit.newId.equals(tile.getId()) && misfit.hint == null) {
+			misfit.hint = misfitHint(misfit);
+			mLastMisfitHint = misfit.hint;
+			postNote(misfit.hint);
 		}
 
 		if (current != null && !tile.getId().equals(current.getId())) {
@@ -4128,6 +4255,27 @@ public class MapperController {
 
 	String lastDrawnRoom() {
 		return mLastDrawnRoom;
+	}
+
+	private static final class Misfit {
+		final String fromId;
+		final String occupantId;
+		final String newId;
+		final int dx;
+		final int dy;
+		final String dirName;
+		String hint;
+
+		Misfit(final MapTile from, final MapTile occupant, final MapTile placed, final int[] delta) {
+			fromId = from.getId();
+			occupantId = occupant.getId();
+			newId = placed.getId();
+			dx = delta[0];
+			dy = delta[1];
+			// From the step, not the typed word: a custom move such as "climb" can be east.
+			dirName = (delta[1] < 0 ? "north" : delta[1] > 0 ? "south" : "")
+					+ (delta[0] > 0 ? "east" : delta[0] < 0 ? "west" : "");
+		}
 	}
 
 	/** The preview's room id line: the scrollback first, then what the live text path saw. */
