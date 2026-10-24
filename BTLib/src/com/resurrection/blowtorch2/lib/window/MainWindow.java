@@ -1684,6 +1684,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// keepLastReplaceLength > 0. That is the "sometimes it
 						// jumps two commands back" report.
 						historyWidgetKept = keepLastReplaceLength > 0;
+						// The bar text does not change, so nothing else would drop the
+						// suggestions still showing for the command just sent.
+						refreshWordSuggestions();
 						if (keepLastReplaceLength > 0) {
 							mInputBox.post(new Runnable() {
 								@Override
@@ -3436,6 +3439,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private java.util.List<String> recomputeSuggestions() {
 		mWordSuggestionList.clear();
 		if (!mWordSuggestionsOn || mInputBox == null) {
+			updateGhostCompletion(null, mWordSuggestionList);
+			return mWordSuggestionList;
+		}
+		if (isKeepLast && keptCommandIsStillOnScreen()) {
+			// A command already sent, not one being typed (the BatMUD player's report).
 			updateGhostCompletion(null, mWordSuggestionList);
 			return mWordSuggestionList;
 		}
@@ -9202,6 +9210,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				placeFillSelection(start, end);
 				keepLastReplaceLength = keepLen;
 				historyWidgetKept = kept;
+				refreshWordSuggestions();
 			}
 		});
 	}
@@ -11552,6 +11561,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (text == null) {
 			return;
 		}
+		// Cleared first: the suggestion watcher reads them during setText.
+		keepLastReplaceLength = 0;
+		historyWidgetKept = false;
 		keepLastSuppress = true;
 		try {
 			mInputBox.setText(text);
@@ -11559,8 +11571,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} finally {
 			keepLastSuppress = false;
 		}
-		keepLastReplaceLength = 0;
-		historyWidgetKept = false;
 		mInputBox.requestFocus();
 	}
 
