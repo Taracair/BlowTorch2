@@ -103,6 +103,25 @@ public class MapperTextCaptureTest {
 	}
 
 	@Test
+	public void aTriggerCanNameTheRoomWithoutAnyCaptureRegex() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
+		mapper.reportRoom("A dusty hall", "north", null);
+		MapTile a = mapper.currentTile();
+		mapper.onPlayerCommand("n");
+		mapper.reportRoom("A cold cellar", "south", "Cellar");
+		MapTile b = mapper.currentTile();
+		assertEquals("A cold cellar", b.getExternalId());
+		assertEquals("Cellar", b.getTitle());
+		assertEquals(a.getGridY() - 1, b.getGridY());
+		assertTrue(commands(a).toString(), commands(a).contains("n"));
+		mapper.onPlayerCommand("s");
+		mapper.reportRoom("A dusty hall", null, null);
+		assertEquals(a.getId(), mapper.currentTile().getId());
+		assertEquals(2, mapper.getMap().getTiles().size());
+	}
+
+	@Test
 	public void nextCommandCommitsARoomWithNoExitsLine() {
 		MapperController mapper = batmud();
 		mapper.onOutputText("@roomid lonely\n");

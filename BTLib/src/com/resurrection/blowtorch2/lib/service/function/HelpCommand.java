@@ -815,6 +815,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .map title|note|locktitle|lockposition|relayout|tidy …\n"
 					+ "  .map capture preview — what the mapper read from the game text\n"
 					+ "  .map route drawbridge — send it; link the next room by it\n"
+					+ "  .map room <id> — a trigger's Send or Lua names the room you are in\n"
 					+ "  .map shift east [n] — open a column beside Here (Edit)\n"
 					+ "  .map shift — alone: put the room that did not fit where you walked (Edit)\n"
 					+ "  (type .map alone for the full list; ⋮ → Help → Mapper has examples)\n";

@@ -1178,6 +1178,8 @@ matching it opens a room, the exits regex closes it. Try it with .simulate.
 Leave Record off then: it would also draw a room for a move that failed.
 A special exit the game does not name: .map route drawbridge sends it and
 links the rooms when the room id changes.
+No id line at all? A trigger can name the room: Send .map room $1
+(or .map room $1 | north,south | Title). Lua: SendToServer(".map room "..id).
 Rooms that do not fit the grid: in Edit, .map shift east moves every room
 east of you one cell over, so a free column opens beside you. .map undo
 puts them back.

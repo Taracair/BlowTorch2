@@ -4608,6 +4608,7 @@ Print the summary with `.map dirs`.
     `.map capture preview`                                                  Match Options title/exits/room id regex on the last 20 lines
     `.map capture apply`                                                    Read the last 20 lines again and apply them to the current tile
     `.map route <cmd>`                                                      Send `cmd`; when the room id changes, link the two rooms by it
+    `.map room <id> [| <exits> [| <title>]]`                                A trigger's Send or Lua names the room you are in; placed and linked like an id line
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, **Auto-Send Path?**, **Use GMCP Room Sync?**,
@@ -4686,6 +4687,23 @@ wait for that room first. Any other command sent before the room arrives cancels
 including one a trigger, timer or script sends. The server's `move` still
 wins when it names one. Aliases do not run on the routed command, so an alias
 `drawbridge` → `.map route drawbridge` is safe; a button works the same way.
+
+**Naming the room from a trigger.** When the game text has no id line a regex
+can read, but something else tells rooms apart (a description you colour with
+a trigger, a line a script recognises), let the trigger name the room. Put
+`.map room $1` in the trigger's **Send** action, or call
+`SendToServer(".map room " .. id)` from Lua. It works like an id line: the room
+is placed by the last move you typed, found again by that id when you come
+back, and linked from where you were. No Capture Room ID Regex is needed.
+Exits and a title can follow after `|`:
+`.map room $1 | north,east,south | Temple Square`. The id is everything before
+the first `|`, so it may contain spaces. Moves come from what you type (or the
+buttons you bind), so typed specials need `.map route` as above. The trigger
+has to fire in every room: walk `n`, `n` through a room it misses and the next
+room is drawn one step from where you started. Use either this or a Capture
+Room ID Regex, not both: each takes the move you typed, so the second room has
+none left. If the mapper is off, or `$1` is empty, it says so once, not on every
+room.
 
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:

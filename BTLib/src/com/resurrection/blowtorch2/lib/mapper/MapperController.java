@@ -1544,6 +1544,45 @@ public class MapperController {
 		return null;
 	}
 
+	/**
+	 * {@code .map room}: a trigger or Lua names the room, for worlds whose
+	 * text has no id line a regex could read (the BatMUD player keyed rooms by
+	 * a coloured description). Placed by the last typed move, like an id line.
+	 *
+	 * @return a problem to show, or null
+	 */
+	public String reportRoom(final String id, final String exits, final String title) {
+		if (id == null || id.trim().length() == 0) {
+			return roomReportProblem("Usage: .map room <id> [| <exits> [| <title>]]");
+		}
+		if (!mEnabled || mMap == null) {
+			return roomReportProblem("Mapper is off, so .map room maps nothing.");
+		}
+		mWarnedRoomReport = false;
+		// A room still open from game text belongs to the move before this one.
+		commitCapturedRoom();
+		CapturedRoom room = new CapturedRoom();
+		room.id = id.trim();
+		room.exits = exits != null && exits.trim().length() > 0 ? splitExits(exits) : null;
+		room.title = title != null && title.trim().length() > 0 ? title.trim() : null;
+		mCapturedRoom = room;
+		mLiveIdSeen = room.id;
+		// Committed now: the trigger's line may already be behind the lines that follow it.
+		commitCapturedRoom();
+		return null;
+	}
+
+	/** A trigger sends .map room on every room: say a problem once, not every room. */
+	private boolean mWarnedRoomReport;
+
+	private String roomReportProblem(final String problem) {
+		if (mWarnedRoomReport) {
+			return null;
+		}
+		mWarnedRoomReport = true;
+		return problem;
+	}
+
 	/** The route's line was not sent (processing threw): forget the route. */
 	public void cancelDeclaredMove() {
 		if (mDeclaredAwaitingSend) {

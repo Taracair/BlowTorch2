@@ -30,7 +30,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map link|unlink …
  * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
- * .map route &lt;cmd&gt; | .map shift [&lt;dir&gt; [n]]
+ * .map route &lt;cmd&gt; | .map room &lt;id&gt; | .map shift [&lt;dir&gt; [n]]
  * .map conflict[s] [list [all]|resolve|ignore …]
  * </pre>
  */
@@ -104,6 +104,16 @@ public class MapCommand extends SpecialCommand {
 			return null;
 		case "shift":
 			return doShift(c, mapper, rest);
+		case "room": {
+			String[] fields = rest.split("\\s*\\|\\s*", 3);
+			String problem = mapper.reportRoom(fields[0],
+					fields.length > 1 ? fields[1] : null,
+					fields.length > 2 ? fields[2] : null);
+			if (problem != null) {
+				note(c, problem);
+			}
+			return null;
+		}
 		case "title":
 			if (!requireEdit(c, mapper)) {
 				return null;
@@ -1322,6 +1332,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map shift <dir> [n]  (Edit; rooms on this floor beyond Here move n cells that way)\n");
 		sb.append("  .map shift  (Edit; alone: make room for the last new room that did not fit)\n");
 		sb.append("  .map route <cmd>  (send cmd; the next new room id is linked by it, e.g. drawbridge)\n");
+		sb.append("  .map room <id> [| <exits> [| <title>]]  (a trigger or Lua names the room you are in)\n");
 		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
 		sb.append("  .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]\n");
 		sb.append("  .map opacity [40-100]\n");
