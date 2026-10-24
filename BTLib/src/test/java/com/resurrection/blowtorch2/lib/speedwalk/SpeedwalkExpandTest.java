@@ -113,4 +113,50 @@ public class SpeedwalkExpandTest {
 		DirectionData h = SpeedwalkExpand.compassEntry("h", "nw");
 		assertEquals("se", h.getReverse());
 	}
+	@Test
+	public void walkSendsEachCommandAsWrittenCountTimes() {
+		SpeedwalkExpand.Result r = SpeedwalkExpand.walk("1ne1sw2e3nw", false, null, compass());
+		assertTrue(r.ok);
+		assertEquals(lines("ne", "sw", "e", "e", "nw", "nw", "nw"), r.cmd);
+		r = SpeedwalkExpand.walk("1nw1climb vine2s", false, null, compass());
+		assertEquals(lines("nw", "climb vine", "s", "s"), r.cmd);
+		r = SpeedwalkExpand.walk(" 1nw 1climb vine 2s ", false, null, compass());
+		assertEquals(lines("nw", "climb vine", "s", "s"), r.cmd);
+	}
+
+	@Test
+	public void walkBackReversesOrderAndDirections() {
+		SpeedwalkExpand.Result r = SpeedwalkExpand.walk("1nw1climb vine2s", true, null, compass());
+		assertTrue(r.ok);
+		// No way back known for climb vine: it stays as written.
+		assertEquals(lines("n", "n", "climb vine", "se"), r.cmd);
+		java.util.Map<String, String> pairs = new java.util.HashMap<String, String>();
+		pairs.put("climb vine", "down");
+		r = SpeedwalkExpand.walk("1nw1climb vine2s", true, pairs, compass());
+		assertEquals(lines("n", "n", "down", "se"), r.cmd);
+		// A pair works both ways.
+		r = SpeedwalkExpand.walk("1down", true, pairs, compass());
+		assertEquals("climb vine", r.cmd);
+	}
+
+	@Test
+	public void walkBackUsesTheReverseOfTheRowWithThatCommand() {
+		HashMap<String, DirectionData> dirs = compass();
+		DirectionData door = new DirectionData("x", "enter door");
+		door.setReverse("leave door");
+		dirs.put("x", door);
+		assertEquals("leave door", SpeedwalkExpand.walk("1enter door", true, null, dirs).cmd);
+		// The letter is not the command: "l" is look here, not se.
+		assertEquals("l", SpeedwalkExpand.walk("1l", true, null, dirs).cmd);
+		assertEquals("go south", SpeedwalkExpand.walk("1go north", true, null, dirs).cmd);
+	}
+
+	@Test
+	public void walkNeedsACountBeforeEveryCommand() {
+		assertFalse(SpeedwalkExpand.walk("n2e", false, null, compass()).ok);
+		assertFalse(SpeedwalkExpand.walk("2", false, null, compass()).ok);
+		assertFalse(SpeedwalkExpand.walk("0n", false, null, compass()).ok);
+		assertFalse(SpeedwalkExpand.walk("100n", false, null, compass()).ok);
+		assertFalse(SpeedwalkExpand.walk("", false, null, compass()).ok);
+	}
 }

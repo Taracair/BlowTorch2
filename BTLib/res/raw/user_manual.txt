@@ -2298,6 +2298,18 @@ Commas insert literal commands and **stay as written** when reversed
 (not guessed as `close door`):
 `.run 2n,open door,n` then `.rev 2n,open door,n` sends `s;open door;s;s`.
 
+`.walk` needs no letters: every step is a count and the command, sent as
+written. `.walk 1ne1sw2e3nw` sends `ne;sw;e;e;nw;nw;nw`, and
+`.walk 1nw1climb vine2s` sends `nw;climb vine;s;s`. A command runs up to the
+next digit, so it cannot contain one (use `.run` with commas for that).
+`.walk back` walks the same string in reverse: `.walk back 1nw1climb vine2s`
+sends `n;n;climb vine;se`. The way back for each command is the Reverse of the
+Speedwalk Directions row with that Command, else the compass opposite, else
+the command as written. Name one on the spot with `<command|way back>` before
+the path: `.walk back <climb vine|down> 1nw1climb vine2s` sends `n;n;down;se`.
+As with `.run`, a `;` ends the `.walk` (when semicolons split commands), and an
+alias named `walk` takes `.walk` over.
+
 ### 8. Put chat in its own window
 
 For tells and channels with a reply box, use the **chat drawer** instead
@@ -2741,6 +2753,7 @@ is enabled; `.alias list` shows every alias at once.
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**). An extra word is an error and does not disconnect
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**). An extra word is an error and does not reconnect
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
+    `.walk <path>` / `.walk back <path>`  Speedwalk where every step is a count and a command sent as written: `.walk 1nw1climb vine2s`. `back` reverses it; `<climb vine|down>` before the path names a way back
     `.rev <directions>`                 Same letters as `.run`, walked backwards. Reverse per letter in Speedwalk Directions; compass n↔s / in↔out if Reverse is blank; door/cave need Reverse filled. Comma text stays (not close door)
     `.loadset <setname>`                Load that button set. No name prints usage and does not look up a set
     `.icon`                             The icon folder. `.icon set LOOK marks/sword` sets that button's picture. A tile with no words is `.icon set b12` — `b12` is the grey id beside Name on Advanced. `.icon folder` chooses the folder. `.icon list` names the built-in sets. See Buttons

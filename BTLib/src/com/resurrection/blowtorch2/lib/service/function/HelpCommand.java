@@ -60,6 +60,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("accounts", "Playing", "list this world's launcher accounts for .login/.password");
 		cmd("run", "Playing", "walk a speedwalk string, like 4n2e");
 		cmd("rev", "Playing", "walk that speedwalk string backwards");
+		cmd("walk", "Playing", "speedwalk of any commands, a count before each: 1ne1climb vine2s");
 		cmd("disconnect", "Playing", "close the connection");
 		cmd("reconnect", "Playing", "close it and open it again");
 		cmd("switch", "Playing", "already-open session by exact display name");
@@ -318,6 +319,15 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .rev <directions>  — same letters as .run, walked backwards\n"
 					+ "  .rev 3n2e sends w;w;s;s;s. Comma text stays: not close door.\n"
 					+ "  Compass n↔s / in↔out if Reverse is blank; door/cave: fill Reverse.\n";
+		}
+		if (filter.equals("walk")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .walk:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .walk 1ne1climb vine2s       — sends ne;climb vine;s;s, commands as written\n"
+					+ "  .walk back 1ne1climb vine2s  — sends n;n;climb vine;sw\n"
+					+ "  .walk back <climb vine|down> 1ne1climb vine2s — sends n;n;down;sw\n"
+					+ "  Every command needs a count (1-99) and cannot contain a digit.\n";
 		}
 		if (filter.equals("disconnect")) {
 			return "\n"

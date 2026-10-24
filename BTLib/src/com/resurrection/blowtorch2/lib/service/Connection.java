@@ -663,6 +663,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(rccmd.commandName, rccmd);
 		mSpecialCommands.put(mSpeedwalkCommand.commandName, mSpeedwalkCommand);
 		mSpecialCommands.put(mRevCommand.commandName, mRevCommand);
+		com.resurrection.blowtorch2.lib.service.function.WalkCommand walkcmd =
+				new com.resurrection.blowtorch2.lib.service.function.WalkCommand(new Data());
+		mSpecialCommands.put(walkcmd.commandName, walkcmd);
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(heatcmd.commandName, heatcmd);

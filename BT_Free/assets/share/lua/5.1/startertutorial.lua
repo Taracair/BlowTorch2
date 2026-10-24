@@ -490,6 +490,11 @@ Examples:
 Commas insert free-text commands between walks. Edit the letter map in
 Speedwalk Directions if your MUD uses different shortcuts.
 
+.walk needs no letters: a count before every command, sent as written.
+  .walk 1ne1climb vine2s       (sends ne;climb vine;s;s)
+  .walk back <climb vine|down> 1ne1climb vine2s
+                               (sends n;n;down;sw)
+
 Try: type .run n  (offline it still goes through the client path).]])
 end
 
@@ -1875,6 +1880,7 @@ local TIPS = {
 	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: tap My lines or Reply for the submenu. Ada matches says and asks; Ada says; Ada asks for verb forms. $text is the reply box. Tap a chat notification to open that thread.]],
 	run = [[.run 3n2e speedwalks using letters from Speedwalk Directions. Commas insert a command (open door). .rev walks the same string backwards.]],
 	rev = [[.rev 3n2e is .run backwards (w;w;s;s;s). Compass n↔s / in↔out if Reverse is blank. door/cave: fill Reverse in Speedwalk Directions. Comma text stays as written, not close door.]],
+	walk = [[.walk 1ne1climb vine2s sends ne;climb vine;s;s: a count before every command, sent as written. .walk back reverses it; <climb vine|down> before the path names a way back.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

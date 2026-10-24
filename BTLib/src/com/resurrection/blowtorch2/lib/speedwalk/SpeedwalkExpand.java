@@ -260,4 +260,96 @@ public final class SpeedwalkExpand {
 		}
 		return Result.success(cmd);
 	}
+	/**
+	 * {@code .walk}: every step is a count then the command, sent as written
+	 * ({@code 1ne1climb vine2s} is ne;climb vine;s;s). A command runs to the next
+	 * digit, so it cannot contain one.
+	 *
+	 * @param back walk it in reverse; each command goes through {@code pairs}
+	 *        (both ways), then the Reverse of the Speedwalk Directions row with
+	 *        that Command, then the compass opposite, else stays as written
+	 */
+	public static Result walk(String str, boolean back, Map<String, String> pairs,
+			Map<String, DirectionData> directions) {
+		List<Token> tokens = new ArrayList<Token>();
+		String s = str == null ? "" : str;
+		int i = 0;
+		while (i < s.length()) {
+			while (i < s.length() && Character.isWhitespace(s.charAt(i))) {
+				i++;
+			}
+			if (i >= s.length()) {
+				break;
+			}
+			int numStart = i;
+			while (i < s.length() && Character.isDigit(s.charAt(i))) {
+				i++;
+			}
+			if (i == numStart) {
+				return Result.invalid(i, String.valueOf(s.charAt(i)));
+			}
+			int count;
+			try {
+				count = Integer.parseInt(s.substring(numStart, i));
+			} catch (NumberFormatException e) {
+				return Result.invalid(numStart, s.substring(numStart, i));
+			}
+			if (count <= 0 || count > MAX_WALK_COUNT) {
+				return Result.invalid(numStart, s.substring(numStart, i));
+			}
+			int cmdStart = i;
+			while (i < s.length() && !Character.isDigit(s.charAt(i))) {
+				i++;
+			}
+			String cmd = s.substring(cmdStart, i).trim();
+			if (cmd.length() == 0) {
+				return Result.invalid(Math.min(cmdStart, s.length() - 1), s.substring(numStart, i));
+			}
+			tokens.add(new Token(true, "", count, cmd, numStart));
+		}
+		if (tokens.isEmpty()) {
+			return Result.invalid(0, "");
+		}
+		StringBuffer buf = new StringBuffer();
+		for (int t = 0; t < tokens.size(); t++) {
+			Token tok = tokens.get(back ? tokens.size() - 1 - t : t);
+			String cmd = back ? walkReverse(tok.text, pairs, directions) : tok.text;
+			for (int j = 0; j < tok.count; j++) {
+				buf.append(cmd).append(CRLF);
+			}
+		}
+		return stripTrailingCrlf(buf);
+	}
+
+	/** A count this large is a typo (100n), not a step. */
+	static final int MAX_WALK_COUNT = 99;
+
+	static String walkReverse(String cmd, Map<String, String> pairs,
+			Map<String, DirectionData> directions) {
+		String low = cmd.toLowerCase(java.util.Locale.US);
+		if (pairs != null) {
+			for (Map.Entry<String, String> e : pairs.entrySet()) {
+				if (e.getKey().equalsIgnoreCase(low)) {
+					return e.getValue();
+				}
+				if (e.getValue().equalsIgnoreCase(low)) {
+					return e.getKey();
+				}
+			}
+		}
+		if (directions != null) {
+			// By Command only: matching the letter would turn "l" (look) into nw.
+			for (DirectionData d : directions.values()) {
+				if (d != null && d.getCommand() != null && d.getCommand().equalsIgnoreCase(low)
+						&& d.getReverse() != null && d.getReverse().trim().length() > 0) {
+					return d.getReverse().trim();
+				}
+			}
+		}
+		String opp = MapDirections.opposite(cmd);
+		if (opp == null || opp.length() == 0) {
+			return cmd;
+		}
+		return low.startsWith("go ") ? "go " + opp : opp;
+	}
 }
