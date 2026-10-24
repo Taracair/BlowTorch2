@@ -3380,7 +3380,15 @@ public class MapperOverlayController
 								snapshotUseGmcp = true;
 								host.runMapCommand("gmcp on");
 							}
-							setStickyStatus("GMCP Room.Info on — walk to grow map");
+							// Browse draws no new rooms.
+							sessionEditMode = true;
+							if (controller != null) {
+								controller.setEditMode(true);
+							} else {
+								host.runMapCommand("mode edit");
+							}
+							updateEditModeToggleUi();
+							setStickyStatus("Edit — GMCP Room.Info on, walk to grow the map");
 						}
 					}
 				})

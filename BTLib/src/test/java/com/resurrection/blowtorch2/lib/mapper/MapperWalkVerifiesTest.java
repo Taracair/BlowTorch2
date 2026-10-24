@@ -30,6 +30,7 @@ public class MapperWalkVerifiesTest {
 	@Before
 	public void setUp() {
 		mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 	}
 
 	/** GMCP exits arrive as direction → destination room number. */

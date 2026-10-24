@@ -13,6 +13,7 @@ public class MapperFollowAheadTest {
 
 	private static MapperController batmudLine() {
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setCaptureExitsRegex("^@dir (?<move>[^,]*), (?<exits>.*)$");
 		mapper.setCaptureIdRegex("^@roomid (.*)$");
 		mapper.onOutputText("@roomid A\n@dir look, east\n");
@@ -93,6 +94,7 @@ public class MapperFollowAheadTest {
 	public void followWithoutRoomIdsIsNotUndone() {
 		// GMCP without room numbers: nothing will ever confirm a Follow step.
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setGmcpUseNum(false);
 		mapper.setGmcpUseCoords(false);
 		java.util.Map<String, String> none = new java.util.HashMap<String, String>();

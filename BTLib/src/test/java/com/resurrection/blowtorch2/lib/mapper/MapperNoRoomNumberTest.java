@@ -29,6 +29,7 @@ public class MapperNoRoomNumberTest {
 	@Before
 	public void setUp() {
 		mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setGmcpGrow(true);
 		// The case under test: no stable identity available from the server.
 		mapper.setGmcpUseNum(false);

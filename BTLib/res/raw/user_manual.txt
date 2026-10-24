@@ -2552,8 +2552,8 @@ nor room ids:
 No GMCP, but the game text has room ids (BatMUD with a proxy, for
 example)? Leave Record off and see *Map from game text* in the Mapper section.
 
-If your MUD sends GMCP `Room.Info`, leave Record off and turn on **Options → Protocols →
-Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
+If your MUD sends GMCP `Room.Info`, leave Record off, switch the map to **Edit**
+and turn on **Options → Protocols → Use GMCP?** (off for new worlds). **Use GMCP Room Sync?**
 and **View & sync → GMCP sync** already default on — tapping that wedge
 turns sync *off*. Then just walk. `.map find <text>`
 locates a room. `.map goto <room>` prints a path; it walks only if
@@ -4378,8 +4378,8 @@ There are three ways to build a map. Pick the one your world supports; they
 are not meant to be mixed.
 
 1. **The world sends GMCP `Room.Info`** (IRE games, many modern MUDs). Turn on
-   **Options → Protocols → Use GMCP?** and just walk. Rooms, ids and exits come
-   from the server. Record stays off.
+   **Options → Protocols → Use GMCP?**, switch the map to **Edit** and just
+   walk. Rooms, ids and exits come from the server. Record stays off.
 2. **The world prints a room id in its text** (or a proxy or trigger adds one),
    for example BatMUD with a proxy printing:
 
@@ -4389,7 +4389,8 @@ are not meant to be mixed.
 
    Set **Options → Mapper → Capture Room ID Regex** to `^@roomid (.*)$`,
    **Capture Title Regex** to `^@roomname (.*)$` and **Capture Exits Regex**
-   to `^@dir (?<move>[^,]*), (?<exits>.*)$`, then walk. Record stays off.
+   to `^@dir (?<move>[^,]*), (?<exits>.*)$`, switch the map to **Edit**, then
+   walk. Record stays off.
    See *Map from game text* below.
 3. **Nothing of the above** (many MOOs and older MUDs). Switch to **Edit**,
    turn **Nav → Record** on and walk: each move you type draws the next room.
@@ -4414,7 +4415,10 @@ Title bar shows a breadcrumb when you are on a nested floor, e.g.
 `[Edit] mymap · LCellar ← Hallway [REC]` (`[Browse]` or `[Edit]`, map name,
 level, door you entered from; `[REC]` when recording is on). The title has **Browse | Edit** and **Float | Full** segments
 (**Browse** / **Float** default). **Browse** is view/navigate only — no
-recording, Draw, Links, or tile edits. **Edit** is required to record, create
+recording, Draw, Links, or tile edits, and a room you walk into that is not on
+the map yet is not drawn: the game window says once "the map is in Browse mode,
+so new rooms are not drawn". The marker still follows you through rooms already
+on the map. Browse/Edit is not saved: a new session starts in Browse. **Edit** is required to record, create
 nests, use **Draw** / **Links**, and delete levels. Long-press the title opens
 the **Floors** radial.
 
@@ -4548,7 +4552,7 @@ Print the summary with `.map dirs`.
     `.map`                                                                  Prints help. `.map open` shows the map
     `.map open|close|toggle`                                                Show or hide the map UI
     `.map mode fullscreen|float`                                            Presentation mode
-    `.map mode browse|edit|toggle`                                          Map interaction mode (Browse default; Edit for nests/Draw/Links/delete)
+    `.map mode browse|edit|toggle`                                          Map interaction mode (Browse default: draws no new rooms; Edit for walking new rooms onto the map, nests/Draw/Links/delete)
     `.map record`                                                           Say whether recording is on. `on` and `off` set it. `toggle` flips it (`rec` alias)
     `.map name`                                                             While recording, set the current room's name from recent lines (Nav → Name). Does not run on every step.
     `.map follow on|off|toggle`                                             Keep the view centered on you

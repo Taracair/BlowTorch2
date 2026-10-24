@@ -19,6 +19,7 @@ public class MapperTextCaptureTest {
 
 	private static MapperController batmud() {
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setCaptureExitsRegex(EXITS);
 		mapper.setCaptureIdRegex("^@roomid (.*)$");
 		return mapper;
@@ -35,6 +36,7 @@ public class MapperTextCaptureTest {
 	@Test
 	public void emptyIdRegexMapsNothing() {
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.onOutputText("@roomid a1\n@dir north, south,east\n");
 		assertNull(mapper.currentTile());
 	}
@@ -70,6 +72,34 @@ public class MapperTextCaptureTest {
 					.append(t.getGridY()).append(commands(t)).append(' ');
 		}
 		assertEquals(dump.toString(), 2, mapper.getMap().getTiles().size());
+	}
+
+	@Test
+	public void browseMovesAmongDrawnRoomsButDrawsNoNewOnes() {
+		MapperController mapper = batmud();
+		mapper.onOutputText("@roomid A\n@dir look, north\n");
+		mapper.onOutputText("@roomid B\n@dir north, south\n");
+		mapper.setEditMode(false);
+		mapper.onOutputText("@roomid A\n@dir south, north\n");
+		assertEquals("A", mapper.currentTile().getExternalId());
+		mapper.onOutputText("@roomid C\n@dir east, west\n");
+		assertEquals("A", mapper.currentTile().getExternalId());
+		assertEquals(2, mapper.getMap().getTiles().size());
+		assertTrue(mapper.lastDrawnRoom(), mapper.lastDrawnRoom().contains("Browse mode"));
+	}
+
+	@Test
+	public void browseFollowsIntoAPlaceholderRoom() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(true);
+		mapper.onOutputText("@roomid A\n@dir look, north\n");
+		int before = mapper.getMap().getTiles().size();
+		mapper.setEditMode(false);
+		mapper.onOutputText("@roomid B\n@dir north, south\n");
+		// The placeholder north of A is drawn, so Here goes there, but gets no id.
+		assertEquals(before, mapper.getMap().getTiles().size());
+		assertTrue(mapper.currentTile().getExternalId() == null
+				|| mapper.currentTile().getExternalId().length() == 0);
 	}
 
 	@Test
@@ -295,6 +325,7 @@ public class MapperTextCaptureTest {
 	@Test
 	public void previewTitleNeverComesFromTheIdLineItself() {
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setCaptureIdRegex("^Room #(?<id>\\d+)");
 		CapturePreview preview = mapper.currentRoomPreview("Room #12\nyou see dust\nexits: north", 20);
 		assertNull(preview.title);

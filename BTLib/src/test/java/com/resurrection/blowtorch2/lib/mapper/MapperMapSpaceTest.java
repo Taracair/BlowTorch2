@@ -27,6 +27,7 @@ public class MapperMapSpaceTest {
 	@Before
 	public void setUp() {
 		mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 	}
 
 	private void arrive(String name, int num, int x, int y, int z, String space,

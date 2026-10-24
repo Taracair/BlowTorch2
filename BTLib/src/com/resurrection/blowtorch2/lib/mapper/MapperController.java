@@ -277,6 +277,10 @@ public class MapperController {
 	 * would ever confirm a step, and every step would be undone.
 	 */
 	private boolean mRoomIdsSeen;
+	/** Said once per switch to Browse, not on every room. */
+	private boolean mWarnedBrowseNoDraw;
+	static final String BROWSE_NO_DRAW =
+			"the map is in Browse mode, so new rooms are not drawn. Switch to Edit to draw.";
 	/** A declared move whose own line has not been sent yet. */
 	private boolean mDeclaredAwaitingSend;
 	private long mLastMoveAt;
@@ -408,6 +412,7 @@ public class MapperController {
 			return;
 		}
 		mEditMode = edit;
+		mWarnedBrowseNoDraw = false;
 		if (!edit) {
 			mRecording = false;
 		}
@@ -1506,7 +1511,8 @@ public class MapperController {
 					+ (room.move != null ? ", came by " + room.move : "");
 		} else {
 			mLastDrawnRoom = "no room with id " + room.id + " on the map"
-					+ (!mGmcpGrow ? " (Room Sync policy is Follow: it only moves to rooms already drawn)" : "");
+					+ (!mGmcpGrow ? " (Room Sync policy is Follow: it only moves to rooms already drawn)"
+							: !mEditMode ? " (Browse mode: switch to Edit to draw new rooms)" : "");
 		}
 	}
 
@@ -2889,22 +2895,30 @@ public class MapperController {
 			return;
 		}
 		ensureDefaultLevel();
+		// Browse only moves Here among rooms already drawn.
+		final boolean edit = mEditMode;
+		final boolean grow = mGmcpGrow && edit;
 		boolean changed = false;
 		String levelId = mMap.getCurrentLevelId();
-		if (z != null && mGmcpGrow) {
+		MapLevel zLevel = z != null && mGmcpGrow
+				? findLevelByName(Integer.toString(z.intValue())) : null;
+		if (z != null && mGmcpGrow && (edit || zLevel != null)) {
 			String levelName = Integer.toString(z.intValue());
-			MapLevel level = findLevelByName(levelName);
+			MapLevel level = zLevel;
 			if (level == null) {
 				pushUndo();
 				level = addLevel(levelName);
 				changed = true;
 			}
 			levelId = level.getId();
-			if (!levelId.equals(mMap.getCurrentLevelId())) {
+			// Browse switches floors with Here, at the end, or not at all.
+			if (edit && !levelId.equals(mMap.getCurrentLevelId())) {
 				mMap.setCurrentLevelId(levelId);
 				changed = true;
 			}
 		}
+		// A floor Browse may not create: same x,y on this floor is another room.
+		final boolean floorMissing = z != null && mGmcpGrow && zLevel == null && !edit;
 		if (levelId == null) {
 			levelId = mMap.getCurrentLevelId();
 		}
@@ -2942,7 +2956,7 @@ public class MapperController {
 		} else {
 			mFollowAhead.clear();
 		}
-		if (tile == null && mGmcpUseCoords && x != null && y != null) {
+		if (tile == null && mGmcpUseCoords && x != null && y != null && !floorMissing) {
 			tile = findTileAt(levelId, x.intValue(), y.intValue());
 		}
 		if (tile == null && num == null) {
@@ -2965,10 +2979,20 @@ public class MapperController {
 			}
 		}
 
+		if (tile == null && mGmcpGrow && !edit) {
+			if (!mWarnedBrowseNoDraw) {
+				mWarnedBrowseNoDraw = true;
+				postNote("Mapper: " + BROWSE_NO_DRAW);
+			}
+			if (mFollowPlayer) {
+				notifyChanged();
+			}
+			return;
+		}
 		if (tile == null) {
 			if (!mGmcpGrow) {
 				// Follow-only: stay put when the room is unknown.
-				if (name != null && name.length() > 0 && current != null
+				if (edit && name != null && name.length() > 0 && current != null
 						&& !current.isLockTitle()
 						&& (current.getTitle() == null || !name.equals(current.getTitle()))) {
 					if (maybeApplyOrQueueTitle(current, name)) {
@@ -3047,7 +3071,7 @@ public class MapperController {
 		// else on the map is a claim: the game listed it, or the mapper assumed
 		// the way back. On worlds that do not fold neatly those claims are wrong
 		// in both directions at once, which is what the map kept insisting on.
-		if (movedBy != null && movedFrom != null
+		if (edit && movedBy != null && movedFrom != null
 				&& !movedFrom.getId().equals(tile.getId())) {
 			MapExit walked = findExit(movedFrom, movedBy);
 			if (walked == null) {
@@ -3086,7 +3110,8 @@ public class MapperController {
 			// disagree, and the conflict detector can raise it.
 		}
 
-		if (num != null && (tile.getExternalId() == null || !num.equals(tile.getExternalId()))) {
+		if (edit && num != null
+				&& (tile.getExternalId() == null || !num.equals(tile.getExternalId()))) {
 			if (!changed) {
 				pushUndo();
 			}
@@ -3094,7 +3119,7 @@ public class MapperController {
 			changed = true;
 		}
 
-		if (mGmcpUseCoords && x != null && y != null && mGmcpGrow
+		if (mGmcpUseCoords && x != null && y != null && grow
 				&& !tile.isLockPosition()) {
 			int gx = x.intValue();
 			int gy = y.intValue();
@@ -3121,7 +3146,7 @@ public class MapperController {
 			}
 		}
 
-		if (name != null && name.length() > 0 && !tile.isLockTitle()
+		if (edit && name != null && name.length() > 0 && !tile.isLockTitle()
 				&& (tile.getTitle() == null || !name.equals(tile.getTitle()))) {
 			if (maybeApplyOrQueueTitle(tile, name)) {
 				changed = true;
@@ -3136,7 +3161,7 @@ public class MapperController {
 		}
 
 		if (!followAhead) {
-			if (current != null && !tile.getId().equals(current.getId())) {
+			if (edit && current != null && !tile.getId().equals(current.getId())) {
 				addGmcpMismatch(current, tile, name);
 			}
 			if (!tile.getId().equals(mMap.getCurrentTileId())) {
@@ -3150,7 +3175,7 @@ public class MapperController {
 			}
 		}
 
-		if (mGmcpGrow && mGmcpCreateExits && exits != null && exits.size() > 0) {
+		if (grow && mGmcpCreateExits && exits != null && exits.size() > 0) {
 			if (syncExitsFromGmcp(tile, exits, exitDestNums)) {
 				changed = true;
 			}

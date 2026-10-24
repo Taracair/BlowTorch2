@@ -1104,6 +1104,8 @@ What you see
   • Full / Float / ✕ = window mode and close
   The map stays under ⋮ so the overflow menu stays usable.
   Edit mode is required to create nests, Draw, Links, and delete levels.
+  Rooms from GMCP or room ids in the text are drawn only in Edit; in
+  Browse the marker follows you through rooms already on the map.
 
 Two ways to build
   1) Record while you walk

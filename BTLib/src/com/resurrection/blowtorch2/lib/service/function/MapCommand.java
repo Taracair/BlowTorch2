@@ -1328,7 +1328,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
 		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
-		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
+		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only, draws no new rooms; Edit = draw+record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map oneway                — on or off; on|off|toggle to set"
 				+ " (ON = specials spawn new tiles; OFF = close to unique inbound)\n");

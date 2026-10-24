@@ -10,6 +10,7 @@ public class MapperShiftTest {
 
 	private static MapperController batmud() {
 		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
 		mapper.setCaptureExitsRegex("^@dir (?<move>[^,]*), (?<exits>.*)$");
 		mapper.setCaptureIdRegex("^@roomid (.*)$");
 		mapper.setGmcpCreateExits(false);
