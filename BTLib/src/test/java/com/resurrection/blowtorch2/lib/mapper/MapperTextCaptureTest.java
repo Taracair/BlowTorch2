@@ -214,9 +214,9 @@ public class MapperTextCaptureTest {
 		assertEquals("a", mapper.getMap().findTile(keep.getExits().get(0).getToId()).getExternalId());
 	}
 
-	/** What the manual warns about: Record on draws ahead of the game and the walk back to a loses its link. */
+	/** Record on draws ahead of the game (an extra room); the walk back to a now replaces Record's guess. */
 	@Test
-	public void recordOnLosesTheLinkThatClosesTheLoop() {
+	public void recordOnDrawsAnExtraRoomButTheWalkClosesTheLoop() {
 		MapperController mapper = batmud();
 		mapper.setGmcpCreateExits(false);
 		mapper.setEditMode(true);
@@ -229,14 +229,16 @@ public class MapperTextCaptureTest {
 			mapper.onOutputText("@roomid " + step[1] + "\n@dir " + step[2] + ", north,south\n");
 		}
 		assertTrue(mapper.getMap().getTiles().size() > 5);
+		boolean closed = false;
 		for (MapTile t : mapper.getMap().getTiles()) {
 			if ("e".equals(t.getExternalId())) {
 				for (MapExit x : t.getExits()) {
 					MapTile to = mapper.getMap().findTile(x.getToId());
-					assertTrue(to == null || !"a".equals(to.getExternalId()));
+					closed |= to != null && "a".equals(to.getExternalId()) && x.isVerified();
 				}
 			}
 		}
+		assertTrue(closed);
 	}
 
 	@Test
@@ -449,5 +451,65 @@ public class MapperTextCaptureTest {
 		String status = batmud().nameFromBuffer();
 		assertTrue(status, !status.contains("Record"));
 		assertTrue(new MapperController(new Object()).nameFromBuffer().contains("Record is on"));
+	}
+
+	/** With Create missing exit neighbors on, c's east was guessed to d; walking it into x proves otherwise. */
+	@Test
+	public void aWalkReplacesAGuessedLinkToTheRoomInTheWay() {
+		MapperController mapper = batmud();
+		mapper.setEditMode(true);
+		mapper.onOutputText("@roomid a\n@dir , east,north\n");
+		mapper.onOutputText("@roomid b\n@dir east, west,north\n");
+		mapper.onOutputText("@roomid d\n@dir north, south\n");
+		mapper.onOutputText("@roomid b\n@dir south, west,north\n");
+		mapper.onOutputText("@roomid a\n@dir west, east,north\n");
+		mapper.onOutputText("@roomid c\n@dir north, south,east\n");
+		MapTile c = mapper.currentTile();
+		MapExit east = null;
+		for (MapExit e : c.getExits()) {
+			if ("e".equals(e.getCommand())) {
+				east = e;
+			}
+		}
+		assertEquals("d", mapper.getMap().findTile(east.getToId()).getExternalId());
+		assertTrue(!east.isVerified());
+		mapper.onOutputText("@roomid x\n@dir east, west\n");
+		assertEquals("x", mapper.getMap().findTile(east.getToId()).getExternalId());
+		assertTrue(east.isVerified());
+		assertEquals(2, c.getExits().size());
+	}
+
+	@Test
+	public void aWalkNeverReplacesAnotherWalk() {
+		MapperController mapper = batmud();
+		mapper.setGmcpCreateExits(false);
+		mapper.onOutputText("@roomid a\n@dir , east\n");
+		mapper.onOutputText("@roomid b\n@dir east, west\n");
+		MapTile a = mapper.getMap().getTiles().get(0);
+		mapper.onOutputText("@roomid a\n@dir west, east\n");
+		mapper.onOutputText("@roomid z\n@dir east, west\n");
+		assertEquals("b", mapper.getMap().findTile(a.getExits().get(0).getToId()).getExternalId());
+	}
+
+	/** A typed e that failed, then a flee: the arrival is not proof, so the link to d stays. */
+	@Test
+	public void aTypedMoveNeverReplacesAGuessedLink() {
+		MapperController mapper = batmud();
+		mapper.setEditMode(true);
+		mapper.onOutputText("@roomid a\n@dir , east,north\n");
+		mapper.onOutputText("@roomid b\n@dir east, west,north\n");
+		mapper.onOutputText("@roomid d\n@dir north, south\n");
+		mapper.onOutputText("@roomid b\n@dir south, west,north\n");
+		mapper.onOutputText("@roomid a\n@dir west, east,north\n");
+		mapper.onOutputText("@roomid c\n@dir north, south,east\n");
+		MapTile c = mapper.currentTile();
+		mapper.onPlayerCommand("e");
+		mapper.onOutputText("@roomid r\n@dir , west\n");
+		for (MapExit e : c.getExits()) {
+			if ("e".equals(e.getCommand())) {
+				assertEquals("d", mapper.getMap().findTile(e.getToId()).getExternalId());
+				assertTrue(!e.isVerified());
+			}
+		}
 	}
 }

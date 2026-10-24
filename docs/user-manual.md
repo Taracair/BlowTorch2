@@ -4645,8 +4645,7 @@ window (when mapper messages go to the window, `.map echo`) and tells you how
 to turn it off. On your first map, *How do you want
 to map?* offers *Room ids in the game text*, which switches to Edit and leaves
 Record off. Record draws a room for every move you type, so a move that fails (a wall,
-a guard) leaves a room that is not there, and walking back into a room you know
-can lose the link that closes the loop. To link rooms only by where you
+a guard) leaves a room that is not there. To link rooms only by where you
 actually walked, turn off **Create missing exit neighbors** (Options → Mapper →
 Configure Room Sync…); otherwise each listed exit gets a neighbour: a new
 empty room, or whatever room already sits in that direction. A
@@ -4714,9 +4713,11 @@ and **Edit** for **Draw** / **Links**.
    and you are somewhere new, but the cell is taken, so the room lands beside it.
    With **Create missing exit neighbors** off, the way you walked is drawn as a
    solid amber link, with a corner when there is a free cell for one. With it
-   on, that exit was usually already linked, dashed, to the room in the way;
-   the mapper keeps that guess and draws no link to the new room (and the new
-   room's own exits may get empty neighbours). Stand in the room next to the gap, switch to **Edit** and
+   on, that exit was usually already linked, dashed, to the room in the way.
+   When the game names the move (the `move` group) or you used `.map route`,
+   the walk replaces that dashed link with a solid one to the new room. A move
+   you only typed does not, because a failed move followed by a flee would
+   otherwise re-aim a correct link. A dashed line has not been walked yet. Stand in the room next to the gap, switch to **Edit** and
    type `.map shift east` (or `west`, `north`, `south`, `southeast`, …): every
    room on this floor beyond you moves one cell that way and a free column
    (or row, for north and south) opens next to you. Other floors stay put. `.map shift south 2` moves two cells. Then long-press-drag

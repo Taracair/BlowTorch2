@@ -178,8 +178,8 @@ public class MapperController {
 	private boolean mWarnedRecordWithText;
 	static final String RECORD_WITH_TEXT_WARNING = "Record is not needed here: Capture Room ID Regex"
 			+ " is set, so the room id lines in the game text draw the map by themselves. Record"
-			+ " also draws a room for every move you type, even one that fails (a wall, a guard),"
-			+ " and can lose the link that closes a loop. Turn it off: .map record off";
+			+ " also draws a room for every move you type, even one that fails (a wall, a guard)."
+			+ " Turn it off: .map record off";
 	private volatile String mLastMisfitHint;
 	private final LinkedList<String> mRecentCaptureLines = new LinkedList<String>();
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
@@ -215,6 +215,8 @@ public class MapperController {
 		private final String fromTileId;
 		/** From {@code .map route}: any other command typed before the room arrives cancels it. */
 		private final boolean declared;
+		/** Named by the game (the {@code move} group), not guessed from what was typed. */
+		private boolean fromGame;
 
 		RememberedMove(final String command, final String fromTileId) {
 			this(command, fromTileId, false);
@@ -1448,6 +1450,7 @@ public class MapperController {
 			MapTile here = currentTile();
 			mLastMove = new RememberedMove(normalize(room.move),
 					fresh ? typed.fromTileId : (here != null ? here.getId() : null));
+			mLastMove.fromGame = true;
 			mLastMoveAt = System.currentTimeMillis();
 		}
 		onRoomArrival(room.title, room.id, true, null, null, null,
@@ -2936,10 +2939,20 @@ public class MapperController {
 					walked.setGuessed(false);
 					changed = true;
 				}
+			} else if (!walked.isVerified() && (moved.fromGame || moved.declared)) {
+				// An unwalked link that this walk disproves. Only when the game named
+				// the move (or .map route did): a typed move that failed, then a flee
+				// within MOVE_MEMORY_MS, would re-aim a correct link for good.
+				if (!changed) {
+					pushUndo();
+				}
+				walked.setToId(tile.getId());
+				walked.setVerified(true);
+				walked.setGuessed(false);
+				changed = true;
 			}
-			// An exit for this command pointing somewhere else is left exactly as
-			// it is, and stays unverified. Silently re-aiming it is how a wrong
-			// link becomes permanent; the conflict detector can raise it instead.
+			// A walked exit pointing somewhere else is left as it is: two walks
+			// disagree, and the conflict detector can raise it.
 		}
 
 		if (num != null && (tile.getExternalId() == null || !num.equals(tile.getExternalId()))) {
