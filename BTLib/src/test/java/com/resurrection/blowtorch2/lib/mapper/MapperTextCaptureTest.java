@@ -425,4 +425,29 @@ public class MapperTextCaptureTest {
 		mapper.onOutputText("@roomid y\n@dir west, east\n");
 		assertTrue(mapper.shiftLastMisfit().startsWith("Mapper: no room is waiting"));
 	}
+
+	/** The BatMUD player: "The 'Record on' really mislead me". */
+	@Test
+	public void recordOnWithAnIdRegexSaysItIsNotNeeded() {
+		MapperController mapper = batmud();
+		mapper.setEditMode(true);
+		String status = mapper.setRecordingStatus(true);
+		assertTrue(status, status.startsWith("Mapper recording: on. Record is not needed here"));
+		assertTrue(status, status.endsWith(".map record off"));
+		assertEquals("Mapper recording: off", mapper.setRecordingStatus(false));
+	}
+
+	@Test
+	public void recordOnWithoutAnIdRegexSaysNothingMore() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
+		assertEquals("Mapper recording: on", mapper.setRecordingStatus(true));
+	}
+
+	@Test
+	public void nameNoLongerAsksForRecordWhenMappingFromText() {
+		String status = batmud().nameFromBuffer();
+		assertTrue(status, !status.contains("Record"));
+		assertTrue(new MapperController(new Object()).nameFromBuffer().contains("Record is on"));
+	}
 }

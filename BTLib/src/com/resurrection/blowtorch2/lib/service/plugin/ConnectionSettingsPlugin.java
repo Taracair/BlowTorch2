@@ -909,7 +909,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_recording_default = new BooleanOption();
 		mapper_recording_default.setTitle("Record by Default?");
-		mapper_recording_default.setDescription("Start recording movement when a session loads.");
+		mapper_recording_default.setDescription("Start recording movement when a session loads. Leave off when Capture Room ID Regex is set: the game text draws the map, and Record would also draw rooms for moves that fail.");
 		mapper_recording_default.setKey("mapper_recording_default");
 		mapper_recording_default.setValue(false);
 		mapperOptions.addOption(mapper_recording_default);
@@ -1035,21 +1035,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption mapper_capture_id = new StringOption();
 		mapper_capture_id.setTitle("Capture Room ID Regex");
-		mapper_capture_id.setDescription("For worlds without GMCP: a line matching this (group 1 = a unique room id) maps the room from game text, using the title and exits regexes for the lines after it. Empty = off.");
+		mapper_capture_id.setDescription("For worlds without GMCP: a line matching this (group 1 = a unique room id) maps the room from game text, using the title and exits regexes for the lines after it. Empty = off. Leave Record off while this is set.");
 		mapper_capture_id.setKey("mapper_capture_id_regex");
 		mapper_capture_id.setValue("");
 		mapperOptions.addOption(mapper_capture_id);
 
 		StringOption mapper_level_up = new StringOption();
 		mapper_level_up.setTitle("Level-Up Commands (CSV)");
-		mapper_level_up.setDescription("While recording, these commands create a higher floor.");
+		mapper_level_up.setDescription("These moves go to the floor above: while recording, and when a new room arrives after one (game text, or GMCP without z).");
 		mapper_level_up.setKey("mapper_level_up_commands");
 		mapper_level_up.setValue(MapDirections.DEFAULT_LEVEL_UP_COMMANDS);
 		mapperOptions.addOption(mapper_level_up);
 
 		StringOption mapper_level_down = new StringOption();
 		mapper_level_down.setTitle("Level-Down Commands (CSV)");
-		mapper_level_down.setDescription("While recording, these commands create a lower floor.");
+		mapper_level_down.setDescription("These moves go to the floor below: while recording, and when a new room arrives after one (game text, or GMCP without z).");
 		mapper_level_down.setKey("mapper_level_down_commands");
 		mapper_level_down.setValue(MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
 		mapperOptions.addOption(mapper_level_down);

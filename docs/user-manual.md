@@ -4430,7 +4430,7 @@ show their current state under the label (e.g. Follow **on**).
     **Nav**
         What it is for: Getting around
         Actions: Path to, Go there, Find, Center, Follow, Record.
-        While Record is on, **Name** is there too (`.map name`): it sets
+        While Record is on, or a Capture Room ID Regex is set, **Name** is there too (`.map name`): it sets
         the current room's name from recent lines and does not run on every step.
 
     **Floors**
@@ -4640,7 +4640,11 @@ the regexes without walking, type:
     .simulate @roomid b2\n@dir south, north
 
 Leave **Record** off while mapping from text; the id lines draw the map without
-it. Record draws a room for every move you type, so a move that fails (a wall,
+it. If you turn it on anyway, the mapper says so in the game
+window (when mapper messages go to the window, `.map echo`) and tells you how
+to turn it off. On your first map, *How do you want
+to map?* offers *Room ids in the game text*, which switches to Edit and leaves
+Record off. Record draws a room for every move you type, so a move that fails (a wall,
 a guard) leaves a room that is not there, and walking back into a room you know
 can lose the link that closes the loop. To link rooms only by where you
 actually walked, turn off **Create missing exit neighbors** (Options → Mapper →

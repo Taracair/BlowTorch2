@@ -196,12 +196,12 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`). Polic
 | **GMCP: Create exit neighbors?** | Create/link missing exits; vnum stubs until visited; never deletes exits |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
-| **Level-Up Commands (CSV)** | Recording moves that create a higher floor (`u,up,climb,ascend` default). Clear Up+Down to never auto-create levels |
-| **Level-Down Commands (CSV)** | Recording moves that create a lower floor (`d,down,descend` default) |
+| **Level-Up Commands (CSV)** | Moves that go to the floor above (`u,up,climb,ascend` default): while recording, and when a new room arrives after one from the game text or GMCP without z. Clear Up+Down to never auto-create levels |
+| **Level-Down Commands (CSV)** | Moves that go to the floor below (`d,down,descend` default), same rules |
 | **Toolbar actions** | Legacy CSV (still stored); map chrome uses the **Nav / Floors / Edit / Map / View** radial chips instead of the bottom strip |
 | **Capture Title Regex** | Regex for `.map capture` and the Capture dialog title field (`mapper_capture_title_regex`). Group 1 when present; else whole match. Default: `^([A-Z].*)$` |
 | **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). A group named `exits` when present, else group 1 (e.g. after `Exits:`); a group named `move` is the direction walked. Default: `(?i)exits?:\s*(.*)` |
-| **Capture Room ID Regex** | For worlds without GMCP (`mapper_capture_id_regex`). A matching line (group 1 = unique room id) maps the room from text, using the two regexes above for the lines after it. Empty = off (default) |
+| **Capture Room ID Regex** | For worlds without GMCP (`mapper_capture_id_regex`). A matching line (group 1 = unique room id) maps the room from text, using the two regexes above for the lines after it. Empty = off (default). Leave Record off while it is set |
 
 Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Browse|Edit,
 **Nav/Floors/Build/File** radials, Draw/Links/Paths, tile-anchored levels (List

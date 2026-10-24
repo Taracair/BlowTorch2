@@ -8744,6 +8744,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("useGmcp", mMapper.isUseGmcp());
 			root.put("gmcpGrow", mMapper.isGmcpGrow());
 			root.put("echoWindow", mMapper.isEchoWindow());
+			root.put("textCapture", mMapper.isTextCapture());
 			root.put("gmcpPolicy", mMapper.getGmcpPolicy() != null
 					? mMapper.getGmcpPolicy() : "sync");
 			MapperController.PendingGmcpConflict pending =

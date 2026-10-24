@@ -46,7 +46,7 @@ public final class MapperRadialMenu {
 	public static final String ACTION_CENTER = "center";
 	public static final String ACTION_FOLLOW = "follow";
 	public static final String ACTION_REC = "rec";
-	/** While recording: set the current room name from recent lines. */
+	/** While recording or mapping from text: set the current room name from recent lines. */
 	public static final String ACTION_NAME = "namefrom";
 	public static final String ACTION_UNDO = "undo";
 
@@ -106,10 +106,11 @@ public final class MapperRadialMenu {
 	private MapperRadialMenu() {
 	}
 
+	/** {@code showName}: Record is on, or rooms come from the game text. */
 	public static void showNav(ViewGroup parent, Listener listener,
-			boolean recording, boolean follow) {
+			boolean recording, boolean follow, boolean showName) {
 		Item[] items;
-		if (recording) {
+		if (showName) {
 			items = new Item[] {
 					new Item(ACTION_PATH_TO, "Path to"),
 					new Item(ACTION_GO_THERE, "Go there"),
@@ -117,7 +118,7 @@ public final class MapperRadialMenu {
 					new Item(ACTION_CENTER, "Center"),
 					new Item(ACTION_FOLLOW, "Follow", follow ? "on" : "off"),
 					new Item(ACTION_NAME, "Name", "buffer"),
-					new Item(ACTION_REC, "Record", "on")
+					new Item(ACTION_REC, "Record", recording ? "on" : "off")
 			};
 		} else {
 			items = new Item[] {

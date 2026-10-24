@@ -133,6 +133,7 @@ public class MapperOverlayController
 	private boolean snapshotUseGmcp;
 	private boolean snapshotGmcpGrow = true;
 	private boolean snapshotEchoWindow = true;
+	private boolean snapshotTextCapture;
 	private String snapshotGmcpPolicy = MapperController.GMCP_POLICY_SYNC;
 	/** Avoid re-showing the same pending GMCP conflict dialog. */
 	private String lastShownGmcpConflictKey;
@@ -1019,7 +1020,8 @@ public class MapperOverlayController
 				return;
 			}
 			String status = controller.setRecordingStatus(!controller.isRecording());
-			Toast.makeText(host.getMainWindow(), status, Toast.LENGTH_SHORT).show();
+			Toast.makeText(host.getMainWindow(), status,
+					status.length() > 40 ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
 		} else if ("follow".equals(a)) {
 			controller.setFollow(!controller.isFollowPlayer());
 			if (mapperView != null) {
@@ -2332,7 +2334,7 @@ public class MapperOverlayController
 			@Override
 			public void run() {
 				MapperRadialMenu.showNav((ViewGroup) overlayRoot, radialListener(),
-						isRecordingNow(), isFollowNow());
+						isRecordingNow(), isFollowNow(), isRecordingNow() || isTextCaptureNow());
 			}
 		});
 	}
@@ -2386,6 +2388,13 @@ public class MapperOverlayController
 			return controller.isRecording();
 		}
 		return snapshotRecording;
+	}
+
+	private boolean isTextCaptureNow() {
+		if (controller != null) {
+			return controller.isTextCapture();
+		}
+		return snapshotTextCapture;
 	}
 
 	private boolean isFollowNow() {
@@ -2492,9 +2501,10 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_FIND.equals(action)) {
 			openSearch();
 		} else if (MapperRadialMenu.ACTION_NAME.equals(action)) {
-			if (!isRecordingNow()) {
+			if (!isRecordingNow() && !isTextCaptureNow()) {
 				Toast.makeText(host.getMainWindow(),
-						"Turn Record on, then Name takes the room from the recent lines.",
+						"Name takes the room from the recent lines while Record is on"
+								+ " or a Capture Room ID Regex is set.",
 						Toast.LENGTH_SHORT).show();
 			} else if (controller != null) {
 				toastStatus(controller.nameFromBuffer());
@@ -3347,21 +3357,25 @@ public class MapperOverlayController
 	}
 
 	private void showMapperStartChoices(final MainWindow activity) {
+		// Same order as Help → Mapper "Which way of mapping fits your world".
 		final CharSequence[] items = new CharSequence[] {
-				"Record while walking",
-				"Draw tiles",
-				"Use GMCP Room.Info"
+				"Use GMCP Room.Info (the game sends rooms)",
+				"Room ids in the game text (no GMCP; Record stays off)",
+				"Record while walking (no room ids at all)",
+				"Draw tiles by hand"
 		};
 		new AlertDialog.Builder(activity)
 				.setTitle("How do you want to map?")
 				.setItems(items, new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(DialogInterface dialog, int which) {
-						if (which == 0) {
-							enterEditAndRecord();
-						} else if (which == 1) {
-							enterEditAndDraw();
+						if (which == 1) {
+							enterEditForTextCapture(activity);
 						} else if (which == 2) {
+							enterEditAndRecord();
+						} else if (which == 3) {
+							enterEditAndDraw();
+						} else if (which == 0) {
 							if (!snapshotUseGmcp) {
 								snapshotUseGmcp = true;
 								host.runMapCommand("gmcp on");
@@ -3395,6 +3409,27 @@ public class MapperOverlayController
 		updateTitleForDrawMode();
 		rebuildToolbar();
 		setStickyStatus("Draw: tap empty cell to place · long-press = Here");
+	}
+
+	/** Text mapping draws on its own; only Edit is needed, and Record must be off. */
+	private void enterEditForTextCapture(final MainWindow activity) {
+		if (!isTextCaptureNow()) {
+			Toast.makeText(activity, "Set Options → Mapper → Capture Room ID Regex, then switch"
+					+ " to Edit and walk; leave Record off. ⋮ → Help → Mapper has examples.",
+					Toast.LENGTH_LONG).show();
+			return;
+		}
+		sessionEditMode = true;
+		if (controller != null) {
+			controller.setEditMode(true);
+		} else {
+			host.runMapCommand("mode edit");
+		}
+		if (isRecordingNow()) {
+			runToolbarAction("rec");
+		}
+		updateEditModeToggleUi();
+		setStickyStatus("Edit — walk; the room id lines draw the map. Record stays off.");
 	}
 
 	/** Switch to Edit and start recording. */
@@ -3631,6 +3666,7 @@ public class MapperOverlayController
 			snapshotUseGmcp = root.optBoolean("useGmcp", snapshotUseGmcp);
 			snapshotGmcpGrow = root.optBoolean("gmcpGrow", snapshotGmcpGrow);
 			snapshotEchoWindow = root.optBoolean("echoWindow", snapshotEchoWindow);
+			snapshotTextCapture = root.optBoolean("textCapture", false);
 			snapshotGmcpPolicy = root.optString("gmcpPolicy", snapshotGmcpPolicy);
 			if (snapshotGmcpPolicy == null || snapshotGmcpPolicy.length() == 0) {
 				snapshotGmcpPolicy = snapshotGmcpGrow

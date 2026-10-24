@@ -175,6 +175,11 @@ public class MapperController {
 	private volatile String mLastDrawnRoom;
 	/** The last new room that could not go where it was walked; {@code .map shift} alone puts it there. */
 	private Misfit mLastMisfit;
+	private boolean mWarnedRecordWithText;
+	static final String RECORD_WITH_TEXT_WARNING = "Record is not needed here: Capture Room ID Regex"
+			+ " is set, so the room id lines in the game text draw the map by themselves. Record"
+			+ " also draws a room for every move you type, even one that fails (a wall, a guard),"
+			+ " and can lose the link that closes a loop. Turn it off: .map record off";
 	private volatile String mLastMisfitHint;
 	private final LinkedList<String> mRecentCaptureLines = new LinkedList<String>();
 	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
@@ -1429,6 +1434,11 @@ public class MapperController {
 		if (room == null || room.id == null || room.id.length() == 0 || mMap == null) {
 			return;
 		}
+		// Record by Default turns it on with no status line to warn in.
+		if (mRecording && !mWarnedRecordWithText) {
+			mWarnedRecordWithText = true;
+			postNote("Mapper: " + RECORD_WITH_TEXT_WARNING);
+		}
 		if (room.move != null) {
 			// The server's word for the way we went beats a typed one: speedwalks,
 			// aliases and buttons may not leave a direction we recognise.
@@ -1932,6 +1942,10 @@ public class MapperController {
 		}
 		mRecording = recording;
 		notifyChanged();
+		if (mRecording && isTextCapture()) {
+			mWarnedRecordWithText = true;
+			return "Mapper recording: on. " + RECORD_WITH_TEXT_WARNING;
+		}
 		return "Mapper recording: " + (mRecording ? "on" : "off");
 	}
 
@@ -1947,6 +1961,11 @@ public class MapperController {
 
 	public void setPathAutoSend(final boolean autoSend) {
 		mPathAutoSend = autoSend;
+	}
+
+	/** True when a Capture Room ID Regex is set and compiles: rooms come from the game text. */
+	public boolean isTextCapture() {
+		return mCaptureIdPattern != null;
 	}
 
 	public boolean isEchoWindow() {
@@ -4307,8 +4326,9 @@ public class MapperController {
 	 * Uses the capture-title regex. Does not write exits. Not run on every step.
 	 */
 	public String nameFromBuffer() {
-		if (!mRecording) {
-			return "Mapper: turn Record on, then Name takes the room from the recent lines.";
+		if (!mRecording && !isTextCapture()) {
+			return "Mapper: Name takes the room from the recent lines while Record is on"
+					+ " or a Capture Room ID Regex is set.";
 		}
 		List<String> lines = lastBufferLines(40);
 		if (lines.isEmpty()) {
