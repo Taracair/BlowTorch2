@@ -135,6 +135,10 @@ public final class AliasRecursion {
 				if (!eatTail) {
 					m.appendTail(buffertemp);
 				}
+				// ^(.+)$ still matches its own replacement. Unchanged text is finished.
+				if (buffertemp.toString().equals(replaced.toString())) {
+					return new Result(replaced.toString(), false);
+				}
 				replaced.setLength(0);
 				replaced.append(buffertemp);
 			}

@@ -159,6 +159,26 @@ public class AliasRecursionTest {
 	}
 
 	/**
+	 * {@code ^(.+)$} → {@code Aaaa} matches every line, including {@code Aaaa}.
+	 * The replacement is stable after one pass. That is not a loop: {@code look}
+	 * becomes {@code Aaaa} and stays there.
+	 */
+	@Test
+	public void catchAllThatRewritesToAConstantStops() {
+		AliasRecursion.Result r = run("look", alias("^(.+)$", "Aaaa"));
+		assertEquals("Aaaa", r.text());
+		assertFalse(r.hitLimit());
+	}
+
+	/** The second time through, the line is already the replacement. */
+	@Test
+	public void catchAllAppliedToItsOwnOutputStops() {
+		AliasRecursion.Result r = run("Aaaa", alias("^(.+)$", "Aaaa"));
+		assertEquals("Aaaa", r.text());
+		assertFalse(r.hitLimit());
+	}
+
+	/**
 	 * The reason this class has a pass limit. An alias whose replacement still
 	 * contains its own trigger as a whole word never stopped expanding, and the
 	 * loop runs on the connection thread.
