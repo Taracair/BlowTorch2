@@ -105,7 +105,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("lastfloat", "Input and suggestions",
 				"recent commands as chips over the game; .lastfloat N|length N|off");
 		cmd("lastbar", "Input and suggestions",
-				"chips of recent commands; .lastbar N|on|off|length|order; a tap sends; not sent");
+				"chips of recent commands; .lastbar N|on|off|length|order; a tap sends; hold reads the rest; not sent");
 		cmd("complete", "Input and suggestions",
 				"same as .suggest (older name); also .suggestions");
 		cmd("suggest", "Input and suggestions",
@@ -746,6 +746,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  Left: 1 inventory, 2 look, 3 north.\n"
 					+ "  Right: 3 north, 2 look, 1 inventory.\n"
 					+ "  The number is the same as .Nlast. A tap sends that command.\n"
+					+ "  Hold a chip to read the whole command. Slide to another and the preview follows.\n"
+					+ "  Lift sends the one under your finger. A second finger elsewhere sends nothing.\n"
 					+ "  Fewer stored than the count: you see what is there.\n"
 					+ "  Each world keeps its own on/off, count, length, and order.\n"
 					+ "  Options → Typing → Recent command bar…\n"

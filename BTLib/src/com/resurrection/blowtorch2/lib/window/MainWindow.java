@@ -100,6 +100,7 @@ import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
@@ -382,6 +383,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int mLastFloatBottom;
 	/** World and orientation the in-memory placement was loaded for. */
 	private String mLastFloatPosLoadedFor;
+	private final LastBarHold mLastBarHold = new LastBarHold();
+	private final Handler mLastBarHoldHandler = new Handler();
+	private final HashMap<View, String> mLastBarCommand = new HashMap<View, String>();
+	private Runnable mLastBarArm;
+	private PopupWindow mLastBarPreview;
+	private int mLastBarPreviewChip = -1;
+	private int mLastBarPointerId = -1;
+	/** Second finger landed. Ignore new chip presses until every finger is up. */
+	private boolean mLastBarHoldBlocked;
 	/** Caret to put back after the switch's settings load restarts the IME. -1 = none. */
 	private int mInputDraftSelStart = -1;
 	private int mInputDraftSelEnd = -1;
@@ -3189,6 +3199,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * down in {@code FloatingButtonController.onPause}.
 	 */
 	private void cancelTouchOnPause() {
+		endLastBarHold();
 		windowCall("button_window", "cancelTouchGesture", "");
 		com.resurrection.blowtorch2.lib.window.Window main = mainDisplayWindow();
 		if (main != null) {
@@ -3204,7 +3215,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (ev != null && mSuggestList != null) {
 			mSuggestList.onWindowPointer(ev);
 		}
+		if (ev != null) {
+			lastBarWindowPointer(ev);
+		}
 		boolean handled = super.dispatchTouchEvent(ev);
+		if (ev != null && mLastBarHoldBlocked) {
+			int action = ev.getActionMasked();
+			if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+				mLastBarHoldBlocked = false;
+			}
+		}
 		// System edge-back often delivers CANCEL after a button already drew pressed.
 		if (ev != null && ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
 			windowCall("button_window", "cancelTouchGesture", "");
@@ -8872,18 +8892,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (strip == null || row == null) {
 			return;
 		}
+		if (mLastBarHold.tracking()) {
+			endLastBarHold();
+		}
 		if (!on) {
 			strip.setVisibility(View.GONE);
 			return;
 		}
+		mLastBarCommand.clear();
 		ArrayList<String> cmds = recentCommands(count);
 		int[] visual = LastBarChips.numbersLeftToRight(cmds.size(), right);
 		for (int slot = 0; slot < visual.length; slot++) {
 			int number = visual[slot];
+			String command = cmds.get(number - 1);
 			TextView chip = lastBarChipAt(row, slot);
 			chip.setText(numberedChipLabel(number,
-					LastBarChips.clip(cmds.get(number - 1), length)));
+					LastBarChips.clip(command, length)));
 			chip.setTag(Integer.valueOf(number));
+			chip.setContentDescription(number + " " + (command == null ? "" : command));
+			mLastBarCommand.put(chip, command == null ? "" : command);
+			bindLastBarHold(chip);
 			chip.setVisibility(View.VISIBLE);
 		}
 		for (int i = visual.length; i < row.getChildCount(); i++) {
@@ -9041,6 +9069,271 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} catch (NumberFormatException e) {
 			return -1;
 		}
+	}
+
+	/**
+	 * A second finger on the game text is delivered to that view, not the chip.
+	 */
+	private void lastBarWindowPointer(final MotionEvent event) {
+		if (event.getActionMasked() != MotionEvent.ACTION_POINTER_DOWN
+				|| !mLastBarHold.tracking()) {
+			return;
+		}
+		cancelLastBarHoldFromSecondFinger();
+	}
+
+	private void bindLastBarHold(final TextView chip) {
+		chip.setOnClickListener(null);
+		chip.setOnTouchListener(new View.OnTouchListener() {
+			@Override
+			public boolean onTouch(final View v, final MotionEvent event) {
+				int action = event.getActionMasked();
+				if (action == MotionEvent.ACTION_DOWN
+						&& (mLastBarHoldBlocked || event.getPointerCount() > 1)) {
+					return true;
+				}
+				switch (action) {
+				case MotionEvent.ACTION_DOWN:
+					mLastBarPointerId = event.getPointerId(0);
+					int index = lastBarIndexOf(v);
+					mLastBarHold.down(index, Math.round(event.getRawX()),
+							Math.round(event.getRawY()));
+					v.setPressed(true);
+					scheduleLastBarArm(v);
+					return true;
+				case MotionEvent.ACTION_MOVE:
+					if (!mLastBarHold.tracking()) {
+						return false;
+					}
+					int slop = android.view.ViewConfiguration.get(v.getContext())
+							.getScaledTouchSlop();
+					int under = lastBarChipUnder(event.getRawX(), event.getRawY());
+					int before = mLastBarHold.chip();
+					mLastBarHold.move(under, Math.round(event.getRawX()),
+							Math.round(event.getRawY()), slop);
+					if (mLastBarHold.dragged() && !mLastBarHold.armed()) {
+						cancelLastBarArm();
+						v.setPressed(false);
+					}
+					if (mLastBarHold.armed() && mLastBarHold.chip() != before) {
+						if (v.getParent() != null) {
+							v.getParent().requestDisallowInterceptTouchEvent(true);
+						}
+						showLastBarPreview(mLastBarHold.chip());
+					}
+					return true;
+				case MotionEvent.ACTION_POINTER_DOWN:
+					cancelLastBarHoldFromSecondFinger();
+					return true;
+				case MotionEvent.ACTION_POINTER_UP:
+					if (event.getPointerId(event.getActionIndex()) != mLastBarPointerId) {
+						return true;
+					}
+					finishLastBarHold();
+					return true;
+				case MotionEvent.ACTION_UP:
+					finishLastBarHold();
+					return true;
+				case MotionEvent.ACTION_CANCEL:
+					cancelLastBarArm();
+					mLastBarHold.cancelTouch();
+					clearLastBarHoldVisual();
+					return true;
+				default:
+					return false;
+				}
+			}
+		});
+	}
+
+	private void scheduleLastBarArm(final View chip) {
+		cancelLastBarArm();
+		mLastBarArm = new Runnable() {
+			@Override
+			public void run() {
+				mLastBarArm = null;
+				if (!mLastBarHold.arm()) {
+					return;
+				}
+				if (chip.getParent() != null) {
+					chip.getParent().requestDisallowInterceptTouchEvent(true);
+				}
+				chip.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+				showLastBarPreview(mLastBarHold.chip());
+			}
+		};
+		mLastBarHoldHandler.postDelayed(mLastBarArm,
+				android.view.ViewConfiguration.getLongPressTimeout());
+	}
+
+	private void cancelLastBarArm() {
+		if (mLastBarArm != null) {
+			mLastBarHoldHandler.removeCallbacks(mLastBarArm);
+			mLastBarArm = null;
+		}
+	}
+
+	private void cancelLastBarHoldFromSecondFinger() {
+		cancelLastBarArm();
+		mLastBarHold.secondFinger();
+		mLastBarHoldBlocked = true;
+		clearLastBarHoldVisual();
+	}
+
+	private void endLastBarHold() {
+		cancelLastBarArm();
+		mLastBarHold.cancelTouch();
+		clearLastBarHoldVisual();
+	}
+
+	private void finishLastBarHold() {
+		cancelLastBarArm();
+		int child = mLastBarHold.up();
+		String send = lastBarHistoryNumber(child);
+		clearLastBarHoldVisual();
+		if (send != null) {
+			resendHistoryCommand(send);
+		}
+	}
+
+	private String lastBarHistoryNumber(final int child) {
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_bar_row);
+		if (row == null || child < 0 || child >= row.getChildCount()) {
+			return null;
+		}
+		Object tag = row.getChildAt(child).getTag();
+		if (tag instanceof Integer) {
+			return Integer.toString(((Integer) tag).intValue());
+		}
+		return null;
+	}
+
+	private void showLastBarPreview(final int childIndex) {
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_bar_row);
+		if (row == null || childIndex < 0 || childIndex >= row.getChildCount()) {
+			return;
+		}
+		View chip = row.getChildAt(childIndex);
+		for (int i = 0; i < row.getChildCount(); i++) {
+			row.getChildAt(i).setActivated(i == childIndex);
+		}
+		String full = mLastBarCommand.get(chip);
+		if (full == null) {
+			full = "";
+		}
+		float density = getResources().getDisplayMetrics().density;
+		int gap = (int) (4 * density);
+		int max = getResources().getDisplayMetrics().widthPixels - (int) (24 * density);
+		TextView text;
+		if (mLastBarPreview == null) {
+			text = new TextView(this);
+			text.setTextColor(0xFFFFFFFF);
+			text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+			int padX = Math.round(10 * density);
+			int padY = Math.round(4 * density);
+			text.setPadding(padX, padY, padX, padY);
+			mLastBarPreview = new PopupWindow(text,
+					ViewGroup.LayoutParams.WRAP_CONTENT,
+					ViewGroup.LayoutParams.WRAP_CONTENT);
+			mLastBarPreview.setFocusable(false);
+			mLastBarPreview.setTouchable(false);
+			mLastBarPreview.setClippingEnabled(true);
+			mLastBarPreview.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
+			// A copy: the suggestion bar and the tappable-word menu share this plate.
+			android.graphics.drawable.Drawable plate =
+					androidx.core.content.ContextCompat.getDrawable(
+							this, R.drawable.suggestion_panel_bg);
+			if (plate != null && plate.getConstantState() != null) {
+				plate = plate.getConstantState().newDrawable().mutate();
+			}
+			mLastBarPreview.setBackgroundDrawable(plate);
+		} else {
+			text = (TextView) mLastBarPreview.getContentView();
+		}
+		text.setMaxWidth(max);
+		text.setText(full);
+		text.measure(
+				View.MeasureSpec.makeMeasureSpec(max, View.MeasureSpec.AT_MOST),
+				View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+		int w = Math.max(text.getMeasuredWidth(), 1);
+		int h = Math.max(text.getMeasuredHeight(), 1);
+		int[] loc = new int[2];
+		chip.getLocationOnScreen(loc);
+		int yoff = loc[1] - h - gap < 0 ? gap : -(chip.getHeight() + h + gap);
+		if (mLastBarPreview.isShowing() && mLastBarPreviewChip == childIndex) {
+			return;
+		}
+		mLastBarPreview.setWidth(w);
+		mLastBarPreview.setHeight(h);
+		if (mLastBarPreview.isShowing()) {
+			mLastBarPreview.update(chip, 0, yoff, w, h);
+		} else {
+			mLastBarPreview.showAsDropDown(chip, 0, yoff);
+		}
+		mLastBarPreviewChip = childIndex;
+	}
+
+	private void clearLastBarHoldVisual() {
+		mLastBarPreviewChip = -1;
+		if (mLastBarPreview != null && mLastBarPreview.isShowing()) {
+			mLastBarPreview.dismiss();
+		}
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_bar_row);
+		if (row == null) {
+			return;
+		}
+		for (int i = 0; i < row.getChildCount(); i++) {
+			View chip = row.getChildAt(i);
+			chip.setPressed(false);
+			chip.setActivated(false);
+		}
+	}
+
+	private static int lastBarIndexOf(final View chip) {
+		ViewParent parent = chip.getParent();
+		if (!(parent instanceof LinearLayout)) {
+			return -1;
+		}
+		return ((LinearLayout) parent).indexOfChild(chip);
+	}
+
+	private int lastBarChipUnder(final float rawX, final float rawY) {
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_last_bar_row);
+		if (row == null) {
+			return -1;
+		}
+		int n = 0;
+		for (int i = 0; i < row.getChildCount(); i++) {
+			if (row.getChildAt(i).getVisibility() == View.VISIBLE) {
+				n++;
+			}
+		}
+		if (n == 0) {
+			return -1;
+		}
+		int[] left = new int[n];
+		int[] top = new int[n];
+		int[] right = new int[n];
+		int[] bottom = new int[n];
+		int[] child = new int[n];
+		int slot = 0;
+		for (int i = 0; i < row.getChildCount(); i++) {
+			View c = row.getChildAt(i);
+			if (c.getVisibility() != View.VISIBLE) {
+				continue;
+			}
+			int[] loc = new int[2];
+			c.getLocationOnScreen(loc);
+			left[slot] = loc[0];
+			top[slot] = loc[1];
+			right[slot] = loc[0] + c.getWidth();
+			bottom[slot] = loc[1] + c.getHeight();
+			child[slot] = i;
+			slot++;
+		}
+		int hit = LastBarHold.chipAt(Math.round(rawX), Math.round(rawY),
+				left, top, right, bottom);
+		return hit < 0 ? -1 : child[hit];
 	}
 
 	/**

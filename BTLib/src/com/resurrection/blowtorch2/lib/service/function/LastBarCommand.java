@@ -26,7 +26,8 @@ public class LastBarCommand extends SpecialCommand {
 							+ ".lastbar              — count, length, order, and whether it is on\n"
 							+ ".lastbar length N     — characters of each command (3–40)\n"
 							+ ".lastbar order left|right — First on the left, or on the right\n"
-							+ "A tap sends that command. Nothing here is sent to the world."));
+							+ "A tap sends that command. Hold a chip to read it, slide to another, lift to send.\n"
+							+ "A second finger elsewhere cancels. Nothing here is sent to the world."));
 			return null;
 		}
 		String trimmed = argument == null ? "" : argument.trim();
