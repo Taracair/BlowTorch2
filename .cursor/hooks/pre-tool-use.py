@@ -7,8 +7,10 @@ Task/subagent call should be rewritten or denied, and answers Cursor.
 All the actual rules live in the guard module, not here. This file only
 translates between Cursor's JSON protocol and that module.
 
-preToolUse: rewrite leftover `bugbot` / Composer 2.5 reviewer Tasks to
-generalPurpose + grok-4.7-xhigh. Every other Task gets that same model.
+preToolUse: rewrite a `bugbot` Task to generalPurpose. An allowed review
+model is kept (cursor-grok-4.7-xhigh, cursor-grok-4.6-xhigh,
+grok-4.7-medium, composer-2.5). Anything else becomes
+cursor-grok-4.7-xhigh.
 
 subagentStart: deny `bugbot` if a launch still arrives with that type (the
 type is pinned to Composer 2.5 and ignores `model`).

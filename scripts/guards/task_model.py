@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Rewrite Cursor Task inputs so BlowTorch reviews do not run as Composer 2.5.
+"""Rewrite Cursor Task inputs so a review is not the Composer-pinned bugbot type.
 
 Cursor's `bugbot` subagent type is pinned to Composer 2.5 and ignores `model`.
-Passing `grok-4.7-xhigh` on a bugbot Task does not change what the UI
-shows. This module is the rule; the hook only translates JSON.
+Passing any slug on that type does not change what the UI shows. This module
+is the rule; the hook only translates JSON.
+
+The agent picks the slug from the diff size (see subagent-review.mdc). These
+four are left alone so a rejected launch can be retried with the fallback.
+Anything else, including an omitted model, becomes the large-diff slug.
 
 Run `python3 scripts/guards/task_model.py --self-test` (also a check.sh stage).
 """
@@ -13,7 +17,15 @@ from __future__ import annotations
 import json
 import sys
 
-REQUIRED_MODEL = "grok-4.7-xhigh"
+# Omitted, inherit, -fast, and the old unprefixed slug land here.
+REQUIRED_MODEL = "cursor-grok-4.7-xhigh"
+# Left unchanged so the agent can fall back when a launch is rejected.
+ALLOWED_MODELS = frozenset({
+    "cursor-grok-4.7-xhigh",
+    "cursor-grok-4.6-xhigh",
+    "grok-4.7-medium",
+    "composer-2.5",
+})
 REQUIRED_TYPE = "generalPurpose"
 PINNED_TYPES = frozenset({"bugbot"})
 REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
@@ -65,18 +77,11 @@ def is_review_task(inp: dict) -> bool:
 
 
 def _model_needs_replace(model: str) -> bool:
-    m = model.lower()
-    if m in ("", "inherit"):
-        return True
-    if m == REQUIRED_MODEL.lower():
-        return False
-    if m.startswith("composer-2.5") or m.endswith("-fast"):
-        return True
-    return m != REQUIRED_MODEL.lower()
+    return model.lower() not in ALLOWED_MODELS
 
 
 def rewrite_model_only(inp: dict) -> tuple[dict | None, str]:
-    """Every Task uses the required model, not only reviewer launches."""
+    """Non-review Tasks with an omitted or unknown model get the large-diff slug."""
     if not isinstance(inp, dict) or is_review_task(inp):
         return None, ""
     if "subagent_type" not in inp and "model" not in inp:
@@ -227,6 +232,24 @@ def _self_test() -> int:
             {"subagent_type": "bugbot", "model": "composer-2.5", "description": "Bugbot"},
             True,
             REQUIRED_TYPE,
+            "composer-2.5",
+        ),
+        (
+            {"subagent_type": "generalPurpose", "description": "Bugbot", "model": "cursor-grok-4.6-xhigh"},
+            True,
+            REQUIRED_TYPE,
+            "cursor-grok-4.6-xhigh",
+        ),
+        (
+            {"subagent_type": "generalPurpose", "description": "Bugbot", "model": "grok-4.7-medium"},
+            True,
+            REQUIRED_TYPE,
+            "grok-4.7-medium",
+        ),
+        (
+            {"subagent_type": "generalPurpose", "description": "Bugbot", "model": "grok-4.7-xhigh"},
+            True,
+            REQUIRED_TYPE,
             REQUIRED_MODEL,
         ),
         (
@@ -325,7 +348,7 @@ def _self_test() -> int:
     if hook.get("permission") != "allow" or not isinstance(hook.get("updated_input"), dict):
         print(f"FAIL hook rewrite: {hook!r}", file=sys.stderr)
         failed += 1
-    elif hook["updated_input"].get("model") != REQUIRED_MODEL:
+    elif hook["updated_input"].get("model") != "composer-2.5":
         print(f"FAIL hook model: {hook!r}", file=sys.stderr)
         failed += 1
     elif hook["updated_input"].get("subagent_type") != REQUIRED_TYPE:

@@ -30,7 +30,7 @@ new opportunity for the two copies to disagree.
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | Working-agreement copies (six rules, Commits, push-on-request) | `check.sh` | CI fails |
-| Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
+| Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Type rewritten to `generalPurpose`; an allowed size-chain model is kept; leftover `bugbot` launches denied |
 | Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get one command: `scripts/review-diff.sh`, or `scripts/review-diff.sh HEAD` when the prompt already says so. Pages go to a new `.scratch/review-diff/` directory each run |
 | Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
 | Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
@@ -116,7 +116,7 @@ scripts/guards/          rules, one file each, exit-code based
   lua-syntax.sh          luac -p
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
-  task_model.py          every Task is grok-4.7-xhigh, not Composer-pinned bugbot
+  task_model.py          bugbot type becomes generalPurpose; review slugs stay in the size chain
 scripts/java-home.sh     JDK 17 for Gradle 8.2; sourced by check.sh and deploy.sh
 scripts/review-diff.sh   index on stdout; hunks in a fresh .scratch/review-diff/run-* directory
 scripts/hooks/
@@ -128,7 +128,7 @@ scripts/hooks/
 .cursor/hooks/
   before-shell-execution.py
   after-file-edit.py
-  pre-tool-use.py          Task/subagentStart: model is grok-4.7-xhigh
+  pre-tool-use.py          Task/subagentStart: bugbot type rejected; allowed review models kept
 ```
 
 `scripts/adb-device.sh` is **not** in this list and not in git: it is gitignored
