@@ -260,6 +260,12 @@ That commit's comments, not measured on the phone:
 - One line, or a password, stayed on Android's own layout. The comment says
   the indented layout would wrap that line and draw the password in the clear.
 
+Drawing in `BetterEditText.onDraw` is already scrolled: `View` translates the
+canvas by the scroll before `onDraw`. Translate by padding only. Touch
+coordinates are not scrolled, so ghost hit rects do subtract `getScrollY()`.
+Subtracting it on the canvas too put the ghost and the soft-hyphen marks as
+many lines off as the bar had scrolled (phone, 25 Oct 2026, `1aa21e3b`).
+
 ---
 
 ## Text that avoids a button
