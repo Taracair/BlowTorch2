@@ -1643,8 +1643,13 @@ public class BetterEditText extends EditText {
 		int old = paint.getColor();
 		paint.setColor(getCurrentTextColor());
 		canvas.save();
-		canvas.translate(getTotalPaddingLeft() - getScrollX(),
-				getTotalPaddingTop() - getScrollY());
+		// onDraw's canvas already carries the view scroll; subtracting it again
+		// moved the marks at twice the text's speed (phone, 25 Oct 2026).
+		canvas.clipRect(getCompoundPaddingLeft() + getScrollX(),
+				getExtendedPaddingTop() + getScrollY(),
+				getWidth() - getCompoundPaddingRight() + getScrollX(),
+				getHeight() - getExtendedPaddingBottom() + getScrollY());
+		canvas.translate(getTotalPaddingLeft(), getTotalPaddingTop());
 		try {
 			int lines = layout.getLineCount();
 			float hyphenWidth = paint.measureText("-");
@@ -1772,10 +1777,12 @@ public class BetterEditText extends EditText {
 		if (lineWidth <= 0f) {
 			lineWidth = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
 		}
+		// Hit rects are in touch coordinates (unscrolled); the canvas is already
+		// scrolled, so drawing uses padding only.
 		final float originX = getTotalPaddingLeft() - getScrollX();
 		final float originY = getTotalPaddingTop() - getScrollY();
 		canvas.save();
-		canvas.translate(originX, originY);
+		canvas.translate(getTotalPaddingLeft(), getTotalPaddingTop());
 
 		float endX = lineWidth;
 		float endBaseline = layout.getLineBaseline(layout.getLineCount() - 1);
