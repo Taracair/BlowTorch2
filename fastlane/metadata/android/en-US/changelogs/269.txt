@@ -1,0 +1,3 @@
+BlowTorch 2 v2.4.9
+The mapper can build a map from room ids in the game text, without GMCP. .login and .password send the account stored on the world. .icon set changes a button's picture. Hold a recent-command chip to read it, then lift to send.
+Text between buttons is no longer swallowed. Browse no longer draws new rooms. A quick walk no longer pulls the map marker back. Deleting a server asks you to type its name.
