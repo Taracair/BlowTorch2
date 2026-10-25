@@ -62,6 +62,9 @@ final class ConnectionAliases {
 	/** Remove one alias from the main settings plugin. */
 	void deleteAlias(final String key) {
 		host.mSettings.getSettings().getAliases().remove(key);
+		// The alias list reads this map. The matcher was built earlier and
+		// still holds the removed alias until this runs.
+		host.mSettings.buildAliases();
 		host.buildTriggerSystem();
 	}
 
@@ -70,6 +73,7 @@ final class ConnectionAliases {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
 			p.getSettings().getAliases().remove(key);
+			p.buildAliases();
 			host.buildTriggerSystem();
 		}
 	}
