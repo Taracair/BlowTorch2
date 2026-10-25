@@ -57,7 +57,10 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
 		String key = getItemKey(row);
-		AliasData d = dataMap.get(key);
+		AliasData d = key == null ? null : dataMap.get(key);
+		if (d == null || d.getPre() == null) {
+			return;
+		}
 		Log.e("Trigger","trigger item selected for modification: "+d.getPre());
 
 		AliasEditorDialog editor = new AliasEditorDialog(BetterAliasSelectionDialog.this.getContext(),BetterAliasSelectionDialog.this,d.getPre(),d.getPost(),row,d,service,computeNames(d.getPre()),getSourcePlugin(key));
@@ -67,15 +70,20 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onButtonStateChanged(ImageButton v, int row, int index, boolean statea) {
 		String key = getItemKey(row);
-		AliasData d = dataMap.get(key);
+		AliasData d = key == null ? null : dataMap.get(key);
+		if (d == null) {
+			return;
+		}
 		boolean state = !d.isEnabled();
 		d.setEnabled(state);
 		String src = getSourcePlugin(key);
+		// The map key is the name on the row. getPre() still has ^ and $.
+		String name = displayNameForKey(key);
 		try {
 			if(MAIN_SETTINGS.equals(src)) {
-				service.setAliasEnabled(state, d.getPre());
+				service.setAliasEnabled(state, name);
 			} else {
-				service.setPluginAliasEnabled(src, state, d.getPre());
+				service.setPluginAliasEnabled(src, state, name);
 			}
 		} catch (RemoteException e) {
 
@@ -89,20 +97,24 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onItemDeleted(int row) {
 		String key = getItemKey(row);
+		if (key == null) {
+			return;
+		}
 		AliasData d = dataMap.get(key);
 		String src = getSourcePlugin(key);
+		String name = displayNameForKey(key);
 
 		try {
 			if(MAIN_SETTINGS.equals(src)) {
-				service.deleteAlias(d.getPre());
+				service.deleteAlias(name);
 			} else {
-				service.deletePluginAlias(src, d.getPre());
+				service.deletePluginAlias(src, name);
 			}
 		} catch (RemoteException e) {
 
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterAliasSelectionDialog.alias delete", e);
 		}
-		Log.e("Trigger","alias item selected for delete: "+d.getPre());
+		Log.e("Trigger","alias item selected for delete: " + (d == null ? name : d.getPre()));
 	}
 
 	@Override
@@ -177,10 +189,11 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 				}
 				d.setEnabled(enabled);
 				String src = getSourcePlugin(key);
+				String name = displayNameForKey(key);
 				if (MAIN_SETTINGS.equals(src)) {
-					service.setAliasEnabled(enabled, d.getPre());
+					service.setAliasEnabled(enabled, name);
 				} else {
-					service.setPluginAliasEnabled(src, enabled, d.getPre());
+					service.setPluginAliasEnabled(src, enabled, name);
 				}
 				count++;
 			}
@@ -227,6 +240,9 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		clearListItems();
 		for(int i=0;i<sortedKeys.length;i++) {
 			AliasData data = dataMap.get(sortedKeys[i]);
+			if (data == null) {
+				continue;
+			}
 			// No state badge: the row dims and the toggle changes colour instead.
 			int resource = 0;
 			String title = displayNameForKey(sortedKeys[i]);
@@ -236,7 +252,8 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 					title = src + ": " + title;
 				}
 			}
-			this.addListItem(sortedKeys[i], title, data.getPost(), resource, data.isEnabled());
+			String post = data.getPost() != null ? data.getPost() : "";
+			this.addListItem(sortedKeys[i], title, post, resource, data.isEnabled());
 		}
 
 		invalidateList();

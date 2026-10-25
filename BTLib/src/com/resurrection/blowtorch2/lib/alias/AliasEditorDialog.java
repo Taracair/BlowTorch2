@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Vector;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -544,11 +542,7 @@ public class AliasEditorDialog extends Dialog implements TriggerResponderEditorD
 	Vector<String> offenders = new Vector<String>();
 		//load in the array adapter to hook up the list view
 	public Object[] validateList() throws RemoteException {
-		Boolean retval = true;
-		ArrayList<String> offenders = new ArrayList<String>();
-		//int count = apdapter.getCount();
 		HashMap<String,AliasData> existingAliases = (HashMap<String, AliasData>) service.getAliases();
-		int count = existingAliases.size();
 		
 		CheckBox carrot = (CheckBox)AliasEditorDialog.this.findViewById(R.id.carrot);
 		CheckBox dollar = (CheckBox)AliasEditorDialog.this.findViewById(R.id.dollar);
@@ -593,70 +587,7 @@ public class AliasEditorDialog extends Dialog implements TriggerResponderEditorD
 			existingAliases.put(newKey, tmp);
 		}
 		
-		//build "alias table"
-		String regExp = "";
-		//String suffix = "\\b";
-		//String prefix = "\\b";
-		for(String pre : existingAliases.keySet()) {
-			//if()
-			String suffix = "\\b";
-			String prefix = "\\b";
-			AliasData d = existingAliases.get(pre);
-			//if(!d.equals(original_alias)) {
-				if(d.getPre().startsWith("^")) prefix = "";
-				if(d.getPre().endsWith("$")) suffix = "";
-				regExp += "("+prefix+d.getPre()+suffix+")|";
-			//}
-		}
-		
-		regExp = regExp.substring(0,regExp.length()-1);
-
-		Pattern bigmatch;
-		try {
-			bigmatch = Pattern.compile(regExp);
-		} catch (java.util.regex.PatternSyntaxException bad) {
-			// validatePhaseTwo already rejected the pattern being typed, so getting here
-			// means one of the *saved* aliases will not compile — an imported or
-			// hand-edited profile. The recursion check cannot run, but refusing to save
-			// over it would strand the player with no way out of the editor, and
-			// AliasPattern skips a bad alias at build time anyway.
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
-					"AliasEditorDialog.validateList: a saved alias will not compile,"
-					+ " skipping the circular-reference check", bad);
-			return null;
-		}
-		Matcher reMatch = bigmatch.matcher(testVal);
-		
-		StringBuffer replaceHolder = new StringBuffer();
-		
-		int tries = 0;
-		int maxTries = existingAliases.size() + 5; //size + wiggle room.
-		boolean done = false;
-		while(tries <= maxTries && !done) {
-			boolean matched = false;
-			while(reMatch.find()) {
-				matched = true;
-				AliasData d = existingAliases.get(reMatch.group(0));
-				if(tries > 0) { if(!offenders.contains(reMatch.group(0))) { offenders.add(reMatch.group(0)); } }
-				reMatch.appendReplacement(replaceHolder,
-						Matcher.quoteReplacement(d.getPost()));
-			}
-			if(matched) {
-				reMatch.appendTail(replaceHolder);
-				
-				reMatch.reset(replaceHolder.toString());
-				replaceHolder.setLength(0);
-				tries++;
-			} else {
-				done = true;
-			}
-		}
-		
-		if(tries >= maxTries) {
-			return offenders.toArray();
-		}
-		
-		return null;
+		return AliasEditorCycle.circularNames(existingAliases, testVal);
 	}
 
 	private void setupSetVariableSection() {
