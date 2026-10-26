@@ -175,6 +175,11 @@ An alias substitutes differently depending on its anchors. See
 `AliasExpansion.Mode`. That rule was implicit in a branch inside a 150-line
 method for years.
 
+A rewrite is then split on `;` and **every segment goes through the aliases
+again** (`Connection.processPreparedSegments`), on top of `AliasRecursion`'s
+own passes. `^say (.+)$` → `Say one $1;say two $1` never ends, because
+`say two lol` matches again. `AliasExpansionBudget` caps rewrites per line.
+
 ---
 
 ## The chrome overlay does not move with the keyboard
