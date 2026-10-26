@@ -973,18 +973,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	
 	@Override
 	public void closeConnection(final String display) {
-		Connection c = service.mConnections.get(display);
-		if (c != null) {
-			c.shutdown();
-
-			service.mConnections.remove(display);
-			// The launcher shows this server as connected and had no way to find
-			// out otherwise: only a dropped connection and the duration ticker
-			// ever broadcast. Now that the caller no longer waits for this
-			// method, saying so is the only thing that turns the row grey while
-			// the list is on screen.
-			service.notifyLauncherListChanged();
-		}
+		// Binder thread. shutdown() nulls mSettings under a send running on the
+		// main looper (NPE in getEncoding(), 26 Oct 2026), so close there too.
+		service.mHandler.post(new Runnable() {
+			@Override
+			public void run() {
+				Connection c = service.mConnections.get(display);
+				if (c == null) {
+					return;
+				}
+				c.shutdown();
+				service.mConnections.remove(display);
+				// Only broadcast that turns the launcher row grey on a deliberate exit.
+				service.notifyLauncherListChanged();
+			}
+		});
 	}
 	
 	@Override

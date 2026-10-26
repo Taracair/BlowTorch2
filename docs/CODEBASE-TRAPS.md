@@ -95,6 +95,14 @@ truth) rather than relying on being told to clear it.**
 - **Responders run on two different threads**: triggers on the connection
   thread, timers on a timer thread. Anything they share must be local. One
   shared `Matcher` and `StringBuffer` used to sit in responder instance fields.
+- **Binder calls into `:stellar` run on binder-pool threads, not the main
+  looper**, oneway or not. `Connection` state (`mSettings`, `mHandler`) belongs
+  to the main looper, so `ConnectionBinderFacade` posts anything that mutates it.
+  `closeConnection` used to call `shutdown()` inline and nulled `mSettings`
+  under a send in progress. The cost of posting: `shutdown()` saves settings
+  first, so closing one world pauses the others on that looper for the save
+  (about 2 s on a 285 KB profile, per `cleanExit`). And a main looper stuck in
+  a loop can no longer be shut down from the launcher, only by Force stop.
 
 ## 4. Settings serialisation
 
