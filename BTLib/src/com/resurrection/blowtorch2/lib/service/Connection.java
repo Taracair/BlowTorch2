@@ -120,6 +120,7 @@ import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.window.TimestampFormat;
 import com.resurrection.blowtorch2.lib.service.function.TimestampCommand;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
+import com.resurrection.blowtorch2.lib.alias.AliasExpansionBudget;
 import com.resurrection.blowtorch2.lib.alias.AliasLocalEcho;
 
 import android.content.Context;
@@ -4243,6 +4244,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			empty.mVisString = "";
 			return empty;
 		}
+		AliasExpansionBudget aliasBudget = new AliasExpansionBudget();
+		boolean overBudget = false;
 		ListIterator<String> iterator = list.listIterator();
 		while (iterator.hasNext()) {
 			String cmd = iterator.next();
@@ -4382,6 +4385,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								String tmpstr = new String(tmp, mSettings.getEncoding());
 								if (!d.mCmdString.equals(tmpstr)) {
 									//alias replaced, needs to be processed
+									if (!aliasBudget.spend()) {
+										overBudget = true;
+										break;
+									}
 									matchedPolicy = p.getLastReplacementLocalEcho();
 									
 									List<String> aliasCommands = null;
@@ -4409,7 +4416,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								}
 							}
 						}
-							
+						if (overBudget) {
+							break;
+						}
+
 						if (!didReplace) {
 							if (tmp != null) {
 								if (m) {
@@ -4442,6 +4452,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			
 
 			}
+		}
+		if (overBudget) {
+			// Partial output would be hundreds of near-identical lines to the MUD.
+			mDataToServer.setLength(0);
+			mDataToWindow.setLength(0);
+			reportRuntimeError("alias replacement",
+					new IllegalStateException(aliasBudget.limitMessage()));
 		}
 		//7 - return Data packet with commands to send to server, and data to send to window.
 		Data d = new Data();
