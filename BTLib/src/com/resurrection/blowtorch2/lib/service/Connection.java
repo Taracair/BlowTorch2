@@ -4249,6 +4249,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		ListIterator<String> iterator = list.listIterator();
 		while (iterator.hasNext()) {
 			String cmd = iterator.next();
+			aliasBudget.take();
 			// Case-sensitive worlds: Look → look. Skip while telnet ECHO holds the
 			// password mask so a capital in a password is not rewritten.
 			cmd = CommandCase.softenForSend(cmd,
@@ -4398,6 +4399,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 										aliasCommands = new ArrayList<String>(1);  
 										aliasCommands.add(tmpstr);
 									}
+									aliasBudget.children(aliasCommands.size());
 									// Outer typed match owns echo for the whole
 									// expansion chain; nested reprocess keeps it.
 									AliasLocalEcho forChildren = stickyPolicy

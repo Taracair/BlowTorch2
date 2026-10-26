@@ -178,7 +178,9 @@ method for years.
 A rewrite is then split on `;` and **every segment goes through the aliases
 again** (`Connection.processPreparedSegments`), on top of `AliasRecursion`'s
 own passes. `^say (.+)$` → `Say one $1;say two $1` never ends, because
-`say two lol` matches again. `AliasExpansionBudget` caps rewrites per line.
+`say two lol` matches again. `AliasExpansionBudget` caps the depth (20) and
+the total (1000). Depth is the bound that matters: each level makes the line
+longer, and the total alone took about 90 s on the phone with 145 aliases.
 
 ---
 
