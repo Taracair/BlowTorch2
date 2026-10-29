@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.10
+Editing or deleting an alias no longer returns you to server select. An alias that rewrites every line to the same command no longer reports a loop.
+An alias that sends itself after a semicolon no longer freezes the game. Closing a world while a command is still running no longer crashes.
+Long text in the input bar keeps its suggestion and wrap marks when you scroll.
