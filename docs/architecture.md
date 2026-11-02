@@ -352,8 +352,11 @@ sequenceDiagram
    kept a half-line back, including a prompt flushed on the timer.
 5. Bytes enter a working **`TextTree`** (`addBytesImpl` — colour / CSI holdover
    across packet boundaries). OSC 8 (`ESC ]8;params;URI` BEL or ST) stamps an
-   href on following text until a close; `OscEight` allows only http / https /
-   mailto. `dumpToBytes` writes those hrefs back as OSC 8 so the window's
+   href on following text until a close. `OscEight` keeps `http`, `https`,
+   `mailto`, and `ftp` (opened in the browser), `send:` and `prompt:`, and the
+   MXP hrefs `mxp-send:`, `mxp-menu:`, `mxp-prompt:`, and `mxp-expire:`.
+   `javascript:`, `data:`, `vbscript:`, `file:`, and `preset:` are dropped.
+   `dumpToBytes` writes those hrefs back as OSC 8 so the window's
    `addBytesImpl` sees them (colour already had `bin`; href did not). Regex
    linkify (`hyperlinks_enabled`) is a separate pass. BTIMG inline images ride
    the same OSC skip path.

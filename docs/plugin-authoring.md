@@ -533,7 +533,10 @@ Rewrite it here if both should see the same line.
 
 A list whose length changes, which a fixed tappable trigger cannot name in
 advance, can be marked in the returned bytes. `.osc8` is on by default. The
-same form as `.probe osc8`:
+window keeps `http`, `https`, `mailto`, and `ftp` (opened in the browser),
+`send:` and `prompt:`, and the MXP schemes `mxp-send:`, `mxp-menu:`,
+`mxp-prompt:`, and `mxp-expire:`. `javascript:`, `data:`, `vbscript:`,
+`file:`, and `preset:` are ignored. The same form as `.probe osc8`:
 
 ```lua
 function OnIncoming(data)
