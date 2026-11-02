@@ -1,6 +1,6 @@
 # How BlowTorch 2 is built
 
-**As of 29 October 2026** · shipped tip **v2.4.10** (`versionCode` 270)
+**As of 2 November 2026** · shipped tip **v2.4.10** (`versionCode` 270)
 
 This is the architecture map for anyone taking on the codebase: human or
 assistant. It describes **how the app is structured**, not how to play it and
@@ -329,6 +329,7 @@ sequenceDiagram
   DP->>Conn: MESSAGE_PROCESS
   Conn->>Proc: rawProcess (IAC / GMCP side effects)
   Proc-->>Conn: payload bytes
+  Conn->>Conn: OnIncoming after MCP and line holdover
   Conn->>Pipe: addBytesImpl, strip ANSI, match triggers
   Pipe->>UI: buffer notify / IWindowCallback
   UI->>UI: onDraw walks TextTree on UI thread
@@ -339,18 +340,28 @@ sequenceDiagram
 2. **`Processor.rawProcess`** handles telnet IAC and pulls GMCP (and related)
    out of band; remaining bytes are the display/trigger stream.
 3. Optional **MCP** filter (`McpEngine`) may rewrite the stream.
-4. Bytes enter a working **`TextTree`** (`addBytesImpl` — colour / CSI holdover
+4. **`OnIncoming`** (`Plugin.filterIncoming`, chained by `InboundTextHook`)
+   sees each finished chunk: main settings first, then enabled plugins in
+   load order. A returned string replaces the chunk, and the next plugin
+   sees that string. An empty string after the last plugin drops the chunk.
+   Nil leaves the current bytes. No plugin defines the function: the bytes are unchanged
+   and Lua is not called. The display parser drops `ESC` plus the next byte
+   when that byte does not open CSI, OSC, DCS, APC, or PM.
+   `Colorizer.stripAnsiEscapes` only removes CSI and OSC. A rewrite here is
+   what both the window and the triggers then see. Line holdover has already
+   kept a half-line back, including a prompt flushed on the timer.
+5. Bytes enter a working **`TextTree`** (`addBytesImpl` — colour / CSI holdover
    across packet boundaries). OSC 8 (`ESC ]8;params;URI` BEL or ST) stamps an
    href on following text until a close; `OscEight` allows only http / https /
    mailto. `dumpToBytes` writes those hrefs back as OSC 8 so the window's
    `addBytesImpl` sees them (colour already had `bin`; href did not). Regex
    linkify (`hyperlinks_enabled`) is a separate pass. BTIMG inline images ride
    the same OSC skip path.
-5. **`Colorizer.stripAnsiEscapes`** feeds the trigger cascade (`TriggerCascade`,
+6. **`Colorizer.stripAnsiEscapes`** feeds the trigger cascade (`TriggerCascade`,
    one pattern per trigger, list order) and session logging.
-6. Matching **triggers** run **responders** (gag, replace, colour, script, …)
+7. Matching **triggers** run **responders** (gag, replace, colour, script, …)
    on the connection thread.
-7. Finished lines land in the main **`WindowToken`** buffer; the UI is notified
+8. Finished lines land in the main **`WindowToken`** buffer; the UI is notified
    over AIDL and **`Window`** draws on the UI thread only.
 
 **GMCP** is mostly out-of-band: mapper sync, extra-text routing, frames, module

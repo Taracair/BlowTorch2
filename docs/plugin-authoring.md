@@ -446,6 +446,7 @@ Parse XML → new Plugin + initLua (register API)
 loadPlugins → init timers, build triggers/aliases
             → push all options via OnOptionChanged
 Connection ready → OnBackgroundStartup()   (before TCP connect)
+Each finished server chunk → OnIncoming(data)   (before display and triggers)
 UI attaches windows → OnCreate / OnDraw / …
 Option change → OnOptionChanged(key, value)
 Save → OnXmlExport(out)
@@ -460,6 +461,7 @@ Shutdown → window OnDestroy; plugin Lua state dropped
 | `OnPrepareXML(root)` | After bootstrap, if defined |
 | `OnOptionChanged(key, value)` | Load dump + each Options change |
 | `OnBackgroundStartup()` | All plugins loaded, before connect |
+| `OnIncoming(data)` | Finished server lines, before display and triggers. See §5.3 |
 | `OnXmlExport(serializer)` | Settings save |
 | Trigger `<script function="fn">` | Match → global `fn` |
 | `RegisterSpecialCommand(cmd, fn)` | Player types `.cmd …` |
@@ -479,6 +481,86 @@ plugin does not get that callback unless it is named `starter_tutorial`.
 | `OnDestroy` | Teardown |
 
 Drawing belongs in **window** Lua only. Service-side `DrawWindow` is disabled.
+
+### 5.3 `OnIncoming` — rewrite server text in place
+
+```lua
+function OnIncoming(data)
+  return data
+end
+```
+
+The argument is the **bytes** of one finished arrival, in the world's
+encoding. Telnet, MXP, and GMCP have already been taken out. MCP has already
+rewritten the stream when that filter is on. A line split across two packets
+arrives whole. Several lines in one arrival, newlines included, are one call.
+The held tail is a later call: a prompt the client gave up waiting on, often
+with no newline. The half-line shown because the connection died is not
+passed to `OnIncoming`. It is shown as the server sent it.
+
+The call sits before the window, triggers, the mapper's text capture, gauges,
+the prompt bar, and the session log. Those see the chunk that is left after
+every plugin has returned.
+
+| Return | Effect |
+|--------|--------|
+| nothing, `nil`, or not a string | This plugin leaves the chunk alone |
+| a string | Replaces the chunk, including colour codes you insert |
+| `""` | Replaces the chunk with nothing. A later plugin still sees that empty string. The chunk is dropped when it is still empty after the last plugin. A dropped prompt clears the prompt bar |
+
+Main settings run first, then each **enabled** plugin in load order. Each one
+sees the previous plugin's text. A disabled plugin is skipped. A Lua error
+leaves that plugin's input unchanged, prints the red error line, and the next
+plugin still runs. With no `OnIncoming` defined anywhere, the chunk is not
+passed to Lua.
+
+Define it in the plugin body or in `OnBackgroundStartup`. It is picked up when
+the world loads and again when triggers are rebuilt. The window VM does not
+have this callback. `buttonwindow.lua` never sees it.
+
+`Note()`, `AppendLineToWindow()`, and `SendToServer()` from inside the
+function are separate messages. They run after this chunk, so they cannot
+land in the middle of the line you are looking at. Return the line when the
+change has to be part of that line. `Note("sp3")` after a trigger is a new
+line later. The return value is the line the window parses now, which is why
+a colour code or an OSC 8 link in the string shows up on that line.
+
+The display parser drops `ESC` plus the next byte when that byte does not
+open CSI (`[`), OSC (`]`), DCS, APC, or PM. Trigger matching does not: it
+only strips `ESC[` colours and OSC. A private `ESC<…>` tag is therefore
+missing its introducer on screen and still present in the text triggers see.
+Rewrite it here if both should see the same line.
+
+A list whose length changes, which a fixed tappable trigger cannot name in
+advance, can be marked in the returned bytes. `.osc8` is on by default. The
+same form as `.probe osc8`:
+
+```lua
+function OnIncoming(data)
+  return (data:gsub("spells: ([^\r\n]+)", function(list)
+    local parts = {}
+    for name in list:gmatch("[^,]+") do
+      name = (name:gsub("^%s+", ""):gsub("%s+$", ""))
+      if name ~= "" then
+        parts[#parts + 1] = "\27]8;;send:help spell " .. name .. "\7"
+            .. name .. "\27]8;;\7"
+      end
+    end
+    return "spells: " .. table.concat(parts, ", ")
+  end))
+end
+```
+
+Tapping `heal` sends `help spell heal`. `gsub` also returns a count. Only
+the first return is kept, and that first return is the string.
+
+`SendToServer(".map room " .. id)` from this function tells the mapper about
+a room the way a trigger's Send action does. The command runs after this
+chunk. Leave the id line in the text as well and both that command and a
+Capture Room ID Regex will see a room.
+
+`Simulate()` on the same bytes feeds them back through `OnIncoming`. Return
+the text instead of simulating it.
 
 ---
 

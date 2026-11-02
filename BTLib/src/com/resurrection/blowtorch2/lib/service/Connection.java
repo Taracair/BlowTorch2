@@ -451,6 +451,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * that triggers, gags and the display only ever see finished lines.
 	 */
 	private final IncomingLineHoldover mLineHoldover = new IncomingLineHoldover();
+	/**
+	 * Plugins whose Lua defines {@code OnIncoming}, main settings first.
+	 * Rebuilt on the connection thread when {@link #mInboundHooksStale} is set.
+	 */
+	private final ArrayList<InboundTextHook.Filter> mInboundHookFilters =
+			new ArrayList<InboundTextHook.Filter>();
+	/** Set from any thread. The connection thread is what walks Lua. */
+	private volatile boolean mInboundHooksStale = true;
 	/** {@code .prompt on}: the unfinished last line goes to its own bar. */
 	private boolean mPromptBar = false;
 	/** {@code .complete on}: incoming text feeds the UI's word completer. */
@@ -880,7 +888,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_FLUSH_LINE_HOLDOVER:
 				try {
-					flushLineHoldover();
+					flushLineHoldover(true);
 				} catch (UnsupportedEncodingException bad) {
 					// The profile's encoding is unusable; dropping the fragment
 					// is better than losing the handler to it.
@@ -1726,6 +1734,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Shuts down all running plugins and clears associated structures.*/
 	void shutdownPlugins() {
+		mInboundHooksStale = true;
 		for (Plugin p : mPlugins) {
 			p.shutdown();
 			p = null;
@@ -1919,7 +1928,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			requestGaugeWidgetValues();
 		}
 		mService.reloadWindows();
-		
+		// OnBackgroundStartup has run, so a function defined there is visible.
+		mInboundHooksStale = true;
 	}
 
 	/**
@@ -2765,7 +2775,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		cancelCommandWaits();
 		if (mLineHoldover.hasHeld()) {
 			try {
-				flushLineHoldover();
+				// Shown as the server sent it. A plugin send from OnIncoming
+				// here would run while the connection is coming down.
+				flushLineHoldover(false);
 			} catch (UnsupportedEncodingException bad) {
 				mLineHoldover.clear();
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
@@ -2946,6 +2958,66 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Setter for triggersDirty. */
 	public final void setTriggersDirty() {
 		triggersDirty = true;
+		mInboundHooksStale = true;
+	}
+
+	/**
+	 * Run {@code OnIncoming} on a finished chunk. No registered function
+	 * returns the same array. An empty result drops the chunk.
+	 *
+	 * <p>A caller that is not the connection thread gets the bytes unchanged.
+	 * {@code killNetThreads} does not call this at all.
+	 */
+	private byte[] applyInboundHook(final byte[] raw) {
+		if (raw == null || raw.length == 0) {
+			return raw;
+		}
+		if (!onConnectionThread()) {
+			return raw;
+		}
+		if (mInboundHooksStale) {
+			rebuildInboundHooks();
+		}
+		if (mInboundHookFilters.isEmpty()) {
+			return raw;
+		}
+		return InboundTextHook.apply(raw, mInboundHookFilters);
+	}
+
+	private boolean onConnectionThread() {
+		return mHandler != null
+				&& Thread.currentThread() == mHandler.getLooper().getThread();
+	}
+
+	/** Connection thread only: {@code offersInboundHook} touches that plugin's Lua state. */
+	private void rebuildInboundHooks() {
+		while (mInboundHooksStale) {
+			mInboundHooksStale = false;
+			mInboundHookFilters.clear();
+			addInboundHook(mSettings);
+			if (mPlugins != null) {
+				for (int i = 0; i < mPlugins.size(); i++) {
+					addInboundHook(mPlugins.get(i));
+				}
+			}
+		}
+	}
+
+	private void addInboundHook(final Plugin plugin) {
+		if (plugin == null || !plugin.isEnabled() || !plugin.offersInboundHook()) {
+			return;
+		}
+		mInboundHookFilters.add(new InboundTextHook.Filter() {
+			@Override
+			public byte[] apply(final byte[] text) {
+				try {
+					return plugin.filterIncoming(text);
+				} catch (RuntimeException e) {
+					BlowTorchLogger.logMinor("OnIncoming " + plugin.getName(), e);
+					return null;
+				}
+			}
+		});
 	}
 
 	/** THE INCOMING DATA DISPATCH ROUTINE! Unicorns and puppies and all kinds of good things live here.
@@ -3002,17 +3074,36 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (ready.length == 0) {
 			return;
 		}
+		// OnIncoming rewrites the finished lines before display and triggers.
+		ready = applyInboundHook(ready);
+		if (ready.length == 0) {
+			return;
+		}
 		dispatchWholeLines(ready);
 	}
 
 	/**
 	 * Release the half-line that has been waiting, because nothing came to
 	 * finish it. Overwhelmingly this is a prompt.
+	 *
+	 * @param hook false when the connection is dying. That line is shown as
+	 *        the server sent it.
 	 */
-	private void flushLineHoldover() throws UnsupportedEncodingException {
+	private void flushLineHoldover(final boolean hook) throws UnsupportedEncodingException {
 		byte[] held = mLineHoldover.flush();
 		if (held.length == 0) {
 			return;
+		}
+		if (hook) {
+			held = applyInboundHook(held);
+			if (held.length == 0) {
+				// The hook dropped this prompt. Leave the bar blank rather than
+				// keeping the previous one.
+				if (mPromptBar) {
+					mService.doPromptLine(mDisplay, "");
+				}
+				return;
+			}
 		}
 		// Whatever comes out here is, by construction, a line the world never
 		// finished — which on a MUD means the prompt. That is why the prompt bar

@@ -1818,6 +1818,55 @@ Note("Example text!")
 		}
 	}
 
+	/**
+	 * {@code OnIncoming(data)}. Runs on the connection thread for a finished
+	 * chunk, before that chunk is displayed or matched.
+	 *
+	 * <p>Null means leave the chunk alone (no function, a Lua error, nil, or
+	 * any return that is not a string). An empty array drops the chunk. The
+	 * error handler is {@code -3}: the argument sits above the function, and
+	 * {@code -2} would call {@code OnIncoming} again with the error object.
+	 */
+	public byte[] filterIncoming(final byte[] data) {
+		if (L == null || data == null) {
+			return null;
+		}
+		L.getGlobal("debug");
+		L.getField(-1, "traceback");
+		L.remove(-2);
+
+		L.getGlobal("OnIncoming");
+		if (!L.isFunction(-1)) {
+			L.pop(2);
+			checkStack("OnIncoming");
+			return null;
+		}
+		L.pushString(data);
+		int ret = L.pcall(1, 1, -3);
+		if (ret != 0) {
+			displayLuaError("Plugin: " + getName() + " OnIncoming() Error:"
+					+ L.getLuaObject(-1).getString());
+			L.pop(2);
+			checkStack("OnIncoming");
+			return null;
+		}
+		byte[] out = null;
+		if (L.type(-1) == LuaState.LUA_TSTRING.intValue()) {
+			out = L.toBytes(-1);
+			if (out == null) {
+				out = new byte[0];
+			}
+		}
+		L.pop(2);
+		checkStack("OnIncoming");
+		return out;
+	}
+
+	/** True when this plugin's Lua state defines {@code OnIncoming}. */
+	public boolean offersInboundHook() {
+		return checkPluginSupports("OnIncoming");
+	}
+
 	public boolean checkPluginSupports(String function) {
 		if(L != null) {
 			L.getGlobal(function);
