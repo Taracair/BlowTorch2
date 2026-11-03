@@ -2063,21 +2063,27 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						doingLink = true;
 						mCurrentLink.append(piece);
 					}
-					if (!scrollingGesture) {
+					if (!scrollingGesture || mLinkMode == LINK_MODE.BACKGROUND) {
 						Rect r = new Rect();
 						final float linkY = screenBaselineY(dy);
 						r.left = (int) dx;
 						r.top = (int) (linkY - textPaint.getTextSize());
 						r.right = (int) (dx + cellWidth(CellWidth.cells(piece)));
 						r.bottom = (int) (linkY + 5);
-						LinkBox linkbox = new LinkBox(null, r);
-						if (osc8) {
-							linkbox.setData(text.getHref());
+						fillLinkBackground(c, r);
+						if (!scrollingGesture) {
+							LinkBox linkbox = new LinkBox(null, r);
+							if (osc8) {
+								linkbox.setData(text.getHref());
+							}
+							linkbox.setLabel(piece);
+							linkBoxes.add(linkbox);
 						}
-						linkbox.setLabel(piece);
-						linkBoxes.add(linkbox);
 					}
-					drawPaint = linkColor != null ? linkColor : textPaint;
+					if (linkColor != null) {
+						styleLinkGlyph(linkColor, textPaint);
+						drawPaint = linkColor;
+					}
 				}
 			}
 			markTappableWords(c, text, dx, dy, drawPaint, scrollingGesture, tapCol + utf16,
@@ -5097,10 +5103,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								r.top = (int) (linkY - p.getTextSize());
 								r.right = (int) (x + cellWidth(text));
 								r.bottom = (int) (linkY + 5);
-								if (mLinkMode == LINK_MODE.BACKGROUND) {
-									linkColor.setColor(themedLinkColor());
-									c.drawRect(r.left, r.top, r.right, r.bottom, linkColor);
-								}
+								fillLinkBackground(c, r);
 								
 								int linkBoxHeightDips = (int) ((r.bottom - r.top) / this.getResources().getDisplayMetrics().density);
 								if (linkBoxHeightDips < mLinkBoxHeightMinimum) {
@@ -5123,56 +5126,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 						}
 						if (doingLink || osc8) {
-							switch(mLinkMode) {
-							case NONE:
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								linkColor.setUnderlineText(false);
-								linkColor.setColor(p.getColor());
-								break;
-							case HIGHLIGHT:
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								linkColor.setColor(p.getColor());
-								linkColor.setUnderlineText(true);
-								break;
-							case HIGHLIGHT_COLOR:
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								linkColor.setColor(themedLinkColor());
-								linkColor.setUnderlineText(true);
-								break;
-							case HIGHLIGHT_COLOR_ONLY_BLAND:
-								
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								if (mSelectedColor == 37) {
-									linkColor.setColor(themedLinkColor());
-								} else {
-									linkColor.setColor(p.getColor());
-								}
-								linkColor.setUnderlineText(true);
-								break;
-							case BACKGROUND:
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								linkColor.setUnderlineText(false);
-								//calculate the "reverse-most-constrasty-color"
-								int counterpart = 0xFF000000 | (mLinkHighlightColor ^ 0xFFFFFFFF);
-								linkColor.setColor(counterpart);
-								break;
-							default:
-								linkColor.setTextSize(p.getTextSize());
-								linkColor.setTypeface(p.getTypeface());
-								linkColor.setUnderlineText(false);
-								linkColor.setColor(themedLinkColor());
-							}
-							linkColor.setStrikeThruText(p.isStrikeThruText());
-							linkColor.setTextSkewX(p.getTextSkewX());
-							applyTerminalFontFeatures(linkColor);
-							if (p.isUnderlineText()) {
-								linkColor.setUnderlineText(true);
-							}
+							styleLinkGlyph(linkColor, p);
 							
 							markTappableWords(c, text, x, y, linkColor, scrollingGesture, tapCol);
 							tapCol += text.getString() != null ? text.getString().length() : 0;
@@ -7371,6 +7325,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int themedLinkColor() {
 		return LightPaper.remapForeground(mLinkHighlightColor, mLightPaper, false,
 				mLightPaperShade);
+	}
+
+	/** Link-mode bar behind the glyphs. Uses {@code linkColor}, so style the glyphs after. */
+	private void fillLinkBackground(final Canvas c, final Rect r) {
+		if (mLinkMode != LINK_MODE.BACKGROUND || linkColor == null || c == null || r == null) {
+			return;
+		}
+		linkColor.setColor(themedLinkColor());
+		c.drawRect(r.left, r.top, r.right, r.bottom, linkColor);
+	}
+
+	/** Size, face, and letter colour for one link run. */
+	private void styleLinkGlyph(final Paint link, final Paint src) {
+		link.setTextSize(src.getTextSize());
+		link.setTypeface(src.getTypeface());
+		final int selected = mSelectedColor.intValue();
+		link.setColor(LinkGlyphStyle.color(mLinkMode, src.getColor(), themedLinkColor(),
+				mLinkHighlightColor, selected));
+		link.setUnderlineText(LinkGlyphStyle.modeUnderline(mLinkMode) || src.isUnderlineText());
+		link.setStrikeThruText(src.isStrikeThruText());
+		link.setTextSkewX(src.getTextSkewX());
+		applyTerminalFontFeatures(link);
 	}
 
 	/** Scale resolved FG toward the paper by the player's dim strength. */
