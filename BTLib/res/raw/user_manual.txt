@@ -395,7 +395,7 @@ alive; without a stable address many worlds still drop the character.
     .suggest order left | right
     .suggest opacity N | persist on | off
     .suggest next on | off
-    .suggest phrases on | off | plain on | off | short on | off
+    .suggest phrases on | off | symbols on | off | plain on | off | short on | off
     .suggest loose on | off | typos on | off
     .suggest skiphead on | off | firstletter on | off
     .suggest ghost on | off | ghostlines N
@@ -492,6 +492,21 @@ that does not fit.
 > whatever you had chosen is still chosen, it simply answers to `.suggest plain`
 > now. If you have `.suggest short` in a button or a note, it now turns on the
 > option described next.
+
+### Symbols inside a word
+
+```
+.suggest symbols on
+.suggest symbols off
+```
+
+**Off by default.** The same switch is **Options → Suggestions → Keep symbols in the word**.
+
+Off, a symbol ends the word. The game says `@create_command` and you type `@create_`. The chip says `command`. Tap it and the bar reads `@create_ command`, with a space you did not want.
+
+A hyphen in the middle already stays. On, `_` `@` `.` `/` `:` and the other marks that sit inside a name stay in the word too. `@create_` offers `@create_command`. Tap it and the bar reads `@create_command`. A space still starts the next word. A comma, a quote, a bracket, or a period or colon at the end still ends one, and a dash at either end still comes off.
+
+It reads lines the game sends after you turn it on. A name already split stays split until the game says it again.
 
 ### Shorter suggestions first
 

@@ -922,6 +922,9 @@ bar under Options → Panes, or on
   .suggest firstletter on|off
                           two mistakes may change the first letter
   .suggest phrases on|off offer whole names, not only the one word
+  .suggest symbols on|off keep _ and @ inside the word, so @create_
+                          finishes @create_command instead of "command"
+                          with a space in front
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent. The rest of the word stays
                           glued; a different word has one space in front, and

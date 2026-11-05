@@ -466,6 +466,14 @@ All of these live under **Options → Suggestions**.
 
 - **Complete words the game used** — `.suggest on|off`. While off, incoming text
   is not even sent to the completer, so it costs nothing.
+- **Keep symbols in the word** — `.suggest symbols on|off`. **Off by default.**
+  A symbol ends the word, so `@create_` offers `command` and taking it
+  leaves `@create_ command`. On, `@create_` offers `@create_command` and
+  taking it leaves `@create_command`. A space still starts the next word.
+  A period or colon at the end still ends the word, and a dash at either
+  end still comes off.
+  Lines already on screen keep the split they had until the game says
+  that name again.
 - **Suggest the next word** — `.suggest next on|off`. **On by default.** After
   a finished word and a space, offer the one word that followed it in the game:
   the game shows `cave troll emerges`, you type `cave` and a space, and it

@@ -681,6 +681,136 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aSymbolSplitsTheWordUntilAskedNotTo() {
+		WordSuggestions w = new WordSuggestions();
+		assertFalse(w.keepsSymbols());
+		w.learn("Type @create_command to build one.\n");
+		String typed = "@create_";
+		assertEquals("", WordSuggestions.wordBefore(typed, typed.length()));
+		assertEquals("create",
+				WordSuggestions.completedWordBefore(typed, typed.length()));
+		assertEquals(java.util.Arrays.asList("command"), w.suggestNext("create", 4));
+		assertEquals("@create_ command ",
+				GhostSpacing.accept(typed, typed.length(), "command").text());
+	}
+
+	@Test
+	public void symbolsFinishTheWholeToken() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("Type @create_command to build one.\n");
+		String typed = "@create_";
+		assertEquals(typed, WordSuggestions.wordBefore(typed, typed.length(), true));
+		assertEquals(java.util.Arrays.asList("@create_command"), w.suggest("@cr", 5));
+		assertEquals(java.util.Arrays.asList("@create_command"),
+				w.suggest("@create_", 5));
+		assertEquals("@create_command ",
+				WordSuggestions.complete(typed, typed.length(), "@create_command", true)
+						.text());
+		assertEquals("@create_command ",
+				GhostSpacing.accept(typed, typed.length(), "@create_command", true).text());
+	}
+
+	@Test
+	public void symbolsStillSplitOnASpace() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("kill the goblin\n");
+		assertEquals(java.util.Arrays.asList("goblin"), w.suggest("gob", 5));
+		assertTrue(w.suggest("kill", 5).isEmpty());
+	}
+
+	@Test
+	public void aTrailingPeriodIsNotPartOfTheSymbolWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("You see a goblin.\n");
+		assertEquals(java.util.Arrays.asList("goblin"), w.suggest("gob", 5));
+	}
+
+	@Test
+	public void aDottedNameStaysOneWordWhenSymbolsAreOn() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("Look at file.txt now.\n");
+		assertEquals(java.util.Arrays.asList("file.txt"), w.suggest("fil", 5));
+		assertEquals(java.util.Arrays.asList("file.txt"), w.suggest("file.", 5));
+		assertEquals("file.txt ",
+				GhostSpacing.accept("file.", 5, "file.txt", true).text());
+	}
+
+	@Test
+	public void aSentenceMarkDoesNotFinishADifferentWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("A grizzled wolf.\nA goblinoid stands.\nA goblin attacks.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("grizled", 5));
+		assertTrue(w.suggest("goblin.", 5).isEmpty());
+		assertTrue(w.suggest("grizled.", 5).isEmpty());
+		assertEquals(java.util.Arrays.asList("attacks"), w.suggestNext("goblin.", 4));
+		assertEquals("goblin. attacks ",
+				GhostSpacing.accept("goblin.", 7, "attacks", true).text());
+		assertEquals("goblin. goblins ",
+				GhostSpacing.accept("goblin.", 7, "goblins", true).text());
+		w.learn("Set foo:bar now.\nHello Name:\n");
+		assertEquals(java.util.Arrays.asList("foo:bar"), w.suggest("foo:", 5));
+		assertTrue(w.suggest("name:", 5).isEmpty());
+	}
+
+	@Test
+	public void aDashAtEitherEndStillComesOff() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a sword lies here\na well-known path\n");
+		w.learnCommand("swing- sword");
+		assertEquals("sword", w.suggest("swo", 5, false, "swing").get(0));
+		assertEquals(java.util.Arrays.asList("well-known"), w.suggest("well-k", 5));
+		String learned = w.describeLearned(12, 6);
+		assertTrue(learned.contains("swing"));
+		assertFalse(learned.contains("swing-"));
+	}
+
+	@Test
+	public void aLeadingPeriodStaysOutsideTheCompletedWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("Say hello to ../docs and .hello now.\n");
+		String typed = ".hel";
+		assertEquals("hel", WordSuggestions.wordBefore(typed, typed.length(), true));
+		assertEquals(java.util.Arrays.asList("hello"), w.suggest("hel", 5));
+		assertEquals(".hello ",
+				GhostSpacing.accept(typed, typed.length(), "hello", true).text());
+		String path = "../do";
+		assertEquals("/do", WordSuggestions.wordBefore(path, path.length(), true));
+		assertEquals(java.util.Arrays.asList("/docs"), w.suggest("/do", 5));
+		assertEquals("../docs ",
+				GhostSpacing.accept(path, path.length(), "/docs", true).text());
+		assertEquals("hel", WordSuggestions.wordBefore(":hel", 4, true));
+		assertEquals(":hello ",
+				GhostSpacing.accept(":hel", 4, "hello", true).text());
+	}
+
+	@Test
+	public void aTrailingDashOrMarkDoesNotFinishADifferentWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.setSymbols(true);
+		w.learn("The wells and a well-known path.\nHe kills it.\n");
+		assertEquals(java.util.Arrays.asList("well-known"), w.suggest("well-", 5));
+		assertTrue(w.suggest("kill@", 5).isEmpty());
+		assertTrue(w.suggest("kill_", 5).isEmpty());
+		assertEquals("well-known ",
+				GhostSpacing.accept("well-", 5, "well-known", true).text());
+		assertEquals("well- wells ",
+				GhostSpacing.accept("well-", 5, "wells", true).text());
+		assertEquals("kill@kills ",
+				GhostSpacing.accept("kill@", 5, "kills", true).text());
+		assertEquals("kill_ kills ",
+				GhostSpacing.accept("kill_", 5, "kills", true).text());
+	}
+
+	@Test
 	public void aPhraseOffersTheWholeNameAndThenTheWordAlone() {
 		WordSuggestions w = new WordSuggestions();
 		w.setPhrases(true);

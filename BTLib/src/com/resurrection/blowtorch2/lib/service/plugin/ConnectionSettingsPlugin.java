@@ -273,6 +273,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_next.setValue(true);
 		suggestions.addOption(word_complete_next);
 
+		BooleanOption word_complete_symbols = new BooleanOption();
+		word_complete_symbols.setTitle("Keep symbols in the word");
+		word_complete_symbols.setDescription("Finish @create_command as one word, instead of the piece after _ or another symbol.");
+		word_complete_symbols.setKey("word_complete_symbols");
+		word_complete_symbols.setValue(false);
+		suggestions.addOption(word_complete_symbols);
+
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");
 		word_complete_where.setDescription("Where suggestions sit: floating over the game, in a strip below it, in a list window, or nowhere so only the ghost remains.");

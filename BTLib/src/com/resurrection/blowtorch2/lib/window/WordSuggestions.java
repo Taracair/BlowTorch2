@@ -323,6 +323,12 @@ public final class WordSuggestions {
 	/** Offer the words that followed, not only the word itself. */
 	private boolean phrases = false;
 
+	/**
+	 * A mark such as {@code _} stays inside the word. Off by default: {@code @}
+	 * and {@code _} still split {@code @create_command} into two words.
+	 */
+	private boolean symbols = false;
+
 	/** After a finished word, offer the one word that followed it. On by default. */
 	private boolean suggestNextWord = true;
 
@@ -447,6 +453,19 @@ public final class WordSuggestions {
 	}
 
 	/**
+	 * Whether {@code _}, {@code @}, {@code .} and the other joining marks stay
+	 * inside one word. Off by default. A space still starts the next word.
+	 * Lines already learned keep the split they had.
+	 */
+	public void setSymbols(final boolean on) {
+		this.symbols = on;
+	}
+
+	public boolean keepsSymbols() {
+		return symbols;
+	}
+
+	/**
 	 * After a space, offer the single word that followed the one just finished.
 	 * On by default. Whole names ({@link #setPhrases}) are a different offer:
 	 * the phrase while the first word is still being typed.
@@ -565,7 +584,7 @@ public final class WordSuggestions {
 		String[] parts = trimmed.split("\\s+");
 		String verb = null;
 		for (int i = 0; i < parts.length; i++) {
-			String key = commandWord(parts[i]);
+			String key = commandWord(parts[i], symbols);
 			if (key == null) {
 				continue;
 			}
@@ -607,7 +626,7 @@ public final class WordSuggestions {
 		}
 		String[] parts = trimmed.split("\\s+");
 		for (int i = 0; i < parts.length; i++) {
-			restamp(commandWord(parts[i]));
+			restamp(commandWord(parts[i], symbols));
 		}
 		prune();
 	}
@@ -629,14 +648,15 @@ public final class WordSuggestions {
 	}
 
 	/** A command token reduced to the word inside it, or null if there is none. */
-	private static String commandWord(final String raw) {
+	private static String commandWord(final String raw, final boolean symbols) {
 		StringBuilder b = new StringBuilder(raw.length());
 		for (int i = 0; i < raw.length(); i++) {
-			if (isWordChar(raw.charAt(i))) {
-				b.append(raw.charAt(i));
+			char c = raw.charAt(i);
+			if (isWordChar(c) || (symbols && isJoiningSymbol(c))) {
+				b.append(c);
 			}
 		}
-		String stripped = stripWrappingPunctuation(b.toString());
+		String stripped = stripEdges(b.toString(), symbols);
 		if (stripped.length() == 0) {
 			return null;
 		}
@@ -730,7 +750,7 @@ public final class WordSuggestions {
 		int start = -1;
 		for (int i = 0; i <= work.length(); i++) {
 			char c = i < work.length() ? work.charAt(i) : '\n';
-			boolean part = i < work.length() && isWordChar(c);
+			boolean part = i < work.length() && inToken(c);
 			if (part && start < 0) {
 				start = i;
 			} else if (!part && start >= 0) {
@@ -776,9 +796,62 @@ public final class WordSuggestions {
 		return Character.isLetterOrDigit(c) || c == '\'' || c == '-';
 	}
 
+	/** Marks that stay inside one name when {@link #setSymbols} is on. */
+	static boolean isJoiningSymbol(final char c) {
+		switch (c) {
+		case '_':
+		case '@':
+		case '#':
+		case '$':
+		case '%':
+		case '&':
+		case '*':
+		case '+':
+		case '=':
+		case '~':
+		case '/':
+		case '\\':
+		case '|':
+		case '.':
+		case ':':
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	private boolean inToken(final char c) {
+		return isWordChar(c) || (symbols && isJoiningSymbol(c));
+	}
+
 	/** A drawn hyphen mark stays inside the token. It is not part of the word. */
 	static boolean continuesToken(final char c) {
-		return isWordChar(c) || c == InputHyphenBreaks.MARK;
+		return continuesToken(c, false);
+	}
+
+	static boolean continuesToken(final char c, final boolean symbols) {
+		return isWordChar(c) || c == InputHyphenBreaks.MARK
+				|| (symbols && isJoiningSymbol(c));
+	}
+
+	/** A leading period or colon does not join. file.txt and foo:bar still do. */
+	static boolean continuesTokenAt(final String text, final int index,
+			final boolean symbols) {
+		if (text == null || index < 0 || index >= text.length()) {
+			return false;
+		}
+		char c = text.charAt(index);
+		if ((c != '.' && c != ':') || !symbols) {
+			return continuesToken(c, symbols);
+		}
+		int i = index;
+		while (i >= 0 && (text.charAt(i) == '.' || text.charAt(i) == ':')) {
+			i--;
+		}
+		if (i < 0) {
+			return false;
+		}
+		return continuesToken(text.charAt(i), symbols);
 	}
 
 	private static String withoutBreakMarks(final String raw) {
@@ -813,6 +886,74 @@ public final class WordSuggestions {
 	}
 
 	/**
+	 * With symbols off, the same trim as {@link #stripWrappingPunctuation}.
+	 * With symbols on, quotes, brackets, sentence marks and a dash at either
+	 * end come off, so {@code @create_command} keeps the {@code @} and the
+	 * {@code _}. A dash in the middle stays.
+	 */
+	private static String stripEdges(final String raw, final boolean symbols) {
+		if (!symbols) {
+			return stripWrappingPunctuation(raw);
+		}
+		int start = 0;
+		int end = raw.length();
+		while (start < end && isEdgePunct(raw.charAt(start))) {
+			start++;
+		}
+		while (end > start && isEdgePunct(raw.charAt(end - 1))) {
+			end--;
+		}
+		if (start == 0 && end == raw.length()) {
+			return raw;
+		}
+		return raw.substring(start, end);
+	}
+
+	/** Marks taken off the ends. A joining mark in the middle stays. */
+	private static boolean isEdgePunct(final char c) {
+		switch (c) {
+		case '\'':
+		case '"':
+		case '(':
+		case ')':
+		case '[':
+		case ']':
+		case '{':
+		case '}':
+		case '<':
+		case '>':
+		case ',':
+		case ';':
+		case '!':
+		case '?':
+		case '.':
+		case ':':
+		case '-':
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	/** A trailing period or colon ended the word. It is not part of the spelling. */
+	static boolean endsWithSentenceMark(final String prefix) {
+		if (prefix == null || prefix.length() == 0) {
+			return false;
+		}
+		char c = prefix.charAt(prefix.length() - 1);
+		return c == '.' || c == ':';
+	}
+
+	/** The player is still on a dash or a joining mark, not a misspelled letter. */
+	static boolean endsWithOpenMark(final String prefix) {
+		if (prefix == null || prefix.length() == 0) {
+			return false;
+		}
+		char c = prefix.charAt(prefix.length() - 1);
+		return c == '-' || isJoiningSymbol(c);
+	}
+
+	/**
 	 * Store one word.
 	 *
 	 * @return its key, or null when it was not worth storing — which is also the
@@ -822,7 +963,7 @@ public final class WordSuggestions {
 		// The world writes 'word' and 'pipe bomb'. ' is in-word so that
 		// O'Brien stays one token, which would otherwise store 'word' and
 		// bomb' — a ghost tap then puts the trailing quote in the input bar.
-		String token = stripWrappingPunctuation(raw);
+		String token = stripEdges(raw, symbols);
 		if (token.length() < MIN_WORD_LENGTH) {
 			return null;
 		}
@@ -885,7 +1026,7 @@ public final class WordSuggestions {
 		if (!suggestNextWord || previous == null || max <= 0) {
 			return out;
 		}
-		String key = stripWrappingPunctuation(previous.toLowerCase(Locale.US));
+		String key = stripEdges(previous.toLowerCase(Locale.US), symbols);
 		Seen s = words.get(key);
 		if (s == null || s.next == null) {
 			return out;
@@ -921,8 +1062,13 @@ public final class WordSuggestions {
 		if (prefix == null || max <= 0) {
 			return out;
 		}
-		String needle = stripWrappingPunctuation(prefix.toLowerCase(Locale.US));
-		if (needle.length() < MIN_PREFIX_LENGTH) {
+		String typed = prefix.toLowerCase(Locale.US);
+		String needle = stripEdges(typed, symbols);
+		// A trailing dash or joining mark stays in the needle, so well- is not
+		// wells and kill@ is not a typo for kills.
+		boolean openTail = symbols && endsWithOpenMark(typed);
+		String matchFrom = (openTail && !typed.equals(needle)) ? typed : needle;
+		if (matchFrom.length() < MIN_PREFIX_LENGTH) {
 			return out;
 		}
 		// Forward once collecting only prefix matches, rather than copying the
@@ -931,10 +1077,10 @@ public final class WordSuggestions {
 		List<String> matches = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			String key = e.getKey();
-			if (!key.startsWith(needle)) {
+			if (!key.startsWith(matchFrom)) {
 				continue;
 			}
-			if (key.length() > needle.length()) {
+			if (key.length() > matchFrom.length()) {
 				// Not the word you have already finished typing.
 				matches.add(key);
 			} else if (phrases && phraseFrom(key) != null) {
@@ -981,7 +1127,7 @@ public final class WordSuggestions {
 				out.add(second);
 			}
 		}
-		if (out.isEmpty()) {
+		if (out.isEmpty() && !openTail) {
 			if (typoMatching && needle.length() >= MIN_TYPO_PREFIX_LENGTH) {
 				suggestTypos(needle, max, out, atLineStart, leadingVerb);
 			}
@@ -1430,7 +1576,7 @@ public final class WordSuggestions {
 	 *        stores it. Null, empty, or nothing-but-punctuation is ignored.
 	 */
 	public void forgetWord(final String raw) {
-		String key = commandWord(raw == null ? "" : raw);
+		String key = commandWord(raw == null ? "" : raw, symbols);
 		if (key == null) {
 			return;
 		}
@@ -1459,8 +1605,8 @@ public final class WordSuggestions {
 	 * @param targetRaw what it was aimed at.
 	 */
 	public void unpair(final String verbRaw, final String targetRaw) {
-		String verb = commandWord(verbRaw == null ? "" : verbRaw);
-		String target = commandWord(targetRaw == null ? "" : targetRaw);
+		String verb = commandWord(verbRaw == null ? "" : verbRaw, symbols);
+		String target = commandWord(targetRaw == null ? "" : targetRaw, symbols);
 		if (verb == null || target == null) {
 			return;
 		}
@@ -1491,8 +1637,8 @@ public final class WordSuggestions {
 			unpair(verbRaw, targetRaw);
 			return;
 		}
-		String verb = commandWord(verbRaw == null ? "" : verbRaw);
-		String target = commandWord(targetRaw == null ? "" : targetRaw);
+		String verb = commandWord(verbRaw == null ? "" : verbRaw, symbols);
+		String target = commandWord(targetRaw == null ? "" : targetRaw, symbols);
 		if (verb == null || target == null || verb.equals(target)) {
 			return;
 		}
@@ -1718,28 +1864,38 @@ public final class WordSuggestions {
 	 * Empty while a word is still being typed.
 	 */
 	public static String completedWordBefore(final String text, final int caret) {
+		return completedWordBefore(text, caret, false);
+	}
+
+	public static String completedWordBefore(final String text, final int caret,
+			final boolean symbols) {
 		int end = clampCaret(text, caret);
-		if (text == null || end == 0 || continuesToken(text.charAt(end - 1))) {
+		if (text == null || end == 0 || continuesTokenAt(text, end - 1, symbols)) {
 			return "";
 		}
 		int i = end;
-		while (i > 0 && !continuesToken(text.charAt(i - 1))) {
+		while (i > 0 && !continuesTokenAt(text, i - 1, symbols)) {
 			i--;
 		}
 		int start = i;
-		while (start > 0 && continuesToken(text.charAt(start - 1))) {
+		while (start > 0 && continuesTokenAt(text, start - 1, symbols)) {
 			start--;
 		}
 		return withoutBreakMarks(text.substring(start, i));
 	}
 
 	public static String wordBefore(final String text, final int caret) {
+		return wordBefore(text, caret, false);
+	}
+
+	public static String wordBefore(final String text, final int caret,
+			final boolean symbols) {
 		int end = clampCaret(text, caret);
 		if (text == null) {
 			return "";
 		}
 		int start = end;
-		while (start > 0 && continuesToken(text.charAt(start - 1))) {
+		while (start > 0 && continuesTokenAt(text, start - 1, symbols)) {
 			start--;
 		}
 		return withoutBreakMarks(text.substring(start, end));
@@ -1751,12 +1907,17 @@ public final class WordSuggestions {
 	 * between two.
 	 */
 	public static String wordAfter(final String text, final int caret) {
+		return wordAfter(text, caret, false);
+	}
+
+	public static String wordAfter(final String text, final int caret,
+			final boolean symbols) {
 		int start = clampCaret(text, caret);
 		if (text == null) {
 			return "";
 		}
 		int end = start;
-		while (end < text.length() && continuesToken(text.charAt(end))) {
+		while (end < text.length() && continuesTokenAt(text, end, symbols)) {
 			end++;
 		}
 		return withoutBreakMarks(text.substring(start, end));
@@ -1768,12 +1929,17 @@ public final class WordSuggestions {
 	 * the caret itself when it sits at the front of one.
 	 */
 	public static int tokenStart(final String text, final int caret) {
+		return tokenStart(text, caret, false);
+	}
+
+	public static int tokenStart(final String text, final int caret,
+			final boolean symbols) {
 		int at = clampCaret(text, caret);
 		if (text == null) {
 			return 0;
 		}
 		int start = at;
-		while (start > 0 && continuesToken(text.charAt(start - 1))) {
+		while (start > 0 && continuesTokenAt(text, start - 1, symbols)) {
 			start--;
 		}
 		return start;
@@ -1789,11 +1955,16 @@ public final class WordSuggestions {
 	 */
 	public static String completionPrefix(final String text, final int caret,
 			final boolean followCaret) {
-		String before = wordBefore(text, caret);
+		return completionPrefix(text, caret, followCaret, false);
+	}
+
+	public static String completionPrefix(final String text, final int caret,
+			final boolean followCaret, final boolean symbols) {
+		String before = wordBefore(text, caret, symbols);
 		if (before.length() > 0 || !followCaret) {
 			return before;
 		}
-		return wordAfter(text, caret);
+		return wordAfter(text, caret, symbols);
 	}
 
 	private static int clampCaret(final String text, final int caret) {
@@ -1844,16 +2015,21 @@ public final class WordSuggestions {
 	 */
 	public static Completion complete(final String text, final int caret,
 			final String word) {
+		return complete(text, caret, word, false);
+	}
+
+	public static Completion complete(final String text, final int caret,
+			final String word, final boolean symbols) {
 		String existing = text == null ? "" : text;
 		if (word == null || word.length() == 0) {
 			return new Completion(existing, caret);
 		}
 		int end = clampCaret(existing, caret);
 		int start = end;
-		while (start > 0 && continuesToken(existing.charAt(start - 1))) {
+		while (start > 0 && continuesTokenAt(existing, start - 1, symbols)) {
 			start--;
 		}
-		while (end < existing.length() && continuesToken(existing.charAt(end))) {
+		while (end < existing.length() && continuesTokenAt(existing, end, symbols)) {
 			end++;
 		}
 		StringBuilder out = new StringBuilder();

@@ -86,9 +86,14 @@ public final class GhostSpacing {
 	 */
 	public static Accepted accept(final String text, final int caret,
 			final String word) {
+		return accept(text, caret, word, false);
+	}
+
+	public static Accepted accept(final String text, final int caret,
+			final String word, final boolean symbols) {
 		String plain = text == null ? "" : InputHyphenBreaks.strip(text);
 		if (word == null || word.length() == 0) {
-			WordSuggestions.Completion c = WordSuggestions.complete(plain, caret, word);
+			WordSuggestions.Completion c = WordSuggestions.complete(plain, caret, word, symbols);
 			return new Accepted(c.text(), c.caret());
 		}
 		if (word.trim().length() == 0) {
@@ -98,8 +103,8 @@ public final class GhostSpacing {
 			}
 			return new Accepted(plain, at);
 		}
-		if (!keepsTypedWord(plain, caret, word)) {
-			WordSuggestions.Completion c = WordSuggestions.complete(plain, caret, word);
+		if (!keepsTypedWord(plain, caret, word, symbols)) {
+			WordSuggestions.Completion c = WordSuggestions.complete(plain, caret, word, symbols);
 			return new Accepted(c.text(), c.caret());
 		}
 		InputWordInsert.Result r = InputWordInsert.apply(plain, caret, caret, word);
@@ -111,11 +116,11 @@ public final class GhostSpacing {
 	 * replaces that token instead.
 	 */
 	private static boolean keepsTypedWord(final String text, final int caret,
-			final String word) {
+			final String word, final boolean symbols) {
 		if (word == null || word.trim().length() == 0) {
 			return false;
 		}
-		String prefix = WordSuggestions.wordBefore(text, caret);
+		String prefix = WordSuggestions.wordBefore(text, caret, symbols);
 		if (continues(prefix, word)) {
 			return false;
 		}
@@ -135,6 +140,10 @@ public final class GhostSpacing {
 	/** Typo, skipped head, or letters-in-order. Those replace the token. */
 	private static boolean isCorrection(final String prefix, final String head) {
 		if (prefix == null || prefix.length() == 0 || head == null || head.length() == 0) {
+			return false;
+		}
+		// goblin. and kill@ are unfinished tokens, not typos for goblins and kills.
+		if (WordSuggestions.endsWithOpenMark(prefix)) {
 			return false;
 		}
 		String needle = prefix.toLowerCase(java.util.Locale.US);

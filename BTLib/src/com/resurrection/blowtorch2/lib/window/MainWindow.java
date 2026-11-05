@@ -3470,17 +3470,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		boolean follow = suggestionsFollowCaret();
-		String prefix = WordSuggestions.completionPrefix(text, caret, follow);
-		boolean atStart = isAtLineStart(text, caret, prefix);
+		boolean symbols = mWordSuggestions.keepsSymbols();
+		String prefix = WordSuggestions.completionPrefix(text, caret, follow, symbols);
+		boolean atStart = isAtLineStart(text, caret, prefix, symbols);
 		if (prefix.length() == 0) {
-			String done = WordSuggestions.completedWordBefore(text, caret);
+			String done = WordSuggestions.completedWordBefore(text, caret, symbols);
 			if (done.length() > 0) {
 				mWordSuggestionList.addAll(mWordSuggestions.suggestNext(done,
 						mWordSuggestionShow));
 			}
 		} else {
 			mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
-					atStart, atStart ? null : leadingVerb(text)));
+					atStart, atStart ? null : leadingVerb(text, symbols)));
+			if (mWordSuggestionList.isEmpty() && symbols
+					&& WordSuggestions.endsWithSentenceMark(prefix)) {
+				mWordSuggestionList.addAll(mWordSuggestions.suggestNext(prefix,
+						mWordSuggestionShow));
+			}
 		}
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
@@ -3498,6 +3504,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 *         when the line has not got one yet.
 	 */
 	static String leadingVerb(final String text) {
+		return leadingVerb(text, false);
+	}
+
+	static String leadingVerb(final String text, final boolean symbols) {
 		if (text == null) {
 			return null;
 		}
@@ -3508,18 +3518,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		StringBuilder b = new StringBuilder();
 		while (i < text.length() && !Character.isWhitespace(text.charAt(i))) {
 			char c = text.charAt(i);
-			if (Character.isLetterOrDigit(c) || c == '\'' || c == '-') {
+			if (Character.isLetterOrDigit(c) || c == '\'' || c == '-'
+					|| (symbols && WordSuggestions.isJoiningSymbol(c))) {
 				b.append(c);
 			}
 			i++;
 		}
-		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(0))) {
+		while (b.length() > 0 && stripVerbEdge(b.charAt(0), symbols)) {
 			b.deleteCharAt(0);
 		}
-		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(b.length() - 1))) {
+		while (b.length() > 0 && stripVerbEdge(b.charAt(b.length() - 1), symbols)) {
 			b.deleteCharAt(b.length() - 1);
 		}
 		return b.length() == 0 ? null : b.toString().toLowerCase(java.util.Locale.US);
+	}
+
+	/** Drop a wrapping mark. Joining symbols stay when that option is on, except a trailing dot or colon. */
+	private static boolean stripVerbEdge(final char c, final boolean symbols) {
+		if (Character.isLetterOrDigit(c)) {
+			return false;
+		}
+		if (symbols && WordSuggestions.isJoiningSymbol(c) && c != '.' && c != ':') {
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -3539,10 +3561,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	static boolean isAtLineStart(final String text, final int caret,
 			final String prefix) {
+		return isAtLineStart(text, caret, prefix, false);
+	}
+
+	static boolean isAtLineStart(final String text, final int caret,
+			final String prefix, final boolean symbols) {
 		if (text == null || prefix == null) {
 			return true;
 		}
-		int start = WordSuggestions.tokenStart(text, caret);
+		int start = WordSuggestions.tokenStart(text, caret, symbols);
 		for (int i = 0; i < start && i < text.length(); i++) {
 			char c = text.charAt(i);
 			// Blanks, and the punctuation a line can open with. A dot command and
@@ -4643,7 +4670,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String raw = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = InputHyphenBreaks.logicalIndex(raw, Math.max(mInputBox.getSelectionStart(), 0));
 		GhostSpacing.Accepted taken = GhostSpacing.accept(
-				InputHyphenBreaks.strip(raw), caret, word);
+				InputHyphenBreaks.strip(raw), caret, word,
+				mWordSuggestions.keepsSymbols());
 		mInputBox.setText(taken.text());
 		mInputBox.setLogicalSelection(taken.caret());
 		mInputBox.requestFocus();
@@ -5984,6 +6012,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setPhrases(phrasesOpt != null
 					&& phrasesOpt.getValue() instanceof Boolean
 					&& (Boolean) phrasesOpt.getValue());
+			BaseOption symbolsOpt = (BaseOption) group.findOptionByKey(
+					"word_complete_symbols");
+			mWordSuggestions.setSymbols(symbolsOpt != null
+					&& symbolsOpt.getValue() instanceof Boolean
+					&& (Boolean) symbolsOpt.getValue());
 			BaseOption nextOpt = (BaseOption) group.findOptionByKey(
 					"word_complete_next");
 			// On when the key is absent: that is the plugin default, and an

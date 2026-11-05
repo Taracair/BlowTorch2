@@ -60,6 +60,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_skip_head,
 		word_complete_wrong_first,
 		word_complete_phrases,
+		word_complete_symbols,
 		word_complete_next,
 		word_complete_short_first,
 		word_complete_shorter_first,
@@ -611,6 +612,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_phrases:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_symbols:
 						// Default is false; see ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;

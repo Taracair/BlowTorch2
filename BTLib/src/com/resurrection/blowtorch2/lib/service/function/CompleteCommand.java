@@ -33,6 +33,8 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String SKIP_HEAD_KEY = "word_complete_skip_head";
 	public static final String WRONG_FIRST_KEY = "word_complete_wrong_first";
 	public static final String PHRASES_KEY = "word_complete_phrases";
+	/** Joining marks such as _ and @ stay inside the word. */
+	public static final String SYMBOLS_KEY = "word_complete_symbols";
 	/** After a finished word, offer the word that followed it. */
 	public static final String NEXT_KEY = "word_complete_next";
 	/** Plain word before the whole name built on it — reached by .suggest plain. */
@@ -145,6 +147,17 @@ public class CompleteCommand extends SpecialCommand {
 					"After a finished word, the next one the game used is offered:"
 						+ " cave, then a space, offers troll.",
 					"A finished word offers nothing until you type the next one.");
+		}
+		if (arg.startsWith("symbols") || arg.startsWith("symbol")) {
+			int skip = arg.startsWith("symbols") ? "symbols".length() : "symbol".length();
+			return setFlag(arg.substring(skip).trim(), c, SYMBOLS_KEY,
+					"Symbols stay in the word: @create_ offers @create_command,"
+						+ " and taking it does not put a space before the rest."
+						+ " A space still starts the next word. Lines the game"
+						+ " already sent keep the split they had, until it says"
+						+ " that name again.",
+					"Symbols split the word again: @create_ offers the piece"
+						+ " after the symbol.");
 		}
 		if (arg.startsWith("phrases")) {
 			return setFlag(arg.substring("phrases".length()).trim(), c, PHRASES_KEY,
@@ -334,7 +347,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|list|off, order left|right,"
-					+ " phrases/next/loose/typos/skiphead/firstletter/ghost/split/caret/persist/rank/pairs/short/plain on|off,"
+					+ " phrases/symbols/next/loose/typos/skiphead/firstletter/ghost/split/caret/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear, forget, unpair, weight\n");
 			return null;
@@ -345,6 +358,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest lines N  — how far back counts as recent (0 = all session)\n"
 				+ ".suggest 1.." + MAX_PICK + "     — take that suggestion off the bar\n"
 				+ ".suggest next on|off     — after cave and a space, offer troll\n"
+				+ ".suggest symbols on|off  — @create_ finishes @create_command\n"
 				+ ".suggest phrases on|off  — offer whole names: gri gives\n"
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"

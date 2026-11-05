@@ -640,7 +640,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest opacity N\n"
 					+ "  .suggest persist on|off\n"
 					+ "  .suggest next on|off      (the word that followed a finished one)\n"
-					+ "  .suggest phrases|plain|short|loose|typos on|off\n"
+					+ "  .suggest phrases|symbols|plain|short|loose|typos on|off\n"
 					+ "  .suggest skiphead|firstletter on|off\n"
 					+ "  .suggest rank|pairs on|off\n"
 					+ "  .suggest learned | clear\n"

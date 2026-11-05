@@ -6359,6 +6359,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_skip_head:
 			case word_complete_wrong_first:
 			case word_complete_phrases:
+			case word_complete_symbols:
 			case word_complete_next:
 			case word_complete_short_first:
 			case word_complete_shorter_first:
@@ -7781,6 +7782,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_skip_head,
 		word_complete_wrong_first,
 		word_complete_phrases,
+		/** Keep _, @ and the other joining marks inside one word. */
+		word_complete_symbols,
 		/** After a finished word, offer the one word that followed it. */
 		word_complete_next,
 		/** Put the plain word before the whole name built on it. */

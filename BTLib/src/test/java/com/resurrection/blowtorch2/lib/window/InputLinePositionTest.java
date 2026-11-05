@@ -52,6 +52,9 @@ public class InputLinePositionTest {
 		assertEquals(null, MainWindow.leadingVerb(""));
 		assertEquals(null, MainWindow.leadingVerb("   "));
 		assertEquals(null, MainWindow.leadingVerb("..."));
+		assertEquals("@create_command",
+				MainWindow.leadingVerb("@create_command goblin", true));
+		assertEquals("createcommand", MainWindow.leadingVerb("@create_command goblin"));
 	}
 
 	@Test
