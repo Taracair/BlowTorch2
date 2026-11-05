@@ -54,6 +54,7 @@ import android.os.Bundle;
 import android.os.Debug;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
@@ -483,6 +484,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean isBound = false;
 	/** Post time of a .switch whose rebuild has not armed a frame yet. UI thread. */
 	private long mTimingSwitchUp;
+	/** .switch toast. A text toast is drawn by the system; makeText needs this looper, not the main one. */
+	private final Object mSwitchNoticeLock = new Object();
+	private int mSwitchNoticeGen;
+	private boolean mSwitchNoticeActive;
+	private Toast mSwitchToast;
+	private HandlerThread mSwitchNoticeThread;
+	private Handler mSwitchNoticeHandler;
 	boolean isKeepLast = false; //for keeping last
 	/** Profile flag: Options → Input → Standard keyboard input. */
 	private boolean mCompatibilityMode = false;
@@ -5436,6 +5444,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 	}
 	public void onDestroy() {
+		quitSwitchNotice();
 
 		// The trigger action speaks in :stellar, but the responder editor's
 		// preview speaks here, which opens a second engine in this process.
@@ -6864,6 +6873,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		//cleanupWindows();
 		if (mLeavingUi || isFinishing()) {
+			endSwitchNotice();
 			return;
 		}
 		if(windowsInitialized == true) {
@@ -6910,6 +6920,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * disconnect callback cannot schedule work this activity will not display.
 	 */
 	private void beginLeavingUi() {
+		endSwitchNotice();
 		mLeavingUi = true;
 		if (myhandler == null) {
 			return;
@@ -6986,9 +6997,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** Handler side of the retry. Replaces a wait() loop that used to run on the UI thread. */
 	void retryWindowTokens() {
 		if (mLeavingUi || isFinishing()) {
+			endSwitchNotice();
 			return;
 		}
 		if(mWindows != null && mWindows.length > 0) {
+			endSwitchNotice();
 			return;
 		}
 		mWindowTokenAttempts++;
@@ -7005,6 +7018,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// Also to the on-device log: this is the sort of silence worth a record.
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logError(this, "initiailizeWindows", why);
 			windowsInitialized = false;
+			endSwitchNotice();
 			mPendingInitialConnect = false;
 			myhandler.removeMessages(MESSAGE_CONNECT_WHEN_READY);
 			return;
@@ -7110,6 +7124,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mPendingSplitOrientation != 0) {
 			applySplitLayout(mPendingSplitOrientation, mPendingSplitPercent);
 		}
+		endSwitchNotice();
 		//Debug.stopMethodTracing();
 	}
 
@@ -10356,7 +10371,121 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return true;
 	}
 
+	private static final long SWITCH_NOTICE_REFRESH_MS = 3000L;
+
+	/** Show "Switching to …" and keep it up until the rebuild finishes. */
+	private void beginSwitchNotice(final String name) {
+		if (name == null || name.length() == 0) {
+			return;
+		}
+		final int gen;
+		synchronized (mSwitchNoticeLock) {
+			mSwitchNoticeGen++;
+			mSwitchNoticeActive = true;
+			gen = mSwitchNoticeGen;
+			cancelSwitchToastLocked();
+			if (mSwitchNoticeHandler == null) {
+				HandlerThread thread = new HandlerThread("switch-notice");
+				thread.start();
+				mSwitchNoticeThread = thread;
+				mSwitchNoticeHandler = new Handler(thread.getLooper());
+			}
+		}
+		showSwitchToast(name, gen);
+		scheduleSwitchNoticeRefresh(gen, name);
+	}
+
+	private void scheduleSwitchNoticeRefresh(final int gen, final String name) {
+		final Handler handler;
+		synchronized (mSwitchNoticeLock) {
+			handler = mSwitchNoticeHandler;
+		}
+		if (handler == null) {
+			return;
+		}
+		handler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				if (!switchNoticeStillCurrent(gen)) {
+					return;
+				}
+				showSwitchToast(name, gen);
+				scheduleSwitchNoticeRefresh(gen, name);
+			}
+		}, SWITCH_NOTICE_REFRESH_MS);
+	}
+
+	private boolean switchNoticeStillCurrent(final int gen) {
+		synchronized (mSwitchNoticeLock) {
+			return mSwitchNoticeActive && mSwitchNoticeGen == gen;
+		}
+	}
+
+	private void showSwitchToast(final String name, final int gen) {
+		if (!switchNoticeStillCurrent(gen)) {
+			return;
+		}
+		Toast toast = Toast.makeText(this, "Switching to " + name + "\u2026",
+				Toast.LENGTH_LONG);
+		float density = getResources().getDisplayMetrics().density;
+		toast.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0,
+				(int) (50.0 * density));
+		synchronized (mSwitchNoticeLock) {
+			if (!mSwitchNoticeActive || mSwitchNoticeGen != gen) {
+				return;
+			}
+			if (mSwitchToast != null) {
+				mSwitchToast.cancel();
+			}
+			mSwitchToast = toast;
+		}
+		toast.show();
+		synchronized (mSwitchNoticeLock) {
+			if (mSwitchNoticeGen != gen) {
+				toast.cancel();
+				if (mSwitchToast == toast) {
+					mSwitchToast = null;
+				}
+			}
+		}
+	}
+
+	private void endSwitchNotice() {
+		synchronized (mSwitchNoticeLock) {
+			if (!mSwitchNoticeActive && mSwitchToast == null) {
+				return;
+			}
+			mSwitchNoticeActive = false;
+			mSwitchNoticeGen++;
+			cancelSwitchToastLocked();
+		}
+	}
+
+	private void cancelSwitchToastLocked() {
+		if (mSwitchToast != null) {
+			mSwitchToast.cancel();
+			mSwitchToast = null;
+		}
+	}
+
+	private void quitSwitchNotice() {
+		endSwitchNotice();
+		final HandlerThread thread;
+		synchronized (mSwitchNoticeLock) {
+			thread = mSwitchNoticeThread;
+			mSwitchNoticeThread = null;
+			mSwitchNoticeHandler = null;
+		}
+		if (thread != null) {
+			thread.quit();
+		}
+	}
+
 	private void runUiAction(final String action) {
+		if (action != null && action.startsWith("switch-notice:")) {
+			beginSwitchNotice(action.substring("switch-notice:".length()));
+			return;
+		}
 		if ("suggest:list".equals(action)) {
 			mSuggestListClosed = false;
 			mSuggestListForceOpen = true;

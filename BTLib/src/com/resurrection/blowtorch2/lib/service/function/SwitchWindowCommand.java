@@ -49,6 +49,8 @@ public class SwitchWindowCommand extends SpecialCommand {
 			return null;
 		}
 
+		// Queued before switchTo, so the toast is up while the rebuild runs.
+		service.doRunUiAction("switch-notice:" + name);
 		// Do not call setClutch here — switchTo owns the clutch and refuses
 		// unknown names. A bare setClutch used to black-screen the UI.
 		c.switchTo(name);
