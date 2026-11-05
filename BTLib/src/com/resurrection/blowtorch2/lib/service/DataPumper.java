@@ -7,6 +7,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -18,6 +19,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -110,6 +112,9 @@ public class DataPumper extends Thread {
 	private volatile long mLastTxUptime;
 	/** Init already posted MESSAGE_DODIALOG — skip duplicate MESSAGE_DISCONNECTED. */
 	private boolean mConnectFailureReported = false;
+	/** Written once, after TCP and TLS, before the writer thread and the first read.
+	 *  Null when no plugin returned bytes. */
+	private final byte[] mPreamble;
 	
 	/** Generic constructor.
 	 * 
@@ -117,13 +122,34 @@ public class DataPumper extends Thread {
 	 * @param port Port number to use.
 	 * @param useTls True to put TLS on the socket before anything reads it.
 	 * @param useme Handler to report to when interesting things happen.
+	 * @param preamble Exact bytes to flush before the first read. Null or empty
+	 *        writes nothing. Copied here so a later edit of the caller's array
+	 *        cannot change what goes on the wire.
 	 */
 	public DataPumper(final String host, final int port, final boolean useTls,
-			final Handler useme) {
+			final Handler useme, final byte[] preamble) {
 		this.mHost = host;
 		this.mPort = port;
 		this.mUseTls = useTls;
 		mReportTo = useme;
+		if (preamble == null || preamble.length == 0) {
+			mPreamble = null;
+		} else {
+			mPreamble = Arrays.copyOf(preamble, preamble.length);
+		}
+	}
+
+	/**
+	 * Flush {@code preamble} as application data. Null, empty, or a null stream
+	 * writes nothing and does not flush. Callers use this before starting the
+	 * writer and before the first read.
+	 */
+	static void writePreamble(final OutputStream out, final byte[] preamble) throws IOException {
+		if (out == null || preamble == null || preamble.length == 0) {
+			return;
+		}
+		out.write(preamble);
+		out.flush();
 	}
 	
 	/** Sends data to the socket asynchronously.
@@ -253,6 +279,8 @@ public class DataPumper extends Thread {
 				}
 				mSocket = secured;
 			}
+			// First application bytes. NAWS and the read loop both happen later.
+			writePreamble(mSocket.getOutputStream(), mPreamble);
 			sendWarning(Colorizer.getBrightCyanColor() + "Connected to: " + Colorizer.getBrightYellowColor() + mHost + Colorizer.getBrightCyanColor() + "!" + Colorizer.getWhiteColor() + "\n");
 			
 			mSocket.setSendBufferSize(SOCKET_BUFFER_SIZE);

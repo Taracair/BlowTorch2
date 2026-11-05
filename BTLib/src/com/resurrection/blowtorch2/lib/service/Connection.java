@@ -963,6 +963,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					applyMcpSettings();
 				}
 				maybeShowTerminalSizeHint();
+				flushConnectedSendHold();
 				break;
 			case MESSAGE_SEND_NAWS:
 				if (mIsConnected && mProcessor != null && mLiveCols > 0 && mLiveRows > 0) {
@@ -3003,6 +3004,67 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Bytes to flush once the socket is up. Connection thread only.
+	 * Off that thread this returns null rather than touching a Lua state.
+	 */
+	private byte[] collectConnectedPreamble() {
+		if (!onConnectionThread()) {
+			BlowTorchLogger.logMinor("OnConnected",
+					new IllegalStateException("skipped off the connection thread"));
+			return null;
+		}
+		mHoldingConnectedSends = true;
+		mConnectedSendHold.clear();
+		try {
+			ArrayList<byte[]> parts = new ArrayList<byte[]>();
+			addConnectedPreamble(parts, mSettings);
+			if (mPlugins != null) {
+				for (int i = 0; i < mPlugins.size(); i++) {
+					addConnectedPreamble(parts, mPlugins.get(i));
+				}
+			}
+			return ConnectedPreamble.concat(parts);
+		} finally {
+			mHoldingConnectedSends = false;
+		}
+	}
+
+	@Override
+	public boolean isHoldingConnectedSends() {
+		return mHoldingConnectedSends;
+	}
+
+	@Override
+	public void holdConnectedSend(final String line) {
+		mConnectedSendHold.add(line);
+	}
+
+	/** Normal sends queued by {@code OnConnected}. The preamble is already written. */
+	private void flushConnectedSendHold() {
+		if (mHandler == null) {
+			return;
+		}
+		java.util.List<String> lines = mConnectedSendHold.take();
+		for (int i = 0; i < lines.size(); i++) {
+			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SENDDATA_STRING, lines.get(i)));
+		}
+	}
+
+	private void addConnectedPreamble(final ArrayList<byte[]> parts, final Plugin plugin) {
+		if (plugin == null || !plugin.isEnabled() || !plugin.offersConnectedHook()) {
+			return;
+		}
+		try {
+			byte[] part = plugin.connectedPreamble();
+			if (part != null && part.length > 0) {
+				parts.add(part);
+			}
+		} catch (RuntimeException e) {
+			BlowTorchLogger.logMinor("OnConnected " + plugin.getName(), e);
+		}
+	}
+
 	private void addInboundHook(final Plugin plugin) {
 		if (plugin == null || !plugin.isEnabled() || !plugin.offersInboundHook()) {
 			return;
@@ -3859,9 +3921,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Meat of the startup sequence. Starts the net threads after the settings have been loaded. */
 	private final Object mStartupLock = new Object();
 	private boolean mStartupInProgress = false;
+	/** True only while {@code OnConnected} is on the stack. */
+	private volatile boolean mHoldingConnectedSends;
+	private final ConnectedSendHold mConnectedSendHold = new ConnectedSendHold();
 	/** True while killNetThreads is joining the pump or ending an interval. */
 	private boolean mNetTeardown;
 	private void doStartup() {
+		// Plugin Lua belongs to this handler. Binder reconnect posts and returns.
+		if (!onConnectionThread()) {
+			if (mHandler != null) {
+				mHandler.sendEmptyMessage(MESSAGE_STARTUP);
+			}
+			return;
+		}
 		synchronized (mStartupLock) {
 			if (isOfflineMode()) {
 				TimingTrace.event("socket", "phase=skip reason=offline display="
@@ -3899,11 +3971,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					+ " port=" + mPort
 					+ " tls=" + (mUseTls ? 1 : 0)
 					+ " open=" + (mService != null ? mService.openWorldCount() : -1));
-			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler);
-			if (mHealth != null) {
-				mPump.setHealthProbe(mHealth);
-			}
-			
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 			mProcessor.setDisplayName(mDisplay);
 			loadLoginCredentialsIntoProcessor();
@@ -3920,6 +3987,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			applyMudProtocolFlags();
 			applyTerminalNaws();
 			mExtraText.syncGmcpRoutes();
+			// After initSettings, so OnConnected sees the options just replayed.
+			// The pump writes these bytes inside init, before its first read.
+			byte[] preamble = collectConnectedPreamble();
+			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler, preamble);
+			if (mHealth != null) {
+				mPump.setHealthProbe(mHealth);
+			}
 			mPump.start();
 			mGmcp.loadGMCPTriggers();
 			loadMcpTriggers();

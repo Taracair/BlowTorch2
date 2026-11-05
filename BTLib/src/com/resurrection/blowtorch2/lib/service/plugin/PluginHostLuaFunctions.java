@@ -313,8 +313,16 @@ class SendToServerFunction extends JavaFunction {
 	@Override
 	public int execute() throws LuaException {
 		if(this.getParam(2).isNil()) { return 0; }
-		//Log.e("LUAWINDOW","script is sending:"+this.getParam(2).getString()+" to server.");
-		plugin.mHandler.sendMessage(plugin.mHandler.obtainMessage(Connection.MESSAGE_SENDDATA_STRING,this.getParam(2).getString()));
+		String line = this.getParam(2).getString();
+		// OnConnected runs before the socket exists. A posted send would be
+		// handled while the pump is still down and show "Disconnected."
+		if (plugin.parent != null && plugin.mHandler != null
+				&& Thread.currentThread() == plugin.mHandler.getLooper().getThread()
+				&& plugin.parent.isHoldingConnectedSends()) {
+			plugin.parent.holdConnectedSend(line);
+			return 0;
+		}
+		plugin.mHandler.sendMessage(plugin.mHandler.obtainMessage(Connection.MESSAGE_SENDDATA_STRING, line));
 		return 0;
 	}
 	

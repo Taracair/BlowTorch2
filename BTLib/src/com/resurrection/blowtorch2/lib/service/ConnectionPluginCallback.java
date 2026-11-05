@@ -117,4 +117,13 @@ public interface ConnectionPluginCallback {
 	 * @param error the failure (may be null)
 	 */
 	void reportRuntimeError(String where, Throwable error);
+
+	/** True while {@code OnConnected} is running on the connection thread. */
+	boolean isHoldingConnectedSends();
+
+	/**
+	 * Keep a {@code SendToServer} line from {@code OnConnected} until the
+	 * socket is up. Connection thread only.
+	 */
+	void holdConnectedSend(String line);
 }

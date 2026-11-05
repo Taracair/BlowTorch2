@@ -314,6 +314,19 @@ All under `com.resurrection.blowtorch2.lib`.
 
 ## 7. Data flow
 
+### Connect: first bytes
+
+`OnConnected` runs on the connection thread inside `doStartup`, after settings
+replay and before `DataPumper.start`. Each enabled plugin that defines it may
+return bytes. `ConnectedPreamble` concatenates them. `DataPumper` flushes that
+buffer after TCP connect and after the TLS handshake when TLS is on, before
+the writer thread and before the first read. NAWS goes out later, when the
+connection thread handles `MESSAGE_CONNECTED`, and that can be after the
+read has started. No function defined: nothing is written. A binder-thread `doStartup`
+(UI reconnect) posts `MESSAGE_STARTUP` and returns, so the Lua call stays on
+the connection thread. `SendToServer` from the callback is held and sent as
+a normal line once `MESSAGE_CONNECTED` runs. It is not this buffer.
+
 ### Inbound: MUD bytes → pixels
 
 ```mermaid

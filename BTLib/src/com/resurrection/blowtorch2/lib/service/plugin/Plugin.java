@@ -1867,6 +1867,53 @@ Note("Example text!")
 		return checkPluginSupports("OnIncoming");
 	}
 
+	/**
+	 * {@code OnConnected()}. No arguments. The return is raw Lua bytes, or
+	 * null when this plugin sends nothing (no function, a Lua error, nil, or
+	 * any return that is not a string).
+	 *
+	 * <p>The error handler is {@code -2}: nothing sits above the function, and
+	 * {@code -1} would call {@code OnConnected} again with the error object.
+	 */
+	public byte[] connectedPreamble() {
+		if (L == null) {
+			return null;
+		}
+		L.getGlobal("debug");
+		L.getField(-1, "traceback");
+		L.remove(-2);
+
+		L.getGlobal("OnConnected");
+		if (!L.isFunction(-1)) {
+			L.pop(2);
+			checkStack("OnConnected");
+			return null;
+		}
+		int ret = L.pcall(0, 1, -2);
+		if (ret != 0) {
+			displayLuaError("Plugin: " + getName() + " OnConnected() Error:"
+					+ L.getLuaObject(-1).getString());
+			L.pop(2);
+			checkStack("OnConnected");
+			return null;
+		}
+		byte[] out = null;
+		if (L.type(-1) == LuaState.LUA_TSTRING.intValue()) {
+			out = L.toBytes(-1);
+			if (out == null) {
+				out = new byte[0];
+			}
+		}
+		L.pop(2);
+		checkStack("OnConnected");
+		return out;
+	}
+
+	/** True when this plugin's Lua state defines {@code OnConnected}. */
+	public boolean offersConnectedHook() {
+		return checkPluginSupports("OnConnected");
+	}
+
 	public boolean checkPluginSupports(String function) {
 		if(L != null) {
 			L.getGlobal(function);

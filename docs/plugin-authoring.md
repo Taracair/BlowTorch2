@@ -446,6 +446,8 @@ Parse XML → new Plugin + initLua (register API)
 loadPlugins → init timers, build triggers/aliases
             → push all options via OnOptionChanged
 Connection ready → OnBackgroundStartup()   (before TCP connect)
+About to open the socket → OnConnected()   (bytes flushed after TCP and TLS,
+                                            before the first read)
 Each finished server chunk → OnIncoming(data)   (before display and triggers)
 UI attaches windows → OnCreate / OnDraw / …
 Option change → OnOptionChanged(key, value)
@@ -461,7 +463,8 @@ Shutdown → window OnDestroy; plugin Lua state dropped
 | `OnPrepareXML(root)` | After bootstrap, if defined |
 | `OnOptionChanged(key, value)` | Load dump + each Options change |
 | `OnBackgroundStartup()` | All plugins loaded, before connect |
-| `OnIncoming(data)` | Finished server lines, before display and triggers. See §5.3 |
+| `OnConnected()` | About to open the socket. Returned bytes are flushed after TCP and TLS, before the first read. See §5.3 |
+| `OnIncoming(data)` | Finished server lines, before display and triggers. See §5.4 |
 | `OnXmlExport(serializer)` | Settings save |
 | Trigger `<script function="fn">` | Match → global `fn` |
 | `RegisterSpecialCommand(cmd, fn)` | Player types `.cmd …` |
@@ -482,7 +485,36 @@ plugin does not get that callback unless it is named `starter_tutorial`.
 
 Drawing belongs in **window** Lua only. Service-side `DrawWindow` is disabled.
 
-### 5.3 `OnIncoming` — rewrite server text in place
+### 5.3 `OnConnected` — first bytes on the wire
+
+```lua
+function OnConnected()
+  if connection_host ~= "example.org" then
+    return
+  end
+  return "\027hello 1\n"
+end
+```
+
+Some servers pick a mode from the first application bytes they read, before they send a banner. Return those bytes here. The function runs on the connection thread when this client is about to open the socket, after settings have been replayed. The socket opens after it returns. The bytes are kept and flushed after TCP connect and, when TLS is on, after the handshake, before the writer starts and before the first read. The terminal size goes out on its own once the connection thread sees the socket is up, which can be after that read has started. A connect that never comes up still ran the function, and wrote nothing. Reconnect runs it again. The offline tutorial does not.
+
+| Return | Effect |
+|--------|--------|
+| nothing, `nil`, or not a string | This plugin writes nothing |
+| a string | Those exact bytes are part of the one write. Nothing is added, stripped, aliased, or IAC-doubled |
+| `""` | This plugin writes nothing |
+
+Main settings run first, then each **enabled** plugin in load order. The pieces are concatenated. A later plugin does not edit an earlier one. A disabled plugin is skipped. A Lua error skips that plugin, prints the red error line, and the connect continues. With no `OnConnected` defined anywhere, the function is not called and nothing extra is written.
+
+Define it in the plugin body or in `OnBackgroundStartup`. The window VM does not have this callback.
+
+`SendToServer` from inside the function is kept and sent as a normal line once the socket is up. Aliases run, and a newline is added. It does not wait for the terminal-size negotiation: that happens only if the server asks, after reading has started, and some servers never ask. Waiting for it would drop the line. The line is not part of the first write, and the client may already be reading by then. Bytes the server has to see before it speaks go in the return value. A plain text hello is the same shape: `return "VERSION 1\n"`. The newlines you want have to be in the string. A connect that never comes up drops the kept lines.
+
+`connection_host` is the world host. A plugin enabled on only one world can return the bytes with no host check.
+
+`OnIncoming` is the later path. It sees each finished server chunk and can rewrite it. This function sees no server text, because none has been read yet.
+
+### 5.4 `OnIncoming` — rewrite server text in place
 
 ```lua
 function OnIncoming(data)
