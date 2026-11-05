@@ -496,6 +496,8 @@ function OnConnected()
 end
 ```
 
+`\027` is byte 27, ESC. Lua's `\ddd` escape is decimal, so `\033` is byte 33.
+
 Some servers pick a mode from the first application bytes they read, before they send a banner. Return those bytes here. The function runs on the connection thread when this client is about to open the socket, after settings have been replayed. The socket opens after it returns. The bytes are kept and flushed after TCP connect and, when TLS is on, after the handshake, before the writer starts and before the first read. The terminal size goes out on its own once the connection thread sees the socket is up, which can be after that read has started. A connect that never comes up still ran the function, and wrote nothing. Reconnect runs it again. The offline tutorial does not.
 
 | Return | Effect |
