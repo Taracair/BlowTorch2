@@ -26,6 +26,14 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.TRIGGERS.contains("It tries one line"));
 		assertTrue(EditorHelp.TRIGGERS.contains("shade title is the world name"));
 		assertTrue(EditorHelp.TIMERS.contains("timer has no game line"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(KeyboardShortcuts.NOTICE));
+		assertTrue(EditorHelp.SHORTCUTS.contains("450 ms"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("200 ms"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".shortcuts edit"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("sends nothing"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("SwiftKey"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("FUTO"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("HoneyBoard"));
 	}
 
 	@Test

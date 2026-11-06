@@ -220,7 +220,7 @@ public final class KeyboardShortcutMatcher {
 		if (row == null || row.hold.length() == 0) {
 			return Outcome.pass();
 		}
-		return Outcome.send(row.hold);
+		return Outcome.send(row.hold, 0, 0, 0, row.quiet);
 	}
 
 	public Outcome onRepeatFired(final int token) {
@@ -280,9 +280,9 @@ public final class KeyboardShortcutMatcher {
 			return Outcome.input(holdMs, repeatMs, token);
 		}
 		if (KeyboardShortcuts.ACTION_STEP.equals(row.action)) {
-			return Outcome.send(resolveStep(), holdMs, repeatMs, token);
+			return Outcome.send(resolveStep(), holdMs, repeatMs, token, row.quiet);
 		}
-		return Outcome.send(row.tap, holdMs, repeatMs, token);
+		return Outcome.send(row.tap, holdMs, repeatMs, token, row.quiet);
 	}
 
 	private String resolveStep() {
@@ -406,42 +406,51 @@ public final class KeyboardShortcutMatcher {
 		public final int scheduleHoldMs;
 		public final int scheduleRepeatMs;
 		public final int timerToken;
+		/** The line is sent and not printed in the window. */
+		public final boolean quiet;
 
 		private Outcome(final boolean consumed, final String send, final boolean sendInput,
-				final int scheduleHoldMs, final int scheduleRepeatMs, final int timerToken) {
+				final int scheduleHoldMs, final int scheduleRepeatMs, final int timerToken,
+				final boolean quiet) {
 			this.consumed = consumed;
 			this.send = send;
 			this.sendInput = sendInput;
 			this.scheduleHoldMs = scheduleHoldMs;
 			this.scheduleRepeatMs = scheduleRepeatMs;
 			this.timerToken = timerToken;
+			this.quiet = quiet;
 		}
 
 		static Outcome pass() {
-			return new Outcome(false, null, false, 0, 0, 0);
+			return new Outcome(false, null, false, 0, 0, 0, false);
 		}
 
 		static Outcome taken() {
-			return new Outcome(true, null, false, 0, 0, 0);
+			return new Outcome(true, null, false, 0, 0, 0, false);
 		}
 
 		static Outcome schedule(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, false, holdMs, repeatMs, token);
+			return new Outcome(true, null, false, holdMs, repeatMs, token, false);
 		}
 
 		static Outcome send(final String line) {
-			return send(line, 0, 0, 0);
+			return send(line, 0, 0, 0, false);
 		}
 
 		static Outcome send(final String line, final int holdMs, final int repeatMs, final int token) {
+			return send(line, holdMs, repeatMs, token, false);
+		}
+
+		static Outcome send(final String line, final int holdMs, final int repeatMs, final int token,
+				final boolean quiet) {
 			if (line == null || line.length() == 0) {
-				return new Outcome(true, null, false, holdMs, repeatMs, token);
+				return new Outcome(true, null, false, holdMs, repeatMs, token, false);
 			}
-			return new Outcome(true, line, false, holdMs, repeatMs, token);
+			return new Outcome(true, line, false, holdMs, repeatMs, token, quiet);
 		}
 
 		static Outcome input(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, true, holdMs, repeatMs, token);
+			return new Outcome(true, null, true, holdMs, repeatMs, token, false);
 		}
 	}
 }

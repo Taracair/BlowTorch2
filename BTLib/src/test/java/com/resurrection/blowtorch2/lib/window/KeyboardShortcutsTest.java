@@ -101,11 +101,26 @@ public class KeyboardShortcutsTest {
 	}
 
 	@Test
-	public void unknownWordsDoNotChangeState() {
+	public void editOpensTheListAndDoesNotFlip() {
 		KeyboardShortcuts start = KeyboardShortcuts.enabled(Row.numpadEnter());
 		Change edit = start.apply("edit");
+		assertTrue(edit.openList);
+		assertFalse(edit.usage);
+		assertFalse(edit.changed);
+		assertFalse(edit.printNotice);
+		assertTrue(edit.next.isOn());
+		assertEquals(1, edit.next.rows().size());
+		assertEquals(start.format(), edit.next.format());
+		assertTrue(KeyboardShortcuts.empty().apply("edit please").usage);
+	}
+
+	@Test
+	public void unknownWordsDoNotChangeState() {
+		KeyboardShortcuts start = KeyboardShortcuts.enabled(Row.numpadEnter());
+		Change edit = start.apply("edits");
 		assertTrue(edit.usage);
 		assertFalse(edit.changed);
+		assertFalse(edit.openList);
 		assertTrue(edit.next.isOn());
 		assertEquals(1, edit.next.rows().size());
 		Change extra = KeyboardShortcuts.empty().apply("on please");
@@ -191,5 +206,97 @@ public class KeyboardShortcutsTest {
 		KeyboardShortcuts parsed = KeyboardShortcuts.parse(
 				"on=1;introduced=1;29|18|line|1|0|go|");
 		assertEquals(KeyboardShortcuts.MOD_ALT, parsed.rows().get(0).modifiers);
+	}
+
+	@Test
+	public void oldRowWithoutANameStaysQuietOff() {
+		Row row = KeyboardShortcuts.parse("on=1;introduced=1;160|0|input|1|0||").rows().get(0);
+		assertEquals("", row.name);
+		assertFalse(row.quiet);
+		assertEquals(KeyboardShortcuts.ACTION_INPUT, row.action);
+	}
+
+	@Test
+	public void nameAndQuietRoundTrip() {
+		Row row = Row.of(152, KeyboardShortcuts.MOD_ALT, KeyboardShortcuts.ACTION_LINE,
+				true, true, "north", "", "rose", true);
+		assertTrue(row.repeat);
+		assertTrue(row.quiet);
+		assertEquals("rose", row.name);
+		Row back = KeyboardShortcuts.parse(KeyboardShortcuts.enabled(row).format()).rows().get(0);
+		assertEquals("rose", back.name);
+		assertTrue(back.quiet);
+		assertEquals(152, back.keyCode);
+		assertEquals(KeyboardShortcuts.MOD_ALT, back.modifiers);
+		assertEquals("north", back.tap);
+	}
+
+	@Test
+	public void oneChordIsOneRow() {
+		KeyboardShortcuts start = KeyboardShortcuts.enabled(
+				Row.of(29, 0, KeyboardShortcuts.ACTION_LINE, true, false, "look", ""),
+				Row.numpadEnter());
+		Row moved = Row.of(152, 0, KeyboardShortcuts.ACTION_LINE, true, false, "north", "");
+		KeyboardShortcuts next = start.withRow(29, 0, moved);
+		assertEquals(2, next.rows().size());
+		assertEquals(null, next.row(29, 0));
+		assertEquals("north", next.row(152, 0).tap);
+		Row again = Row.of(152, 0, KeyboardShortcuts.ACTION_LINE, true, false, "south", "");
+		KeyboardShortcuts replaced = next.withRow(-1, 0, again);
+		assertEquals(2, replaced.rows().size());
+		assertEquals("south", replaced.row(152, 0).tap);
+	}
+
+	@Test
+	public void deleteAllKeepsTheSwitchAndDoesNotReseed() {
+		KeyboardShortcuts on = KeyboardShortcuts.empty().apply("on").next;
+		assertEquals(1, on.rows().size());
+		KeyboardShortcuts cleared = on.withoutRows();
+		assertTrue(cleared.isOn());
+		assertTrue(cleared.isIntroduced());
+		assertEquals(0, cleared.rows().size());
+		Change again = cleared.apply("off").next.apply("on");
+		assertTrue(again.next.rows().isEmpty());
+		assertFalse(again.printNotice);
+	}
+
+	@Test
+	public void stepBackDropsLinesAndRepeat() {
+		Row row = Row.of(29, 0, KeyboardShortcuts.ACTION_STEP, true, true, "north", "held", "back", true);
+		assertEquals("", row.tap);
+		assertEquals("", row.hold);
+		assertFalse(row.repeat);
+		assertTrue(row.quiet);
+		assertEquals("back", row.name);
+	}
+
+	@Test
+	public void buttonCopyClearsRepeatAndKeepsTheName() {
+		Row row = Row.of(29, 0, KeyboardShortcuts.ACTION_INPUT, true, true, "", "", "pad", false);
+		Row copied = row.withButton("say hi", "say held");
+		assertEquals(KeyboardShortcuts.ACTION_LINE, copied.action);
+		assertEquals("say hi", copied.tap);
+		assertEquals("say held", copied.hold);
+		assertFalse(copied.repeat);
+		assertEquals("pad", copied.name);
+		assertEquals(29, copied.keyCode);
+	}
+
+	@Test
+	public void listShowsTheNameOrTheChordAndTheHoldLine() {
+		Row named = Row.of(152, 0, KeyboardShortcuts.ACTION_LINE, true, true, "north", "close n", "Rose", false);
+		assertFalse(named.repeat);
+		KeyboardShortcuts.ListText text = KeyboardShortcuts.listText(named);
+		assertEquals("Rose", text.title);
+		assertEquals("north\nhold · close n", text.detail);
+		assertTrue(text.search.contains("num 8"));
+		assertTrue(text.search.contains("close n"));
+		Row repeating = Row.of(152, 0, KeyboardShortcuts.ACTION_LINE, true, true, "north", "", "Rose", false);
+		assertEquals("north\nhold to repeat", KeyboardShortcuts.listText(repeating).detail);
+		Row bare = Row.numpadEnter();
+		assertEquals("Num Enter", KeyboardShortcuts.listText(bare).title);
+		assertEquals("send the line", KeyboardShortcuts.listText(bare).detail);
+		assertEquals("Alt+Num 8", KeyboardShortcuts.chordLabel(152, KeyboardShortcuts.MOD_ALT));
+		assertEquals("nothing", KeyboardShortcuts.chordLabel(-1, 0));
 	}
 }

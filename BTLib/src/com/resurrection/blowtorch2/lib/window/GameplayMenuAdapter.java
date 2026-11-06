@@ -113,6 +113,7 @@ public class GameplayMenuAdapter extends BaseAdapter {
 			case 450:
 			case 451:
 			case 452:
+			case 453:
 				return Section.EDITORS;
 			case 400:
 			case 500:

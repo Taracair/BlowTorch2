@@ -77,6 +77,7 @@ public class KeyboardShortcutMatcherTest {
 		Outcome down = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
 		assertTrue(down.consumed);
 		assertEquals("look", down.send);
+		assertFalse(down.quiet);
 		assertEquals(0, down.scheduleHoldMs);
 		assertEquals(0, down.scheduleRepeatMs);
 		Outcome repeat = matcher.onKey(letter(DOWN, 0, 'a', 'a', 1, PRE));
@@ -109,6 +110,7 @@ public class KeyboardShortcutMatcherTest {
 		assertNull(system.send);
 		Outcome fired = held.onHoldFired(armed.timerToken);
 		assertEquals("held", fired.send);
+		assertFalse(fired.quiet);
 		assertNull(held.onHoldFired(armed.timerToken).send);
 		Outcome release = held.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
 		assertTrue(release.consumed);
@@ -454,6 +456,42 @@ public class KeyboardShortcutMatcherTest {
 		assertEquals("Typing", matcher.mark());
 		matcher.setHardwareKeyboard(false);
 		assertNull(matcher.mark());
+	}
+
+	@Test
+	public void quietHoldStaysQuiet() {
+		KeyboardShortcutMatcher held = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, false, "tap", "held", "q", true));
+		Outcome armed = held.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertNull(armed.send);
+		Outcome fired = held.onHoldFired(armed.timerToken);
+		assertEquals("held", fired.send);
+		assertTrue(fired.quiet);
+	}
+
+	@Test
+	public void sendTheCurrentLineDoesNotKeepAHiddenHold() {
+		Row row = Row.of(A, 0, KeyboardShortcuts.ACTION_INPUT, true, true, "north", "held", "", true);
+		assertEquals("", row.tap);
+		assertEquals("", row.hold);
+		assertFalse(row.repeat);
+		assertFalse(row.quiet);
+		KeyboardShortcutMatcher matcher = ready(row);
+		Outcome down = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertTrue(down.sendInput);
+		assertEquals(0, down.scheduleHoldMs);
+		assertEquals(0, down.scheduleRepeatMs);
+		assertFalse(down.quiet);
+	}
+
+	@Test
+	public void quietRowIsMarkedAndStillSends() {
+		KeyboardShortcutMatcher matcher = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, false, "north", "", "walk", true));
+		Outcome down = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertTrue(down.consumed);
+		assertEquals("north", down.send);
+		assertTrue(down.quiet);
 	}
 
 	private static void assertStopped(final Stop stop) {

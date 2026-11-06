@@ -359,6 +359,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private BetterEditText mInputBox = null;
 	private TextView mShortcutMark;
 	private KeyboardShortcutController shortcutController;
+	private KeyboardShortcutListDialog shortcutList;
 	private boolean shortcutDevicesRegistered;
 	private InputManager.InputDeviceListener shortcutDeviceListener;
 	/** Unsent text per open world. On this activity, not a static. */
@@ -2337,6 +2338,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 450, 450, "Edit buttons");
 		menu.add(0, 451, 451, "Edit global gestures");
 		menu.add(0, 452, 452, "Gesture mode");
+		menu.add(0, 453, 453, "Keyboard shortcuts");
 		menu.add(0, 500, 500 ,"Speedwalk Directions");
 		menu.add(0, 520, 520, "Map");
 		menu.add(0, 600, 600, "Plugins");
@@ -2808,6 +2810,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		case 452:
 			openGestureModeDialog();
+			break;
+		case 453:
+			openKeyboardShortcuts();
 			break;
 		case 401: // Button Sets (Lua PopulateMenu; backup if invoke() did not run)
 			try {
@@ -5586,7 +5591,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (optdialog != null && optdialog.isShowing()) {
 			return true;
 		}
+		if (shortcutList != null && shortcutList.isShowing()) {
+			return true;
+		}
 		return mLogHistoryDialog != null && mLogHistoryDialog.isShowing();
+	}
+
+	private void openKeyboardShortcuts() {
+		if (service == null) {
+			return;
+		}
+		if (shortcutList != null && shortcutList.isShowing()) {
+			return;
+		}
+		shortcutList = new KeyboardShortcutListDialog(this, service);
+		shortcutList.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+			@Override
+			public void onDismiss(final android.content.DialogInterface dialog) {
+				if (shortcutList == dialog) {
+					shortcutList = null;
+				}
+				syncShortcutGates(hasWindowFocus());
+			}
+		});
+		shortcutList.show();
+		syncShortcutGates(hasWindowFocus());
+	}
+
+	/** Current button set: label, tap command, hold command. Empty when the set is not loaded. */
+	public String shortcutButtonLines() {
+		com.resurrection.blowtorch2.lib.window.Window window = windowMap == null
+				? null : windowMap.get("button_window");
+		if (window == null) {
+			return "";
+		}
+		String raw = window.callFunctionResult("shortcutButtonLines", "");
+		return raw == null ? "" : raw;
 	}
 
 	private boolean offerShortcutKey(final KeyEvent event, final int hook) {
@@ -5608,8 +5648,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (shortcutController == null) {
 			shortcutController = new KeyboardShortcutController(myhandler, new KeyboardShortcutController.Sink() {
 				@Override
-				public void sendLine(final String line) {
-					sendShortcutLine(line);
+				public void sendLine(final String line, final boolean quiet) {
+					sendShortcutLine(line, quiet);
 				}
 
 				@Override
@@ -5628,7 +5668,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Stored shortcut text. Numpad Enter uses the bar's existing Enter path. */
-	private void sendShortcutLine(final String line) {
+	private void sendShortcutLine(final String line, final boolean quiet) {
 		if (line == null || line.length() == 0 || service == null) {
 			return;
 		}
@@ -5637,7 +5677,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (encoding == null || encoding.length() == 0) {
 				return;
 			}
-			service.sendData((line + "\r\n").getBytes(encoding));
+			byte[] bytes = (line + "\r\n").getBytes(encoding);
+			if (quiet) {
+				service.sendHiddenData(bytes);
+			} else {
+				service.sendData(bytes);
+			}
 		} catch (RemoteException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 					"MainWindow.shortcutLine", e);
@@ -10815,6 +10860,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if ("gesture-edit".equals(action)) {
 			openGlobalGestureEditor();
+			return;
+		}
+		if ("shortcuts-edit".equals(action)) {
+			openKeyboardShortcuts();
 			return;
 		}
 		if ("gesture-mode".equals(action)) {

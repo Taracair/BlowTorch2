@@ -638,10 +638,22 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	private boolean matchesSearch(ItemEntry entry, String query) {
+		if (entry.searchText != null
+				&& entry.searchText.toLowerCase(Locale.getDefault()).contains(query)) {
+			return true;
+		}
 		if (entry.title != null && entry.title.toLowerCase(Locale.getDefault()).contains(query)) {
 			return true;
 		}
 		return entry.extra != null && entry.extra.toLowerCase(Locale.getDefault()).contains(query);
+	}
+
+	/** Extra words for the last row added, matched by search and not shown. */
+	public void setLastItemSearch(String text) {
+		if (mAllListItems.isEmpty()) {
+			return;
+		}
+		mAllListItems.get(mAllListItems.size() - 1).searchText = text;
 	}
 	
 	public void clearOptionItems() {
@@ -712,6 +724,9 @@ public class BaseSelectionDialog extends Dialog {
 				
 				label.setText(e.title);
 				extra.setText(e.extra);
+				boolean wrapped = e.extra != null && e.extra.indexOf('\n') >= 0;
+				extra.setSingleLine(!wrapped);
+				extra.setMaxLines(wrapped ? 3 : 1);
 				
 				label.setBackgroundColor(0x00000000);
 				extra.setBackgroundColor(0x00000000);
@@ -782,6 +797,8 @@ public class BaseSelectionDialog extends Dialog {
 		public String title;
 		public String extra;
 		public String key;
+		/** Search-only text. Null on the alias, trigger, and timer rows. */
+		public String searchText;
 		public boolean selected;
 		public boolean enabled;
 		public int mini_icon;

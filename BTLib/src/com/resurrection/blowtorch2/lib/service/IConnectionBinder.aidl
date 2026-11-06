@@ -40,6 +40,7 @@ interface IConnectionBinder {
 	boolean isConnected();
 	boolean isConnectedTo(String display);
 	void sendData(in byte[] seq);
+	void sendHiddenData(in byte[] seq);
 	void saveSettings();
 	/**
 	 * useTls travels with host and port because it is part of which endpoint

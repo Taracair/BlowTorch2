@@ -8373,6 +8373,40 @@ ScheduleCallback(104,"delayCallback",5000)
 			mL.pop(2);
 		}
 	}
+
+	/**
+	 * Same stack as {@link #callFunction}: the traceback stays under the result,
+	 * so both paths pop 2.
+	 */
+	public String callFunctionResult(String callback, String data) {
+		mL.getGlobal("debug");
+		mL.getField(mL.getTop(), "traceback");
+		mL.remove(-2);
+
+		mL.getGlobal(callback);
+		if (!mL.isFunction(mL.getTop())) {
+			mL.pop(2);
+			return null;
+		}
+		if (data != null) {
+			mL.pushString(data);
+		} else {
+			mL.pushNil();
+		}
+		int tmp = mL.pcall(1, 1, -3);
+		if (tmp != 0) {
+			displayLuaError("Error calling window script function " + callback + ": "
+					+ mL.getLuaObject(-1).getString());
+			mL.pop(2);
+			return null;
+		}
+		String result = null;
+		if (mL.isString(-1)) {
+			result = mL.toString(-1);
+		}
+		mL.pop(2);
+		return result;
+	}
 	
   /*! \page page1
 \subsection PluginInstalled PluginInstalled

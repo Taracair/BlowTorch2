@@ -25,12 +25,17 @@ public class ShortcutsCommand extends SpecialCommand {
 		String stored = opt.getValue() == null ? "" : String.valueOf(opt.getValue());
 		String arg = o == null ? "" : String.valueOf(o);
 		KeyboardShortcuts.Change change = KeyboardShortcuts.parse(stored).apply(arg);
+		if (change.openList) {
+			c.getService().doRunUiAction("shortcuts-edit");
+			return null;
+		}
 		if (change.usage) {
 			c.sendDataToWindow(getErrorMessage("Shortcuts command usage:",
 					".shortcuts\n"
 							+ ".shortcuts on\n"
 							+ ".shortcuts off\n"
 							+ ".shortcuts toggle\n"
+							+ ".shortcuts edit\n"
 							+ "No argument prints on or off and does not change it."));
 			return null;
 		}

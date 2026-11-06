@@ -99,7 +99,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("keyboard", "Input and suggestions",
 				"prints usage; .kb insert and .kb add put text in the bar");
 		cmd("shortcuts", "Input and suggestions",
-				"prints on or off; Hardware shortcuts. A hardware key follows the keyboard app you selected");
+				"prints on or off; edit opens the list; Hardware shortcuts. A hardware key follows the keyboard app you selected");
 		cmd("last", "Input and suggestions",
 				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
 		cmd("lastlist", "Input and suggestions",

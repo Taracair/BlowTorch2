@@ -104,6 +104,25 @@ public final class EditorHelp {
 		dialog.show();
 	}
 
+	public static final String SHORTCUTS =
+			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
+			+ "Name is what this list shows. Leave it blank and the list shows the key.\n\n"
+			+ "Enabled off keeps the row. That key then types as usual.\n\n"
+			+ "Press a key records the key that arrived. It stays nothing when the phone ate that key.\n\n"
+			+ "Send a line uses the tap line on a short press. A hold line waits 450 ms, then sends "
+			+ "the hold line once. Repeat sends the tap line immediately and again every 200 ms "
+			+ "until you let go. Repeat and a hold line are not both on.\n\n"
+			+ "Send the current line does what Enter does, once.\n\n"
+			+ "Step back sends the reverse of the last direction the number pad walked. "
+			+ "A second press sends that same reverse again. Until that pad has walked, "
+			+ "the key sends nothing.\n\n"
+			+ "Don't show in the window sends the line without printing it here.\n\n"
+			+ "Use a button's tap copies that button's command and its hold line. Changing the "
+			+ "button later does not change this key.\n\n"
+			+ ".shortcuts on turns them on. .shortcuts off turns them off. .shortcuts with no "
+			+ "argument prints on or off and does not change it. .shortcuts edit opens this list.\n\n"
+			+ KeyboardShortcuts.NOTICE;
+
 	public static final String ALIASES =
 			"An alias rewrites what YOU type, before it leaves the phone. It never "
 			+ "sees anything the game says -- that is a trigger.\n\n"

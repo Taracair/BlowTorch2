@@ -1151,7 +1151,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_SENDDATA_BYTES:
 				try {
 					resetUntilSendFired();
-					sendToServer((byte[]) msg.obj, true);
+					sendToServer((byte[]) msg.obj, true, msg.arg1 != 0);
 				} catch (Exception e1) {
 					reportRuntimeError("outbound command", e1);
 				}
@@ -4299,7 +4299,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				pending.mCmdString = mDataToServer.toString();
 				pending.mVisString = "";
 				mDataToServer.setLength(0);
-				emitOutbound(pending, mOutboundUnaccent);
+				emitOutbound(pending, mOutboundUnaccent, false);
 			}
 			String line = value;
 			if (mMcpEngine != null && mMcpEngine.isUse()) {
@@ -4744,8 +4744,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					holdover, paused.holdoverPolicy);
 			if (mJustPaused != null) {
 				mJustPaused.unaccent = paused.unaccent;
+				mJustPaused.quiet = paused.quiet;
 			}
-			emitOutbound(d, paused.unaccent);
+			emitOutbound(d, paused.unaccent, paused.quiet);
 			armPendingWait();
 		} catch (Exception e) {
 			reportRuntimeError("wait resume", e);
@@ -4765,6 +4766,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		long delayMs;
 		long fireAtElapsed;
 		boolean unaccent;
+		boolean quiet;
 	}
 
 	/**
@@ -8120,16 +8122,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param bytes Input to process.
 	 */
 	private void sendToServer(final byte[] bytes) {
-		sendToServer(bytes, false);
+		sendToServer(bytes, false, false);
 	}
 
 	/**
 	 * @param unaccent true for input-bar / button (BYTES) sends; false for Lua
 	 *        {@code SendToServer} and Ack (STRING)
+	 * @param quiet true skips the local echo of this send. The socket line is unchanged.
 	 */
-	private void sendToServer(final byte[] bytes, final boolean unaccent) {
+	private void sendToServer(final byte[] bytes, final boolean unaccent, final boolean quiet) {
 		try {
-			sendToServerOnce(bytes, unaccent);
+			sendToServerOnce(bytes, unaccent, quiet);
 		} finally {
 			// No-op when the route's line reached the mapper; otherwise it never went out.
 			if (mMapper != null) {
@@ -8138,7 +8141,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	private void sendToServerOnce(final byte[] bytes, final boolean unaccent) {
+	private void sendToServerOnce(final byte[] bytes, final boolean unaccent, final boolean quiet) {
 		if (bytes == null || mSettings == null) {
 			return;
 		}
@@ -8156,6 +8159,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 		if (mJustPaused != null) {
 			mJustPaused.unaccent = unaccent;
+			mJustPaused.quiet = quiet;
 		}
 		
 		if (d == null) {
@@ -8163,7 +8167,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		try {
-			emitOutbound(d, unaccent);
+			emitOutbound(d, unaccent, quiet);
 		} catch (IOException e) {
 			cancelCommandWaits();
 			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
@@ -8176,9 +8180,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * Socket write + local echo for a batch that {@link #processOutputData} or a
 	 * {@code .wait} resume already finished walking.
 	 */
-	private void emitOutbound(final Data d, final boolean unaccentFromBytes) throws IOException {
+	private void emitOutbound(final Data d, final boolean unaccentFromBytes, final boolean quiet)
+			throws IOException {
 		if (d == null) {
 			return;
+		}
+		if (quiet) {
+			d.mVisString = "";
 		}
 		if (d.mCmdString.equals("") && (d.mVisString != null && d.mVisString.replaceAll("\\s", "").equals(""))) {
 			return;

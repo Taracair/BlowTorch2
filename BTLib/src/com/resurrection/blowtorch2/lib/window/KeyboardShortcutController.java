@@ -10,7 +10,7 @@ import android.view.KeyEvent;
 public final class KeyboardShortcutController {
 
 	public interface Sink {
-		void sendLine(String line);
+		void sendLine(String line, boolean quiet);
 
 		void sendInput();
 
@@ -91,7 +91,7 @@ public final class KeyboardShortcutController {
 		if (outcome.sendInput) {
 			sink.sendInput();
 		} else if (outcome.send != null && outcome.send.length() > 0) {
-			sink.sendLine(outcome.send);
+			sink.sendLine(outcome.send, outcome.quiet);
 		}
 		if (handler == null) {
 			return;
