@@ -30,6 +30,9 @@ list is now enforced by a script, so you do not have to remember it. See
    log. A wider `catch` moves the symptom away from the cause.
 5. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the
    output is identical, or extract, test against old behaviour, then delegate.
+   A test of a behaviour change takes its expected result from the requirement
+   or from something observed, not from the return value of the method about
+   to be edited.
 6. **The second attempt is the signal.** Fixing the same failure in the same
    place twice means the first fix was a guess. Stop at the third: read what the
    API actually requires, then write one informed fix. If that still fails, go

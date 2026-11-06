@@ -9,6 +9,14 @@ God classes cannot be unit-tested because construction needs Lua and Android. Do
 
 Check `BTLib/src/test/` **before** reasoning from source. A test that already pins the behaviour is the advisor; do not extract a second copy.
 
+## Two jobs
+
+**Move, same output.** Follow the steps below. The tests pass on the first run, and that pass is the proof the move changed nothing.
+
+**Change behaviour.** Name the player-visible slice, not the whole class. Take the expected result from the requirement or from something observed, not from the return value of the method about to be edited. Green before the edit means the old code already does that. Red on the old code is the bug; leave the assertion alone.
+
+Do not construct `Connection`, `Window`, or `MainWindow` in a JVM test. Pull the pure slice, or test a helper that already exists.
+
 ## Steps
 
 1. Find logic with **no** Android and **no** Lua in it. If it touches `Context`, binder, LuaState, or views, stop — this skill does not apply.
@@ -25,7 +33,8 @@ Standing example: `AliasPattern` (and `AliasExpansion`, `CaptureSubstitution`, `
 
 ## Do not
 
-- Rewrite while extracting. Any behaviour change happens **after** the tests are green on the old logic.
+- Rewrite while extracting. A behaviour change is a later edit, after the move is green.
+- Copy the current return value into an assertion when changing behaviour. Take the expected result from the requirement or from something observed. Red on the old code is the bug.
 - Claim "behaviour-preserving" without the first-try pass (or without showing why the output is identical).
 - Extract because a change "touches 3+ files". File count is not a trigger here.
 ---

@@ -91,8 +91,11 @@ Same launch as a large review: `generalPurpose` + `cursor-grok-4.7-xhigh`
   alter (check `BTLib/src/test/` first, it is easy to miss)
 
 If there is a test, the test is the advisor, and it is cheaper and more reliable
-than an opinion. Extract, write a test that passes against the old behaviour,
-then change it. That is the evidence rule 5 asks for.
+than an opinion. To move code unchanged, extract, write a test that passes
+against the old behaviour, then delegate. A test of a behaviour change takes
+its expected result from the requirement or from something observed, not from
+the return value of the method about to be edited. Red on the old code is the
+bug. That is the evidence rule 5 asks for.
 
 "Touches 3+ files" is **not** a trigger on this codebase. Five classes are over
 4000 lines, so almost any real change spans subsystems. Using file count as the
