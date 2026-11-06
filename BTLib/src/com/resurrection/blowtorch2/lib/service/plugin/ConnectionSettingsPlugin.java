@@ -19,6 +19,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.EncodingOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.window.GlobalGestures;
+import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
@@ -152,6 +153,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		unaccent_send.setKey("unaccent_send");
 		unaccent_send.setValue(false);
 		input.addOption(unaccent_send);
+
+		StringOption keyboard_shortcuts = new StringOption();
+		keyboard_shortcuts.setTitle("Keyboard shortcuts");
+		keyboard_shortcuts.setDescription("Saved hardware shortcuts for this world.");
+		keyboard_shortcuts.setKey(KeyboardShortcuts.SETTING_KEY);
+		keyboard_shortcuts.setValue("");
+		input.addOption(keyboard_shortcuts);
 
 		BooleanOption input_hyphenate = new BooleanOption();
 		input_hyphenate.setTitle("Hyphenate long words?");

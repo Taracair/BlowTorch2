@@ -72,6 +72,8 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
+import android.view.InputDevice;
+import android.hardware.input.InputManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -355,6 +357,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean mHideIcons = true;
 	
 	private BetterEditText mInputBox = null;
+	private TextView mShortcutMark;
+	private KeyboardShortcutController shortcutController;
+	private boolean shortcutDevicesRegistered;
+	private InputManager.InputDeviceListener shortcutDeviceListener;
 	/** Unsent text per open world. On this activity, not a static. */
 	private final InputDrafts mInputDrafts = new InputDrafts();
 	private final HistoryWorld mHistoryWorld = new HistoryWorld();
@@ -5494,6 +5500,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	public void onPause() {
+		unregisterShortcutDevices();
 		final long pause0 = android.os.SystemClock.uptimeMillis();
 		mTimingSwitchUp = 0L;
 		TimingTrace.markLeave();
@@ -5551,6 +5558,211 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onPause();
 	}
 
+	@Override
+	public boolean dispatchKeyEvent(KeyEvent event) {
+		if (offerShortcutKey(event, KeyboardShortcutMatcher.HOOK_ACTIVITY)) {
+			return true;
+		}
+		return super.dispatchKeyEvent(event);
+	}
+
+	@Override
+	public void onWindowFocusChanged(final boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		syncShortcutGates(hasFocus);
+	}
+
+	private void syncShortcutGates(final boolean windowFocused) {
+		KeyboardShortcutController controller = shortcutKeys();
+		if (controller == null) {
+			return;
+		}
+		boolean dialog = !windowFocused || shortcutDialogShowing();
+		controller.setDialogOpen(dialog);
+		controller.setWalkingSuspended(dialog);
+	}
+
+	private boolean shortcutDialogShowing() {
+		if (optdialog != null && optdialog.isShowing()) {
+			return true;
+		}
+		return mLogHistoryDialog != null && mLogHistoryDialog.isShowing();
+	}
+
+	private boolean offerShortcutKey(final KeyEvent event, final int hook) {
+		if (event == null) {
+			return false;
+		}
+		KeyboardShortcutController controller = shortcutKeys();
+		if (controller == null) {
+			return false;
+		}
+		syncShortcutGates(hasWindowFocus());
+		return controller.onKey(event, hook);
+	}
+
+	private KeyboardShortcutController shortcutKeys() {
+		if (myhandler == null) {
+			return null;
+		}
+		if (shortcutController == null) {
+			shortcutController = new KeyboardShortcutController(myhandler, new KeyboardShortcutController.Sink() {
+				@Override
+				public void sendLine(final String line) {
+					sendShortcutLine(line);
+				}
+
+				@Override
+				public void sendInput() {
+					myhandler.sendEmptyMessage(MESSAGE_PROCESSINPUTWINDOW);
+				}
+
+				@Override
+				public void showMark(final String mark) {
+					showShortcutMark(mark);
+				}
+			});
+			shortcutController.setTypingForced(mLocalEchoOff);
+		}
+		return shortcutController;
+	}
+
+	/** Stored shortcut text. Numpad Enter uses the bar's existing Enter path. */
+	private void sendShortcutLine(final String line) {
+		if (line == null || line.length() == 0 || service == null) {
+			return;
+		}
+		try {
+			String encoding = service.getEncoding();
+			if (encoding == null || encoding.length() == 0) {
+				return;
+			}
+			service.sendData((line + "\r\n").getBytes(encoding));
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.shortcutLine", e);
+		} catch (UnsupportedEncodingException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.shortcutLine", e);
+		}
+	}
+
+	private boolean shortcutPadApplied;
+
+	private void showShortcutMark(final String mark) {
+		if (mShortcutMark == null) {
+			return;
+		}
+		if (mark == null || mark.length() == 0) {
+			mShortcutMark.setVisibility(View.GONE);
+			if (shortcutPadApplied && mInputBox != null) {
+				mInputBox.setPadding(0, mInputBox.getPaddingTop(),
+						mInputBox.getPaddingRight(), mInputBox.getPaddingBottom());
+				shortcutPadApplied = false;
+			}
+			return;
+		}
+		mShortcutMark.setText(mark);
+		if (mInputBox != null) {
+			mShortcutMark.setTextColor(mInputBox.getCurrentTextColor());
+		}
+		mShortcutMark.setVisibility(View.VISIBLE);
+		mShortcutMark.measure(
+				View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+				View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+		if (mInputBox != null) {
+			int gap = (int) (4 * getResources().getDisplayMetrics().density + 0.5f);
+			mInputBox.setPadding(mShortcutMark.getMeasuredWidth() + gap,
+					mInputBox.getPaddingTop(),
+					mInputBox.getPaddingRight(), mInputBox.getPaddingBottom());
+			shortcutPadApplied = true;
+		}
+	}
+
+	private void registerShortcutDevices() {
+		if (myhandler == null) {
+			return;
+		}
+		if (!shortcutDevicesRegistered) {
+			InputManager manager = (InputManager) getSystemService(INPUT_SERVICE);
+			if (manager == null) {
+				return;
+			}
+			if (shortcutDeviceListener == null) {
+				shortcutDeviceListener = new InputManager.InputDeviceListener() {
+					@Override
+					public void onInputDeviceAdded(final int deviceId) {
+						refreshHardwareKeyboard();
+					}
+
+					@Override
+					public void onInputDeviceRemoved(final int deviceId) {
+						refreshHardwareKeyboard();
+					}
+
+					@Override
+					public void onInputDeviceChanged(final int deviceId) {
+						refreshHardwareKeyboard();
+					}
+				};
+			}
+			manager.registerInputDeviceListener(shortcutDeviceListener, myhandler);
+			shortcutDevicesRegistered = true;
+		}
+		refreshHardwareKeyboard();
+	}
+
+	private void unregisterShortcutDevices() {
+		if (!shortcutDevicesRegistered) {
+			return;
+		}
+		InputManager manager = (InputManager) getSystemService(INPUT_SERVICE);
+		if (manager != null && shortcutDeviceListener != null) {
+			manager.unregisterInputDeviceListener(shortcutDeviceListener);
+		}
+		shortcutDevicesRegistered = false;
+	}
+
+	private void refreshHardwareKeyboard() {
+		KeyboardShortcutController controller = shortcutKeys();
+		if (controller == null) {
+			return;
+		}
+		controller.setHardwareKeyboard(hardwareKeyboardPresent());
+	}
+
+	/** The captured keyboard reported alphabetic. A virtual device is not counted. */
+	private static boolean hardwareKeyboardPresent() {
+		int[] ids = InputDevice.getDeviceIds();
+		if (ids == null) {
+			return false;
+		}
+		for (int i = 0; i < ids.length; i++) {
+			InputDevice device = InputDevice.getDevice(ids[i]);
+			if (device == null || device.isVirtual()) {
+				continue;
+			}
+			if (device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void applyKeyboardShortcutSettings(final SettingsGroup group) {
+		KeyboardShortcutController controller = shortcutKeys();
+		if (controller == null || group == null) {
+			return;
+		}
+		String stored = "";
+		BaseOption opt = (BaseOption) group.findOptionByKey(KeyboardShortcuts.SETTING_KEY);
+		if (opt != null && opt.getValue() != null) {
+			stored = String.valueOf(opt.getValue());
+		}
+		controller.setStored(stored);
+		controller.setTypingForced(mLocalEchoOff);
+	}
+
 	public void onResume() {
 		final long resumeEnter = android.os.SystemClock.uptimeMillis();
 		final boolean timingWasBound = isBound;
@@ -5565,6 +5777,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				+ " bound=" + (isBound ? 1 : 0)
 				+ " svc=" + (service != null ? 1 : 0));
 		super.onResume();
+		registerShortcutDevices();
 		// The insets that follow a resume are the ones that get retracted, so
 		// tell the chrome to let them settle before it moves anything.
 		chrome.onResume();
@@ -5878,6 +6091,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			
 			isKeepLast = (Boolean)((BaseOption)group.findOptionByKey("keep_last")).getValue();
+			applyKeyboardShortcutSettings(group);
 
 			BaseOption floatBtnOpt = (BaseOption) group.findOptionByKey("floating_buttons_enabled");
 			if (floatBtnOpt != null && floatBtnOpt.getValue() instanceof Boolean) {
@@ -6203,6 +6417,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mLocalEchoOff = off;
+		KeyboardShortcutController shortcuts = shortcutKeys();
+		if (shortcuts != null) {
+			shortcuts.setTypingForced(off);
+		}
 		if (off && mInputBox != null) {
 			// Keep Last leaves the nickname in the bar after Enter. WILL ECHO
 			// for the password then masks that leftover as dots — selection is
@@ -8605,6 +8823,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputDrafts.pinShowing(getConnectionDisplay());
 		mHistoryWorld.pinShowing(getConnectionDisplay());
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
+		mShortcutMark = (TextView) findViewById(R.id.keyboard_shortcut_mark);
+		mInputBox.setHardwareKeyHook(new BetterEditText.HardwareKeyHook() {
+			@Override
+			public boolean onPreImeKey(final KeyEvent event) {
+				return offerShortcutKey(event, KeyboardShortcutMatcher.HOOK_PRE_IME);
+			}
+		});
 		bindGhostTap();
 		// The same reason the post below exists, and the same trap: loadSettings
 		// can arrive before this field is built, and it hands its answer to the
@@ -8671,6 +8896,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			} else {
 				mInputBox.setBackgroundResource(R.drawable.input_bar_bg);
 			}
+		}
+		if (shortcutController != null) {
+			shortcutController.republishMark();
 		}
 		View tools = findViewById(R.id.input_edit_tools);
 		if (tools != null) {

@@ -4,6 +4,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ConnectionSetttingsParser;
+import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts;
 
 import org.junit.Test;
 
@@ -181,6 +182,14 @@ public class SettingsOptionKeyOwnershipTest {
 			assertFalse(key + " must not be claimed by the window writer",
 					WindowTokenParser.isWindowOptionKey(key));
 		}
+	}
+
+	@Test
+	public void keyboardShortcutsAreConnectionOwnedNotWindow() {
+		assertTrue("keyboard_shortcuts must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey(KeyboardShortcuts.SETTING_KEY));
+		assertFalse("keyboard_shortcuts must not be claimed by the window writer",
+				WindowTokenParser.isWindowOptionKey(KeyboardShortcuts.SETTING_KEY));
 	}
 
 	@Test

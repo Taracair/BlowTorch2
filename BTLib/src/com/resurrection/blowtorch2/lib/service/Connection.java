@@ -68,6 +68,7 @@ import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolSurveyCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
+import com.resurrection.blowtorch2.lib.service.function.ShortcutsCommand;
 import com.resurrection.blowtorch2.lib.service.function.LastCommand;
 import com.resurrection.blowtorch2.lib.service.function.LastRecall;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
@@ -658,6 +659,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(fullscreenCmd.commandName, fullscreenCmd);
 		mSpecialCommands.put(mKeyboardCommand.commandName, mKeyboardCommand);
 		mSpecialCommands.put("kb", mKeyboardCommand);
+		ShortcutsCommand shortcutscmd = new ShortcutsCommand();
+		mSpecialCommands.put(shortcutscmd.commandName, shortcutscmd);
 		LastCommand lastcmd = new LastCommand();
 		mSpecialCommands.put(lastcmd.commandName, lastcmd);
 		com.resurrection.blowtorch2.lib.service.function.LastListCommand lastlistcmd =
@@ -6781,6 +6784,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case global_gesture_bindings:
 				mService.doExecuteRequestLoadSettings();
 				break;
+			case keyboard_shortcuts:
+				if (!mReplayingSettings.get().booleanValue()) {
+					requestSettingsSave();
+				}
+				mService.doExecuteRequestLoadSettings();
+				break;
 			default:
 				break;
 			}
@@ -8076,7 +8085,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Empty two-finger direction scrolls with the finger that moved. */
 		global_gesture_blank_scroll,
 		/** Direction commands. Stored on the Edit global gestures row. */
-		global_gesture_bindings
+		global_gesture_bindings,
+		/** Hardware shortcuts for this world. Empty until the first .shortcuts on. */
+		keyboard_shortcuts
 	}
 	
 	/**

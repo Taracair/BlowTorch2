@@ -138,7 +138,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		global_gesture_two_copy,
 		global_gesture_two_scroll,
 		global_gesture_blank_scroll,
-		global_gesture_bindings
+		global_gesture_bindings,
+		keyboard_shortcuts
 	}
 	
 	/**
@@ -1231,6 +1232,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case global_gesture_bindings:
+						if(opt.getValue() != null && !opt.getValue().toString().equals("")) {
+							dooutput = true;
+						}
+						break;
+					case keyboard_shortcuts:
 						if(opt.getValue() != null && !opt.getValue().toString().equals("")) {
 							dooutput = true;
 						}

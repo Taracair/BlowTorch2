@@ -76,6 +76,20 @@
                 android:textSize="@dimen/game_input_text_size"
                 android:typeface="monospace" />
 
+            <TextView
+                android:id="@+id/keyboard_shortcut_mark"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:clickable="false"
+                android:focusable="false"
+                android:maxLines="1"
+                android:paddingLeft="2dip"
+                android:paddingRight="6dip"
+                android:textColor="@color/game_input_text"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:id="@+id/input_action_buttons"
                 android:layout_width="wrap_content"

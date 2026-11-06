@@ -124,6 +124,9 @@ public class OptionsDialog extends Dialog {
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_use_coords");
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_grow");
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_create_exits");
+		// Options → Typing is step 3. Until then the row would be the only editor.
+		HIDDEN_OPTION_KEYS.add(
+				com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.SETTING_KEY);
 	}
 
 	HashMap<Integer,String> pluginSettingsMap = new HashMap<Integer,String>();

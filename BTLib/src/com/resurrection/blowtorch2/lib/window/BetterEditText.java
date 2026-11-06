@@ -6,7 +6,6 @@ import android.annotation.SuppressLint;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputFilter;
@@ -52,6 +51,12 @@ public class BetterEditText extends EditText {
 	/** Letter to delete with a backspace or delete that only hit the mark. */
 	private int hyphenSwallowAt = -1;
 	private boolean hyphenSyncPosted = false;
+	/** Consumes a key before the keyboard app. Unbound keys return false. */
+	public interface HardwareKeyHook {
+		boolean onPreImeKey(KeyEvent event);
+	}
+
+	private HardwareKeyHook hardwareKeyHook;
 	private final SpanWatcher hyphenSpanWatcher = new HyphenSpanWatcher();
 	private final InputHyphenBreaks.Measurer hyphenMeasurer = new InputHyphenBreaks.Measurer() {
 		@Override
@@ -87,6 +92,19 @@ public class BetterEditText extends EditText {
 	protected void onAttachedToWindow() {
 		super.onAttachedToWindow();
 		ensureHyphenWatcher();
+	}
+
+	public void setHardwareKeyHook(final HardwareKeyHook hook) {
+		hardwareKeyHook = hook;
+	}
+
+	/** Bound chords return before the keyboard app rewrites the key. */
+	@Override
+	public boolean dispatchKeyEventPreIme(KeyEvent event) {
+		if (hardwareKeyHook != null && event != null && hardwareKeyHook.onPreImeKey(event)) {
+			return true;
+		}
+		return super.dispatchKeyEventPreIme(event);
 	}
 
 	@Override
