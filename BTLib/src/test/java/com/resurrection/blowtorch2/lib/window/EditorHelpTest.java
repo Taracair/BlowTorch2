@@ -52,6 +52,9 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.HOLD_AND_REPEAT));
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.QUIET_CAPTION));
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.USE_BUTTON));
+		assertTrue(EditorHelp.SHORTCUTS.contains(
+				"The list has a search box. It matches the words on the button, its name, its id, "
+						+ "its command, and its hold line."));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Repeat and a hold line are not both on"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Filling a hold line turns repeat off"));
 

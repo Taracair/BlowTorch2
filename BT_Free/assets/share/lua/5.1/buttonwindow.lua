@@ -6826,7 +6826,7 @@ function askImport()
 	alert:show()
 end
 
--- Label, tap command, and hold command of the buttons on screen.
+-- Label, name, id, tap command, and hold command of the buttons on screen.
 -- Java copies one row into a shortcut. Flip and swipes stay on the button.
 function shortcutButtonLines()
 	local JSONArray = luajava.bindClass("org.json.JSONArray")
@@ -6838,11 +6838,15 @@ function shortcutButtonLines()
 			local d = b and b.data
 			if type(d) == "table" and findAccordionParentOf(b) == nil then
 				local label = tostring(d.label or "")
+				local name = tostring(d.name or "")
+				local id = tostring(d.id or "")
 				local command = tostring(d.command or "")
 				local hold = tostring(d.holdCommand or "")
-				if label ~= "" or command ~= "" or hold ~= "" then
+				if label ~= "" or name ~= "" or id ~= "" or command ~= "" or hold ~= "" then
 					local o = luajava.new(JSONObject)
 					o:put("label", label)
+					o:put("name", name)
+					o:put("id", id)
 					o:put("command", command)
 					o:put("hold", hold)
 					arr:put(o)
