@@ -46,14 +46,15 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final EditText nameField;
 	private final EditText tapField;
 	private final EditText holdField;
-	private final CheckBox enabledBox;
 	private final CheckBox repeatBox;
 	private final CheckBox quietBox;
+	private final TextView quietNote;
 	private final RadioGroup actions;
 	private final View commandBlock;
 	private final int lineId;
 	private final int inputId;
 	private final int stepId;
+	private final boolean rowEnabled;
 	private boolean formLock;
 
 	private KeyboardShortcutEditorDialog(final Activity activity, final KeyboardShortcuts stored,
@@ -94,11 +95,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		form.addView(label(activity, "Name"));
 		form.addView(nameField);
 
-		enabledBox = new CheckBox(activity);
-		enabledBox.setText("Enabled");
-		enabledBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
-		enabledBox.setChecked(existing == null || existing.enabled);
-		form.addView(enabledBox);
+		rowEnabled = existing == null || existing.enabled;
 
 		form.addView(label(activity, "Key"));
 		keyLabel = new KeyRow(activity);
@@ -164,10 +161,12 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		form.addView(commandBlock);
 
 		quietBox = new CheckBox(activity);
-		quietBox.setText("Don't show in the window");
+		quietBox.setText("Don't print the sent line");
 		quietBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		quietBox.setChecked(existing != null && existing.quiet);
 		form.addView(quietBox);
+		quietNote = caption(activity, "The game still receives it. This window does not show it.");
+		form.addView(quietNote);
 
 		android.widget.Button useButton = new android.widget.Button(activity);
 		useButton.setText("Use a button");
@@ -361,7 +360,9 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		boolean line = actions.getCheckedRadioButtonId() == lineId;
 		boolean input = actions.getCheckedRadioButtonId() == inputId;
 		commandBlock.setVisibility(line ? View.VISIBLE : View.GONE);
-		quietBox.setVisibility(input ? View.GONE : View.VISIBLE);
+		int quiet = input ? View.GONE : View.VISIBLE;
+		quietBox.setVisibility(quiet);
+		quietNote.setVisibility(quiet);
 	}
 
 	private void save() {
@@ -376,7 +377,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		} else if (checked == stepId) {
 			action = KeyboardShortcuts.ACTION_STEP;
 		}
-		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, enabledBox.isChecked(),
+		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, rowEnabled,
 				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
 				nameField.getText().toString(), quietBox.isChecked() && checked != inputId);
 		host.save(stored.withRow(previousKey, previousMods, row));

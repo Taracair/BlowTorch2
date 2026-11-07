@@ -107,7 +107,8 @@ public final class EditorHelp {
 	public static final String SHORTCUTS =
 			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
 			+ "Name is what this list shows. Leave it blank and the list shows the key.\n\n"
-			+ "Enabled off keeps the row. That key then types as usual.\n\n"
+			+ "The switch on a row in the list turns that shortcut off. The row stays. "
+			+ "That key then types as usual.\n\n"
 			+ "Press a key keeps listening. Tap that row again when the key on it is the one you want. "
 			+ "It stays nothing when the phone ate that key.\n\n"
 			+ "Send a line uses the tap line on a short press. A hold line waits 450 ms, then sends "
@@ -117,7 +118,7 @@ public final class EditorHelp {
 			+ "Step back sends the reverse of the last direction the number pad walked, "
 			+ "using the directions set in Speedwalk Directions. A second press sends that same "
 			+ "reverse again. Until that pad has walked, the key sends nothing.\n\n"
-			+ "Don't show in the window sends the line without printing it here.\n\n"
+			+ "Don't print the sent line still sends it to the game. This window does not show that line.\n\n"
 			+ "Use a button copies a button that is already on the screen: its command and its "
 			+ "hold line. Changing the button later does not change this key.\n\n"
 			+ ".shortcuts on turns them on. .shortcuts off turns them off. .shortcuts with no "
