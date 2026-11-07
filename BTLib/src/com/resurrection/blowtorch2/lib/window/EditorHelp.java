@@ -5,6 +5,9 @@ import com.resurrection.blowtorch2.lib.R;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Typeface;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -67,7 +70,7 @@ public final class EditorHelp {
 		TextView bodyView = new TextView(context);
 		bodyView.setPadding(bodyPad, bodyPad, bodyPad, bodyPad);
 		bodyView.setTextIsSelectable(true);
-		bodyView.setText(body);
+		bodyView.setText(emphasize(body));
 		bodyView.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
 		bodyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
 
@@ -104,6 +107,79 @@ public final class EditorHelp {
 		dialog.show();
 	}
 
+	/** A **word** is the option. The lines under it are the note. Markers are not shown. */
+	static final class Emphasis {
+		final String text;
+		final int[] starts;
+		final int[] ends;
+
+		private Emphasis(final String text, final int[] starts, final int[] ends) {
+			this.text = text;
+			this.starts = starts;
+			this.ends = ends;
+		}
+	}
+
+	static Emphasis emphasis(final String body) {
+		if (body == null || body.indexOf("**") < 0) {
+			return new Emphasis(body == null ? "" : body, new int[0], new int[0]);
+		}
+		StringBuilder text = new StringBuilder();
+		int[] starts = new int[4];
+		int[] ends = new int[4];
+		int count = 0;
+		int i = 0;
+		while (i < body.length()) {
+			int open = body.indexOf("**", i);
+			if (open < 0) {
+				text.append(body.substring(i));
+				break;
+			}
+			text.append(body.substring(i, open));
+			int close = body.indexOf("**", open + 2);
+			if (close < 0) {
+				text.append(body.substring(open));
+				break;
+			}
+			int start = text.length();
+			text.append(body.substring(open + 2, close));
+			if (count == starts.length) {
+				starts = grow(starts);
+				ends = grow(ends);
+			}
+			starts[count] = start;
+			ends[count] = text.length();
+			count++;
+			i = close + 2;
+		}
+		return new Emphasis(text.toString(), copy(starts, count), copy(ends, count));
+	}
+
+	private static int[] grow(final int[] values) {
+		int[] next = new int[values.length * 2];
+		System.arraycopy(values, 0, next, 0, values.length);
+		return next;
+	}
+
+	private static int[] copy(final int[] values, final int count) {
+		int[] out = new int[count];
+		System.arraycopy(values, 0, out, 0, count);
+		return out;
+	}
+
+	static CharSequence emphasize(final String body) {
+		Emphasis mark = emphasis(body);
+		if (mark.starts.length == 0) {
+			return mark.text;
+		}
+		SpannableStringBuilder out = new SpannableStringBuilder(mark.text);
+		for (int i = 0; i < mark.starts.length; i++) {
+			out.setSpan(new StyleSpan(Typeface.BOLD), mark.starts[i], mark.ends[i],
+					Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		}
+		return out;
+	}
+
 	public static final String HOLD_AND_REPEAT =
 			"A hold command and Repeat cannot both be on. Typing a hold command turns Repeat off. "
 					+ "Turning Repeat on clears the hold command.";
@@ -116,43 +192,65 @@ public final class EditorHelp {
 
 	public static final String SHORTCUTS =
 			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
-			+ "Name is what this list shows. Leave it blank and the list shows the key.\n\n"
+			+ "**Name**\n"
+			+ "What this list shows. Leave it blank and the list shows the key.\n\n"
+			+ "**Row switch**\n"
 			+ "The switch on a row in the list turns that shortcut off. The row stays. "
 			+ "That key then types as usual.\n\n"
-			+ "Press a key keeps listening. Tap that row again when the key on it is the one you want. "
+			+ "**Press a key**\n"
+			+ "Keeps listening. Tap that row again when the key on it is the one you want. "
 			+ "It stays nothing when the phone ate that key.\n\n"
-			+ "Send a line uses the tap line on a short press. A hold line waits 450 ms, then sends "
-			+ "the hold line once. Repeat sends the tap line immediately and again every 200 ms "
-			+ "until you let go. " + HOLD_AND_REPEAT + "\n\n"
-			+ "Send the current line does what Enter does, once.\n\n"
-			+ "Step back sends the reverse of the last direction the number pad walked, "
+			+ "**Send a line**\n"
+			+ "Uses the tap line on a short press.\n\n"
+			+ "**Hold command**\n"
+			+ "Waits 450 ms, then sends the hold line once.\n\n"
+			+ "**Repeat**\n"
+			+ "Sends the tap line immediately and again every 200 ms until you let go. "
+			+ HOLD_AND_REPEAT + "\n\n"
+			+ "**Send the current line**\n"
+			+ "Does what Enter does, once.\n\n"
+			+ "**Step back**\n"
+			+ "Sends the reverse of the last direction the number pad walked, "
 			+ "using the directions set in Speedwalk Directions. A second press sends that same "
 			+ "reverse again. Until that pad has walked, the key sends nothing.\n\n"
-			+ "Don't print the sent line. " + QUIET_CAPTION + "\n\n"
-			+ USE_BUTTON + " copies that button's command and its "
-			+ "hold line, and turns repeat off. Changing the button later does not change this key.\n\n"
-			+ "Number pad, the first row in this list, fills the number pad. Done writes those rows.\n\n"
+			+ "**Don't print the sent line**\n"
+			+ QUIET_CAPTION + "\n\n"
+			+ "**" + USE_BUTTON + "**\n"
+			+ "Copies that button's command and its hold line, and turns repeat off. "
+			+ "Changing the button later does not change this key.\n\n"
+			+ "**Number pad**\n"
+			+ "The first row in this list. Done writes those rows.\n\n"
+			+ "**.shortcuts**\n"
 			+ ".shortcuts on turns them on. .shortcuts off turns them off. .shortcuts with no "
 			+ "argument prints on or off and does not change it. .shortcuts edit opens this list.\n\n"
 			+ KeyboardShortcuts.NOTICE;
 
 	public static final String NUMBER_PAD =
-			"Nothing is saved until Done.\n\n"
-			+ "Compass words fills north, northwest, and the rest. Short steps fills n, nw, and the rest. "
-			+ "Fill from Speedwalk Directions uses the command set for each direction. "
-			+ "A letter that only shortens a run is not that command. "
+			"**Nothing is saved until Done.**\n\n"
+			+ "**Compass words**\n"
+			+ "Fills north, northwest, and the rest.\n\n"
+			+ "**Short steps**\n"
+			+ "Fills n, nw, and the rest.\n\n"
+			+ "**Fill from Speedwalk Directions**\n"
+			+ "Uses the command set for each direction. "
+			+ "A letter that only shortens a run is not that command.\n\n"
 			+ "Those three leave * and / empty, and they leave Enter alone.\n\n"
+			+ "**Modifier**\n"
 			+ "None walks on the bare number. Alt walks on Alt plus the number, and the bare number types. "
 			+ "Ctrl walks on Ctrl plus the number, and the bare number types.\n\n"
+			+ "**Look**\n"
 			+ KeyboardShortcutPad.lookCaption(0) + " When the walk modifier is Alt, "
 			+ KeyboardShortcutPad.lookCaption(KeyboardShortcuts.MOD_ALT) + " Look sends once.\n\n"
+			+ "**Cells**\n"
 			+ "A cell shows its face and its command. An empty command is not a shortcut. "
 			+ "* and / start empty. Enter shows " + KeyboardShortcutPad.SEND_CURRENT_LINE
 			+ ". Clearing it removes that row.\n\n"
+			+ "**Walk lock**\n"
 			+ KeyboardShortcutPad.latchCaption(0) + " "
 			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_ALT) + " "
 			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_CTRL) + "\n\n"
-			+ "When the pad walks is Options → Typing.";
+			+ "**When the pad walks**\n"
+			+ "Options → Typing.";
 
 	public static final String ALIASES =
 			"An alias rewrites what YOU type, before it leaves the phone. It never "

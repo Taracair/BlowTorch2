@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+
 /**
  * The list {@code ?} texts and the trigger-editor CONDITIONS essay that moved
  * off the canvas. Chrome of {@link EditorHelp#show} is visual; these strings
@@ -70,6 +71,25 @@ public class EditorHelpTest {
 		assertTrue(!EditorHelp.NUMBER_PAD.contains("the other modifier"));
 		assertTrue(!EditorHelp.NUMBER_PAD.contains("the other choice"));
 		assertTrue(!EditorHelp.NUMBER_PAD.contains("Needs Alt or Ctrl"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("**Name**\nWhat this list shows."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("**Repeat**\n"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(
+				"**Don't print the sent line**\n" + EditorHelp.QUIET_CAPTION));
+		assertTrue(EditorHelp.NUMBER_PAD.contains("**Walk lock**\n"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Latch"));
+		assertTrue(!EditorHelp.NUMBER_PAD.contains("Latch"));
+	}
+
+	@Test
+	public void aMarkedOptionNameIsBoldAndTheNoteUnderItIsNot() {
+		EditorHelp.Emphasis shown = EditorHelp.emphasis("**Name**\nWhat this list shows.");
+		assertEquals("Name\nWhat this list shows.", shown.text);
+		assertEquals(1, shown.starts.length);
+		assertEquals(0, shown.starts[0]);
+		assertEquals(4, shown.ends[0]);
+		EditorHelp.Emphasis plain = EditorHelp.emphasis("Aliases stay plain.");
+		assertEquals("Aliases stay plain.", plain.text);
+		assertEquals(0, plain.starts.length);
 	}
 
 	@Test

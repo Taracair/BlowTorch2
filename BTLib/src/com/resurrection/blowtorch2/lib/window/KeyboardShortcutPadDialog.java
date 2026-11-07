@@ -116,7 +116,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		lookNote = caption(activity, KeyboardShortcutPad.lookCaption(draft.modifier));
 		form.addView(lookNote);
 
-		form.addView(label(activity, "Latch"));
+		form.addView(label(activity, "Walk lock"));
 		latchLabel = new TextView(activity);
 		latchLabel.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		latchLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
