@@ -368,6 +368,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private KeyboardShortcutListDialog shortcutList;
 	private boolean shortcutDevicesRegistered;
 	private InputManager.InputDeviceListener shortcutDeviceListener;
+	private final KeyboardShortcutFocus shortcutFocus = new KeyboardShortcutFocus();
+	private boolean shortcutMasterKnown;
+	private boolean shortcutMasterOn;
 	/** Unsent text per open world. On this activity, not a static. */
 	private final InputDrafts mInputDrafts = new InputDrafts();
 	private final HistoryWorld mHistoryWorld = new HistoryWorld();
@@ -5609,7 +5612,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (offerShortcutKey(event, KeyboardShortcutMatcher.HOOK_ACTIVITY)) {
 			return true;
 		}
+		if (takeFocusTwin(event)) {
+			return true;
+		}
 		return super.dispatchKeyEvent(event);
+	}
+
+	/** A numpad arrow twin is consumed here. A real arrow still reaches the bar. */
+	private boolean takeFocusTwin(final KeyEvent event) {
+		boolean barFocused = mInputBox != null && mInputBox.isFocused();
+		if (!shortcutFocus.consume(event.getAction(), event.getKeyCode(), event.getFlags(),
+				event.getScanCode(), event.getDeviceId(), event.getRepeatCount(), barFocused)) {
+			return false;
+		}
+		if (shortcutFocus.focusBar()) {
+			focusInputForKeys();
+		}
+		return true;
+	}
+
+	private void focusInputForKeys() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.requestFocus();
 	}
 
 	@Override
@@ -5792,6 +5818,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					@Override
 					public void onInputDeviceAdded(final int deviceId) {
 						refreshHardwareKeyboard();
+						if (alphabeticKeyboard(deviceId)) {
+							focusInputForKeys();
+						}
 					}
 
 					@Override
@@ -5830,6 +5859,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		controller.setHardwareKeyboard(hardwareKeyboardPresent());
 	}
 
+	private static boolean alphabeticKeyboard(final int deviceId) {
+		InputDevice device = InputDevice.getDevice(deviceId);
+		return device != null && !device.isVirtual()
+				&& device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+	}
+
 	/** The captured keyboard reported alphabetic. A virtual device is not counted. */
 	private static boolean hardwareKeyboardPresent() {
 		int[] ids = InputDevice.getDeviceIds();
@@ -5837,11 +5872,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return false;
 		}
 		for (int i = 0; i < ids.length; i++) {
-			InputDevice device = InputDevice.getDevice(ids[i]);
-			if (device == null || device.isVirtual()) {
-				continue;
-			}
-			if (device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
+			if (alphabeticKeyboard(ids[i])) {
 				return true;
 			}
 		}
@@ -5859,6 +5890,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			stored = String.valueOf(opt.getValue());
 		}
 		controller.setStored(stored);
+		boolean masterOn = KeyboardShortcuts.parse(stored).isOn();
+		if (shortcutMasterKnown && shortcutMasterOn != masterOn) {
+			focusInputForKeys();
+		}
+		shortcutMasterKnown = true;
+		shortcutMasterOn = masterOn;
 		controller.setTypingForced(mLocalEchoOff);
 		controller.setPadPolicy(
 				optionBool(group, "shortcut_pad", true),
