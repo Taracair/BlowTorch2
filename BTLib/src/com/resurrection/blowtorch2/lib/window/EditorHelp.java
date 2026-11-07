@@ -192,6 +192,9 @@ public final class EditorHelp {
 
 	public static final String SHORTCUTS =
 			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
+			+ "**Partially experimental**\n"
+			+ "Android does not read every keyboard the same way. What a key does also depends on "
+			+ "the keyboard app installed on the phone.\n\n"
 			+ "**Name**\n"
 			+ "What this list shows. Leave it blank and the list shows the key.\n\n"
 			+ "**Row switch**\n"

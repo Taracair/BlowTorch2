@@ -36,6 +36,10 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains("sends nothing"));
 		assertTrue(EditorHelp.NUMBER_PAD.contains("Speedwalk Directions"));
 		assertTrue(EditorHelp.NUMBER_PAD.contains("Done"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(
+				"**Partially experimental**\n"
+						+ "Android does not read every keyboard the same way. What a key does also depends on "
+						+ "the keyboard app installed on the phone."));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("SwiftKey"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("FUTO"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("HoneyBoard"));
