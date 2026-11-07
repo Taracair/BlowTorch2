@@ -101,7 +101,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		form.addView(enabledBox);
 
 		form.addView(label(activity, "Key"));
-		keyLabel = new TextView(activity);
+		keyLabel = new KeyRow(activity);
 		keyLabel.setText(capture.label());
 		keyLabel.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		keyLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -316,6 +316,34 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private static void setTypingAllowed(final EditText field, final boolean allowed) {
 		field.setFocusable(allowed);
 		field.setFocusableInTouchMode(allowed);
+	}
+
+	/** Ctrl+Up/Down key-down reaches this row and not the dialog. Phone 2026-11-07: keys 19 and 20, meta 0x3000, scan 103 and 108. */
+	private boolean takeCtrlVerticalArrow(final KeyEvent event) {
+		if (event == null || event.getAction() != KeyEvent.ACTION_DOWN || !capture.armed()) {
+			return false;
+		}
+		if (!KeyboardShortcutCapture.ctrlVerticalArrow(event.getKeyCode(), event.getMetaState())) {
+			return false;
+		}
+		capture.onKey(event.getAction(), event.getKeyCode(), event.getMetaState(),
+				event.getScanCode(), event.getDeviceId());
+		keyLabel.setText(capture.label());
+		return true;
+	}
+
+	private final class KeyRow extends TextView {
+		KeyRow(final Activity activity) {
+			super(activity);
+		}
+
+		@Override
+		public boolean dispatchKeyEventPreIme(final KeyEvent event) {
+			if (takeCtrlVerticalArrow(event)) {
+				return true;
+			}
+			return super.dispatchKeyEventPreIme(event);
+		}
 	}
 
 	@Override

@@ -80,6 +80,17 @@ public class KeyboardShortcutCaptureTest {
 	}
 
 	@Test
+	public void ctrlVerticalArrowIsUpAndDownOnly() {
+		assertTrue(KeyboardShortcutCapture.ctrlVerticalArrow(19, 0x3000));
+		assertTrue(KeyboardShortcutCapture.ctrlVerticalArrow(20, KeyboardShortcuts.MOD_CTRL));
+		assertTrue(!KeyboardShortcutCapture.ctrlVerticalArrow(21, 0x3000));
+		assertTrue(!KeyboardShortcutCapture.ctrlVerticalArrow(22, 0x3000));
+		assertTrue(!KeyboardShortcutCapture.ctrlVerticalArrow(19, 0));
+		assertTrue(!KeyboardShortcutCapture.ctrlVerticalArrow(19, KeyboardShortcuts.MOD_SHIFT));
+		assertTrue(!KeyboardShortcutCapture.ctrlVerticalArrow(19, KeyboardShortcuts.MOD_ALT));
+	}
+
+	@Test
 	public void aLaterKeyUpDoesNotDropTheModifierFromKeyDown() {
 		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
 		capture.arm();

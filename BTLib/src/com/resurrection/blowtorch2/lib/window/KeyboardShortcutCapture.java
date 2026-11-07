@@ -82,6 +82,14 @@ public final class KeyboardShortcutCapture {
 		return true;
 	}
 
+	/** Ctrl+Up and Ctrl+Down. Their key-down does not reach the dialog. */
+	public static boolean ctrlVerticalArrow(final int code, final int meta) {
+		if (code != 19 && code != 20) {
+			return false;
+		}
+		return (KeyboardShortcuts.modifiers(meta) & KeyboardShortcuts.MOD_CTRL) != 0;
+	}
+
 	private static boolean isModifier(final int code) {
 		return code == 57 || code == 58 || code == 59 || code == 60
 				|| code == 113 || code == 114 || code == 117 || code == 118;
