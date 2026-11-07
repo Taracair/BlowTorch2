@@ -85,6 +85,9 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 		
 		try {
 			service.setDirectionData(dataMap);
+			if (getContext() instanceof com.resurrection.blowtorch2.lib.window.MainWindow) {
+				((com.resurrection.blowtorch2.lib.window.MainWindow) getContext()).refreshShortcutDirections();
+			}
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

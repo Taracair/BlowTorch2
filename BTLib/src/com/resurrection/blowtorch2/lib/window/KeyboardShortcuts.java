@@ -34,12 +34,26 @@ public final class KeyboardShortcuts {
 
 	private final boolean on;
 	private final boolean introduced;
+	private final int roseModifier;
+	private final int latchKey;
 	private final List<Row> rows;
 
 	private KeyboardShortcuts(final boolean on, final boolean introduced, final List<Row> rows) {
+		this(on, introduced, rows, 0, -1);
+	}
+
+	private KeyboardShortcuts(final boolean on, final boolean introduced, final List<Row> rows,
+			final int roseModifier, final int latchKey) {
 		this.on = on;
 		this.introduced = introduced;
+		this.roseModifier = roseModifier == MOD_ALT || roseModifier == MOD_CTRL ? roseModifier : 0;
+		this.latchKey = this.roseModifier == 0 || latchKey < 0 ? -1 : latchKey;
 		this.rows = Collections.unmodifiableList(new ArrayList<Row>(rows));
+	}
+
+	/** Keeps the rose modifier and the latch key. */
+	private KeyboardShortcuts copy(final boolean nextOn, final boolean nextIntroduced, final List<Row> nextRows) {
+		return new KeyboardShortcuts(nextOn, nextIntroduced, nextRows, roseModifier, latchKey);
 	}
 
 	public static KeyboardShortcuts empty() {
@@ -82,6 +96,16 @@ public final class KeyboardShortcuts {
 		return introduced;
 	}
 
+	/** Alt, Ctrl, or 0 when the number pad is bare. */
+	public int roseModifier() {
+		return roseModifier;
+	}
+
+	/** Key that toggles the latch, or -1 when there is none. */
+	public int latchKey() {
+		return latchKey;
+	}
+
 	public List<Row> rows() {
 		return rows;
 	}
@@ -103,6 +127,8 @@ public final class KeyboardShortcuts {
 		}
 		boolean on = false;
 		boolean introduced = false;
+		int rose = 0;
+		int latch = -1;
 		List<Row> rows = new ArrayList<Row>();
 		String[] parts = stored.split(";", -1);
 		for (int i = 0; i < parts.length; i++) {
@@ -118,21 +144,35 @@ public final class KeyboardShortcuts {
 				introduced = "1".equals(part.substring("introduced=".length()).trim());
 				continue;
 			}
+			if (part.startsWith("rose=")) {
+				rose = parseHeaderInt(part.substring("rose=".length()));
+				continue;
+			}
+			if (part.startsWith("latch=")) {
+				latch = parseHeaderInt(part.substring("latch=".length()));
+				continue;
+			}
 			Row row = parseRow(part);
 			if (row != null) {
 				rows.add(row);
 			}
 		}
-		return new KeyboardShortcuts(on, introduced, rows);
+		return new KeyboardShortcuts(on, introduced, rows, rose, latch);
 	}
 
 	public String format() {
-		if (!on && !introduced && rows.isEmpty()) {
+		if (!on && !introduced && rows.isEmpty() && roseModifier == 0 && latchKey < 0) {
 			return "";
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("on=").append(on ? "1" : "0");
 		sb.append(";introduced=").append(introduced ? "1" : "0");
+		if (roseModifier != 0) {
+			sb.append(";rose=").append(roseModifier);
+		}
+		if (latchKey >= 0) {
+			sb.append(";latch=").append(latchKey);
+		}
 		for (int i = 0; i < rows.size(); i++) {
 			sb.append(';');
 			rows.get(i).append(sb);
@@ -176,14 +216,14 @@ public final class KeyboardShortcuts {
 				nextRows.add(Row.numpadEnter());
 			}
 		}
-		return new Change(new KeyboardShortcuts(true, true, nextRows), true, notice, false, false);
+		return new Change(copy(true, true, nextRows), true, notice, false, false);
 	}
 
 	private Change turnOff() {
 		if (!on) {
 			return new Change(this, false, false, false, false);
 		}
-		return new Change(new KeyboardShortcuts(false, introduced, rows), true, false, false, false);
+		return new Change(copy(false, introduced, rows), true, false, false, false);
 	}
 
 	/** Includes a disabled row. {@link #find} does not. */
@@ -226,7 +266,7 @@ public final class KeyboardShortcuts {
 		if (!placed) {
 			next.add(row);
 		}
-		return new KeyboardShortcuts(on, introduced, next);
+		return copy(on, introduced, next);
 	}
 
 	public KeyboardShortcuts withoutRow(final int keyCode, final int modifiers) {
@@ -244,7 +284,7 @@ public final class KeyboardShortcuts {
 		if (!removed) {
 			return this;
 		}
-		return new KeyboardShortcuts(on, introduced, next);
+		return copy(on, introduced, next);
 	}
 
 	/** Rows go. The switch and the one-time notice stay, so a later on does not reseed. */
@@ -252,7 +292,38 @@ public final class KeyboardShortcuts {
 		if (rows.isEmpty()) {
 			return this;
 		}
-		return new KeyboardShortcuts(on, introduced, Collections.<Row>emptyList());
+		return copy(on, introduced, Collections.<Row>emptyList());
+	}
+
+	/**
+	 * Replaces every number-pad row. A chord used by a new pad row drops the
+	 * ordinary shortcut that was on it. Unrelated chords stay.
+	 */
+	public KeyboardShortcuts withPad(final List<Row> padRows, final int rose, final int latch) {
+		List<Row> next = new ArrayList<Row>();
+		for (int i = 0; i < rows.size(); i++) {
+			Row existing = rows.get(i);
+			if (!existing.pad) {
+				next.add(existing);
+			}
+		}
+		if (padRows != null) {
+			for (int i = 0; i < padRows.size(); i++) {
+				Row pad = padRows.get(i);
+				if (pad == null || pad.keyCode < 0) {
+					continue;
+				}
+				Row marked = pad.asPad(true);
+				for (int j = next.size() - 1; j >= 0; j--) {
+					Row old = next.get(j);
+					if (old.keyCode == marked.keyCode && old.modifiers == marked.modifiers) {
+						next.remove(j);
+					}
+				}
+				next.add(marked);
+			}
+		}
+		return new KeyboardShortcuts(on, introduced, next, rose, latch);
 	}
 
 	public KeyboardShortcuts withEnabled(final int keyCode, final int modifiers, final boolean enabled) {
@@ -261,7 +332,8 @@ public final class KeyboardShortcuts {
 			return this;
 		}
 		return withRow(keyCode, modifiers, Row.of(existing.keyCode, existing.modifiers, existing.action,
-				enabled, existing.repeat, existing.tap, existing.hold, existing.name, existing.quiet));
+				enabled, existing.repeat, existing.tap, existing.hold, existing.name, existing.quiet)
+				.asPad(existing.pad));
 	}
 
 	public static String listKey(final int keyCode, final int modifiers) {
@@ -395,6 +467,14 @@ public final class KeyboardShortcuts {
 		}
 	}
 
+	private static int parseHeaderInt(final String value) {
+		try {
+			return Integer.parseInt(value.trim());
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
 	private static boolean hasNumpadEnter(final List<Row> rows) {
 		for (int i = 0; i < rows.size(); i++) {
 			Row row = rows.get(i);
@@ -424,7 +504,8 @@ public final class KeyboardShortcuts {
 			String hold = f.length > 6 ? decode(f[6]) : "";
 			String name = f.length > 7 ? decode(f[7]) : "";
 			boolean quiet = f.length > 8 && "1".equals(f[8].trim());
-			return Row.of(key, mods, action, enabled, repeat, tap, hold, name, quiet);
+			boolean pad = f.length > 9 && "1".equals(f[9].trim());
+			return Row.of(key, mods, action, enabled, repeat, tap, hold, name, quiet).asPad(pad);
 		} catch (NumberFormatException e) {
 			return null;
 		}
@@ -496,10 +577,12 @@ public final class KeyboardShortcuts {
 		public final String name;
 		/** Send the line without printing it in the window. */
 		public final boolean quiet;
+		/** Written by the number-pad form. Done replaces these and leaves other rows. */
+		public final boolean pad;
 
 		private Row(final int keyCode, final int modifiers, final String action,
 				final boolean enabled, final boolean repeat, final String tap, final String hold,
-				final String name, final boolean quiet) {
+				final String name, final boolean quiet, final boolean pad) {
 			this.keyCode = keyCode;
 			this.modifiers = modifiers;
 			this.action = action;
@@ -509,6 +592,7 @@ public final class KeyboardShortcuts {
 			this.hold = hold;
 			this.name = name;
 			this.quiet = quiet;
+			this.pad = pad;
 		}
 
 		/** Repeat and a hold line are not both kept. A hold line wins. */
@@ -541,12 +625,17 @@ public final class KeyboardShortcuts {
 				useRepeat = false;
 			}
 			return new Row(keyCode, modifiers & MOD_MASK, useAction, enabled, useRepeat, useTap,
-					useHold, flatten(name), useQuiet);
+					useHold, flatten(name), useQuiet, false);
+		}
+
+		public Row asPad(final boolean pad) {
+			return new Row(keyCode, modifiers, action, enabled, repeat, tap, hold, name, quiet, pad);
 		}
 
 		/** A copy of this button's tap and hold. Repeat is off. Later edits of the button are not followed. */
 		public Row withButton(final String command, final String holdCommand) {
-			return of(keyCode, modifiers, ACTION_LINE, enabled, false, command, holdCommand, name, quiet);
+			return of(keyCode, modifiers, ACTION_LINE, enabled, false, command, holdCommand, name, quiet)
+					.asPad(pad);
 		}
 
 		public static Row numpadEnter() {
@@ -563,6 +652,9 @@ public final class KeyboardShortcuts {
 			sb.append(encode(hold)).append('|');
 			sb.append(encode(name)).append('|');
 			sb.append(quiet ? '1' : '0');
+			if (pad) {
+				sb.append("|1");
+			}
 		}
 
 		private static String flatten(final String value) {

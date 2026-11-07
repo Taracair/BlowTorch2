@@ -5,8 +5,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.Test;
 
+import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutMatcher.Key;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutMatcher.Outcome;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.Row;
@@ -433,7 +438,12 @@ public class KeyboardShortcutMatcherTest {
 		matcher.setReverse("north", " ");
 		Outcome blank = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
 		assertTrue(blank.consumed);
-		assertNull(blank.send);
+		assertEquals("south", blank.send);
+		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
+		matcher.noteRoseWalk("xyzzy");
+		Outcome unknown = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertTrue(unknown.consumed);
+		assertNull(unknown.send);
 	}
 
 	@Test
@@ -447,8 +457,9 @@ public class KeyboardShortcutMatcherTest {
 		assertEquals("Walk", matcher.mark());
 		matcher.setTypingForced(true);
 		assertTrue(matcher.isLatchOn());
-		assertEquals("Walk", matcher.mark());
+		assertNull(matcher.mark());
 		matcher.setTypingForced(false);
+		assertEquals("Walk", matcher.mark());
 		matcher.setLatch(false);
 		assertFalse(matcher.isLatchOn());
 		assertNull(matcher.mark());
@@ -492,6 +503,95 @@ public class KeyboardShortcutMatcherTest {
 		assertTrue(down.consumed);
 		assertEquals("north", down.send);
 		assertTrue(down.quiet);
+	}
+
+	@Test
+	public void latchWalksOnTheBareNumberAndTheModifierAloneTurnsItOff() {
+		Row north = Row.of(NUMPAD_8, KeyboardShortcuts.MOD_ALT, KeyboardShortcuts.ACTION_LINE,
+				true, false, "north", "", "", true);
+		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
+		matcher.setShortcuts(KeyboardShortcuts.enabled()
+				.withPad(Arrays.asList(north), KeyboardShortcuts.MOD_ALT, ALT_LEFT));
+		matcher.onKey(key(DOWN, ALT_LEFT, KeyboardShortcuts.MOD_ALT, 0, 0, 56, 0, 0, DEV, PRE));
+		Outcome latched = matcher.onKey(key(UP, ALT_LEFT, 0, 0, 0, 56, 0, 0, DEV, PRE));
+		assertTrue(latched.consumed);
+		assertTrue(matcher.isLatchOn());
+		assertEquals("Walk", matcher.mark());
+		Outcome walk = matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		assertEquals("north", walk.send);
+		assertTrue(walk.quiet);
+		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		matcher.onKey(key(DOWN, ALT_LEFT, KeyboardShortcuts.MOD_ALT, 0, 0, 56, 0, 0, DEV, PRE));
+		matcher.onKey(key(UP, ALT_LEFT, 0, 0, 0, 56, 0, 0, DEV, PRE));
+		assertFalse(matcher.isLatchOn());
+		assertNull(matcher.mark());
+	}
+
+	@Test
+	public void padOptionsLetTheDigitTypeAndKeepNumpadEnter() {
+		Row north = Row.of(NUMPAD_8, 0, KeyboardShortcuts.ACTION_LINE, true, false, "n", "");
+		Row edited = Row.of(A, KeyboardShortcuts.MOD_CTRL, KeyboardShortcuts.ACTION_LINE,
+				true, false, "select", "");
+		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
+		matcher.setShortcuts(KeyboardShortcuts.enabled(Row.numpadEnter(), edited)
+				.withPad(Arrays.asList(north), 0, -1));
+		matcher.setPadPolicy(false, false, false, true);
+		Outcome typed = matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		assertFalse(typed.consumed);
+		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		Outcome enter = matcher.onKey(padEnter(DOWN, 0, PRE));
+		assertTrue(enter.sendInput);
+
+		matcher.setPadPolicy(true, true, true, true);
+		matcher.setBarIdle(false);
+		Outcome editing = matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		assertFalse(editing.consumed);
+		Outcome topWhileEditing = matcher.onKey(key(DOWN, 15, 0, 0, 0, 9, 0, 0, DEV, PRE));
+		assertFalse(topWhileEditing.consumed);
+		matcher.onKey(key(UP, 15, 0, 0, 0, 9, 0, 0, DEV, PRE));
+		matcher.setBarIdle(true);
+		Outcome row = matcher.onKey(key(DOWN, 15, 0, 0, 0, 9, 0, 0, DEV, PRE));
+		assertEquals("n", row.send);
+		matcher.onKey(key(UP, 15, 0, 0, 0, 9, 0, 0, DEV, PRE));
+
+		Outcome kept = matcher.onKey(letter(DOWN, KeyboardShortcuts.MOD_CTRL, 0, 0, 0, PRE));
+		assertFalse(kept.consumed);
+		matcher.onKey(letter(UP, KeyboardShortcuts.MOD_CTRL, 0, 0, 0, PRE));
+		matcher.setPadPolicy(true, false, false, false);
+		Outcome taken = matcher.onKey(letter(DOWN, KeyboardShortcuts.MOD_CTRL, 0, 0, 0, PRE));
+		assertEquals("select", taken.send);
+	}
+
+	@Test
+	public void aPadWalkSetsTheStepAndLookDoesNot() {
+		Row north = Row.of(NUMPAD_8, 0, KeyboardShortcuts.ACTION_LINE, true, false, "north", "");
+		Row look = Row.of(149, 0, KeyboardShortcuts.ACTION_LINE, true, false, "look", "");
+		Row layer = Row.of(NUMPAD_8, KeyboardShortcuts.MOD_ALT, KeyboardShortcuts.ACTION_LINE,
+				true, false, "look north", "");
+		Row step = Row.of(A, 0, KeyboardShortcuts.ACTION_STEP, true, false, "", "");
+		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
+		matcher.setShortcuts(KeyboardShortcuts.enabled(step)
+				.withPad(Arrays.asList(north, look, layer), 0, -1));
+		matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		assertEquals("south", matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
+		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
+		matcher.onKey(key(DOWN, 149, 0, 0, 0, 76, 0, 0, DEV, PRE));
+		matcher.onKey(key(UP, 149, 0, 0, 0, 76, 0, 0, DEV, PRE));
+		assertEquals("south", matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
+		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
+		matcher.onKey(key(DOWN, NUMPAD_8, KeyboardShortcuts.MOD_ALT, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		assertEquals("south", matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
+
+		Map<String, DirectionData> map = new HashMap<String, DirectionData>();
+		DirectionData data = new DirectionData("n", "north");
+		data.setReverse("n");
+		map.put("n", data);
+		matcher.setDirections(map);
+		matcher.setReverse("north", "back");
+		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
+		assertEquals("back", matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
 	}
 
 	private static void assertStopped(final Stop stop) {

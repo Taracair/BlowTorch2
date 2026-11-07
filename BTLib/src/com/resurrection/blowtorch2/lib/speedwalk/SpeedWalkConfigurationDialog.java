@@ -103,6 +103,9 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 		}
 		
 		service.setDirectionData(tmp);
+		if (getContext() instanceof com.resurrection.blowtorch2.lib.window.MainWindow) {
+			((com.resurrection.blowtorch2.lib.window.MainWindow) getContext()).refreshShortcutDirections();
+		}
 		
 	}
 	

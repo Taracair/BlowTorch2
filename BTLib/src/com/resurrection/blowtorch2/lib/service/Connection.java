@@ -115,6 +115,7 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerFireOnce;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
+import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
@@ -6213,6 +6214,67 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			requestSettingsSave();
 		}
 	}
+
+	/** The string's on= bit is the one `.shortcuts` already reads. */
+	private void alignShortcutMaster(final String stored, final boolean quiet) {
+		boolean on = KeyboardShortcuts.parse(stored).isOn();
+		BaseOption opt = shortcutOption("shortcuts_on");
+		if (opt == null || !(opt.getValue() instanceof Boolean)) {
+			return;
+		}
+		if (((Boolean) opt.getValue()).booleanValue() == on) {
+			return;
+		}
+		if (quiet) {
+			opt.setValue(Boolean.valueOf(on));
+			return;
+		}
+		updateBooleanSetting("shortcuts_on", on);
+	}
+
+	private void alignShortcutString(final boolean on, final boolean quiet) {
+		BaseOption opt = shortcutOption(KeyboardShortcuts.SETTING_KEY);
+		String stored = opt == null || opt.getValue() == null ? "" : String.valueOf(opt.getValue());
+		KeyboardShortcuts parsed = KeyboardShortcuts.parse(stored);
+		if (parsed.isOn() == on) {
+			return;
+		}
+		if (quiet && stored.length() > 0) {
+			return;
+		}
+		KeyboardShortcuts.Change change = parsed.apply(on ? "on" : "off");
+		if (!change.changed) {
+			return;
+		}
+		if (quiet) {
+			if (opt != null) {
+				opt.setValue(change.next.format());
+			}
+			return;
+		}
+		updateStringSetting(KeyboardShortcuts.SETTING_KEY, change.next.format());
+	}
+
+	private BaseOption shortcutOption(final String key) {
+		if (mSettings == null || mSettings.getSettings() == null
+				|| mSettings.getSettings().getOptions() == null) {
+			return null;
+		}
+		Object found = mSettings.getSettings().getOptions().findOptionByKey(key);
+		return found instanceof BaseOption ? (BaseOption) found : null;
+	}
+
+	private static String optionText(final BaseOption option) {
+		if (option == null || option.getValue() == null) {
+			return "";
+		}
+		return String.valueOf(option.getValue());
+	}
+
+	private static boolean optionBoolean(final BaseOption option) {
+		return option != null && option.getValue() instanceof Boolean
+				&& ((Boolean) option.getValue()).booleanValue();
+	}
 	
 	/** Updates a boolean setting in the target plugin.
 	 * 
@@ -6787,9 +6849,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mService.doExecuteRequestLoadSettings();
 				break;
 			case keyboard_shortcuts:
-				if (!mReplayingSettings.get().booleanValue()) {
+				if (mReplayingSettings.get().booleanValue()) {
+					alignShortcutMaster(optionText(o), true);
+				} else {
+					alignShortcutMaster(optionText(o), false);
 					requestSettingsSave();
 				}
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case shortcuts_on:
+				if (mReplayingSettings.get().booleanValue()) {
+					alignShortcutString(optionBoolean(o), true);
+				} else {
+					alignShortcutString(optionBoolean(o), false);
+				}
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case shortcut_pad:
+			case shortcut_toprow:
+			case shortcut_idle:
+			case shortcut_ctrl_edit:
+			case shortcut_prefix:
 				mService.doExecuteRequestLoadSettings();
 				break;
 			default:
@@ -8088,6 +8168,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		global_gesture_blank_scroll,
 		/** Direction commands. Stored on the Edit global gestures row. */
 		global_gesture_bindings,
+		/** Hardware shortcut master. The saved string's on= bit stays in step with this. */
+		shortcuts_on,
+		/** Number-pad walks. Off, those keys type. Numpad Enter is not one of them. */
+		shortcut_pad,
+		/** Top-row digits send the same walks as the number pad. */
+		shortcut_toprow,
+		/** Pad walks only while the bar is empty or the whole line is selected. */
+		shortcut_idle,
+		/** Ctrl editing chords edit the bar. Off, a shortcut on that chord runs. */
+		shortcut_ctrl_edit,
+		/** Up and Down stay on commands that start with the bar. */
+		shortcut_prefix,
 		/** Hardware shortcuts for this world. Empty until the first .shortcuts on. */
 		keyboard_shortcuts
 	}

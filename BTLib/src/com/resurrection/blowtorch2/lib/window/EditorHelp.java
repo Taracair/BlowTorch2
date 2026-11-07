@@ -121,9 +121,25 @@ public final class EditorHelp {
 			+ "Don't print the sent line still sends it to the game. This window does not show that line.\n\n"
 			+ "Use a button copies a button that is already on the screen: its command and its "
 			+ "hold line. Changing the button later does not change this key.\n\n"
+			+ "Number pad, the first row in this list, fills the number pad. Done writes those rows.\n\n"
 			+ ".shortcuts on turns them on. .shortcuts off turns them off. .shortcuts with no "
 			+ "argument prints on or off and does not change it. .shortcuts edit opens this list.\n\n"
 			+ KeyboardShortcuts.NOTICE;
+
+	public static final String NUMBER_PAD =
+			"Nothing is saved until Done.\n\n"
+			+ "Compass words fills north, northwest, and the rest. Short steps fills n, nw, and the rest. "
+			+ "Fill from Speedwalk Directions uses the command set for each direction. "
+			+ "A letter that only shortens a run is not that command.\n\n"
+			+ "None walks on the bare number. Alt walks on Alt plus the number, and the bare number types. "
+			+ "Ctrl is the other choice.\n\n"
+			+ "Look sends look plus that walk on the other of Alt and Ctrl. A walk with a space has no look line. "
+			+ "Look sends once.\n\n"
+			+ "In and out sends in on * and out on /.\n\n"
+			+ "The latch key, or Alt or Ctrl alone when that is the walk modifier, turns walking on. "
+			+ "The same key turns it off. While it is on, the number walks without holding the modifier. "
+			+ "The bar shows Walk.\n\n"
+			+ "When the pad walks is Options → Typing.";
 
 	public static final String ALIASES =
 			"An alias rewrites what YOU type, before it leaves the phone. It never "

@@ -638,6 +638,9 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	private boolean matchesSearch(ItemEntry entry, String query) {
+		if (entry.pinned) {
+			return true;
+		}
 		if (entry.searchText != null
 				&& entry.searchText.toLowerCase(Locale.getDefault()).contains(query)) {
 			return true;
@@ -654,6 +657,14 @@ public class BaseSelectionDialog extends Dialog {
 			return;
 		}
 		mAllListItems.get(mAllListItems.size() - 1).searchText = text;
+	}
+
+	/** The last row stays visible while the search field has text. */
+	public void setLastItemPinned() {
+		if (mAllListItems.isEmpty()) {
+			return;
+		}
+		mAllListItems.get(mAllListItems.size() - 1).pinned = true;
 	}
 	
 	public void clearOptionItems() {
@@ -799,6 +810,8 @@ public class BaseSelectionDialog extends Dialog {
 		public String key;
 		/** Search-only text. Null on the alias, trigger, and timer rows. */
 		public String searchText;
+		/** Stays in the list while a search is hiding other rows. */
+		public boolean pinned;
 		public boolean selected;
 		public boolean enabled;
 		public int mini_icon;

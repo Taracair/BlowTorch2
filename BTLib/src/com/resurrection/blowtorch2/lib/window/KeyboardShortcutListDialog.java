@@ -1,8 +1,12 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.ListText;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.Row;
 
@@ -16,7 +20,7 @@ import android.widget.LinearLayout;
 
 /**
  * The shortcut list. Same footer as the alias list: New, ?, More, Close.
- * The number-pad form is not this screen.
+ * Number pad is the pinned row at the top.
  */
 public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 		BaseSelectionDialog.UtilityToolbarListener, BaseSelectionDialog.OptionItemClickListener {
@@ -24,6 +28,7 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 	private final MainWindow activity;
 	private final IConnectionBinder service;
 	private KeyboardShortcuts stored = KeyboardShortcuts.empty();
+	private static final String PAD_KEY = "number-pad";
 
 	public KeyboardShortcutListDialog(final MainWindow activity, final IConnectionBinder service) {
 		super(activity);
@@ -67,6 +72,10 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	@Override
 	public void onButtonPressed(final android.view.View v, final int row, final int index) {
+		if (PAD_KEY.equals(getItemKey(row))) {
+			openPad();
+			return;
+		}
 		Row data = rowFor(row);
 		if (data == null) {
 			return;
@@ -110,6 +119,14 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	@Override
 	public void willShowToolbar(final LinearLayout toolbar, final int row) {
+		if (PAD_KEY.equals(getItemKey(row))) {
+			for (int i = 0; i < toolbar.getChildCount(); i++) {
+				if (i != 1) {
+					toolbar.getChildAt(i).setVisibility(android.view.View.GONE);
+				}
+			}
+			return;
+		}
 		Row data = rowFor(row);
 		if (data == null || toolbar.getChildCount() == 0) {
 			return;
@@ -136,7 +153,7 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 			@Override
 			public void onClick(final DialogInterface dialog, final int which) {
 				dialog.dismiss();
-				stored = stored.withoutRows();
+				stored = stored.withoutRows().withPad(null, 0, -1);
 				write(stored);
 				fill();
 			}
@@ -167,8 +184,49 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 				});
 	}
 
+	private void openPad() {
+		KeyboardShortcutPadDialog.show(activity, stored, new KeyboardShortcutPadDialog.Host() {
+			@Override
+			public void save(final KeyboardShortcuts next) {
+				stored = next;
+				write(stored);
+				fill();
+			}
+
+			@Override
+			public Map<String, DirectionData> directions() {
+				return directionMap();
+			}
+		});
+	}
+
+	private Map<String, DirectionData> directionMap() {
+		Map<String, DirectionData> out = new HashMap<String, DirectionData>();
+		if (service == null) {
+			return out;
+		}
+		try {
+			Map raw = service.getDirectionData();
+			if (raw == null) {
+				return out;
+			}
+			for (Object item : raw.entrySet()) {
+				Map.Entry entry = (Map.Entry) item;
+				if (entry.getKey() != null && entry.getValue() instanceof DirectionData) {
+					out.put(String.valueOf(entry.getKey()), (DirectionData) entry.getValue());
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"KeyboardShortcutListDialog", e);
+		}
+		return out;
+	}
+
 	private void fill() {
 		clearListItems();
+		addListItem(PAD_KEY, "Number pad", "Presets for the number pad", 0, true);
+		setLastItemPinned();
 		for (int i = 0; i < stored.rows().size(); i++) {
 			Row row = stored.rows().get(i);
 			ListText text = KeyboardShortcuts.listText(row);

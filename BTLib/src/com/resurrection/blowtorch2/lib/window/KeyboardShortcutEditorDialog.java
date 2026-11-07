@@ -55,6 +55,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final int inputId;
 	private final int stepId;
 	private final boolean rowEnabled;
+	private final boolean rowPad;
 	private boolean formLock;
 
 	private KeyboardShortcutEditorDialog(final Activity activity, final KeyboardShortcuts stored,
@@ -96,6 +97,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		form.addView(nameField);
 
 		rowEnabled = existing == null || existing.enabled;
+		rowPad = existing != null && existing.pad;
 
 		form.addView(label(activity, "Key"));
 		keyLabel = new KeyRow(activity);
@@ -379,7 +381,8 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		}
 		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, rowEnabled,
 				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
-				nameField.getText().toString(), quietBox.isChecked() && checked != inputId);
+				nameField.getText().toString(), quietBox.isChecked() && checked != inputId)
+				.asPad(rowPad);
 		host.save(stored.withRow(previousKey, previousMods, row));
 		dismiss();
 	}

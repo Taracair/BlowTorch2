@@ -1,7 +1,11 @@
 package com.resurrection.blowtorch2.lib.window;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+
+import com.resurrection.blowtorch2.lib.mapper.MapDirections;
+import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 
 /**
  * Decides whether a hardware key is a shortcut. The window posts
@@ -39,9 +43,16 @@ public final class KeyboardShortcutMatcher {
 	private boolean dialogOpen;
 	private boolean hardwareKeyboard;
 	private boolean latchOn;
+	private boolean padWalks = true;
+	private boolean topRow;
+	private boolean idleOnly;
+	private boolean keepCtrlEdit = true;
+	private boolean barIdle = true;
+	private int aloneRose;
 
 	private String lastWalk;
 	private final Map<String, String> reverses = new HashMap<String, String>();
+	private Map<String, DirectionData> directions = new HashMap<String, DirectionData>();
 
 	private int timerToken;
 	private KeyboardShortcuts.Row active;
@@ -73,8 +84,36 @@ public final class KeyboardShortcutMatcher {
 	public void setShortcuts(final KeyboardShortcuts next) {
 		boolean wasOn = shortcuts.isOn();
 		shortcuts = next == null ? KeyboardShortcuts.empty() : next;
+		if (shortcuts.roseModifier() == 0) {
+			setLatch(false);
+		}
+		aloneRose = 0;
 		if (wasOn) {
 			stopTimers();
+		}
+	}
+
+	public void setPadPolicy(final boolean walks, final boolean top, final boolean idle,
+			final boolean keepCtrl) {
+		padWalks = walks;
+		topRow = top;
+		idleOnly = idle;
+		keepCtrlEdit = keepCtrl;
+	}
+
+	public void setBarIdle(final boolean idle) {
+		barIdle = idle;
+	}
+
+	public void setDirections(final Map<String, DirectionData> next) {
+		directions = new HashMap<String, DirectionData>();
+		if (next == null) {
+			return;
+		}
+		for (Map.Entry<String, DirectionData> entry : next.entrySet()) {
+			if (entry.getKey() != null && entry.getValue() != null) {
+				directions.put(entry.getKey(), entry.getValue());
+			}
 		}
 	}
 
@@ -118,9 +157,9 @@ public final class KeyboardShortcutMatcher {
 		return typingForced;
 	}
 
-	/** Walk while the latch is on and the master is on. Typing while a hardware keyboard is present and the master is off. */
+	/** Walk while the latch is on, the master is on, and typing mode is off. */
 	public String mark() {
-		if (shortcuts.isOn() && latchOn) {
+		if (shortcuts.isOn() && latchOn && !typingForced) {
 			return "Walk";
 		}
 		if (!shortcuts.isOn() && hardwareKeyboard) {
@@ -136,6 +175,9 @@ public final class KeyboardShortcutMatcher {
 		}
 		String trimmed = command.trim();
 		if (trimmed.length() == 0 || trimmed.indexOf(' ') >= 0) {
+			return;
+		}
+		if ("look".equals(trimmed.toLowerCase(Locale.US))) {
 			return;
 		}
 		lastWalk = trimmed;
@@ -184,6 +226,11 @@ public final class KeyboardShortcutMatcher {
 				&& active != null && (active.modifiers & modifierBit(key.keyCode)) != 0
 				&& !(pressDown && samePress(key))) {
 			stopTimers();
+			if (aloneRose == modifierBit(key.keyCode) && hardware(key) && !blocked()) {
+				aloneRose = 0;
+				setLatch(!latchOn);
+				return finish(key, Outcome.taken());
+			}
 			return finish(key, Outcome.pass());
 		}
 		if (!hardware(key) || blocked()) {
@@ -192,6 +239,13 @@ public final class KeyboardShortcutMatcher {
 			}
 			return finish(key, Outcome.pass());
 		}
+		if (key.action == ACTION_UP && aloneRose != 0
+				&& modifierBit(key.keyCode) == aloneRose) {
+			aloneRose = 0;
+			stopTimers();
+			setLatch(!latchOn);
+			return finish(key, Outcome.taken());
+		}
 		if (key.action == ACTION_DOWN && key.repeatCount > 0 && pressDown && pressConsumed
 				&& samePress(key)) {
 			return finish(key, Outcome.taken());
@@ -199,8 +253,33 @@ public final class KeyboardShortcutMatcher {
 		if (key.action != ACTION_DOWN || key.repeatCount > 0) {
 			return finish(key, Outcome.pass());
 		}
-		KeyboardShortcuts.Row row = shortcuts.isOn()
-				? shortcuts.find(key.keyCode, key.metaState) : null;
+		if (shortcuts.latchKey() >= 0 && key.keyCode == shortcuts.latchKey()
+				&& KeyboardShortcuts.modifiers(key.metaState) == 0) {
+			aloneRose = 0;
+			setLatch(!latchOn);
+			return finish(key, Outcome.taken());
+		}
+		int bit = modifierBit(key.keyCode);
+		if (bit != 0 && bit == shortcuts.roseModifier()) {
+			aloneRose = bit;
+		} else if (bit == 0) {
+			aloneRose = 0;
+		}
+		if (keepCtrlEdit && ctrlEditingChord(key.keyCode, key.metaState)) {
+			return finish(key, Outcome.pass());
+		}
+		int code = key.keyCode;
+		if (topRow && code >= 7 && code <= 16) {
+			code += 137;
+		}
+		KeyboardShortcuts.Row row = shortcuts.find(code, key.metaState);
+		if (row == null && latchOn && shortcuts.roseModifier() != 0
+				&& KeyboardShortcuts.modifiers(key.metaState) == 0) {
+			row = shortcuts.find(code, shortcuts.roseModifier());
+		}
+		if (row != null && row.pad && !padFires(key.keyCode)) {
+			row = null;
+		}
 		if (row == null) {
 			if (marked(key)) {
 				clearScan();
@@ -276,6 +355,9 @@ public final class KeyboardShortcutMatcher {
 
 	private Outcome fire(final KeyboardShortcuts.Row row, final int holdMs, final int repeatMs,
 			final int token) {
+		if (row.pad && KeyboardShortcuts.ACTION_LINE.equals(row.action)) {
+			noteRoseWalk(row.tap);
+		}
 		if (KeyboardShortcuts.ACTION_INPUT.equals(row.action)) {
 			return Outcome.input(holdMs, repeatMs, token);
 		}
@@ -289,7 +371,29 @@ public final class KeyboardShortcutMatcher {
 		if (lastWalk == null) {
 			return null;
 		}
-		return reverses.get(lastWalk);
+		if (reverses.containsKey(lastWalk)) {
+			String stored = reverses.get(lastWalk);
+			if (stored != null && stored.trim().length() > 0) {
+				return stored.trim();
+			}
+		}
+		return MapDirections.suggestReverse(lastWalk, directions);
+	}
+
+	private boolean padFires(final int physicalKey) {
+		if (physicalKey >= 144 && physicalKey <= 158 && !padWalks) {
+			return false;
+		}
+		return !(idleOnly && !barIdle);
+	}
+
+	/** Ctrl plus an editing key, and not Alt with it. */
+	private static boolean ctrlEditingChord(final int code, final int meta) {
+		if (KeyboardShortcuts.modifiers(meta) != KeyboardShortcuts.MOD_CTRL) {
+			return false;
+		}
+		return code == 21 || code == 22 || code == 29 || code == 31 || code == 39
+				|| code == 50 || code == 52 || code == 54 || code == 67 || code == 112;
 	}
 
 	private void stopTimers() {

@@ -32,6 +32,8 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains(".shortcuts edit"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Tap that row again"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("sends nothing"));
+		assertTrue(EditorHelp.NUMBER_PAD.contains("Speedwalk Directions"));
+		assertTrue(EditorHelp.NUMBER_PAD.contains("Done"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("SwiftKey"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("FUTO"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("HoneyBoard"));

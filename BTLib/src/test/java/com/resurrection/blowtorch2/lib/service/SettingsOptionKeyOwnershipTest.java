@@ -186,10 +186,21 @@ public class SettingsOptionKeyOwnershipTest {
 
 	@Test
 	public void keyboardShortcutsAreConnectionOwnedNotWindow() {
-		assertTrue("keyboard_shortcuts must be persisted by the connection writer",
-				ConnectionSetttingsParser.isConnectionOptionKey(KeyboardShortcuts.SETTING_KEY));
-		assertFalse("keyboard_shortcuts must not be claimed by the window writer",
-				WindowTokenParser.isWindowOptionKey(KeyboardShortcuts.SETTING_KEY));
+		String[] keys = {
+				KeyboardShortcuts.SETTING_KEY,
+				"shortcuts_on",
+				"shortcut_pad",
+				"shortcut_toprow",
+				"shortcut_idle",
+				"shortcut_ctrl_edit",
+				"shortcut_prefix"
+		};
+		for (String key : keys) {
+			assertTrue(key + " must be persisted by the connection writer",
+					ConnectionSetttingsParser.isConnectionOptionKey(key));
+			assertFalse(key + " must not be claimed by the window writer",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
 	}
 
 	@Test

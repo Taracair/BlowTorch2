@@ -1,5 +1,9 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import java.util.Map;
+
+import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
+
 import android.os.Handler;
 import android.view.KeyEvent;
 
@@ -35,6 +39,7 @@ public final class KeyboardShortcutController {
 		}
 		KeyboardShortcutMatcher.Outcome outcome = matcher.onKey(fromEvent(event, hook));
 		apply(outcome);
+		publishMark();
 		return outcome.consumed;
 	}
 
@@ -65,6 +70,19 @@ public final class KeyboardShortcutController {
 
 	public void setWalkingSuspended(final boolean suspended) {
 		matcher.setWalkingSuspended(suspended);
+	}
+
+	public void setPadPolicy(final boolean walks, final boolean top, final boolean idle,
+			final boolean keepCtrl) {
+		matcher.setPadPolicy(walks, top, idle, keepCtrl);
+	}
+
+	public void setBarIdle(final boolean idle) {
+		matcher.setBarIdle(idle);
+	}
+
+	public void setDirections(final Map<String, DirectionData> directions) {
+		matcher.setDirections(directions);
 	}
 
 	public void republishMark() {

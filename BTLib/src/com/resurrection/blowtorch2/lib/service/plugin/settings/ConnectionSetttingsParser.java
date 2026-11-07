@@ -139,6 +139,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 		global_gesture_two_scroll,
 		global_gesture_blank_scroll,
 		global_gesture_bindings,
+		shortcuts_on,
+		shortcut_pad,
+		shortcut_toprow,
+		shortcut_idle,
+		shortcut_ctrl_edit,
+		shortcut_prefix,
 		keyboard_shortcuts
 	}
 	
@@ -1233,6 +1239,20 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case global_gesture_bindings:
 						if(opt.getValue() != null && !opt.getValue().toString().equals("")) {
+							dooutput = true;
+						}
+						break;
+					case shortcuts_on:
+					case shortcut_toprow:
+					case shortcut_idle:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case shortcut_pad:
+					case shortcut_ctrl_edit:
+					case shortcut_prefix:
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

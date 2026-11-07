@@ -133,6 +133,7 @@ import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.settings.HyperSettingsActivity;
 import com.resurrection.blowtorch2.lib.speedwalk.BetterSpeedWalkConfigurationDialog;
+import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.speedwalk.SpeedWalkConfigurationDialog;
 import com.resurrection.blowtorch2.lib.timer.BetterTimerSelectionDialog;
 import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
@@ -359,6 +360,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private BetterEditText mInputBox = null;
 	private TextView mShortcutMark;
 	private KeyboardShortcutController shortcutController;
+	private boolean shortcutPrefix = true;
+	private String historyPrefix;
+	private int historyPrefixIndex = -1;
+	private String historyPrefixShown;
+	private boolean historyPrefixWrite;
 	private KeyboardShortcutListDialog shortcutList;
 	private boolean shortcutDevicesRegistered;
 	private InputManager.InputDeviceListener shortcutDeviceListener;
@@ -4886,6 +4892,41 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mInputBox.requestFocus();
+		if (shortcutPrefix) {
+			String shown = inputBarText();
+			if (historyPrefix != null && !shown.startsWith(historyPrefix)) {
+				historyPrefix = null;
+				historyPrefixIndex = -1;
+				historyPrefixShown = null;
+			}
+			if (historyPrefix == null && shown.length() > 0) {
+				historyPrefix = shown;
+				historyPrefixIndex = -1;
+				historyPrefixShown = shown;
+			}
+			if (historyPrefix != null && historyPrefix.length() > 0) {
+				HistoryPrefix.Step step = HistoryPrefix.step(
+						history.copyCommands(), historyPrefix, historyPrefixIndex, older);
+				if (step.line == null) {
+					return;
+				}
+				historyPrefixIndex = step.index;
+				historyPrefixShown = InputHyphenBreaks.strip(step.line);
+				historyPrefixWrite = true;
+				try {
+					mInputBox.setText(step.line);
+					mInputBox.setLogicalSelection(step.line.length());
+				} finally {
+					historyPrefixWrite = false;
+				}
+				historyWidgetKept = false;
+				return;
+			}
+		} else {
+			historyPrefix = null;
+			historyPrefixIndex = -1;
+			historyPrefixShown = null;
+		}
 		String cmd;
 		if (older) {
 			cmd = history.getNext();
@@ -5638,7 +5679,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return false;
 		}
 		syncShortcutGates(hasWindowFocus());
+		controller.setBarIdle(shortcutBarIdle());
 		return controller.onKey(event, hook);
+	}
+
+	/** Empty, or the whole line selected. A caret in the middle types. */
+	private boolean shortcutBarIdle() {
+		if (mInputBox == null || mInputBox.getText() == null) {
+			return true;
+		}
+		int length = mInputBox.getText().length();
+		if (length == 0) {
+			return true;
+		}
+		return mInputBox.getSelectionStart() == 0 && mInputBox.getSelectionEnd() == length;
 	}
 
 	private KeyboardShortcutController shortcutKeys() {
@@ -5806,6 +5860,64 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		controller.setStored(stored);
 		controller.setTypingForced(mLocalEchoOff);
+		controller.setPadPolicy(
+				optionBool(group, "shortcut_pad", true),
+				optionBool(group, "shortcut_toprow", false),
+				optionBool(group, "shortcut_idle", false),
+				optionBool(group, "shortcut_ctrl_edit", true));
+		shortcutPrefix = optionBool(group, "shortcut_prefix", true);
+		if (!shortcutPrefix) {
+			historyPrefix = null;
+			historyPrefixIndex = -1;
+			historyPrefixShown = null;
+		}
+		controller.setDirections(shortcutDirections());
+	}
+
+	public void refreshShortcutDirections() {
+		KeyboardShortcutController controller = shortcutKeys();
+		if (controller == null) {
+			return;
+		}
+		controller.setDirections(shortcutDirections());
+	}
+
+	private Map<String, DirectionData> shortcutDirections() {
+		Map<String, DirectionData> out = new HashMap<String, DirectionData>();
+		if (service == null) {
+			return out;
+		}
+		try {
+			Map raw = service.getDirectionData();
+			if (raw == null) {
+				return out;
+			}
+			for (Object item : raw.entrySet()) {
+				Map.Entry entry = (Map.Entry) item;
+				if (entry.getKey() != null && entry.getValue() instanceof DirectionData) {
+					out.put(String.valueOf(entry.getKey()), (DirectionData) entry.getValue());
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.shortcutDirections", e);
+		}
+		return out;
+	}
+
+	private static boolean optionBool(final SettingsGroup group, final String key, final boolean fallback) {
+		if (group == null) {
+			return fallback;
+		}
+		Object found = group.findOptionByKey(key);
+		if (!(found instanceof BaseOption)) {
+			return fallback;
+		}
+		Object value = ((BaseOption) found).getValue();
+		if (value instanceof Boolean) {
+			return ((Boolean) value).booleanValue();
+		}
+		return fallback;
 	}
 
 	public void onResume() {
@@ -11141,6 +11253,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
 					reportTypingState(s != null && s.length() > 0);
+					if (!historyPrefixWrite
+							&& HistoryPrefix.ended(historyPrefix, historyPrefixShown, inputBarText())) {
+						historyPrefix = null;
+						historyPrefixIndex = -1;
+						historyPrefixShown = null;
+					}
 					if (mWordSuggestionsOn) {
 						refreshWordSuggestions();
 					}
