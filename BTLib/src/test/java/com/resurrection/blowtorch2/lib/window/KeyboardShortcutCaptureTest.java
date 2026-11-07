@@ -6,12 +6,13 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/** The form records a hardware key. A virtual key stays with the text field. */
+/** The form keeps listening until the row is dismissed. A virtual key is a chord only then. */
 public class KeyboardShortcutCaptureTest {
 
 	private static final int DOWN = 0;
 	private static final int UP = 1;
 	private static final int A = 29;
+	private static final int SHIFT_LEFT = 59;
 	private static final int ALT_RIGHT = 58;
 
 	@Test
@@ -23,25 +24,44 @@ public class KeyboardShortcutCaptureTest {
 	}
 
 	@Test
-	public void aVirtualKeyTypes() {
+	public void anUnarmedVirtualKeyTypes() {
 		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
-		capture.arm();
 		assertFalse(capture.onKey(DOWN, A, 0, 0, -1));
-		assertTrue(capture.armed());
-		assertEquals("Press a key", capture.label());
+		assertEquals(KeyboardShortcutCapture.NONE, capture.keyCode());
 	}
 
 	@Test
-	public void rightAltARecordsTheAltBit() {
+	public void listeningKeepsTheLatestKey() {
 		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
 		capture.arm();
 		assertTrue(capture.onKey(DOWN, ALT_RIGHT, 0x22, 100, 4));
 		assertTrue(capture.armed());
+		assertEquals("Press a key: Alt", capture.label());
 		assertTrue(capture.onKey(DOWN, A, 0x22, 30, 4));
-		assertFalse(capture.armed());
+		assertTrue(capture.armed());
 		assertEquals(A, capture.keyCode());
 		assertEquals(KeyboardShortcuts.MOD_ALT, capture.modifiers());
+		assertEquals("Press a key: Alt+A", capture.label());
+		capture.disarm();
+		assertFalse(capture.armed());
 		assertEquals("Alt+A", capture.label());
+		assertEquals(A, capture.keyCode());
+	}
+
+	@Test
+	public void shiftUpDoesNotEraseTheLetter() {
+		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
+		capture.arm();
+		assertTrue(capture.onKey(DOWN, SHIFT_LEFT, 0, 42, 4));
+		assertEquals(SHIFT_LEFT, capture.keyCode());
+		assertTrue(capture.onKey(DOWN, A, KeyboardShortcuts.MOD_SHIFT, 0, -1));
+		assertEquals(A, capture.keyCode());
+		assertEquals(KeyboardShortcuts.MOD_SHIFT, capture.modifiers());
+		assertTrue(capture.onKey(UP, SHIFT_LEFT, 0, 42, 4));
+		assertEquals(A, capture.keyCode());
+		assertEquals(KeyboardShortcuts.MOD_SHIFT, capture.modifiers());
+		assertTrue(capture.armed());
+		assertEquals("Press a key: Shift+A", capture.label());
 	}
 
 	@Test
@@ -54,12 +74,13 @@ public class KeyboardShortcutCaptureTest {
 	}
 
 	@Test
-	public void aModifierAloneIsTheChord() {
+	public void aModifierAloneStaysTheChord() {
 		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
 		capture.arm();
 		assertTrue(capture.onKey(UP, ALT_RIGHT, 0, 100, 4));
 		assertEquals(ALT_RIGHT, capture.keyCode());
 		assertEquals(0, capture.modifiers());
-		assertEquals("Alt", capture.label());
+		assertTrue(capture.armed());
+		assertEquals("Press a key: Alt", capture.label());
 	}
 }

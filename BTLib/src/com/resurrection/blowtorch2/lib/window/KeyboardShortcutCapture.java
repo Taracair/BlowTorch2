@@ -1,15 +1,13 @@
 package com.resurrection.blowtorch2.lib.window;
 
 /**
- * The form's "press a key" row. A virtual key is left for the text fields.
- * A modifier by itself is the chord when nothing else arrived.
+ * The form's "press a key" row. It keeps the latest key until {@link #disarm}.
+ * A virtual key is recorded only while listening, so a text field can still type.
  */
 public final class KeyboardShortcutCapture {
 
 	public static final int NONE = -1;
 	private static final int DOWN = 0;
-	private static final int UP = 1;
-	private static final int VIRTUAL = -1;
 
 	private boolean armed;
 	private int keyCode = NONE;
@@ -25,6 +23,11 @@ public final class KeyboardShortcutCapture {
 		armed = true;
 	}
 
+	/** Stop listening. The key already shown stays. */
+	public void disarm() {
+		armed = false;
+	}
+
 	public boolean armed() {
 		return armed;
 	}
@@ -38,10 +41,14 @@ public final class KeyboardShortcutCapture {
 	}
 
 	public String label() {
-		if (armed) {
-			return "Press a key";
+		if (keyCode < 0) {
+			return armed ? "Press a key" : "nothing";
 		}
-		return KeyboardShortcuts.chordLabel(keyCode, modifiers);
+		String chord = KeyboardShortcuts.chordLabel(keyCode, modifiers);
+		if (armed) {
+			return "Press a key: " + chord;
+		}
+		return chord;
 	}
 
 	/** @return true when the form should keep the event */
@@ -51,14 +58,13 @@ public final class KeyboardShortcutCapture {
 			return false;
 		}
 		// 4 is KEYCODE_BACK. It closes the form instead of becoming the chord.
-		if (code == 4 || deviceId == VIRTUAL || scan == 0) {
+		if (code == 4) {
 			return false;
 		}
 		if (isModifier(code)) {
-			if (action == UP) {
+			if (keyCode < 0 || isModifier(keyCode)) {
 				keyCode = code;
 				modifiers = 0;
-				armed = false;
 			}
 			return true;
 		}
@@ -67,7 +73,6 @@ public final class KeyboardShortcutCapture {
 		}
 		keyCode = code;
 		modifiers = KeyboardShortcuts.modifiers(meta);
-		armed = false;
 		return true;
 	}
 

@@ -30,6 +30,7 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains("450 ms"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("200 ms"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".shortcuts edit"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Tap that row again"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("sends nothing"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("SwiftKey"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("FUTO"));

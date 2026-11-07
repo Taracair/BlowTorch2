@@ -108,11 +108,11 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		keyLabel.setBackgroundColor(ContextCompat.getColor(activity, R.color.chrome_title_bar));
 		int chip = (int) (12 * density);
 		keyLabel.setPadding(chip, chip, chip, chip);
+		keyLabel.setFocusableInTouchMode(true);
 		keyLabel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
-				capture.arm();
-				keyLabel.setText(capture.label());
+				setKeyListening(!capture.armed());
 			}
 		});
 		form.addView(keyLabel);
@@ -277,6 +277,43 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	}
 
 	@Override
+	protected void onStart() {
+		super.onStart();
+		applyKeyListening();
+	}
+
+	/** The key row stays on the latest press until it is tapped again. */
+	private void setKeyListening(final boolean on) {
+		if (on) {
+			capture.arm();
+		} else {
+			capture.disarm();
+		}
+		applyKeyListening();
+	}
+
+	private void applyKeyListening() {
+		boolean listen = capture.armed();
+		setTypingAllowed(nameField, !listen);
+		setTypingAllowed(tapField, !listen);
+		setTypingAllowed(holdField, !listen);
+		keyLabel.setText(capture.label());
+		if (!listen) {
+			return;
+		}
+		View focused = getCurrentFocus();
+		if (focused instanceof EditText) {
+			focused.clearFocus();
+		}
+		keyLabel.requestFocus();
+	}
+
+	private static void setTypingAllowed(final EditText field, final boolean allowed) {
+		field.setFocusable(allowed);
+		field.setFocusableInTouchMode(allowed);
+	}
+
+	@Override
 	public boolean dispatchKeyEvent(final KeyEvent event) {
 		if (event != null
 				&& capture.onKey(event.getAction(), event.getKeyCode(), event.getMetaState(),
@@ -296,8 +333,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 
 	private void save() {
 		if (capture.keyCode() < 0) {
-			capture.arm();
-			keyLabel.setText(capture.label());
+			setKeyListening(true);
 			return;
 		}
 		String action = KeyboardShortcuts.ACTION_LINE;
