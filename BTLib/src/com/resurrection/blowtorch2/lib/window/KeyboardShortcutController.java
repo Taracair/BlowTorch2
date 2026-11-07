@@ -19,6 +19,10 @@ public final class KeyboardShortcutController {
 		void sendInput();
 
 		void showMark(String mark);
+
+		void clearBar();
+
+		void jumpLive();
 	}
 
 	private final Handler handler;
@@ -106,7 +110,11 @@ public final class KeyboardShortcutController {
 		if (outcome == null || sink == null) {
 			return;
 		}
-		if (outcome.sendInput) {
+		if (outcome.clearBar) {
+			sink.clearBar();
+		} else if (outcome.jumpLive) {
+			sink.jumpLive();
+		} else if (outcome.sendInput) {
 			sink.sendInput();
 		} else if (outcome.send != null && outcome.send.length() > 0) {
 			sink.sendLine(outcome.send, outcome.quiet);

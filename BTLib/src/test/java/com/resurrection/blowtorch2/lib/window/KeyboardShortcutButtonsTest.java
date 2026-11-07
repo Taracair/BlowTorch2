@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button;
+import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Group;
 
 /** A copy of the current set. Expected labels come from the button fields, not a live set. */
 public class KeyboardShortcutButtonsTest {
@@ -57,5 +58,41 @@ public class KeyboardShortcutButtonsTest {
 		assertTrue(KeyboardShortcutButtons.parse(null).isEmpty());
 		assertTrue(KeyboardShortcutButtons.parse("").isEmpty());
 		assertTrue(KeyboardShortcutButtons.parse("not json").isEmpty());
+		assertTrue(KeyboardShortcutButtons.groups("not json").isEmpty());
+	}
+
+	@Test
+	public void groupsKeepEachSetAndSearchMatchesTheSetName() {
+		String raw = "[{\"set\":\"fight\",\"buttons\":["
+				+ "{\"label\":\"STOP\",\"name\":\"halt\",\"id\":\"b1\",\"command\":\"stop\",\"hold\":\"\"}]},"
+				+ "{\"set\":\"move\",\"buttons\":["
+				+ "{\"label\":\"N\",\"name\":\"step\",\"id\":\"b2\",\"command\":\"north\",\"hold\":\"bash\"},"
+				+ "{\"label\":\"\",\"command\":\"\",\"hold\":\"\",\"swipe\":\"up\",\"flip\":\"look\"}]}]";
+		List<Group> groups = KeyboardShortcutButtons.groups(raw);
+		assertEquals(2, groups.size());
+		assertEquals("fight", groups.get(0).name);
+		assertEquals("stop", groups.get(0).buttons.get(0).command);
+		assertEquals("fight", groups.get(0).buttons.get(0).set);
+		assertEquals(1, groups.get(1).buttons.size());
+		assertEquals("bash", groups.get(1).buttons.get(0).hold);
+		assertEquals(2, KeyboardShortcutButtons.matchingGroups(groups, "").size());
+		assertEquals(2, KeyboardShortcutButtons.matchingGroups(groups, "   ").size());
+		List<Group> bySet = KeyboardShortcutButtons.matchingGroups(groups, "FIGHT");
+		assertEquals(1, bySet.size());
+		assertEquals("STOP", bySet.get(0).buttons.get(0).listLabel());
+		assertEquals("b2", KeyboardShortcutButtons.matchingGroups(groups, "b2").get(0).buttons.get(0).id);
+		assertEquals("bash", KeyboardShortcutButtons.matchingGroups(groups, "BASH").get(0).buttons.get(0).hold);
+		assertEquals("step", KeyboardShortcutButtons.matchingGroups(groups, "step").get(0).buttons.get(0).name);
+		assertTrue(KeyboardShortcutButtons.matchingGroups(groups, "smile").isEmpty());
+		assertTrue(KeyboardShortcutButtons.groups("[{\"set\":\"empty\",\"buttons\":[]}]").isEmpty());
+	}
+
+	@Test
+	public void aFlatListIsOneGroupWithNoName() {
+		List<Group> groups = KeyboardShortcutButtons.groups(
+				"[{\"label\":\"Look\",\"command\":\"look\",\"hold\":\"\"}]");
+		assertEquals(1, groups.size());
+		assertEquals("", groups.get(0).name);
+		assertEquals("look", groups.get(0).buttons.get(0).command);
 	}
 }

@@ -132,6 +132,7 @@ interface IConnectionBinder {
 	String getScript(String plugin,String name);
 	void reloadSettings();
 	void pluginXcallS(String plugin,String function,String str);
+	String pluginCallResult(String plugin,String function,String str);
 	Map getPluginList();
 	List getPluginsWithTriggers();
 	SettingsGroup getSettings();

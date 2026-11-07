@@ -59,6 +59,18 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains(
 				"The list has a search box. It matches the words on the button, its name, its id, "
 						+ "its command, and its hold line."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("It also matches the set name."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+K can send kill goblin."));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".kb insert say"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("F1 starts empty."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+Enter and Ctrl+End"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollv 10"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollh 10"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".kb start"));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Right Alt+a still inserts ą."));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Page Up"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Page Down"));
+		assertEquals(EditorHelp.SHORTCUTS.replace("**", ""), EditorHelp.shortcutsPlain());
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Repeat and a hold line are not both on"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Filling a hold line turns repeat off"));
 

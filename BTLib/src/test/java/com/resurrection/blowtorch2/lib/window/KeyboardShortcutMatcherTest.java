@@ -604,6 +604,132 @@ public class KeyboardShortcutMatcherTest {
 		assertNull(up.send);
 	}
 
+	@Test
+	public void ctrlEnterJumpsAndAFallbackEnterDoesNot() {
+		KeyboardShortcutMatcher matcher = seeded();
+		Outcome jump = matcher.onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
+				0, 0, SCAN_ENTER, 0, 0, DEV, PRE));
+		assertTrue(jump.consumed);
+		assertTrue(jump.jumpLive);
+		assertFalse(jump.sendInput);
+		assertFalse(jump.clearBar);
+		KeyboardShortcutMatcher fallback = seeded();
+		fallback.onKey(padEnter(DOWN, 0, PRE));
+		Outcome twin = fallback.onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
+				0, 0, SCAN_PAD_ENTER, TWIN, 0, DEV, ACT));
+		assertFalse(twin.jumpLive);
+		assertFalse(twin.sendInput);
+		Outcome unmarked = seeded().onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
+				0, 0, SCAN_PAD_ENTER, TWIN, 0, DEV, PRE));
+		assertFalse(unmarked.consumed);
+		assertFalse(unmarked.jumpLive);
+	}
+
+	@Test
+	public void ctrlEndJumpsAndCtrlAltEnterDoesNot() {
+		KeyboardShortcutMatcher matcher = seeded();
+		Outcome end = matcher.onKey(key(DOWN, KeyboardShortcuts.KEYCODE_MOVE_END,
+				KeyboardShortcuts.MOD_CTRL, 0, 0, 107, 0, 0, DEV, PRE));
+		assertTrue(end.jumpLive);
+		assertTrue(end.consumed);
+		Outcome both = matcher.onKey(key(DOWN, ENTER,
+				KeyboardShortcuts.MOD_CTRL | KeyboardShortcuts.MOD_ALT,
+				0, 0, SCAN_ENTER, 0, 0, DEV, PRE));
+		assertFalse(both.consumed);
+		assertFalse(both.jumpLive);
+	}
+
+	@Test
+	public void escapeClearsOnceAndADialogKeepsIt() {
+		KeyboardShortcutMatcher matcher = seeded();
+		Outcome first = matcher.onKey(escape(PRE));
+		assertTrue(first.clearBar);
+		assertTrue(first.consumed);
+		assertFalse(first.jumpLive);
+		Outcome second = matcher.onKey(escape(ACT));
+		assertTrue(second.consumed);
+		assertFalse(second.clearBar);
+		KeyboardShortcutMatcher dialog = seeded();
+		dialog.setDialogOpen(true);
+		Outcome kept = dialog.onKey(escape(PRE));
+		assertFalse(kept.consumed);
+		assertFalse(kept.clearBar);
+	}
+
+	@Test
+	public void shortcutsOffAndTypingForcedLeaveTheBarChordsToTheBar() {
+		KeyboardShortcutMatcher off = seeded();
+		off.setShortcuts(KeyboardShortcuts.empty().apply("on").next.apply("off").next);
+		Outcome escapeOff = off.onKey(escape(PRE));
+		assertFalse(escapeOff.consumed);
+		assertFalse(escapeOff.clearBar);
+		Outcome jumpOff = off.onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
+				0, 0, SCAN_ENTER, 0, 0, DEV, PRE));
+		assertFalse(jumpOff.consumed);
+		assertFalse(jumpOff.jumpLive);
+		KeyboardShortcutMatcher typing = seeded();
+		typing.setTypingForced(true);
+		Outcome typed = typing.onKey(escape(PRE));
+		assertFalse(typed.consumed);
+		assertFalse(typed.clearBar);
+		Outcome typedJump = typing.onKey(key(DOWN, KeyboardShortcuts.KEYCODE_MOVE_END,
+				KeyboardShortcuts.MOD_CTRL, 0, 0, 107, 0, 0, DEV, PRE));
+		assertFalse(typedJump.consumed);
+		assertFalse(typedJump.jumpLive);
+		KeyboardShortcuts rows = KeyboardShortcuts.empty().apply("on").next
+				.withEnabled(KeyboardShortcuts.KEYCODE_ESCAPE, 0, false)
+				.withEnabled(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL, false);
+		KeyboardShortcutMatcher disabled = seeded();
+		disabled.setShortcuts(rows);
+		Outcome skipped = disabled.onKey(escape(PRE));
+		assertFalse(skipped.consumed);
+		assertFalse(skipped.clearBar);
+		Outcome skippedJump = disabled.onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
+				0, 0, SCAN_ENTER, 0, 0, DEV, PRE));
+		assertFalse(skippedJump.consumed);
+		assertFalse(skippedJump.jumpLive);
+	}
+
+	@Test
+	public void masterOffWithOnlyNumpadEnterStillTypes() {
+		KeyboardShortcutMatcher matcher = ready(Row.numpadEnter());
+		matcher.setShortcuts(KeyboardShortcuts.disabled(Row.numpadEnter()));
+		Outcome down = matcher.onKey(key(DOWN, NUMPAD_ENTER, 0, 0, 0, SCAN_PAD_ENTER, 0, 0, DEV, PRE));
+		assertFalse(down.consumed);
+		assertFalse(down.clearBar);
+		assertFalse(down.jumpLive);
+	}
+
+	@Test
+	public void seededRowsLeaveHistoryAndCtrlLeftToTheBar() {
+		KeyboardShortcutMatcher matcher = seeded();
+		Outcome up = matcher.onKey(key(DOWN, DPAD_UP, 0, 0, 0, SCAN_ARROW, 0, 0, DEV, PRE));
+		assertFalse(up.consumed);
+		Outcome left = matcher.onKey(key(DOWN, 21, KeyboardShortcuts.MOD_CTRL,
+				0, 0, 105, 0, 0, DEV, PRE));
+		assertFalse(left.consumed);
+	}
+
+	@Test
+	public void rightAltAStillTypesWithTheSeededRows() {
+		KeyboardShortcutMatcher matcher = seeded();
+		Outcome typed = matcher.onKey(letter(DOWN, 0x22, 'a', 0x105, 0, PRE));
+		assertFalse(typed.consumed);
+		Outcome altgr = matcher.onKey(letter(DOWN, 0x3012, 'a', 0, 0, PRE));
+		assertFalse(altgr.consumed);
+	}
+
+	private static KeyboardShortcutMatcher seeded() {
+		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
+		matcher.setShortcuts(KeyboardShortcuts.empty().apply("on").next);
+		return matcher;
+	}
+
+	/** Scan 1 is only non-zero, so the matcher treats Escape as hardware. */
+	private static Key escape(final int hook) {
+		return key(DOWN, KeyboardShortcuts.KEYCODE_ESCAPE, 0, 0, 0, 1, 0, 0, DEV, hook);
+	}
+
 	private interface Stop {
 		void stop(KeyboardShortcutMatcher matcher);
 	}

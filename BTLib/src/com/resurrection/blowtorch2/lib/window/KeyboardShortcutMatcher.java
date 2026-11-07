@@ -358,6 +358,12 @@ public final class KeyboardShortcutMatcher {
 		if (row.pad && KeyboardShortcuts.ACTION_LINE.equals(row.action)) {
 			noteRoseWalk(row.tap);
 		}
+		if (KeyboardShortcuts.ACTION_ESCAPE.equals(row.action)) {
+			return Outcome.clearBar();
+		}
+		if (KeyboardShortcuts.ACTION_LIVE.equals(row.action)) {
+			return Outcome.jumpLive();
+		}
 		if (KeyboardShortcuts.ACTION_INPUT.equals(row.action)) {
 			return Outcome.input(holdMs, repeatMs, token);
 		}
@@ -512,10 +518,14 @@ public final class KeyboardShortcutMatcher {
 		public final int timerToken;
 		/** The line is sent and not printed in the window. */
 		public final boolean quiet;
+		/** Put the draft back, clear the bar, or hide the keyboard. */
+		public final boolean clearBar;
+		/** Jump the game text to the live end. */
+		public final boolean jumpLive;
 
 		private Outcome(final boolean consumed, final String send, final boolean sendInput,
 				final int scheduleHoldMs, final int scheduleRepeatMs, final int timerToken,
-				final boolean quiet) {
+				final boolean quiet, final boolean clearBar, final boolean jumpLive) {
 			this.consumed = consumed;
 			this.send = send;
 			this.sendInput = sendInput;
@@ -523,18 +533,28 @@ public final class KeyboardShortcutMatcher {
 			this.scheduleRepeatMs = scheduleRepeatMs;
 			this.timerToken = timerToken;
 			this.quiet = quiet;
+			this.clearBar = clearBar;
+			this.jumpLive = jumpLive;
 		}
 
 		static Outcome pass() {
-			return new Outcome(false, null, false, 0, 0, 0, false);
+			return new Outcome(false, null, false, 0, 0, 0, false, false, false);
 		}
 
 		static Outcome taken() {
-			return new Outcome(true, null, false, 0, 0, 0, false);
+			return new Outcome(true, null, false, 0, 0, 0, false, false, false);
 		}
 
 		static Outcome schedule(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, false, holdMs, repeatMs, token, false);
+			return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false);
+		}
+
+		static Outcome clearBar() {
+			return new Outcome(true, null, false, 0, 0, 0, false, true, false);
+		}
+
+		static Outcome jumpLive() {
+			return new Outcome(true, null, false, 0, 0, 0, false, false, true);
 		}
 
 		static Outcome send(final String line) {
@@ -548,13 +568,13 @@ public final class KeyboardShortcutMatcher {
 		static Outcome send(final String line, final int holdMs, final int repeatMs, final int token,
 				final boolean quiet) {
 			if (line == null || line.length() == 0) {
-				return new Outcome(true, null, false, holdMs, repeatMs, token, false);
+				return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false);
 			}
-			return new Outcome(true, line, false, holdMs, repeatMs, token, quiet);
+			return new Outcome(true, line, false, holdMs, repeatMs, token, quiet, false, false);
 		}
 
 		static Outcome input(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, true, holdMs, repeatMs, token, false);
+			return new Outcome(true, null, true, holdMs, repeatMs, token, false, false, false);
 		}
 	}
 }

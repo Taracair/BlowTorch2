@@ -365,6 +365,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int historyPrefixIndex = -1;
 	private String historyPrefixShown;
 	private boolean historyPrefixWrite;
+	/** Text that was in the bar before the recall now on screen. */
+	private String historyDraft = "";
+	/** The bar is showing a recalled command, not what was typed. */
+	private boolean historyRecalling;
 	private KeyboardShortcutListDialog shortcutList;
 	private boolean shortcutDevicesRegistered;
 	private InputManager.InputDeviceListener shortcutDeviceListener;
@@ -4906,6 +4910,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				historyPrefix = null;
 				historyPrefixIndex = -1;
 				historyPrefixShown = null;
+				historyRecalling = false;
+				historyDraft = "";
 			}
 			if (historyPrefix == null && shown.length() > 0) {
 				historyPrefix = shown;
@@ -4920,13 +4926,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 				historyPrefixIndex = step.index;
 				historyPrefixShown = InputHyphenBreaks.strip(step.line);
-				historyPrefixWrite = true;
-				try {
-					mInputBox.setText(step.line);
-					mInputBox.setLogicalSelection(step.line.length());
-				} finally {
-					historyPrefixWrite = false;
-				}
+				historyDraft = historyPrefix;
+				historyRecalling = historyPrefixIndex >= 0;
+				writeHistoryBar(step.line);
 				historyWidgetKept = false;
 				return;
 			}
@@ -4952,8 +4954,74 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (cmd == null) {
 			cmd = "";
 		}
-		mInputBox.setText(cmd);
-		mInputBox.setLogicalSelection(cmd.length());
+		InputBarEscape.Recall recall = InputBarEscape.note(
+				historyRecalling, historyDraft, inputBarText(), cmd);
+		historyRecalling = recall.recalling;
+		historyDraft = recall.draft;
+		historyPrefix = null;
+		historyPrefixIndex = -1;
+		historyPrefixShown = null;
+		writeHistoryBar(cmd);
+	}
+
+	private void writeHistoryBar(final String text) {
+		if (mInputBox == null) {
+			return;
+		}
+		String line = text == null ? "" : text;
+		historyPrefixWrite = true;
+		try {
+			mInputBox.setText(line);
+			mInputBox.setLogicalSelection(line.length());
+		} finally {
+			historyPrefixWrite = false;
+		}
+	}
+
+	/**
+	 * Escape. A recalled line puts the draft back. Other text is cleared.
+	 * An empty bar hides the keyboard.
+	 */
+	private void applyShortcutEscape() {
+		if (mInputBox == null) {
+			return;
+		}
+		boolean recalling = historyRecalling || historyPrefixIndex >= 0;
+		String draft = historyPrefixIndex >= 0
+				? (historyPrefix == null ? "" : historyPrefix) : historyDraft;
+		InputBarEscape.Result result = InputBarEscape.decide(recalling, draft, inputBarText());
+		if (result.kind == InputBarEscape.Kind.RESTORE) {
+			historyRecalling = false;
+			historyPrefix = null;
+			historyPrefixIndex = -1;
+			historyPrefixShown = null;
+			historyDraft = "";
+			if (history != null) {
+				history.stopBrowsing();
+			}
+			writeHistoryBar(result.text);
+			return;
+		}
+		if (result.kind == InputBarEscape.Kind.CLEAR) {
+			historyRecalling = false;
+			historyPrefix = null;
+			historyPrefixIndex = -1;
+			historyPrefixShown = null;
+			historyDraft = "";
+			if (history != null) {
+				history.stopBrowsing();
+			}
+			ClearKeyboard();
+			return;
+		}
+		HideKeyboard();
+	}
+
+	private void jumpShortcutToLive() {
+		com.resurrection.blowtorch2.lib.window.Window window = mainDisplayWindow();
+		if (window != null) {
+			window.jumpToStart();
+		}
 	}
 	
 	private void requestNotificationPermissionIfNeeded() {
@@ -5690,8 +5758,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		syncShortcutGates(hasWindowFocus());
 	}
 
-	/** Current button set: label, tap command, hold command. Empty when the set is not loaded. */
+	/**
+	 * Every stored button set, current set first. A result that is not a JSON
+	 * array falls back to the buttons on screen.
+	 */
 	public String shortcutButtonLines() {
+		String catalog = shortcutButtonCatalog();
+		if (catalog != null) {
+			String trimmed = catalog.trim();
+			if (trimmed.startsWith("[")) {
+				return trimmed;
+			}
+		}
 		com.resurrection.blowtorch2.lib.window.Window window = windowMap == null
 				? null : windowMap.get("button_window");
 		if (window == null) {
@@ -5699,6 +5777,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		String raw = window.callFunctionResult("shortcutButtonLines", "");
 		return raw == null ? "" : raw;
+	}
+
+	private String shortcutButtonCatalog() {
+		if (service == null) {
+			return null;
+		}
+		try {
+			return service.pluginCallResult("button_window", "shortcutButtonCatalog", "");
+		} catch (android.os.RemoteException e) {
+			return null;
+		}
 	}
 
 	private boolean offerShortcutKey(final KeyEvent event, final int hook) {
@@ -5745,6 +5834,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void showMark(final String mark) {
 					showShortcutMark(mark);
+				}
+
+				@Override
+				public void clearBar() {
+					applyShortcutEscape();
+				}
+
+				@Override
+				public void jumpLive() {
+					jumpShortcutToLive();
 				}
 			});
 			shortcutController.setTypingForced(mLocalEchoOff);
@@ -11306,11 +11405,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
 					reportTypingState(s != null && s.length() > 0);
-					if (!historyPrefixWrite
-							&& HistoryPrefix.ended(historyPrefix, historyPrefixShown, inputBarText())) {
-						historyPrefix = null;
-						historyPrefixIndex = -1;
-						historyPrefixShown = null;
+					if (!historyPrefixWrite) {
+						if (historyRecalling) {
+							historyRecalling = false;
+						}
+						if (HistoryPrefix.ended(historyPrefix, historyPrefixShown, inputBarText())) {
+							historyPrefix = null;
+							historyPrefixIndex = -1;
+							historyPrefixShown = null;
+						}
 					}
 					if (mWordSuggestionsOn) {
 						refreshWordSuggestions();

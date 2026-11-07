@@ -14,6 +14,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.OptionNegotiator;
 import com.resurrection.blowtorch2.lib.service.Processor;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
+import com.resurrection.blowtorch2.lib.window.EditorHelp;
 import com.resurrection.blowtorch2.lib.window.ScrollStep;
 
 /**
@@ -102,7 +103,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("keyboard", "Input and suggestions",
 				"prints usage; .kb insert and .kb add put text in the bar");
 		cmd("shortcuts", "Input and suggestions",
-				"prints on or off; edit opens the list; Hardware shortcuts. A hardware key follows the keyboard app you selected");
+				"prints on or off; edit opens the list; .help shortcuts is the explanation");
 		cmd("last", "Input and suggestions",
 				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
 		cmd("lastlist", "Input and suggestions",
@@ -764,6 +765,12 @@ public class HelpCommand extends SpecialCommand {
 					+ "  Each world keeps its own on/off, count, length, and order.\n"
 					+ "  Options → Typing → Recent command bar…\n"
 					+ "  Not sent to the world.\n";
+		}
+		if (filter.equals("shortcuts")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Hardware keyboard shortcuts"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ EditorHelp.shortcutsPlain();
 		}
 		if (filter.equals("kb") || filter.equals("keyboard")) {
 			return "\n"

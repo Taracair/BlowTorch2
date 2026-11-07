@@ -5112,6 +5112,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/** The string a plugin function returns. Same thread as {@link #pluginXcallS}. */
+	public final String pluginCallResult(final String plugin, final String function, final String str) {
+		if (plugin == null || function == null || mPlugins == null) {
+			return "";
+		}
+		for (Plugin p : mPlugins) {
+			if (p.getName().equals(plugin) && p.isEnabled()) {
+				String result = p.callFunctionResult(function, str);
+				return result == null ? "" : result;
+			}
+		}
+		return "";
+	}
+
 	/** Helper method for reverse mapping R.java constants from name to id.
 	 * 
 	 * @param variableName The desired field name e.g. "alias_dialog".

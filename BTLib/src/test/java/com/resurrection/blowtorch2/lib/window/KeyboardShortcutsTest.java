@@ -32,14 +32,14 @@ public class KeyboardShortcutsTest {
 	}
 
 	@Test
-	public void firstOnSeedsOnlyNumpadEnterAndPrintsTheNotice() {
+	public void firstOnSeedsTheClientRowsAndPrintsTheNotice() {
 		Change change = KeyboardShortcuts.empty().apply("on");
 		assertTrue(change.changed);
 		assertTrue(change.printNotice);
 		assertFalse(change.usage);
 		assertTrue(change.next.isOn());
 		assertTrue(change.next.isIntroduced());
-		assertEquals(1, change.next.rows().size());
+		assertClientRows(change.next);
 		Row row = change.next.rows().get(0);
 		assertEquals(160, row.keyCode);
 		assertEquals(0, row.modifiers);
@@ -57,8 +57,7 @@ public class KeyboardShortcutsTest {
 		assertFalse(again.changed);
 		assertFalse(again.printNotice);
 		assertTrue(again.next.isOn());
-		assertEquals(1, again.next.rows().size());
-		assertEquals(160, again.next.rows().get(0).keyCode);
+		assertClientRows(again.next);
 	}
 
 	@Test
@@ -69,21 +68,80 @@ public class KeyboardShortcutsTest {
 		assertFalse(off.next.isOn());
 		assertTrue(off.next.isIntroduced());
 		assertFalse(off.printNotice);
-		assertEquals(1, off.next.rows().size());
+		assertClientRows(off.next);
 		Change back = off.next.apply("on");
 		assertTrue(back.next.isOn());
 		assertFalse(back.printNotice);
-		assertEquals(1, back.next.rows().size());
-		assertEquals(160, back.next.rows().get(0).keyCode);
+		assertClientRows(back.next);
 	}
 
 	@Test
-	public void introducedWithNoRowsDoesNotReseed() {
+	public void introducedWithNoRowsDoesNotBringNumpadEnterBack() {
 		KeyboardShortcuts stored = KeyboardShortcuts.parse("on=0;introduced=1");
+		assertEquals(null, stored.row(KeyboardShortcuts.KEYCODE_NUMPAD_ENTER, 0));
+		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
+				stored.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
 		Change on = stored.apply("on");
 		assertTrue(on.changed);
 		assertFalse(on.printNotice);
-		assertTrue(on.next.rows().isEmpty());
+		assertEquals(null, on.next.row(KeyboardShortcuts.KEYCODE_NUMPAD_ENTER, 0));
+		assertEquals(3, on.next.rows().size());
+	}
+
+	@Test
+	public void anOldSaveGainsTheBarChordsOnce() {
+		KeyboardShortcuts loaded = KeyboardShortcuts.parse("on=1;introduced=1;160|0|input|1|0||");
+		assertTrue(loaded.isOn());
+		assertEquals(4, loaded.rows().size());
+		assertEquals(KeyboardShortcuts.ACTION_INPUT,
+				loaded.row(KeyboardShortcuts.KEYCODE_NUMPAD_ENTER, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
+				loaded.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				loaded.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				loaded.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(4, KeyboardShortcuts.parse(loaded.format()).rows().size());
+
+		KeyboardShortcuts off = KeyboardShortcuts.parse("on=0;introduced=1;160|0|input|1|0||");
+		Change on = off.apply("on");
+		assertFalse(on.printNotice);
+		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
+				on.next.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
+
+		KeyboardShortcuts removed = loaded.withoutRow(KeyboardShortcuts.KEYCODE_ESCAPE, 0);
+		KeyboardShortcuts reloaded = KeyboardShortcuts.parse(removed.format());
+		assertEquals(null, reloaded.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0));
+		assertEquals(3, reloaded.rows().size());
+		Change again = reloaded.apply("off").next.apply("on");
+		assertFalse(again.printNotice);
+		assertEquals(null, again.next.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0));
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				again.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+
+		KeyboardShortcuts taken = KeyboardShortcuts.parse(
+				"on=1;introduced=1;111|0|line|1|0|smile|;160|0|input|1|0||");
+		assertEquals("smile", taken.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).tap);
+		assertEquals(KeyboardShortcuts.ACTION_LINE,
+				taken.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
+		assertEquals("smile", KeyboardShortcuts.parse(taken.format())
+				.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).tap);
+	}
+
+	@Test
+	public void firstOnDoesNotReplaceAChordThePlayerAlreadyBound() {
+		KeyboardShortcuts prior = KeyboardShortcuts.parse(
+				"on=0;introduced=0;111|0|line|1|0|smile|");
+		Change on = prior.apply("on");
+		Row escape = on.next.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0);
+		assertEquals(KeyboardShortcuts.ACTION_LINE, escape.action);
+		assertEquals("smile", escape.tap);
+		assertEquals(KeyboardShortcuts.ACTION_INPUT, on.next.row(160, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				on.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				on.next.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(4, on.next.rows().size());
 	}
 
 	@Test
@@ -137,12 +195,11 @@ public class KeyboardShortcutsTest {
 		Change on = KeyboardShortcuts.empty().apply("toggle");
 		assertTrue(on.printNotice);
 		assertTrue(on.next.isOn());
-		assertEquals(1, on.next.rows().size());
-		assertEquals(160, on.next.rows().get(0).keyCode);
+		assertClientRows(on.next);
 		Change off = on.next.apply("Toggle");
 		assertFalse(off.next.isOn());
 		assertFalse(off.printNotice);
-		assertEquals(1, off.next.rows().size());
+		assertClientRows(off.next);
 	}
 
 	@Test
@@ -197,8 +254,8 @@ public class KeyboardShortcutsTest {
 		KeyboardShortcuts parsed = KeyboardShortcuts.parse(
 				"on=1;introduced=1;nope;zz|0|line|1|0||;29|0|line|1|0|hi|");
 		assertTrue(parsed.isOn());
-		assertEquals(1, parsed.rows().size());
-		assertEquals("hi", parsed.rows().get(0).tap);
+		assertEquals("hi", parsed.row(29, 0).tap);
+		assertEquals(4, parsed.rows().size());
 	}
 
 	@Test
@@ -250,7 +307,7 @@ public class KeyboardShortcutsTest {
 	@Test
 	public void deleteAllKeepsTheSwitchAndDoesNotReseed() {
 		KeyboardShortcuts on = KeyboardShortcuts.empty().apply("on").next;
-		assertEquals(1, on.rows().size());
+		assertEquals(4, on.rows().size());
 		KeyboardShortcuts cleared = on.withoutRows();
 		assertTrue(cleared.isOn());
 		assertTrue(cleared.isIntroduced());
@@ -298,5 +355,50 @@ public class KeyboardShortcutsTest {
 		assertEquals("send the line", KeyboardShortcuts.listText(bare).detail);
 		assertEquals("Alt+Num 8", KeyboardShortcuts.chordLabel(152, KeyboardShortcuts.MOD_ALT));
 		assertEquals("nothing", KeyboardShortcuts.chordLabel(-1, 0));
+	}
+
+	@Test
+	public void escapeAndLiveRoundTripAndShowInTheList() {
+		KeyboardShortcuts parsed = KeyboardShortcuts.parse(
+				KeyboardShortcuts.empty().apply("on").next.format());
+		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
+				parsed.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				parsed.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals("Esc", KeyboardShortcuts.chordLabel(KeyboardShortcuts.KEYCODE_ESCAPE, 0));
+		assertEquals("Ctrl+Enter", KeyboardShortcuts.chordLabel(
+				KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL));
+		assertEquals("Ctrl+End", KeyboardShortcuts.chordLabel(
+				KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL));
+		assertEquals("clear the bar", KeyboardShortcuts.listText(
+				parsed.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0)).detail);
+		assertEquals("newest text", KeyboardShortcuts.listText(
+				parsed.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL)).detail);
+	}
+
+	@Test
+	public void escapeAndLiveStoreNoLines() {
+		Row escape = Row.of(KeyboardShortcuts.KEYCODE_ESCAPE, 0, KeyboardShortcuts.ACTION_ESCAPE,
+				true, true, "smile", "held", "bar", true);
+		assertEquals("", escape.tap);
+		assertEquals("", escape.hold);
+		assertFalse(escape.repeat);
+		assertFalse(escape.quiet);
+		Row live = Row.of(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL,
+				KeyboardShortcuts.ACTION_LIVE, true, true, "north", "held");
+		assertEquals("", live.tap);
+		assertFalse(live.repeat);
+	}
+
+	private static void assertClientRows(final KeyboardShortcuts shortcuts) {
+		assertEquals(4, shortcuts.rows().size());
+		assertEquals(160, shortcuts.rows().get(0).keyCode);
+		assertEquals(KeyboardShortcuts.ACTION_INPUT, shortcuts.row(160, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
+				shortcuts.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				shortcuts.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.ACTION_LIVE,
+				shortcuts.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
 	}
 }

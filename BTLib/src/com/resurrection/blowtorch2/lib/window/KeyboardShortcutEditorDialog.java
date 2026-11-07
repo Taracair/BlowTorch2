@@ -1,8 +1,5 @@
 package com.resurrection.blowtorch2.lib.window;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.Row;
@@ -19,13 +16,10 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
@@ -58,6 +52,8 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final int lineId;
 	private final int inputId;
 	private final int stepId;
+	private final int clearId;
+	private final int liveId;
 	private final boolean rowEnabled;
 	private final boolean rowPad;
 	private boolean formLock;
@@ -126,9 +122,13 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		lineId = View.generateViewId();
 		inputId = View.generateViewId();
 		stepId = View.generateViewId();
+		clearId = View.generateViewId();
+		liveId = View.generateViewId();
 		actions.addView(radio(activity, lineId, "Send a line"));
 		actions.addView(radio(activity, inputId, "Send the current line"));
 		actions.addView(radio(activity, stepId, "Step back"));
+		actions.addView(radio(activity, clearId, "Clear the bar"));
+		actions.addView(radio(activity, liveId, "Jump to the newest text"));
 		TextView stepNote = caption(activity, "Uses the directions set in Speedwalk Directions.");
 		int stepIndent = (int) (36 * density);
 		stepNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
@@ -137,6 +137,10 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			actions.check(inputId);
 		} else if (KeyboardShortcuts.ACTION_STEP.equals(action)) {
 			actions.check(stepId);
+		} else if (KeyboardShortcuts.ACTION_ESCAPE.equals(action)) {
+			actions.check(clearId);
+		} else if (KeyboardShortcuts.ACTION_LIVE.equals(action)) {
+			actions.check(liveId);
 		} else {
 			actions.check(lineId);
 		}
@@ -364,10 +368,11 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	}
 
 	private void applyAction() {
-		boolean line = actions.getCheckedRadioButtonId() == lineId;
-		boolean input = actions.getCheckedRadioButtonId() == inputId;
+		int checked = actions.getCheckedRadioButtonId();
+		boolean line = checked == lineId;
+		boolean hideQuiet = checked == inputId || checked == clearId || checked == liveId;
 		commandBlock.setVisibility(line ? View.VISIBLE : View.GONE);
-		int quiet = input ? View.GONE : View.VISIBLE;
+		int quiet = hideQuiet ? View.GONE : View.VISIBLE;
 		quietBox.setVisibility(quiet);
 		quietNote.setVisibility(quiet);
 	}
@@ -383,10 +388,16 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			action = KeyboardShortcuts.ACTION_INPUT;
 		} else if (checked == stepId) {
 			action = KeyboardShortcuts.ACTION_STEP;
+		} else if (checked == clearId) {
+			action = KeyboardShortcuts.ACTION_ESCAPE;
+		} else if (checked == liveId) {
+			action = KeyboardShortcuts.ACTION_LIVE;
 		}
+		boolean quiet = quietBox.isChecked() && checked != inputId
+				&& checked != clearId && checked != liveId;
 		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, rowEnabled,
 				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
-				nameField.getText().toString(), quietBox.isChecked() && checked != inputId)
+				nameField.getText().toString(), quiet)
 				.asPad(rowPad);
 		host.save(stored.withRow(previousKey, previousMods, row));
 		dismiss();
@@ -414,90 +425,19 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	}
 
 	private void pickButton() {
-		String raw = host.buttonLines();
-		final List<Button> buttons = KeyboardShortcutButtons.parse(raw);
-		if (buttons.isEmpty()) {
-			new AlertDialog.Builder(getContext())
-					.setMessage("This set has no buttons.")
-					.setPositiveButton("Close", new DialogInterface.OnClickListener() {
-						@Override
-						public void onClick(final DialogInterface dialog, final int which) {
-							dialog.dismiss();
-						}
-					})
-					.create()
-					.show();
-			return;
-		}
-		final EditText query = new EditText(getContext());
-		query.setHint("Search");
-		query.setSingleLine(true);
-		int pad = (int) (12 * getContext().getResources().getDisplayMetrics().density);
-		query.setPadding(pad, pad, pad, 0);
-		final List<Button> shown = new ArrayList<Button>();
-		final ArrayAdapter<String> adapter = new ArrayAdapter<String>(
-				getContext(), android.R.layout.select_dialog_item);
-		showButtonChoices(adapter, shown, buttons, "");
-		ListView list = new ListView(getContext());
-		list.setAdapter(adapter);
-		LinearLayout box = new LinearLayout(getContext());
-		box.setOrientation(LinearLayout.VERTICAL);
-		box.addView(query, new LinearLayout.LayoutParams(
-				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-		box.addView(list, new LinearLayout.LayoutParams(
-				ViewGroup.LayoutParams.MATCH_PARENT, (int) (320 * getContext().getResources().getDisplayMetrics().density)));
-		final AlertDialog picker = new AlertDialog.Builder(getContext())
-				.setTitle("Use a button")
-				.setView(box)
-				.create();
-		list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-			@Override
-			public void onItemClick(final AdapterView<?> parent, final View view, final int position,
-					final long id) {
-				if (position < 0 || position >= shown.size()) {
-					return;
-				}
-				Button picked = shown.get(position);
-				formLock = true;
-				actions.check(lineId);
-				tapField.setText(picked.command);
-				holdField.setText(picked.hold);
-				repeatBox.setChecked(false);
-				formLock = false;
-				applyAction();
-				picker.dismiss();
-			}
-		});
-		query.addTextChangedListener(new TextWatcher() {
-			@Override
-			public void beforeTextChanged(final CharSequence s, final int start, final int count,
-					final int after) {
-			}
-
-			@Override
-			public void onTextChanged(final CharSequence s, final int start, final int before,
-					final int count) {
-				showButtonChoices(adapter, shown, buttons, s == null ? "" : s.toString());
-			}
-
-			@Override
-			public void afterTextChanged(final Editable s) {
-			}
-		});
-		picker.show();
-	}
-
-	private static void showButtonChoices(final ArrayAdapter<String> adapter, final List<Button> shown,
-			final List<Button> buttons, final String query) {
-		shown.clear();
-		shown.addAll(KeyboardShortcutButtons.matching(buttons, query));
-		adapter.setNotifyOnChange(false);
-		adapter.clear();
-		for (int i = 0; i < shown.size(); i++) {
-			adapter.add(shown.get(i).listLabel());
-		}
-		adapter.setNotifyOnChange(true);
-		adapter.notifyDataSetChanged();
+		KeyboardShortcutButtonPicker.show(getContext(), host.buttonLines(),
+				new KeyboardShortcutButtonPicker.Choice() {
+					@Override
+					public void picked(final Button picked) {
+						formLock = true;
+						actions.check(lineId);
+						tapField.setText(picked.command);
+						holdField.setText(picked.hold);
+						repeatBox.setChecked(false);
+						formLock = false;
+						applyAction();
+					}
+				});
 	}
 
 	private static TextView title(final Activity activity, final String text, final float density) {

@@ -528,6 +528,96 @@ function getButtonSetList(s)
 	WindowXCallS(buttonWindowName,"showButtonList",serialize(setdata))
 end
 
+-- Every stored set, the one on screen first. Does not change current_set.
+-- Accordion children stay out. Swipes and flip are not copied.
+function shortcutButtonCatalog(arg)
+	local JSONArray = luajava.bindClass("org.json.JSONArray")
+	local JSONObject = luajava.bindClass("org.json.JSONObject")
+	local sets = luajava.new(JSONArray)
+	if type(buttonsets) ~= "table" then
+		return "[]"
+	end
+	local names = {}
+	for name, _ in pairs(buttonsets) do
+		if type(name) == "string" and name ~= "" then
+			table.insert(names, name)
+		end
+	end
+	table.sort(names)
+	if type(current_set) == "string" and current_set ~= "" then
+		local at = 0
+		for i = 1, #names do
+			if names[i] == current_set then
+				at = i
+			end
+		end
+		if at > 1 then
+			table.remove(names, at)
+			table.insert(names, 1, current_set)
+		end
+	end
+	for n = 1, #names do
+		local name = names[n]
+		local set = buttonsets[name]
+		local buttons = luajava.new(JSONArray)
+		local count = 0
+		if type(set) == "table" then
+			local child = {}
+			local indexes = {}
+			for k, _ in pairs(set) do
+				if type(k) == "number" then
+					table.insert(indexes, k)
+				end
+			end
+			table.sort(indexes)
+			for i = 1, #indexes do
+				local d = set[indexes[i]]
+				if type(d) == "table" and type(d.accordionChildren) == "table" then
+					for c = 1, #d.accordionChildren do
+						local kid = d.accordionChildren[c]
+						if type(kid) == "table" and kid.id ~= nil then
+							child[tostring(kid.id)] = true
+						end
+					end
+				end
+			end
+			for i = 1, #indexes do
+				local d = set[indexes[i]]
+				if type(d) == "table" then
+					local id = tostring(d.id or "")
+					local skip = false
+					if id ~= "" and child[id] == true then
+						skip = true
+					end
+					if not skip then
+						local label = tostring(d.label or "")
+						local bname = tostring(d.name or "")
+						local command = tostring(d.command or "")
+						local hold = tostring(d.holdCommand or "")
+						if label ~= "" or bname ~= "" or id ~= "" or command ~= "" or hold ~= "" then
+							local o = luajava.new(JSONObject)
+							o:put("label", label)
+							o:put("name", bname)
+							o:put("id", id)
+							o:put("command", command)
+							o:put("hold", hold)
+							buttons:put(o)
+							count = count + 1
+						end
+					end
+				end
+			end
+		end
+		if count > 0 then
+			local group = luajava.new(JSONObject)
+			group:put("set", name)
+			group:put("buttons", buttons)
+			sets:put(group)
+		end
+	end
+	return tostring(sets:toString())
+end
+
 function saveSetDefaults(data)
 	local loaded = loadSerialized(data, "the defaults for set "..tostring(current_set))
 	if(loaded == nil) then return end

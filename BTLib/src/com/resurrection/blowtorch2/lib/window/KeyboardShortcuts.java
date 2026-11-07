@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * One connection string for hardware shortcuts. Empty means off, and the
- * first turn-on is the only time the Numpad Enter row and the notice are added.
+ * One connection string for hardware shortcuts. Empty means off.
+ * The notice is printed once. Escape and the jump chords are offered once.
  */
 public final class KeyboardShortcuts {
 
@@ -31,33 +31,43 @@ public final class KeyboardShortcuts {
 	public static final String ACTION_LINE = "line";
 	public static final String ACTION_INPUT = "input";
 	public static final String ACTION_STEP = "step";
+	/** Put a recalled draft back, or clear the bar, or hide the keyboard. */
+	public static final String ACTION_ESCAPE = "escape";
+	/** Jump the game text to the live end. */
+	public static final String ACTION_LIVE = "live";
+
+	/** Platform {@code KeyEvent.KEYCODE_ESCAPE}. */
+	public static final int KEYCODE_ESCAPE = 111;
+	/** Platform {@code KeyEvent.KEYCODE_ENTER}. */
+	public static final int KEYCODE_ENTER = 66;
+	/** Platform {@code KeyEvent.KEYCODE_MOVE_END}. */
+	public static final int KEYCODE_MOVE_END = 123;
 
 	private final boolean on;
 	private final boolean introduced;
+	/** Escape, Ctrl+Enter, and Ctrl+End have been offered. Absent on an old save. */
+	private final boolean offered;
 	private final int roseModifier;
 	private final int latchKey;
 	private final List<Row> rows;
 
-	private KeyboardShortcuts(final boolean on, final boolean introduced, final List<Row> rows) {
-		this(on, introduced, rows, 0, -1);
-	}
-
 	private KeyboardShortcuts(final boolean on, final boolean introduced, final List<Row> rows,
-			final int roseModifier, final int latchKey) {
+			final int roseModifier, final int latchKey, final boolean offered) {
 		this.on = on;
 		this.introduced = introduced;
+		this.offered = offered;
 		this.roseModifier = roseModifier == MOD_ALT || roseModifier == MOD_CTRL ? roseModifier : 0;
 		this.latchKey = this.roseModifier == 0 || latchKey < 0 ? -1 : latchKey;
 		this.rows = Collections.unmodifiableList(new ArrayList<Row>(rows));
 	}
 
-	/** Keeps the rose modifier and the latch key. */
+	/** Keeps the rose modifier, the latch key, and whether the bar chords were offered. */
 	private KeyboardShortcuts copy(final boolean nextOn, final boolean nextIntroduced, final List<Row> nextRows) {
-		return new KeyboardShortcuts(nextOn, nextIntroduced, nextRows, roseModifier, latchKey);
+		return new KeyboardShortcuts(nextOn, nextIntroduced, nextRows, roseModifier, latchKey, offered);
 	}
 
 	public static KeyboardShortcuts empty() {
-		return new KeyboardShortcuts(false, false, Collections.<Row>emptyList());
+		return new KeyboardShortcuts(false, false, Collections.<Row>emptyList(), 0, -1, false);
 	}
 
 	public static KeyboardShortcuts enabled(final Row... rows) {
@@ -69,7 +79,7 @@ public final class KeyboardShortcuts {
 				}
 			}
 		}
-		return new KeyboardShortcuts(true, true, list);
+		return new KeyboardShortcuts(true, true, list, 0, -1, true);
 	}
 
 	public static KeyboardShortcuts disabled(final Row... rows) {
@@ -81,7 +91,7 @@ public final class KeyboardShortcuts {
 				}
 			}
 		}
-		return new KeyboardShortcuts(false, true, list);
+		return new KeyboardShortcuts(false, true, list, 0, -1, true);
 	}
 
 	public static int modifiers(final int metaState) {
@@ -127,6 +137,7 @@ public final class KeyboardShortcuts {
 		}
 		boolean on = false;
 		boolean introduced = false;
+		boolean offered = false;
 		int rose = 0;
 		int latch = -1;
 		List<Row> rows = new ArrayList<Row>();
@@ -144,6 +155,10 @@ public final class KeyboardShortcuts {
 				introduced = "1".equals(part.substring("introduced=".length()).trim());
 				continue;
 			}
+			if (part.startsWith("offered=")) {
+				offered = "1".equals(part.substring("offered=".length()).trim());
+				continue;
+			}
 			if (part.startsWith("rose=")) {
 				rose = parseHeaderInt(part.substring("rose=".length()));
 				continue;
@@ -157,16 +172,27 @@ public final class KeyboardShortcuts {
 				rows.add(row);
 			}
 		}
-		return new KeyboardShortcuts(on, introduced, rows, rose, latch);
+		// An old save has no offered mark, so these chords were never in it.
+		// The mark stays after a delete, and a later load does not put the row back.
+		if (!offered) {
+			addSeed(rows, Row.barEscape());
+			addSeed(rows, Row.jumpLive(KEYCODE_ENTER, MOD_CTRL));
+			addSeed(rows, Row.jumpLive(KEYCODE_MOVE_END, MOD_CTRL));
+			offered = true;
+		}
+		return new KeyboardShortcuts(on, introduced, rows, rose, latch, offered);
 	}
 
 	public String format() {
-		if (!on && !introduced && rows.isEmpty() && roseModifier == 0 && latchKey < 0) {
+		if (!on && !introduced && rows.isEmpty() && roseModifier == 0 && latchKey < 0 && !offered) {
 			return "";
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("on=").append(on ? "1" : "0");
 		sb.append(";introduced=").append(introduced ? "1" : "0");
+		if (offered) {
+			sb.append(";offered=1");
+		}
 		if (roseModifier != 0) {
 			sb.append(";rose=").append(roseModifier);
 		}
@@ -212,9 +238,13 @@ public final class KeyboardShortcuts {
 		List<Row> nextRows = rows;
 		if (!introduced) {
 			nextRows = new ArrayList<Row>(rows);
-			if (!hasNumpadEnter(nextRows)) {
-				nextRows.add(Row.numpadEnter());
-			}
+			// Once, and only a chord that is still free.
+			addSeed(nextRows, Row.numpadEnter());
+			addSeed(nextRows, Row.barEscape());
+			addSeed(nextRows, Row.jumpLive(KEYCODE_ENTER, MOD_CTRL));
+			addSeed(nextRows, Row.jumpLive(KEYCODE_MOVE_END, MOD_CTRL));
+			return new Change(new KeyboardShortcuts(true, true, nextRows, roseModifier, latchKey, true),
+					true, notice, false, false);
 		}
 		return new Change(copy(true, true, nextRows), true, notice, false, false);
 	}
@@ -323,7 +353,7 @@ public final class KeyboardShortcuts {
 				next.add(marked);
 			}
 		}
-		return new KeyboardShortcuts(on, introduced, next, rose, latch);
+		return new KeyboardShortcuts(on, introduced, next, rose, latch, offered);
 	}
 
 	public KeyboardShortcuts withEnabled(final int keyCode, final int modifiers, final boolean enabled) {
@@ -374,6 +404,10 @@ public final class KeyboardShortcuts {
 			detail.append("step back");
 		} else if (ACTION_INPUT.equals(row.action)) {
 			detail.append("send the line");
+		} else if (ACTION_ESCAPE.equals(row.action)) {
+			detail.append("clear the bar");
+		} else if (ACTION_LIVE.equals(row.action)) {
+			detail.append("newest text");
 		} else if (row.tap.length() > 0) {
 			detail.append(row.tap);
 		}
@@ -475,10 +509,18 @@ public final class KeyboardShortcuts {
 		}
 	}
 
-	private static boolean hasNumpadEnter(final List<Row> rows) {
+	private static void addSeed(final List<Row> rows, final Row row) {
+		if (row == null || hasChord(rows, row.keyCode, row.modifiers)) {
+			return;
+		}
+		rows.add(row);
+	}
+
+	private static boolean hasChord(final List<Row> rows, final int keyCode, final int modifiers) {
+		int mods = modifiers(modifiers);
 		for (int i = 0; i < rows.size(); i++) {
 			Row row = rows.get(i);
-			if (row.keyCode == KEYCODE_NUMPAD_ENTER && row.modifiers == 0) {
+			if (row.keyCode == keyCode && row.modifiers == mods) {
 				return true;
 			}
 		}
@@ -495,7 +537,8 @@ public final class KeyboardShortcuts {
 			int mods = Integer.parseInt(f[1].trim());
 			String action = f[2].trim();
 			if (!ACTION_LINE.equals(action) && !ACTION_INPUT.equals(action)
-					&& !ACTION_STEP.equals(action)) {
+					&& !ACTION_STEP.equals(action) && !ACTION_ESCAPE.equals(action)
+					&& !ACTION_LIVE.equals(action)) {
 				return null;
 			}
 			boolean enabled = "1".equals(f[3].trim());
@@ -603,7 +646,7 @@ public final class KeyboardShortcuts {
 
 		/**
 		 * Repeat and a hold line are not both kept. A hold line wins.
-		 * Step back and send-the-line store no lines and do not repeat.
+		 * Step back, send-the-line, Escape, and jump-to-end store no lines and do not repeat.
 		 * Send-the-line is not quiet.
 		 */
 		public static Row of(final int keyCode, final int modifiers, final String action,
@@ -614,11 +657,12 @@ public final class KeyboardShortcuts {
 			boolean useRepeat = repeat;
 			String useAction = action == null ? ACTION_LINE : action;
 			boolean useQuiet = quiet;
-			if (ACTION_STEP.equals(useAction) || ACTION_INPUT.equals(useAction)) {
+			if (ACTION_STEP.equals(useAction) || ACTION_INPUT.equals(useAction)
+					|| ACTION_ESCAPE.equals(useAction) || ACTION_LIVE.equals(useAction)) {
 				useTap = "";
 				useHold = "";
 				useRepeat = false;
-				if (ACTION_INPUT.equals(useAction)) {
+				if (!ACTION_STEP.equals(useAction)) {
 					useQuiet = false;
 				}
 			} else if (useHold.length() > 0 && useRepeat) {
@@ -640,6 +684,14 @@ public final class KeyboardShortcuts {
 
 		public static Row numpadEnter() {
 			return of(KEYCODE_NUMPAD_ENTER, 0, ACTION_INPUT, true, false, "", "");
+		}
+
+		public static Row barEscape() {
+			return of(KEYCODE_ESCAPE, 0, ACTION_ESCAPE, true, false, "", "");
+		}
+
+		public static Row jumpLive(final int keyCode, final int modifiers) {
+			return of(keyCode, modifiers, ACTION_LIVE, true, false, "", "");
 		}
 
 		private void append(final StringBuilder sb) {

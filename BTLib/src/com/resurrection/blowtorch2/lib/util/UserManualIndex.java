@@ -87,6 +87,7 @@ public final class UserManualIndex {
 		m.put("Strip accents when sending", CATEGORY_INPUT);
 		m.put("Hyphenate long words in the input bar", CATEGORY_INPUT);
 		m.put("The input bar (`.keyboard` / `.kb`)", CATEGORY_INPUT);
+		m.put("Hardware keyboard shortcuts", CATEGORY_INPUT);
 		m.put("Aliases and triggers (patterns / `$1`)", CATEGORY_TRIGGERS);
 		m.put("Recipes", CATEGORY_RECIPES);
 		m.put("Built-in commands", CATEGORY_COMMANDS);

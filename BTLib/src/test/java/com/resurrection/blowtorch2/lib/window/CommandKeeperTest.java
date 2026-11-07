@@ -73,6 +73,17 @@ public class CommandKeeperTest {
 	}
 
 	@Test
+	public void stopBrowsingStartsAgainAtTheNewest() {
+		CommandKeeper k = new CommandKeeper(10);
+		k.addCommand("north");
+		k.addCommand("look");
+		assertEquals("look", k.getNext());
+		assertEquals("north", k.getNext());
+		k.stopBrowsing();
+		assertEquals("look", k.getNext());
+	}
+
+	@Test
 	public void sendingTheSameCommandTwiceKeepsOneEntry() {
 		CommandKeeper k = new CommandKeeper(10);
 		k.addCommand("look");

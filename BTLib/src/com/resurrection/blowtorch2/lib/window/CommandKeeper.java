@@ -127,6 +127,12 @@ public class CommandKeeper {
 		direction = STATE.NONE;
 	}
 
+	/** Next Up starts at the newest command again. */
+	public void stopBrowsing() {
+		selected = 0;
+		direction = STATE.NONE;
+	}
+
 	public String getNext() {
 		
 		if (commands.size() == 0) {

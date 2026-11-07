@@ -640,6 +640,16 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		c.pluginXcallS(plugin, function, str);
 	}
 
+	@Override
+	public String pluginCallResult(final String plugin, final String function, final String str)
+			throws RemoteException {
+		Connection c = active();
+		if (c == null) {
+			return "";
+		}
+		return c.pluginCallResult(plugin, function, str);
+	}
+
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginList() throws RemoteException {

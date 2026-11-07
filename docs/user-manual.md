@@ -32,6 +32,7 @@ In the app this guide is **Help**: ⋮ → **Help**, or **Help** on the launcher
 - [Strip accents when sending](#strip-accents-when-sending)
 - [Hyphenate long words in the input bar](#hyphenate-long-words-in-the-input-bar)
 - [The input bar (`.keyboard` / `.kb`)](#the-input-bar-keyboard--kb)
+- [Hardware keyboard shortcuts](#hardware-keyboard-shortcuts)
 
 **Triggers and scripts**
 
@@ -1006,6 +1007,28 @@ Says whether the Edit tools strip above the input row is open. Same strip as the
 ```
 
 Shows or hides the **Send** button (same as Options → Window → Input bar → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
+
+## Hardware keyboard shortcuts
+
+Partially experimental. Android does not read every keyboard the same way. What a key does also depends on the keyboard app installed on the phone.
+
+`.shortcuts` with no argument prints on or off and does not change it. `.shortcuts on` turns them on, `.shortcuts off` turns them off, and `.shortcuts edit` opens the list. `.help shortcuts` is this explanation. The same text is the **?** card on that list.
+
+A chord sends a line. Ctrl+K can send `kill goblin`. A tap line of `.kb insert say` puts `say` in the bar. F1 starts empty. You can replace the key or the line. The switch on a row turns that one shortcut off, and the row stays. That key then types as usual.
+
+A short press sends the tap line. Hold waits 450 ms, then sends the hold line once. Repeat sends the tap line immediately and again every 200 ms until you let go. A hold command and Repeat cannot both be on. Typing a hold command turns Repeat off. Turning Repeat on clears the hold command.
+
+The rose is a preset you apply. Compass words fills 8 with `north`. Until Done, 8 still types. Modifier None walks on the bare number. Alt walks on Alt plus the number, and the bare number types: Alt+8 sends `north`, and 8 types. Ctrl is the same with Ctrl. Look is a second layer. With Alt walking, Ctrl+8 sends `look north`. The walk-lock button sends `.shortcuts toggle`. The bar shows Walk.
+
+After the pad walked `north`, step back sends `south`. A second press sends `south` again. Until that pad has walked, the key sends nothing.
+
+Type `ki` and Up finds `kill goblin`. Escape puts `ki` back. Escape again clears the bar. An empty bar hides the keyboard. A dialog keeps Escape. While a recalled line is showing, that next Escape restores the draft and does not clear the bar. That row can be turned off like any other.
+
+Ctrl+Enter and Ctrl+End jump the game text to the newest line. Enter still sends the line. `.scrollv 10` moves toward the text that was above. `.scrollh 10` moves to the right. `.kb start` and `.kb end` move the caret.
+
+Ctrl+Left moves back one word. Options → Typing → Keep Ctrl editing keys, off, lets a shortcut on that chord run. `.shortcuts off` sends keys into the bar. Right Alt+a still inserts ą. Ctrl and Alt together are not a shortcut unless that exact chord was bound.
+
+**Use a button** lists every button set, under that set's name. The search box matches the words on the button, its name, its id, its command, its hold line, and the set name. A tap copies that command and that hold line, and turns repeat off. Changing the button later does not change this key.
 
 </details>
 
@@ -2763,7 +2786,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
     `.suggest …` / `.complete …` / `.suggestions …`  Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|list|off|next`, `order left|right` (first chip on the left, or on the right; the bar and the floating window), `phrases`/`next`/`loose`/`typos`/`skiphead`/`firstletter`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
-    `.shortcuts [on|off|toggle|edit]`   Hardware shortcuts. No argument prints on or off and does not change it. `edit` opens the list. A hardware key follows the keyboard app you selected
+    `.shortcuts [on|off|toggle|edit]`   Hardware shortcuts, partially experimental. No argument prints on or off and does not change it. `edit` opens the list. `.help shortcuts` is the explanation. A hardware key follows the keyboard app you selected, the same app that shows the on-screen keys
     `.last` / `.Nlast`                  Resend a recent command. `.last` is the newest, `.2last` the one before it. `.last input` puts that line in the bar and does not send it. Not sent to the world. `2last` with no dot is a game line. See the input bar section
     `.lastlist`                         This world's recent commands, newest first. `.lastlist list` is that window. `.lastlist float` (or `.lastfloat`) shows them as chips over the game; a tap sends. Drag the grip to move them. `.lastlist float off` (or `.lastfloat off`) hides them. `.lastlist bar` turns on the recent-command bar (`.lastbar 5` is how many chips, `.lastbar length 12` is characters) and puts the window and the float away. `.lastlist frame` toggles the title, gear, and close. `.lastlist frame on` shows them. `.lastlist frame off` hides them (`Frame off` works). Same window as Options → Panes → Extra text windows → Recent commands…. Not a game-text pane
     `.lastfloat`                       Same as `.lastlist float`. `.lastfloat off` hides the chips. `.lastfloat 5` is how many (1–100). `.lastfloat length 12` is characters of each (3–40). Not sent to the world
