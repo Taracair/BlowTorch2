@@ -156,9 +156,8 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		repeatBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		repeatBox.setChecked(existing != null && existing.repeat);
 		((LinearLayout) commandBlock).addView(repeatBox);
-		TextView why = label(activity,
-				"Repeat and a hold line are not both on. Filling a hold line turns repeat off.");
-		why.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+		TextView why = caption(activity, EditorHelp.HOLD_AND_REPEAT);
+		why.setPadding(stepIndent, 0, 0, (int) (4 * density));
 		((LinearLayout) commandBlock).addView(why);
 		form.addView(commandBlock);
 
@@ -167,11 +166,14 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		quietBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		quietBox.setChecked(existing != null && existing.quiet);
 		form.addView(quietBox);
-		quietNote = caption(activity, "The game still receives it. This window does not show it.");
+		quietNote = caption(activity, EditorHelp.QUIET_CAPTION);
+		quietNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
 		form.addView(quietNote);
 
 		android.widget.Button useButton = new android.widget.Button(activity);
-		useButton.setText("Use a button");
+		useButton.setAllCaps(false);
+		useButton.setSingleLine(false);
+		useButton.setText(EditorHelp.USE_BUTTON);
 		useButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
@@ -179,7 +181,6 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			}
 		});
 		form.addView(useButton);
-		form.addView(caption(activity, "that already exists on your screen"));
 
 		ScrollView scroll = new ScrollView(activity);
 		scroll.addView(form, new ViewGroup.LayoutParams(

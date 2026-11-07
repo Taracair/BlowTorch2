@@ -43,6 +43,8 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 	private final Button[] cells = new Button[KeyboardShortcutPad.CELLS];
 	private final KeyboardShortcutCapture latchCapture = new KeyboardShortcutCapture();
 	private final TextView latchLabel;
+	private final TextView lookNote;
+	private final TextView latchNote;
 	private final int noneId;
 	private final int altId;
 	private final int ctrlId;
@@ -111,14 +113,8 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		look.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		look.setChecked(draft.look);
 		form.addView(look);
-		form.addView(caption(activity, "The other modifier sends look plus that walk. A walk with a space has no look line."));
-
-		final CheckBox inOut = new CheckBox(activity);
-		inOut.setText("In and out");
-		inOut.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
-		inOut.setChecked(draft.inOut);
-		form.addView(inOut);
-		form.addView(caption(activity, "* sends in. / sends out."));
+		lookNote = caption(activity, KeyboardShortcutPad.lookCaption(draft.modifier));
+		form.addView(lookNote);
 
 		form.addView(label(activity, "Latch"));
 		latchLabel = new TextView(activity);
@@ -143,7 +139,8 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 			}
 		});
 		form.addView(latchLabel);
-		form.addView(caption(activity, "That key, or the modifier alone, turns walking on. The same key turns it off."));
+		latchNote = caption(activity, KeyboardShortcutPad.latchCaption(draft.modifier));
+		form.addView(latchNote);
 		showLatch();
 
 		form.addView(caption(activity, "When the pad walks is Options → Typing."));
@@ -152,12 +149,6 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 			@Override
 			public void onCheckedChanged(final android.widget.CompoundButton button, final boolean checked) {
 				draft.look = checked;
-			}
-		});
-		inOut.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
-			@Override
-			public void onCheckedChanged(final android.widget.CompoundButton button, final boolean checked) {
-				draft.inOut = checked;
 			}
 		});
 		modifiers.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
@@ -239,7 +230,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		LinearLayout grid = new LinearLayout(activity);
 		grid.setOrientation(LinearLayout.VERTICAL);
 		int gap = (int) (4 * density);
-		for (int row = 0; row < 4; row++) {
+		for (int row = 0; row < KeyboardShortcutPad.CELLS / 3; row++) {
 			LinearLayout line = new LinearLayout(activity);
 			line.setOrientation(LinearLayout.HORIZONTAL);
 			for (int col = 0; col < 3; col++) {
@@ -267,24 +258,15 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 
 	private void showCells() {
 		for (int i = 0; i < cells.length; i++) {
-			Cell cell = draft.cells[i];
-			String command = cell.command == null ? "" : cell.command.trim();
-			cells[i].setText(command.length() == 0 ? cell.face : cell.face + "\n" + command);
+			cells[i].setText(KeyboardShortcutPad.cellLabel(draft.cells[i]));
 		}
 	}
 
 	private void showLatch() {
-		if (draft.modifier == 0) {
-			latchLabel.setText("Needs Alt or Ctrl");
-			return;
-		}
-		if (latchArmed) {
-			latchLabel.setText(latchCapture.label());
-			return;
-		}
-		latchLabel.setText(draft.latchKey < 0
-				? "nothing"
-				: KeyboardShortcuts.chordLabel(draft.latchKey, 0));
+		lookNote.setText(KeyboardShortcutPad.lookCaption(draft.modifier));
+		latchNote.setText(KeyboardShortcutPad.latchCaption(draft.modifier));
+		latchLabel.setText(KeyboardShortcutPad.latchChip(draft.modifier, draft.latchKey, latchArmed,
+				latchCapture.label()));
 	}
 
 	private void editCell(final int index) {
@@ -297,20 +279,26 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		final EditText command = new EditText(context);
 		command.setSingleLine(true);
 		command.setInputType(InputType.TYPE_CLASS_TEXT);
-		command.setText(cell.command);
+		command.setText(KeyboardShortcutPad.editorText(cell));
+		if (cell.keyCode == KeyboardShortcuts.KEYCODE_NUMPAD_ENTER) {
+			command.setHint(KeyboardShortcutPad.SEND_CURRENT_LINE);
+		}
 		box.addView(command);
 		final CheckBox repeat = new CheckBox(context);
 		repeat.setText("Repeat");
 		repeat.setChecked(cell.repeat);
-		box.addView(repeat);
+		if (cell.keyCode != KeyboardShortcuts.KEYCODE_NUMPAD_ENTER) {
+			box.addView(repeat);
+		}
 		new AlertDialog.Builder(context)
 				.setTitle(cell.face)
 				.setView(box)
 				.setPositiveButton("Done", new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(final DialogInterface dialog, final int which) {
-						cell.command = command.getText() == null ? "" : command.getText().toString();
-						cell.repeat = repeat.isChecked();
+						KeyboardShortcutPad.edit(draft, index,
+								command.getText() == null ? "" : command.getText().toString(),
+								repeat.isChecked());
 						showCells();
 						dialog.dismiss();
 					}

@@ -104,6 +104,16 @@ public final class EditorHelp {
 		dialog.show();
 	}
 
+	public static final String HOLD_AND_REPEAT =
+			"A hold command and Repeat cannot both be on. Typing a hold command turns Repeat off. "
+					+ "Turning Repeat on clears the hold command.";
+
+	public static final String QUIET_CAPTION =
+			"The game still receives it. This window does not show it.";
+
+	public static final String USE_BUTTON =
+			"Use a button that already exists on your screen";
+
 	public static final String SHORTCUTS =
 			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
 			+ "Name is what this list shows. Leave it blank and the list shows the key.\n\n"
@@ -113,14 +123,14 @@ public final class EditorHelp {
 			+ "It stays nothing when the phone ate that key.\n\n"
 			+ "Send a line uses the tap line on a short press. A hold line waits 450 ms, then sends "
 			+ "the hold line once. Repeat sends the tap line immediately and again every 200 ms "
-			+ "until you let go. Repeat and a hold line are not both on.\n\n"
+			+ "until you let go. " + HOLD_AND_REPEAT + "\n\n"
 			+ "Send the current line does what Enter does, once.\n\n"
 			+ "Step back sends the reverse of the last direction the number pad walked, "
 			+ "using the directions set in Speedwalk Directions. A second press sends that same "
 			+ "reverse again. Until that pad has walked, the key sends nothing.\n\n"
-			+ "Don't print the sent line still sends it to the game. This window does not show that line.\n\n"
-			+ "Use a button copies a button that is already on the screen: its command and its "
-			+ "hold line. Changing the button later does not change this key.\n\n"
+			+ "Don't print the sent line. " + QUIET_CAPTION + "\n\n"
+			+ USE_BUTTON + " copies that button's command and its "
+			+ "hold line, and turns repeat off. Changing the button later does not change this key.\n\n"
 			+ "Number pad, the first row in this list, fills the number pad. Done writes those rows.\n\n"
 			+ ".shortcuts on turns them on. .shortcuts off turns them off. .shortcuts with no "
 			+ "argument prints on or off and does not change it. .shortcuts edit opens this list.\n\n"
@@ -130,15 +140,18 @@ public final class EditorHelp {
 			"Nothing is saved until Done.\n\n"
 			+ "Compass words fills north, northwest, and the rest. Short steps fills n, nw, and the rest. "
 			+ "Fill from Speedwalk Directions uses the command set for each direction. "
-			+ "A letter that only shortens a run is not that command.\n\n"
+			+ "A letter that only shortens a run is not that command. "
+			+ "Those three leave * and / empty, and they leave Enter alone.\n\n"
 			+ "None walks on the bare number. Alt walks on Alt plus the number, and the bare number types. "
-			+ "Ctrl is the other choice.\n\n"
-			+ "Look sends look plus that walk on the other of Alt and Ctrl. A walk with a space has no look line. "
-			+ "Look sends once.\n\n"
-			+ "In and out sends in on * and out on /.\n\n"
-			+ "The latch key, or Alt or Ctrl alone when that is the walk modifier, turns walking on. "
-			+ "The same key turns it off. While it is on, the number walks without holding the modifier. "
-			+ "The bar shows Walk.\n\n"
+			+ "Ctrl walks on Ctrl plus the number, and the bare number types.\n\n"
+			+ KeyboardShortcutPad.lookCaption(0) + " When the walk modifier is Alt, "
+			+ KeyboardShortcutPad.lookCaption(KeyboardShortcuts.MOD_ALT) + " Look sends once.\n\n"
+			+ "A cell shows its face and its command. An empty command is not a shortcut. "
+			+ "* and / start empty. Enter shows " + KeyboardShortcutPad.SEND_CURRENT_LINE
+			+ ". Clearing it removes that row.\n\n"
+			+ KeyboardShortcutPad.latchCaption(0) + " "
+			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_ALT) + " "
+			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_CTRL) + "\n\n"
 			+ "When the pad walks is Options → Typing.";
 
 	public static final String ALIASES =

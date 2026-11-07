@@ -157,13 +157,13 @@ public final class KeyboardShortcutMatcher {
 		return typingForced;
 	}
 
-	/** Walk while the latch is on, the master is on, and typing mode is off. */
+	/** Walk when latched and shortcuts are on. Shortcuts off when a hardware keyboard is present and the master is off. */
 	public String mark() {
 		if (shortcuts.isOn() && latchOn && !typingForced) {
 			return "Walk";
 		}
 		if (!shortcuts.isOn() && hardwareKeyboard) {
-			return "Typing";
+			return "Shortcuts off";
 		}
 		return null;
 	}

@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -37,6 +38,38 @@ public class EditorHelpTest {
 		assertTrue(!EditorHelp.SHORTCUTS.contains("SwiftKey"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("FUTO"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("HoneyBoard"));
+	}
+
+	@Test
+	public void shortcutHelpUsesTheFormSentences() {
+		assertEquals(
+				"A hold command and Repeat cannot both be on. Typing a hold command turns Repeat off. "
+						+ "Turning Repeat on clears the hold command.",
+				EditorHelp.HOLD_AND_REPEAT);
+		assertEquals("The game still receives it. This window does not show it.", EditorHelp.QUIET_CAPTION);
+		assertEquals("Use a button that already exists on your screen", EditorHelp.USE_BUTTON);
+		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.HOLD_AND_REPEAT));
+		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.QUIET_CAPTION));
+		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.USE_BUTTON));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Repeat and a hold line are not both on"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Filling a hold line turns repeat off"));
+
+		assertTrue(EditorHelp.NUMBER_PAD.contains(
+				"Alt sends look plus that walk. A walk with a space has no look line."));
+		assertTrue(EditorHelp.NUMBER_PAD.contains(
+				"Ctrl sends look plus that walk. A walk with a space has no look line."));
+		assertTrue(EditorHelp.NUMBER_PAD.contains(
+				"Pick Alt or Ctrl above. The numbers already walk, so there is nothing to keep on."));
+		assertTrue(EditorHelp.NUMBER_PAD.contains(
+				"This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Walk."));
+		assertTrue(EditorHelp.NUMBER_PAD.contains(
+				"This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Walk."));
+		assertTrue(EditorHelp.NUMBER_PAD.contains("Send the current line"));
+		assertTrue(EditorHelp.NUMBER_PAD.contains("An empty command is not a shortcut."));
+		assertTrue(!EditorHelp.NUMBER_PAD.contains("In and out"));
+		assertTrue(!EditorHelp.NUMBER_PAD.contains("the other modifier"));
+		assertTrue(!EditorHelp.NUMBER_PAD.contains("the other choice"));
+		assertTrue(!EditorHelp.NUMBER_PAD.contains("Needs Alt or Ctrl"));
 	}
 
 	@Test

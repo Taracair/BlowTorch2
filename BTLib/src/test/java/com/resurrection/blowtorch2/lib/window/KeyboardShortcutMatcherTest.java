@@ -447,10 +447,10 @@ public class KeyboardShortcutMatcherTest {
 	}
 
 	@Test
-	public void walkMarkFollowsLatchAndMasterAndTypingMarkFollowsHardware() {
+	public void walkMarkFollowsLatchAndMasterAndShortcutsOffFollowsHardware() {
 		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
 		matcher.setHardwareKeyboard(true);
-		assertEquals("Typing", matcher.mark());
+		assertEquals("Shortcuts off", matcher.mark());
 		matcher.setShortcuts(KeyboardShortcuts.enabled(Row.numpadEnter()));
 		assertNull(matcher.mark());
 		matcher.setLatch(true);
@@ -464,7 +464,7 @@ public class KeyboardShortcutMatcherTest {
 		assertFalse(matcher.isLatchOn());
 		assertNull(matcher.mark());
 		matcher.setShortcuts(KeyboardShortcuts.disabled(Row.numpadEnter()));
-		assertEquals("Typing", matcher.mark());
+		assertEquals("Shortcuts off", matcher.mark());
 		matcher.setHardwareKeyboard(false);
 		assertNull(matcher.mark());
 	}
