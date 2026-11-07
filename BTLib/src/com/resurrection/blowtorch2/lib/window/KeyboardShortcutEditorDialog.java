@@ -126,6 +126,9 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		actions.addView(radio(activity, lineId, "Send a line"));
 		actions.addView(radio(activity, inputId, "Send the current line"));
 		actions.addView(radio(activity, stepId, "Step back"));
+		TextView stepNote = caption(activity, "Uses the directions set in Speedwalk Directions.");
+		int stepIndent = (int) (36 * density);
+		stepNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
 		String action = existing == null ? KeyboardShortcuts.ACTION_LINE : existing.action;
 		if (KeyboardShortcuts.ACTION_INPUT.equals(action)) {
 			actions.check(inputId);
@@ -135,6 +138,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			actions.check(lineId);
 		}
 		form.addView(actions);
+		form.addView(stepNote);
 
 		commandBlock = new LinearLayout(activity);
 		((LinearLayout) commandBlock).setOrientation(LinearLayout.VERTICAL);
@@ -166,7 +170,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		form.addView(quietBox);
 
 		android.widget.Button useButton = new android.widget.Button(activity);
-		useButton.setText("Use a button's tap");
+		useButton.setText("Use a button");
 		useButton.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
@@ -174,6 +178,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			}
 		});
 		form.addView(useButton);
+		form.addView(caption(activity, "that already exists on your screen"));
 
 		ScrollView scroll = new ScrollView(activity);
 		scroll.addView(form, new ViewGroup.LayoutParams(
@@ -392,7 +397,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			labels[i] = buttons.get(i).listLabel();
 		}
 		new AlertDialog.Builder(getContext())
-				.setTitle("Use a button's tap")
+				.setTitle("Use a button")
 				.setItems(labels, new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(final DialogInterface dialog, final int which) {
@@ -421,6 +426,14 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		titleView.setLayoutParams(new LinearLayout.LayoutParams(
 				ViewGroup.LayoutParams.MATCH_PARENT, (int) (42 * density)));
 		return titleView;
+	}
+
+	private static TextView caption(final Activity activity, final String text) {
+		TextView view = new TextView(activity);
+		view.setText(text);
+		view.setTextColor(ContextCompat.getColor(activity, R.color.chrome_hint));
+		view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+		return view;
 	}
 
 	private static TextView label(final Activity activity, final String text) {
