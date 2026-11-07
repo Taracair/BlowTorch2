@@ -1689,7 +1689,10 @@ local function dispatchButtonAction(cmd)
 		revertButtons()
 		return true
 	end
-	mainwindow:jumpToStart()
+	-- A scroll step is from the current view. Jumping home first repeats that offset.
+	if not (type(cmd) == "string" and mainwindow:scrollKeepsPlace(cmd)) then
+		mainwindow:jumpToStart()
+	end
 	if hasButtonSwitch(touchedbutton.data) then
 		PluginXCallS("loadButtonSet", touchedbutton.data.switchTo)
 		return true

@@ -5,8 +5,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.window.ScrollStep;
 
 /**
- * {@code .scrollup N}, {@code .scrolldown N}, {@code .scrollleft N},
- * {@code .scrollright N}. The window moves on the UI thread.
+ * {@code .scrollv N} and {@code .scrollh N}. The window moves on the UI thread.
  */
 public class ScrollCommand extends SpecialCommand {
 

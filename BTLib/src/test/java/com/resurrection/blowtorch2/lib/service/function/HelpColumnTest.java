@@ -146,12 +146,12 @@ public class HelpColumnTest {
 	}
 
 	@Test
-	public void scrollHelpNamesTheFourCommands() {
-		String scroll = HelpCommand.subcommandHelp("scrollup");
-		assertTrue(scroll.contains(".scrollup 10"));
+	public void scrollHelpNamesTheSignedCommands() {
+		String scroll = HelpCommand.subcommandHelp("scrollv");
+		assertTrue(scroll.contains(".scrollv <N>"));
 		assertTrue(scroll.contains("nothing to scroll sideways"));
-		assertTrue(HelpCommand.subcommandHelp("scroll").contains(".scrollright"));
-		assertTrue(HelpCommand.subcommandHelp("scrollleft").contains(".scrolldown 5"));
+		assertTrue(HelpCommand.subcommandHelp("scroll").contains(".scrollh <N>"));
+		assertTrue(HelpCommand.subcommandHelp("scrollh").contains(".scrollv <N>"));
 	}
 
 	private static void assertLinesFit(final String row, final int width) {

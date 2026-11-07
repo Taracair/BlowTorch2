@@ -5679,33 +5679,32 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/**
-	 * Keyboard scroll, on the UI thread. One column is {@code mOneCharWidth}
-	 * pixels, which is what {@link #scrollHorizontallyBy} already steps by.
+	 * Keyboard scroll, on the UI thread. The step is added to the current
+	 * offset. One column is {@code mOneCharWidth} pixels.
 	 */
-	public void applyScrollStep(final ScrollStep.Way way, final int amount) {
-		if (way == null || amount < 1) {
+	public void applyScrollStep(final ScrollStep.Decision move) {
+		if (move == null || move.kind != ScrollStep.Kind.MOVE || move.amount == 0) {
 			return;
 		}
-		if (way == ScrollStep.Way.LEFT || way == ScrollStep.Way.RIGHT) {
+		if (move.horizontal()) {
 			stopFling();
-			scrollHorizontallyBy(ScrollStep.columnDelta(way, amount) * (float) mOneCharWidth);
+			scrollHorizontallyBy(move.amount * (float) mOneCharWidth);
 			return;
 		}
 		if (mPrefLineSize <= 0 || mBuffer == null) {
 			return;
 		}
-		int delta = ScrollStep.lineDelta(way, amount, mNewestAtTop);
-		int current;
+		int px = ScrollStep.verticalPixels(move.amount, mNewestAtTop, mPrefLineSize);
+		if (px == 0) {
+			return;
+		}
 		synchronized (mToken) {
-			current = (int) Math.round((mScrollback - SCROLL_MIN) / (double) mPrefLineSize);
+			double max = mBuffer.getBrokenLineCount() * (double) mPrefLineSize;
+			mScrollback = ScrollStep.clampScrollback(
+					mScrollback.doubleValue() + px, SCROLL_MIN.doubleValue(), max);
+			stopFling();
 		}
-		long target = (long) current + (long) delta;
-		if (target > Integer.MAX_VALUE) {
-			target = Integer.MAX_VALUE;
-		} else if (target < Integer.MIN_VALUE) {
-			target = Integer.MIN_VALUE;
-		}
-		scrollToBrokenLineFromBottom((int) target);
+		invalidate();
 	}
 
 	public void setSearchHighlight(String query, int brokenFromBottom, boolean caseSensitive) {
@@ -10040,6 +10039,11 @@ end
 		mScrollback = SCROLL_MIN;
 		stopFling();
 		this.invalidate();
+	}
+
+	/** Button Lua asks this before {@link #jumpToStart}. A scroll line stays put. */
+	public boolean scrollKeepsPlace(final String line) {
+		return ScrollStep.keepsPlace(line);
 	}
 
 

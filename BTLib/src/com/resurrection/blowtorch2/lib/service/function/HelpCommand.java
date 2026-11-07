@@ -75,10 +75,8 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
-		cmd("scrollup", "The window", ScrollStep.summary("scrollup"));
-		cmd("scrolldown", "The window", ScrollStep.summary("scrolldown"));
-		cmd("scrollleft", "The window", ScrollStep.summary("scrollleft"));
-		cmd("scrollright", "The window", ScrollStep.summary("scrollright"));
+		cmd("scrollv", "The window", ScrollStep.summary("scrollv"));
+		cmd("scrollh", "The window", ScrollStep.summary("scrollh"));
 		cmd("avoidbuttons", "The window",
 				"wrap text around buttons; sides|between, letters|words; .width if it does not fit");
 		cmd("jumpsend", "The window", "after a send, jump to the newest text");
@@ -381,7 +379,7 @@ public class HelpCommand extends SpecialCommand {
 		if (ScrollStep.isScrollHelp(filter)) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor()
-					+ "Children of .scrollup / .scrolldown / .scrollleft / .scrollright:"
+					+ "Children of .scrollv / .scrollh:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ ScrollStep.helpText();
 		}

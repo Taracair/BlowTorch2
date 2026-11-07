@@ -508,6 +508,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private HandlerThread mSwitchNoticeThread;
 	private Handler mSwitchNoticeHandler;
 	boolean isKeepLast = false; //for keeping last
+	/** Line that queued the input-bar reset. A scroll line is not a jump home. */
+	private String mJumpLine;
 	/** Profile flag: Options → Input → Standard keyboard input. */
 	private boolean mCompatibilityMode = false;
 	boolean historyWidgetKept = false;
@@ -1694,6 +1696,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					}
 					rememberFillBar(sentLine);
+					mJumpLine = sentLine;
 					myhandler.sendEmptyMessage(MainWindow.MESSAGE_RESETINPUTWINDOW);
 					break;
 				case MESSAGE_RESETINPUTWINDOW:
@@ -1752,7 +1755,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 						
 						com.resurrection.blowtorch2.lib.window.Window w = (com.resurrection.blowtorch2.lib.window.Window) MainWindow.this.findViewById(MAIN_WINDOW_ID);
-						if (w != null && w.jumpsOnSend()) {
+						// .last still says ".last" here. The recalled line jumps in transmitRecall.
+						if (w != null && w.jumpsOnSend() && !ScrollStep.keepsPlace(mJumpLine)
+								&& !LastRecall.embeds(mJumpLine, 100)) {
 							w.jumpToStart();
 						}
 						//} catch (RemoteException e1) {
@@ -10786,8 +10791,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					"MainWindow.last", e);
 			return false;
 		}
+		mJumpLine = line;
 		com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
-		if (w != null && w.jumpsOnSend()) {
+		if (w != null && w.jumpsOnSend() && !ScrollStep.keepsPlace(line)) {
 			w.jumpToStart();
 		}
 		return true;
@@ -10909,7 +10915,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (move != null) {
 				com.resurrection.blowtorch2.lib.window.Window game = mainDisplayWindow();
 				if (game != null) {
-					game.applyScrollStep(move.way, move.amount);
+					game.applyScrollStep(move);
 				}
 			}
 			return;
@@ -12499,8 +12505,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
 					"MainWindow.prefixPick", e);
 		}
+		mJumpLine = line;
 		com.resurrection.blowtorch2.lib.window.Window w = mainDisplayWindow();
-		if (w != null && w.jumpsOnSend()) {
+		if (w != null && w.jumpsOnSend() && !ScrollStep.keepsPlace(line)) {
 			w.jumpToStart();
 		}
 	}
