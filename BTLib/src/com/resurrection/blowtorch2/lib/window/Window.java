@@ -5678,6 +5678,36 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		invalidate();
 	}
 
+	/**
+	 * Keyboard scroll, on the UI thread. One column is {@code mOneCharWidth}
+	 * pixels, which is what {@link #scrollHorizontallyBy} already steps by.
+	 */
+	public void applyScrollStep(final ScrollStep.Way way, final int amount) {
+		if (way == null || amount < 1) {
+			return;
+		}
+		if (way == ScrollStep.Way.LEFT || way == ScrollStep.Way.RIGHT) {
+			stopFling();
+			scrollHorizontallyBy(ScrollStep.columnDelta(way, amount) * (float) mOneCharWidth);
+			return;
+		}
+		if (mPrefLineSize <= 0 || mBuffer == null) {
+			return;
+		}
+		int delta = ScrollStep.lineDelta(way, amount, mNewestAtTop);
+		int current;
+		synchronized (mToken) {
+			current = (int) Math.round((mScrollback - SCROLL_MIN) / (double) mPrefLineSize);
+		}
+		long target = (long) current + (long) delta;
+		if (target > Integer.MAX_VALUE) {
+			target = Integer.MAX_VALUE;
+		} else if (target < Integer.MIN_VALUE) {
+			target = Integer.MIN_VALUE;
+		}
+		scrollToBrokenLineFromBottom((int) target);
+	}
+
 	public void setSearchHighlight(String query, int brokenFromBottom, boolean caseSensitive) {
 		mSearchHighlightQuery = query;
 		mSearchHighlightLine = null;

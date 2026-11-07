@@ -145,6 +145,15 @@ public class HelpColumnTest {
 		assertFalse(HelpCommand.subcommandHelp("keyboard").contains("options"));
 	}
 
+	@Test
+	public void scrollHelpNamesTheFourCommands() {
+		String scroll = HelpCommand.subcommandHelp("scrollup");
+		assertTrue(scroll.contains(".scrollup 10"));
+		assertTrue(scroll.contains("nothing to scroll sideways"));
+		assertTrue(HelpCommand.subcommandHelp("scroll").contains(".scrollright"));
+		assertTrue(HelpCommand.subcommandHelp("scrollleft").contains(".scrolldown 5"));
+	}
+
 	private static void assertLinesFit(final String row, final int width) {
 		String[] lines = row.split("\n", -1);
 		assertTrue(lines.length >= 1);

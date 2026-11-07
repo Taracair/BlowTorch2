@@ -10904,6 +10904,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void runUiAction(final String action) {
+		if (action != null && action.startsWith(ScrollStep.ACTION_PREFIX)) {
+			ScrollStep.Decision move = ScrollStep.fromAction(action);
+			if (move != null) {
+				com.resurrection.blowtorch2.lib.window.Window game = mainDisplayWindow();
+				if (game != null) {
+					game.applyScrollStep(move.way, move.amount);
+				}
+			}
+			return;
+		}
 		if (action != null && action.startsWith("switch-notice:")) {
 			beginSwitchNotice(action.substring("switch-notice:".length()));
 			return;

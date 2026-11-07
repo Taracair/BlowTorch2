@@ -757,6 +757,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand widthcmd =
 				new com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand();
 		mSpecialCommands.put(widthcmd.commandName, widthcmd);
+		for (int i = 0; i < com.resurrection.blowtorch2.lib.window.ScrollStep.COMMANDS.length; i++) {
+			String scrollName = com.resurrection.blowtorch2.lib.window.ScrollStep.COMMANDS[i];
+			com.resurrection.blowtorch2.lib.service.function.ScrollCommand scrollcmd =
+					new com.resurrection.blowtorch2.lib.service.function.ScrollCommand(scrollName);
+			mSpecialCommands.put(scrollcmd.commandName, scrollcmd);
+		}
 		com.resurrection.blowtorch2.lib.service.function.AvoidButtonsCommand avoidbtnscmd =
 				new com.resurrection.blowtorch2.lib.service.function.AvoidButtonsCommand();
 		mSpecialCommands.put(avoidbtnscmd.commandName, avoidbtnscmd);

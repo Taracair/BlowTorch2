@@ -14,6 +14,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.OptionNegotiator;
 import com.resurrection.blowtorch2.lib.service.Processor;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
+import com.resurrection.blowtorch2.lib.window.ScrollStep;
 
 /**
  * {@code .help} — every dot command, one line each, into the game window.
@@ -74,6 +75,10 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
+		cmd("scrollup", "The window", ScrollStep.summary("scrollup"));
+		cmd("scrolldown", "The window", ScrollStep.summary("scrolldown"));
+		cmd("scrollleft", "The window", ScrollStep.summary("scrollleft"));
+		cmd("scrollright", "The window", ScrollStep.summary("scrollright"));
 		cmd("avoidbuttons", "The window",
 				"wrap text around buttons; sides|between, letters|words; .width if it does not fit");
 		cmd("jumpsend", "The window", "after a send, jump to the newest text");
@@ -372,6 +377,13 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .width             — say the current percent\n"
 					+ "  .width <N> | +N | -N\n"
 					+ "  .width toggle | off\n";
+		}
+		if (ScrollStep.isScrollHelp(filter)) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor()
+					+ "Children of .scrollup / .scrolldown / .scrollleft / .scrollright:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ ScrollStep.helpText();
 		}
 		if (filter.equals("avoidbuttons")) {
 			return "\n"
