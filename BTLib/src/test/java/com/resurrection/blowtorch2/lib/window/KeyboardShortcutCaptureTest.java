@@ -14,6 +14,8 @@ public class KeyboardShortcutCaptureTest {
 	private static final int A = 29;
 	private static final int SHIFT_LEFT = 59;
 	private static final int ALT_RIGHT = 58;
+	private static final int CTRL_LEFT = 113;
+	private static final int DPAD_UP = 19;
 
 	@Test
 	public void anUnarmedKeyIsLeftAlone() {
@@ -62,6 +64,29 @@ public class KeyboardShortcutCaptureTest {
 		assertEquals(KeyboardShortcuts.MOD_SHIFT, capture.modifiers());
 		assertTrue(capture.armed());
 		assertEquals("Press a key: Shift+A", capture.label());
+	}
+
+	@Test
+	public void ctrlUpWithNoKeyDownStillRecordsTheArrow() {
+		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
+		capture.arm();
+		assertTrue(capture.onKey(DOWN, CTRL_LEFT, 0, 29, 4));
+		assertEquals(CTRL_LEFT, capture.keyCode());
+		assertTrue(capture.onKey(UP, DPAD_UP, KeyboardShortcuts.MOD_CTRL, 103, 4));
+		assertEquals(DPAD_UP, capture.keyCode());
+		assertEquals(KeyboardShortcuts.MOD_CTRL, capture.modifiers());
+		assertEquals("Press a key: Ctrl+Up", capture.label());
+		assertTrue(capture.armed());
+	}
+
+	@Test
+	public void aLaterKeyUpDoesNotDropTheModifierFromKeyDown() {
+		KeyboardShortcutCapture capture = new KeyboardShortcutCapture();
+		capture.arm();
+		assertTrue(capture.onKey(DOWN, DPAD_UP, KeyboardShortcuts.MOD_CTRL, 103, 4));
+		assertTrue(capture.onKey(UP, DPAD_UP, 0, 103, 4));
+		assertEquals(DPAD_UP, capture.keyCode());
+		assertEquals(KeyboardShortcuts.MOD_CTRL, capture.modifiers());
 	}
 
 	@Test

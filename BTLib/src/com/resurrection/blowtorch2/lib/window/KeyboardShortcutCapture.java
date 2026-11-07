@@ -8,6 +8,7 @@ public final class KeyboardShortcutCapture {
 
 	public static final int NONE = -1;
 	private static final int DOWN = 0;
+	private static final int UP = 1;
 
 	private boolean armed;
 	private int keyCode = NONE;
@@ -68,11 +69,16 @@ public final class KeyboardShortcutCapture {
 			}
 			return true;
 		}
-		if (action != DOWN) {
+		if (action == DOWN) {
+			keyCode = code;
+			modifiers = KeyboardShortcuts.modifiers(meta);
 			return true;
 		}
-		keyCode = code;
-		modifiers = KeyboardShortcuts.modifiers(meta);
+		// Key-up counts only while the row still shows a modifier or nothing.
+		if (action == UP && (keyCode < 0 || isModifier(keyCode))) {
+			keyCode = code;
+			modifiers = KeyboardShortcuts.modifiers(meta);
+		}
 		return true;
 	}
 
