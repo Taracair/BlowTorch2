@@ -198,9 +198,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption shortcut_prefix = new BooleanOption();
 		shortcut_prefix.setTitle("Up finds a command that starts with what you typed");
-		shortcut_prefix.setDescription("Up and Down stay on commands that start with the bar. Off, they step through every command.");
+		shortcut_prefix.setDescription("On, Up and Down stay on commands that start with the bar. Off, they step through every command. .prefix on, off, or toggle.");
 		shortcut_prefix.setKey("shortcut_prefix");
-		shortcut_prefix.setValue(true);
+		shortcut_prefix.setValue(false);
 		input.addOption(shortcut_prefix);
 
 		BooleanOption input_hyphenate = new BooleanOption();

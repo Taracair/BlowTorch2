@@ -91,6 +91,7 @@ import com.resurrection.blowtorch2.lib.service.function.IconCommand;
 import com.resurrection.blowtorch2.lib.service.function.WidgetCommand;
 import com.resurrection.blowtorch2.lib.service.function.HyphenCommand;
 import com.resurrection.blowtorch2.lib.service.function.UnaccentCommand;
+import com.resurrection.blowtorch2.lib.service.function.PrefixCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
@@ -642,6 +643,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.SimulateCommand simulatecmd =
 				new com.resurrection.blowtorch2.lib.service.function.SimulateCommand();
 		WrapCommand wrapcmd = new WrapCommand();
+		PrefixCommand prefixcmd = new PrefixCommand();
 		UnaccentCommand unaccentcmd = new UnaccentCommand();
 		HyphenCommand hyphencmd = new HyphenCommand();
 		EditPanelCommand editpanelcmd = new EditPanelCommand();
@@ -719,6 +721,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
 		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
+		mSpecialCommands.put(prefixcmd.commandName, prefixcmd);
 		mSpecialCommands.put(unaccentcmd.commandName, unaccentcmd);
 		mSpecialCommands.put(hyphencmd.commandName, hyphencmd);
 		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =

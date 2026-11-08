@@ -426,7 +426,7 @@ All of these are Options → Typing.
 - **Number row walks too** (default off) — The digits above the letters send the same walks as the number pad. Example: with this on, the 8 above the letters sends `north` too.
 - **Direction keys type while a line is being edited** (default off) — A caret in the line types the digit. An empty bar, or the whole line selected, still walks. Example: a caret in `give 2 bread` types `2`.
 - **Keep Ctrl editing keys** (default on) — Ctrl editing keys keep editing the bar. A shortcut on that chord runs when this is off. Example: Ctrl+Left moves back one word. Off, a shortcut on Ctrl+Left runs instead.
-- **Up finds a command that starts with what you typed** (default on) — Up and Down stay on commands that start with the bar. Off, they step through every command. Example: type `ki` and Up finds `kill goblin`.
+- **Up finds a command that starts with what you typed** (default off) — Off, Up and Down step through every command, even when the bar says `ki`. On, they stay on commands that start with the bar. `.prefix` with no argument prints on or off. Example: `.prefix on`, then type `ki` and Up finds `kill goblin`. The up and down on the Edit strip follow the same switch.
 
 Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). `.scrollnew` jumps to the newest text. The caret moves with `.kb start` and `.kb end`. A shortcut's Local echo, on, prints that key's line even when Local Echo? is off. Off, that key does not print the line.
 

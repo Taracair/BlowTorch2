@@ -1024,7 +1024,7 @@ The rose is a preset you apply. Compass words fills 8 with `north`. Until Done, 
 
 After the pad walked `north`, step back sends `south`. A second press sends `south` again. Until that pad has walked, the key sends nothing.
 
-Type `ki` and Up finds `kill goblin`. Escape puts `ki` back. Escape again clears the bar. An empty bar hides the keyboard. A dialog keeps Escape. While a recalled line is showing, that next Escape restores the draft and does not clear the bar. That row can be turned off like any other.
+`.prefix` is off at the start. Up and Down step through every command, even when the bar says `ki`. The up and down on the Edit strip do the same. `.prefix on`: type `ki` and Up finds `kill goblin`. Escape puts `ki` back. Escape again clears the bar. An empty bar hides the keyboard. A dialog keeps Escape. While a recalled line is showing, that next Escape restores the draft and does not clear the bar. That row can be turned off like any other. `.prefix` with no argument prints on or off. `.prefix toggle` flips it. Also Options → Typing → Up finds a command that starts with what you typed.
 
 `.scrollnew` jumps the game text to the newest line. Ctrl+Enter and Ctrl+End start as that line. Enter still sends the line. `.scrollv 10` moves toward the text that was above. `.scrollh 10` moves to the right. `.kb start` and `.kb end` move the caret. Up and Down stay in the input bar. They do not move to Send, Edit, or the overflow button.
 
@@ -2760,6 +2760,7 @@ is enabled; `.alias list` shows every alias at once.
     `.togglefullscreen`                 Flip fullscreen every time it is typed, including `.togglefullscreen off` (old buttons keep working)
     `.fullscreen [on|off|toggle]`       Say whether the status bar is hidden. No argument prints that. `on`, `off`, and `toggle` set it
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Typing → Grow Input Bar?
+    `.prefix [on|off|toggle]`           Up and Down stay on commands that start with the bar. Off (the start): they step through every command, even when the bar says `ki`, and the up and down on the Edit strip do the same. On: type `ki` and Up finds `kill goblin`. No argument prints on or off. Also Options → Typing → Up finds a command that starts with what you typed
     `.unaccent [on|off]`                Strip accents when sending (`usiądź przy stole` → `usiadz przy stole`); local echo shows the folded form. Also Options → Typing. Off by default. Passwords and Lua SendToServer are not rewritten.
     `.hyphen [on|off|lang en|phone|full on|off]`  Draw a hyphen when a long input word does not fit the space left on the line. Not sent. Needs `.wrap`. Off by default. Also Options → Typing → Hyphenate long words?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Input bar → Show Edit button?

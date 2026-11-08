@@ -1245,13 +1245,13 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case shortcuts_on:
 					case shortcut_toprow:
 					case shortcut_idle:
+					case shortcut_prefix:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;
 					case shortcut_pad:
 					case shortcut_ctrl_edit:
-					case shortcut_prefix:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}

@@ -105,6 +105,8 @@ public class HelpCommand extends SpecialCommand {
 				"prints usage; .kb insert and .kb add put text in the bar");
 		cmd("shortcuts", "Input and suggestions",
 				"prints on or off; edit opens the list; .help shortcuts is the explanation");
+		cmd("prefix", "Input and suggestions",
+				"Up stays on commands that start with the bar; off steps through every command");
 		cmd("last", "Input and suggestions",
 				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
 		cmd("lastlist", "Input and suggestions",
@@ -766,6 +768,17 @@ public class HelpCommand extends SpecialCommand {
 					+ "  Each world keeps its own on/off, count, length, and order.\n"
 					+ "  Options → Typing → Recent command bar…\n"
 					+ "  Not sent to the world.\n";
+		}
+		if (filter.equals("prefix")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .prefix:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .prefix              — on or off\n"
+					+ "  .prefix on|off|toggle\n"
+					+ "  On: type ki and Up finds kill goblin.\n"
+					+ "  Off: Up and Down step through every command, even when the bar says ki.\n"
+					+ "  The up and down on the Edit strip do the same. Off at the start.\n"
+					+ "  Options → Typing → Up finds a command that starts with what you typed\n";
 		}
 		if (filter.equals("shortcuts")) {
 			return "\n"

@@ -360,7 +360,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private BetterEditText mInputBox = null;
 	private TextView mShortcutMark;
 	private KeyboardShortcutController shortcutController;
-	private boolean shortcutPrefix = true;
+	private boolean shortcutPrefix = false;
 	private String historyPrefix;
 	private int historyPrefixIndex = -1;
 	private String historyPrefixShown;
@@ -6029,7 +6029,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				optionBool(group, "shortcut_toprow", false),
 				optionBool(group, "shortcut_idle", false),
 				optionBool(group, "shortcut_ctrl_edit", true));
-		shortcutPrefix = optionBool(group, "shortcut_prefix", true);
+		shortcutPrefix = optionBool(group, "shortcut_prefix", false);
 		if (!shortcutPrefix) {
 			historyPrefix = null;
 			historyPrefixIndex = -1;
