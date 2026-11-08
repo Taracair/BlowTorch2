@@ -243,17 +243,7 @@ public final class KeyboardShortcutMatcher {
 			}
 			return finish(key, Outcome.pass());
 		}
-		if (!hardware(key) || dialogOpen) {
-			if (key.action == ACTION_DOWN && marked(key)) {
-				clearScan();
-			}
-			return finish(key, Outcome.pass());
-		}
-		if (blocked()) {
-			Outcome letter = letterToType(key);
-			if (letter != null) {
-				return finish(key, letter);
-			}
+		if (!hardware(key) || blocked()) {
 			if (key.action == ACTION_DOWN && marked(key)) {
 				clearScan();
 			}
@@ -271,12 +261,6 @@ public final class KeyboardShortcutMatcher {
 			return finish(key, Outcome.taken());
 		}
 		if (key.action != ACTION_DOWN || key.repeatCount > 0) {
-			if (key.action == ACTION_DOWN) {
-				Outcome letter = letterToType(key);
-				if (letter != null) {
-					return finish(key, letter);
-				}
-			}
 			return finish(key, Outcome.pass());
 		}
 		if (shortcuts.latchKey() >= 0 && key.keyCode == shortcuts.latchKey()
@@ -307,10 +291,6 @@ public final class KeyboardShortcutMatcher {
 			row = null;
 		}
 		if (row == null) {
-			Outcome letter = letterToType(key);
-			if (letter != null) {
-				return finish(key, letter);
-			}
 			if (marked(key)) {
 				clearScan();
 			}
@@ -426,18 +406,6 @@ public final class KeyboardShortcutMatcher {
 			}
 		}
 		return MapDirections.suggestReverse(lastWalk, directions);
-	}
-
-	/** Right Alt on a Polish letter, when the event itself has no such letter. */
-	private static Outcome letterToType(final Key key) {
-		if (key.action != ACTION_DOWN) {
-			return null;
-		}
-		int code = AltGraph.character(key.metaState, key.keyCode, key.plainUnicode, key.metaUnicode);
-		if (code == 0) {
-			return null;
-		}
-		return Outcome.type(code);
 	}
 
 	private boolean padFires(final int physicalKey) {
@@ -576,13 +544,10 @@ public final class KeyboardShortcutMatcher {
 		public final boolean clearBar;
 		/** Jump the game text to the live end. */
 		public final boolean jumpLive;
-		/** A letter for the input bar. 0 when this key does not type one. */
-		public final int typeCode;
 
 		private Outcome(final boolean consumed, final String send, final boolean sendInput,
 				final int scheduleHoldMs, final int scheduleRepeatMs, final int timerToken,
-				final boolean quiet, final boolean clearBar, final boolean jumpLive,
-				final int typeCode) {
+				final boolean quiet, final boolean clearBar, final boolean jumpLive) {
 			this.consumed = consumed;
 			this.send = send;
 			this.sendInput = sendInput;
@@ -592,31 +557,26 @@ public final class KeyboardShortcutMatcher {
 			this.quiet = quiet;
 			this.clearBar = clearBar;
 			this.jumpLive = jumpLive;
-			this.typeCode = typeCode;
 		}
 
 		static Outcome pass() {
-			return new Outcome(false, null, false, 0, 0, 0, false, false, false, 0);
+			return new Outcome(false, null, false, 0, 0, 0, false, false, false);
 		}
 
 		static Outcome taken() {
-			return new Outcome(true, null, false, 0, 0, 0, false, false, false, 0);
+			return new Outcome(true, null, false, 0, 0, 0, false, false, false);
 		}
 
 		static Outcome schedule(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false, 0);
+			return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false);
 		}
 
 		static Outcome clearBar() {
-			return new Outcome(true, null, false, 0, 0, 0, false, true, false, 0);
+			return new Outcome(true, null, false, 0, 0, 0, false, true, false);
 		}
 
 		static Outcome jumpLive() {
-			return new Outcome(true, null, false, 0, 0, 0, false, false, true, 0);
-		}
-
-		static Outcome type(final int codePoint) {
-			return new Outcome(true, null, false, 0, 0, 0, false, false, false, codePoint);
+			return new Outcome(true, null, false, 0, 0, 0, false, false, true);
 		}
 
 		static Outcome send(final String line) {
@@ -630,13 +590,13 @@ public final class KeyboardShortcutMatcher {
 		static Outcome send(final String line, final int holdMs, final int repeatMs, final int token,
 				final boolean quiet) {
 			if (line == null || line.length() == 0) {
-				return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false, 0);
+				return new Outcome(true, null, false, holdMs, repeatMs, token, false, false, false);
 			}
-			return new Outcome(true, line, false, holdMs, repeatMs, token, quiet, false, false, 0);
+			return new Outcome(true, line, false, holdMs, repeatMs, token, quiet, false, false);
 		}
 
 		static Outcome input(final int holdMs, final int repeatMs, final int token) {
-			return new Outcome(true, null, true, holdMs, repeatMs, token, false, false, false, 0);
+			return new Outcome(true, null, true, holdMs, repeatMs, token, false, false, false);
 		}
 	}
 }

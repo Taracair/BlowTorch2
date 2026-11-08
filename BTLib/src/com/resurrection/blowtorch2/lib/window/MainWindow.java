@@ -5842,11 +5842,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
-				public void typeIntoBar(final int codePoint) {
-					typeShortcutLetter(codePoint);
-				}
-
-				@Override
 				public void sendInput() {
 					myhandler.sendEmptyMessage(MESSAGE_PROCESSINPUTWINDOW);
 				}
@@ -5877,34 +5872,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 		}
 		return shortcutController;
-	}
-
-	/** Right Alt letter when the key event has no character of its own. */
-	private void typeShortcutLetter(final int codePoint) {
-		if (mInputBox == null || codePoint == 0) {
-			return;
-		}
-		android.text.Editable text = mInputBox.getText();
-		if (text == null) {
-			return;
-		}
-		int start = mInputBox.getSelectionStart();
-		int end = mInputBox.getSelectionEnd();
-		if (start < 0 || end < 0) {
-			start = text.length();
-			end = start;
-		} else if (start > end) {
-			int swap = start;
-			start = end;
-			end = swap;
-		}
-		if (end > text.length()) {
-			end = text.length();
-		}
-		if (start > text.length()) {
-			start = text.length();
-		}
-		text.replace(start, end, new String(Character.toChars(codePoint)));
 	}
 
 	/** Stored shortcut text. Numpad Enter uses the bar's existing Enter path. */

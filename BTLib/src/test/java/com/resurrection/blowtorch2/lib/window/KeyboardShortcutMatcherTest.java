@@ -241,36 +241,14 @@ public class KeyboardShortcutMatcherTest {
 	}
 
 	@Test
-	public void rightAltATypesThePolishLetterWhenTheEventHasNone() {
+	public void rightAltWithoutALayoutCharacterIsNotRewritten() {
 		KeyboardShortcutMatcher matcher = ready(Row.numpadEnter());
-		Outcome typed = matcher.onKey(letter(DOWN, 0x22, 'a', 0, 0, PRE));
-		assertTrue(typed.consumed);
-		assertEquals(0x105, typed.typeCode);
-		assertNull(typed.send);
-		Outcome second = matcher.onKey(letter(DOWN, 0x22, 'a', 0, 0, ACT));
-		assertTrue(second.consumed);
-		assertEquals(0, second.typeCode);
-
-		KeyboardShortcutMatcher capital = ready(Row.numpadEnter());
-		Outcome shifted = capital.onKey(letter(DOWN, 0x23, 'A', 0, 0, PRE));
-		assertEquals(0x104, shifted.typeCode);
-
-		KeyboardShortcutMatcher bound = ready(Row.of(A, KeyboardShortcuts.MOD_ALT,
-				KeyboardShortcuts.ACTION_LINE, true, false, "bound", ""));
-		Outcome taken = bound.onKey(letter(DOWN, 0x22, 'a', 0, 0, PRE));
-		assertEquals("bound", taken.send);
-		assertEquals(0, taken.typeCode);
-
-		KeyboardShortcutMatcher off = ready(Row.numpadEnter());
-		off.setShortcuts(KeyboardShortcuts.disabled(Row.numpadEnter()));
-		Outcome still = off.onKey(letter(DOWN, 0x22, 'a', 0, 0, PRE));
-		assertEquals(0x105, still.typeCode);
-
-		KeyboardShortcutMatcher dialog = ready(Row.numpadEnter());
-		dialog.setDialogOpen(true);
-		Outcome blocked = dialog.onKey(letter(DOWN, 0x22, 'a', 0, 0, PRE));
-		assertFalse(blocked.consumed);
-		assertEquals(0, blocked.typeCode);
+		Outcome empty = matcher.onKey(letter(DOWN, 0x22, 'a', 0, 0, PRE));
+		assertFalse(empty.consumed);
+		assertNull(empty.send);
+		Outcome german = matcher.onKey(key(DOWN, A, 0x22, 'a', 0xE4, SCAN_A, 0, 0, DEV + 1, PRE));
+		assertFalse(german.consumed);
+		assertNull(german.send);
 	}
 
 	@Test
