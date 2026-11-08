@@ -41,7 +41,7 @@ for raw in "$@"; do
   esac
 
   # A gitignored file is not in the public tree and never will be. HANDOFF.md,
-  # changelog_draft.md and the audits live in docs/ on purpose and are edited
+  # hook-like-features.md, changelog_draft.md and the audits live in docs/ and are edited
   # daily; firing on them would make the guard noise instead of a barrier.
   if git -C "$root" check-ignore -q "$rel" 2>/dev/null; then
     continue

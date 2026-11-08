@@ -188,8 +188,9 @@ BTLib/jni/Android.mk.old
 **/.settings/
 BTLib/res/raw/foo
 
-# Internal handoff — kept out of the public tree for now
+# Internal handoff and the local feature queue — not the public tree
 docs/HANDOFF.md
+docs/hook-like-features.md
 
 # Ephemeral agent/session scratch — one-off scripts, dumps, probes (see orchestration.mdc)
 .scratch/

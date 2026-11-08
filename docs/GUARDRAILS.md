@@ -137,7 +137,8 @@ and holds the maintainer's two phone addresses and scan timeouts.
 it is missing.
 
 `docs-allowlist.sh` skips gitignored paths, so `docs/HANDOFF.md`,
-`docs/changelog_draft.md` and the audits stay editable without argument.
+`docs/hook-like-features.md`, `docs/changelog_draft.md` and the audits stay
+editable without argument.
 
 The guards contain the logic. The hook files only translate between a tool's
 protocol and an exit code. Moving from Cursor to Claude Code is therefore one
