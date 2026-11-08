@@ -1868,6 +1868,55 @@ Note("Example text!")
 	}
 
 	/**
+	 * {@code OnOutgoing(data)}. Runs on the connection thread for one
+	 * already-aliased batch, before unaccent, MCP quoting, and the socket write.
+	 *
+	 * <p>Null means leave the batch alone (no function, a Lua error, nil, or
+	 * any return that is not a string). An empty array drops the batch. The
+	 * error handler is {@code -3}: the argument sits above the function, and
+	 * {@code -2} would call {@code OnOutgoing} again with the error object.
+	 */
+	public byte[] filterOutgoing(final byte[] data) {
+		if (L == null || data == null) {
+			return null;
+		}
+		L.getGlobal("debug");
+		L.getField(-1, "traceback");
+		L.remove(-2);
+
+		L.getGlobal("OnOutgoing");
+		if (!L.isFunction(-1)) {
+			L.pop(2);
+			checkStack("OnOutgoing");
+			return null;
+		}
+		L.pushString(data);
+		int ret = L.pcall(1, 1, -3);
+		if (ret != 0) {
+			displayLuaError("Plugin: " + getName() + " OnOutgoing() Error:"
+					+ L.getLuaObject(-1).getString());
+			L.pop(2);
+			checkStack("OnOutgoing");
+			return null;
+		}
+		byte[] out = null;
+		if (L.type(-1) == LuaState.LUA_TSTRING.intValue()) {
+			out = L.toBytes(-1);
+			if (out == null) {
+				out = new byte[0];
+			}
+		}
+		L.pop(2);
+		checkStack("OnOutgoing");
+		return out;
+	}
+
+	/** True when this plugin's Lua state defines {@code OnOutgoing}. */
+	public boolean offersOutboundHook() {
+		return checkPluginSupports("OnOutgoing");
+	}
+
+	/**
 	 * {@code OnConnected()}. No arguments. The return is raw Lua bytes, or
 	 * null when this plugin sends nothing (no function, a Lua error, nil, or
 	 * any return that is not a string).

@@ -393,7 +393,13 @@ options say so.
    `.command` other than `.tutorial`, `Connection` may call starter_tutorial
    `OnCommandTip` so a short reminder can print while the player is on a real
    MUD (off until `.tips on`).
-4. IAC-escaped bytes → `DataPumper` writer thread → socket.
+4. **`OnOutgoing`** (`Plugin.filterOutgoing`, chained by `OutboundHook` through
+   `InboundTextHook.apply`) sees the batch from `Connection.emitOutbound`,
+   before unaccent. Main settings first, then enabled plugins in load order.
+   A different string replaces the batch and, when echo is on, the echo.
+   An empty string drops the write, the echo, and the mapper notice.
+   No plugin defines the function: Lua is not called. Empty Enter is not a call.
+5. IAC-escaped bytes → `DataPumper` writer thread → socket.
 
 ### Substitution (three mechanisms)
 

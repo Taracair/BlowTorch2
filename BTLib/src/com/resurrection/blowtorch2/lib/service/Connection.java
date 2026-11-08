@@ -403,6 +403,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			new ArrayList<com.resurrection.blowtorch2.lib.launcher.ServerAccount>();
 	/** String builder used by the alias parsing routine. */
 	private final StringBuffer mDataToWindow = new StringBuffer();
+	/**
+	 * Echo pieces for the line being walked, in append order. A sent piece
+	 * belongs to {@link #mDataToServer}. Handler thread only.
+	 */
+	private final ArrayList<OutboundHook.EchoPiece> mEchoPieces =
+			new ArrayList<OutboundHook.EchoPiece>();
 	/** Used by the trigger processor to map line start/end to line number. */
 	private final TreeSet<Range> mLineMap = new TreeSet<Range>(new RangeComparator());
 
@@ -461,6 +467,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * Rebuilt on the connection thread when {@link #mInboundHooksStale} is set.
 	 */
 	private final ArrayList<InboundTextHook.Filter> mInboundHookFilters =
+			new ArrayList<InboundTextHook.Filter>();
+	/**
+	 * Plugins whose Lua defines {@code OnOutgoing}, main settings first.
+	 * Rebuilt with {@link #mInboundHookFilters}.
+	 */
+	private final ArrayList<InboundTextHook.Filter> mOutboundHookFilters =
 			new ArrayList<InboundTextHook.Filter>();
 	/** Set from any thread. The connection thread is what walks Lua. */
 	private volatile boolean mInboundHooksStale = true;
@@ -3010,10 +3022,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		while (mInboundHooksStale) {
 			mInboundHooksStale = false;
 			mInboundHookFilters.clear();
+			mOutboundHookFilters.clear();
 			addInboundHook(mSettings);
+			addOutboundHook(mSettings);
 			if (mPlugins != null) {
 				for (int i = 0; i < mPlugins.size(); i++) {
-					addInboundHook(mPlugins.get(i));
+					Plugin plugin = mPlugins.get(i);
+					addInboundHook(plugin);
+					addOutboundHook(plugin);
 				}
 			}
 		}
@@ -3095,6 +3111,56 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 			}
 		});
+	}
+
+	private void addOutboundHook(final Plugin plugin) {
+		if (plugin == null) {
+			return;
+		}
+		boolean enabled = plugin.isEnabled();
+		boolean offers = enabled && plugin.offersOutboundHook();
+		if (!OutboundHook.include(enabled, offers)) {
+			return;
+		}
+		mOutboundHookFilters.add(new InboundTextHook.Filter() {
+			@Override
+			public byte[] apply(final byte[] text) {
+				try {
+					return plugin.filterOutgoing(text);
+				} catch (RuntimeException e) {
+					BlowTorchLogger.logMinor("OnOutgoing " + plugin.getName(), e);
+					return null;
+				}
+			}
+		});
+	}
+
+	/**
+	 * {@code OnOutgoing} on a non-empty batch. Off the connection thread the
+	 * batch is unchanged. An empty {@code mCmdString} is bare Enter, or a
+	 * wait that produced nothing, and is not passed to Lua.
+	 */
+	private void applyOutboundHook(final Data d) {
+		if (d == null || d.mCmdString == null || d.mCmdString.length() == 0) {
+			return;
+		}
+		if (!onConnectionThread() || mSettings == null) {
+			return;
+		}
+		if (mInboundHooksStale) {
+			rebuildInboundHooks();
+		}
+		if (mOutboundHookFilters.isEmpty()) {
+			return;
+		}
+		try {
+			OutboundHook.Batch batch = OutboundHook.apply(d.mCmdString, d.mVisString,
+					mOutboundHookFilters, mSettings.getEncoding());
+			d.mCmdString = batch.command;
+			d.mVisString = batch.echo;
+		} catch (UnsupportedEncodingException e) {
+			reportRuntimeError("OnOutgoing", e);
+		}
 	}
 
 	/** THE INCOMING DATA DISPATCH ROUTINE! Unicorns and puppies and all kinds of good things live here.
@@ -4291,7 +4357,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				readBoolOption("lowercase_command_start", false), mLocalEcho);
 		mDataToServer.append(line).append(mCRLF);
 		appendVisIfAllowed(line + ";", mCommandEchoPolicy != null
-				? mCommandEchoPolicy : AliasLocalEcho.INHERIT);
+				? mCommandEchoPolicy : AliasLocalEcho.INHERIT, true);
 	}
 
 	/**
@@ -4307,11 +4373,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		try {
 			if (mDataToServer.length() > 0) {
+				String original = mDataToServer.toString();
 				Data pending = new Data();
-				pending.mCmdString = mDataToServer.toString();
-				pending.mVisString = "";
+				pending.mCmdString = original;
+				pending.mVisString = OutboundHook.sentEcho(mEchoPieces);
 				mDataToServer.setLength(0);
-				emitOutbound(pending, mOutboundUnaccent, SendEcho.INHERIT);
+				applyOutboundHook(pending);
+				OutboundHook.FlushEcho flush = OutboundHook.flushEcho(original,
+						pending.mCmdString, pending.mVisString, mEchoPieces);
+				OutboundHook.FlushPaint paint = OutboundHook.paint(flush, mCRLF);
+				pending.mCmdString = flush.command;
+				pending.mVisString = paint.echoNow;
+				mEchoPieces.clear();
+				mEchoPieces.addAll(paint.stillUnshown);
+				if (flush.replaced) {
+					mDataToWindow.setLength(0);
+					for (int i = 0; i < mEchoPieces.size(); i++) {
+						mDataToWindow.append(mEchoPieces.get(i).text);
+					}
+				}
+				emitOutbound(pending, mOutboundUnaccent, SendEcho.INHERIT, false);
 			}
 			String line = value;
 			if (mMcpEngine != null && mMcpEngine.isUse()) {
@@ -4348,6 +4429,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private Data processOutputData(final String data) throws UnsupportedEncodingException {
 		mDataToServer.setLength(0);
 		mDataToWindow.setLength(0);
+		mEchoPieces.clear();
 		String out = data;
 		// Two characters were taken off for a one-character newline. Everything
 		// in the app sends "\r\n", so it was right by accident and wrong for
@@ -4418,6 +4500,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			AliasLocalEcho holdoverPolicy) throws UnsupportedEncodingException {
 		mDataToServer.setLength(0);
 		mDataToWindow.setLength(0);
+		mEchoPieces.clear();
 		if (list == null) {
 			Data empty = new Data();
 			empty.mCmdString = "";
@@ -4539,6 +4622,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				
 				if (d != null) {
 					boolean m = false;
+					boolean sentThisSegment = false;
 					if (d.mCmdString != null && d.mVisString != null) {
 						if (d.mCmdString.equals(d.mVisString)) {
 							m = true; //aliases & regular commands will always have the same cmdString and visString
@@ -4607,17 +4691,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								if (m) {
 									String srv = new String(tmp, mSettings.getEncoding()) + mCRLF;
 									mDataToServer.append(new String(srv));
+									sentThisSegment = true;
 									appendVisIfAllowed(
 											new String(tmp, mSettings.getEncoding()) + ";",
-											SendEcho.shown(segmentPolicy, mOutboundEcho));
+											SendEcho.shown(segmentPolicy, mOutboundEcho), true);
 								} else {
 									String srv = new String(tmp, mSettings.getEncoding()) + mCRLF;
 									mDataToServer.append(new String(srv));
+									sentThisSegment = true;
 								}
 							} else {
 								mDataToServer.append(d.mCmdString + mCRLF);
+								sentThisSegment = true;
 								appendVisIfAllowed(d.mCmdString,
-										SendEcho.shown(segmentPolicy, mOutboundEcho));
+										SendEcho.shown(segmentPolicy, mOutboundEcho), true);
 							}
 						}
 							
@@ -4629,7 +4716,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							AliasLocalEcho visPolicy = d.mVisEchoPolicy != null
 									? d.mVisEchoPolicy : segmentPolicy;
 							appendVisIfAllowed(d.mVisString + ";",
-									SendEcho.shown(visPolicy, mOutboundEcho));
+									SendEcho.shown(visPolicy, mOutboundEcho), sentThisSegment);
 						}
 					}
 				}
@@ -4641,6 +4728,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// Partial output would be hundreds of near-identical lines to the MUD.
 			mDataToServer.setLength(0);
 			mDataToWindow.setLength(0);
+			mEchoPieces.clear();
 			reportRuntimeError("alias replacement",
 					new IllegalStateException(aliasBudget.limitMessage()));
 		}
@@ -4795,12 +4883,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * masking and the global Local Echo? option are both applied here so a
 	 * FORCE_ON alias can still appear when the global option is off.
 	 */
-	private void appendVisIfAllowed(final String text, final AliasLocalEcho policy) {
+	private void appendVisIfAllowed(final String text, final AliasLocalEcho policy,
+			final boolean sent) {
 		if (text == null || text.length() == 0) {
 			return;
 		}
 		if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho, policy)) {
 			mDataToWindow.append(text);
+			mEchoPieces.add(new OutboundHook.EchoPiece(text, sent));
 		}
 	}
 	
@@ -8313,11 +8403,40 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void emitOutbound(final Data d, final boolean unaccentFromBytes, final int echoMode)
 			throws IOException {
+		emitOutbound(d, unaccentFromBytes, echoMode, true);
+	}
+
+	/**
+	 * @param hook false when the caller already ran {@link #applyOutboundHook}.
+	 *        The credential flush does that so Lua runs once.
+	 */
+	private void emitOutbound(final Data d, final boolean unaccentFromBytes, final int echoMode,
+			final boolean hook) throws IOException {
 		if (d == null) {
 			return;
 		}
 		if (SendEcho.hideLine(echoMode)) {
 			d.mVisString = "";
+		}
+		// Aliases have already run. Unaccent, MCP quoting, and IAC doubling
+		// below see whatever the hook left. Echo parked by a credential flush
+		// stays on screen when a later command in the line is rewritten.
+		if (hook && !SendEcho.hideLine(echoMode)) {
+			String fullVis = d.mVisString;
+			String original = d.mCmdString;
+			String parkedRaw = OutboundHook.pieceText(mEchoPieces, true);
+			if (parkedRaw.length() > 0) {
+				d.mVisString = OutboundHook.formatEcho(
+						OutboundHook.pieceText(mEchoPieces, false), mCRLF);
+			}
+			applyOutboundHook(d);
+			if (parkedRaw.length() > 0) {
+				d.mVisString = OutboundHook.echoAfterRemainder(fullVis, original,
+						d.mCmdString, d.mVisString,
+						OutboundHook.formatEcho(parkedRaw, mCRLF));
+			}
+		} else if (hook) {
+			applyOutboundHook(d);
 		}
 		if (d.mCmdString.equals("") && (d.mVisString != null && d.mVisString.replaceAll("\\s", "").equals(""))) {
 			return;

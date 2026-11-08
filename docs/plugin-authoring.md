@@ -449,6 +449,7 @@ Connection ready → OnBackgroundStartup()   (before TCP connect)
 About to open the socket → OnConnected()   (bytes flushed after TCP and TLS,
                                             before the first read)
 Each finished server chunk → OnIncoming(data)   (before display and triggers)
+Each aliased send batch     → OnOutgoing(data)   (before unaccent and the socket)
 UI attaches windows → OnCreate / OnDraw / …
 Option change → OnOptionChanged(key, value)
 Save → OnXmlExport(out)
@@ -465,6 +466,7 @@ Shutdown → window OnDestroy; plugin Lua state dropped
 | `OnBackgroundStartup()` | All plugins loaded, before connect |
 | `OnConnected()` | About to open the socket. Returned bytes are flushed after TCP and TLS, before the first read. See §5.3 |
 | `OnIncoming(data)` | Finished server lines, before display and triggers. See §5.4 |
+| `OnOutgoing(data)` | Aliased send batch, before unaccent and the socket. See §5.5 |
 | `OnXmlExport(serializer)` | Settings save |
 | Trigger `<script function="fn">` | Match → global `fn` |
 | `RegisterSpecialCommand(cmd, fn)` | Player types `.cmd …` |
@@ -598,6 +600,43 @@ Capture Room ID Regex will see a room.
 
 `Simulate()` on the same bytes feeds them back through `OnIncoming`. Return
 the text instead of simulating it.
+
+### 5.5 `OnOutgoing` — rewrite a send after aliases
+
+```lua
+function OnOutgoing(data)
+  -- The player typed: kk goblin
+  -- The alias ^kk (.+)$ → kill $1 has already run.
+  if data == "kill goblin\r\n" then
+    return "kill goblin\r\nlook\r\n"
+  end
+end
+```
+
+You type `kk goblin`. The alias turns that into `kill goblin`. The hook sees `kill goblin` plus the newline this client adds before the write, as one string: `kill goblin\r\n`. Several commands joined on one line are still one call, separated by `\r\n`, the same way `OnIncoming` receives several lines in one chunk.
+
+The call sits after aliases, semicolon splitting, `#N`, and dot-commands, and before unaccent, MCP quoting, IAC doubling, the socket write, local echo, and the mapper. Those see the string that is left after every plugin has returned.
+
+| Return | Effect |
+|--------|--------|
+| nothing, `nil`, or not a string | This plugin leaves the batch alone. Echo stays as the client built it |
+| a string equal to the batch | The batch is unchanged, and echo stays as the client built it |
+| a different string | Replaces the batch. The new string is what is written. When echo is on, the window shows that string |
+| `""` | Drops the batch. Nothing is written, nothing is echoed, and the mapper does not hear it |
+
+Returning `kill goblin` with no `\r\n` writes those exact characters. The hook does not add a newline, and it does not run the returned text through aliases, semicolon splitting, or dot-commands. A return of `.map room 1` is text on the wire. To drive the mapper, send that command the way a trigger does (`SendToServer(".map room " .. id)` from `OnIncoming`, or a trigger Send).
+
+Main settings run first, then each **enabled** plugin in load order. Each one sees the previous plugin's text. A disabled plugin is skipped. A Lua error leaves that plugin's input unchanged, prints the red error line, and the next plugin still runs. With no `OnOutgoing` defined anywhere, the batch is not passed to Lua.
+
+Define it in the plugin body or in `OnBackgroundStartup`. It is picked up when the world loads and again when triggers are rebuilt. The window VM does not have this callback.
+
+`SendToServer` from inside the function is a second, later send. Aliases run on it, and `OnOutgoing` runs on it when that send is written. The return value is this send.
+
+Pressing Enter on an empty line is not passed to the function. A line that only schedules a `.wait` and writes nothing is not passed either. The commands after that wait are a later batch, and the hook sees them when they are written. Typing `;;` sends `;` and the hook sees `;` plus the newline.
+
+Commands already queued ahead of `.password` are their own batch. You type `name;.password`. The hook sees `name` plus the newline. When it leaves that batch alone, the window still shows `name` with the rest of the line (`name;look` stays one echo). When it returns a different string, the window shows that string and does not also show `name`. When it returns `""`, `name` is not written and not shown. Rewriting `look` in `name;.password;look` changes `look` only. `name` stays on screen. A note that is not itself a send, such as the `[alias=>text]` line from `.alias text`, stays either way. The stored password is not an argument of this function.
+
+Unaccent, when the input-bar option is on, folds the hook's string. The hook itself sees the characters the player produced. Telnet ECHO off still hides the line. A send that was already hidden stays hidden when the hook rewrites it.
 
 ---
 
