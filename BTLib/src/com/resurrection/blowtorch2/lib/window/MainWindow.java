@@ -5688,10 +5688,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (takeFocusTwin(event)) {
 			return true;
 		}
+		if (takeArrowFocus(event)) {
+			return true;
+		}
 		return super.dispatchKeyEvent(event);
 	}
 
-	/** A numpad arrow twin is consumed here. A real arrow still reaches the bar. */
+	/** A numpad arrow twin is consumed here. A real arrow's key-down is eaten below. */
 	private boolean takeFocusTwin(final KeyEvent event) {
 		boolean barFocused = mInputBox != null && mInputBox.isFocused();
 		if (!shortcutFocus.consume(event.getAction(), event.getKeyCode(), event.getFlags(),
@@ -5699,6 +5702,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return false;
 		}
 		if (shortcutFocus.focusBar()) {
+			focusInputForKeys();
+		}
+		return true;
+	}
+
+	/** Key-down only. Key-up still steps history in the bar. */
+	private boolean takeArrowFocus(final KeyEvent event) {
+		if (!KeyboardShortcutFocus.blocksFocusWalk(event.getAction(), event.getKeyCode(),
+				event.getFlags(), event.getScanCode(), event.getDeviceId())) {
+			return false;
+		}
+		if (mInputBox == null || !mInputBox.isFocused()) {
 			focusInputForKeys();
 		}
 		return true;

@@ -64,6 +64,17 @@ public class KeyboardShortcutFocusTest {
 	}
 
 	@Test
+	public void aRealArrowDownDoesNotWalkFocusAndTheKeyUpStillReachesTheBar() {
+		assertTrue(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_UP, FROM_SYSTEM, SCAN_ARROW, DEV));
+		assertTrue(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_DOWN, FROM_SYSTEM, 108, DEV));
+		assertFalse(KeyboardShortcutFocus.blocksFocusWalk(UP, DPAD_UP, FROM_SYSTEM, SCAN_ARROW, DEV));
+		assertFalse(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_LEFT, FROM_SYSTEM, SCAN_ARROW, DEV));
+		assertFalse(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_UP, TWIN, SCAN_PAD8, DEV));
+		assertFalse(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_UP, FROM_SYSTEM, 0, DEV));
+		assertFalse(KeyboardShortcutFocus.blocksFocusWalk(DOWN, DPAD_UP, FROM_SYSTEM, SCAN_ARROW, -1));
+	}
+
+	@Test
 	public void aRealArrowTheEnterTwinAndCtrlLeftAreNotConsumed() {
 		KeyboardShortcutFocus focus = new KeyboardShortcutFocus();
 		assertFalse(focus.consume(DOWN, DPAD_UP, FROM_SYSTEM, SCAN_ARROW, DEV, 0, true));

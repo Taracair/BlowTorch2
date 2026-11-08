@@ -52,4 +52,22 @@ public final class KeyboardShortcutFocus {
 		}
 		return keyCode >= KEYCODE_DPAD_UP && keyCode <= KEYCODE_DPAD_CENTER;
 	}
+
+	/**
+	 * Real arrow up or down, key-down. The activity eats it so focus does not
+	 * walk onto Send, Edit, or the overflow button. The key-up still reaches the bar.
+	 */
+	public static boolean blocksFocusWalk(final int action, final int keyCode, final int flags,
+			final int scan, final int deviceId) {
+		if (action != KeyboardShortcutMatcher.ACTION_DOWN) {
+			return false;
+		}
+		if (keyCode != KEYCODE_DPAD_UP && keyCode != KEYCODE_DPAD_DOWN) {
+			return false;
+		}
+		if (scan == 0 || deviceId == KeyboardShortcutMatcher.VIRTUAL_DEVICE_ID) {
+			return false;
+		}
+		return (flags & KeyboardShortcutMatcher.FLAG_FALLBACK) == 0;
+	}
 }
