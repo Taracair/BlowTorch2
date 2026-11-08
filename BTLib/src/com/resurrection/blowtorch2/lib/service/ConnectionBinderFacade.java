@@ -150,6 +150,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	}
 
 	@Override
+	public void sendShownData(final byte[] seq) throws RemoteException {
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		Handler handler = c.getHandler();
+		if (handler == null) {
+			return;
+		}
+		handler.sendMessage(handler.obtainMessage(Connection.MESSAGE_SENDDATA_BYTES,
+				SendEcho.SHOW, 0, seq));
+	}
+
+	@Override
 	public void saveSettings() throws RemoteException {
 		Connection c = active();
 		if (c == null && service.mConnections != null && service.mConnections.size() == 1) {

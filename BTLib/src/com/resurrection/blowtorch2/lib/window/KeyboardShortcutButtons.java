@@ -9,7 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** Button commands copied into a shortcut. Swipes and flip are not in this list. */
+/** Buttons a shortcut can follow. Swipes and flip are not in this list. */
 public final class KeyboardShortcutButtons {
 
 	private KeyboardShortcutButtons() {
@@ -35,13 +35,45 @@ public final class KeyboardShortcutButtons {
 		}
 
 		public String listLabel() {
+			String face;
 			if (label.length() > 0) {
-				return label;
+				face = label;
+			} else if (command.length() > 0) {
+				face = command;
+			} else if (hold.length() > 0) {
+				face = hold;
+			} else {
+				face = id;
 			}
-			if (command.length() > 0) {
-				return command;
+			if (id.length() > 0 && !id.equals(face)) {
+				return id + "\n" + face;
 			}
-			return hold;
+			return face;
+		}
+	}
+
+	/** One row of the picker. A header has no button. */
+	public static final class Entry {
+		public final String header;
+		public final boolean expanded;
+		public final Button button;
+
+		private Entry(final String header, final boolean expanded, final Button button) {
+			this.header = header;
+			this.expanded = expanded;
+			this.button = button;
+		}
+
+		public static Entry header(final String name, final boolean expanded) {
+			return new Entry(name, expanded, null);
+		}
+
+		public static Entry button(final Button button) {
+			return new Entry(null, false, button);
+		}
+
+		public boolean isHeader() {
+			return button == null;
 		}
 	}
 
@@ -111,6 +143,66 @@ public final class KeyboardShortcutButtons {
 				continue;
 			}
 			out.add(new Group(name, rows));
+		}
+		return out;
+	}
+
+	/**
+	 * The button with this id in this set. An empty set matches the id in any set.
+	 * Null when it is gone.
+	 */
+	public static Button find(final String raw, final String set, final String id) {
+		if (id == null || id.trim().length() == 0) {
+			return null;
+		}
+		String wantId = id.trim();
+		String wantSet = set == null ? "" : set.trim();
+		List<Group> found = groups(raw);
+		for (int i = 0; i < found.size(); i++) {
+			Group group = found.get(i);
+			if (wantSet.length() > 0 && !wantSet.equals(group.name)) {
+				continue;
+			}
+			for (int j = 0; j < group.buttons.size(); j++) {
+				Button button = group.buttons.get(j);
+				if (wantId.equals(button.id)) {
+					return button;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** A header tap counts only when the search box is empty. */
+	public static boolean headerTapChangesOpen(final String query) {
+		return query == null || query.trim().length() == 0;
+	}
+
+	/**
+	 * Sets start closed. A non-empty query shows the matches under their set.
+	 * A set with no name is always open.
+	 */
+	public static List<Entry> catalog(final List<Group> groups, final String query,
+			final java.util.Set<String> open) {
+		boolean searching = query != null && query.trim().length() > 0;
+		List<Group> matched = matchingGroups(groups, query);
+		List<Entry> out = new ArrayList<Entry>();
+		for (int i = 0; i < matched.size(); i++) {
+			Group group = matched.get(i);
+			if (group.name.length() == 0) {
+				for (int j = 0; j < group.buttons.size(); j++) {
+					out.add(Entry.button(group.buttons.get(j)));
+				}
+				continue;
+			}
+			boolean expanded = searching || (open != null && open.contains(group.name));
+			out.add(Entry.header(group.name, expanded));
+			if (!expanded) {
+				continue;
+			}
+			for (int j = 0; j < group.buttons.size(); j++) {
+				out.add(Entry.button(group.buttons.get(j)));
+			}
 		}
 		return out;
 	}

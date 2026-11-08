@@ -5683,7 +5683,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * offset. One column is {@code mOneCharWidth} pixels.
 	 */
 	public void applyScrollStep(final ScrollStep.Decision move) {
-		if (move == null || move.kind != ScrollStep.Kind.MOVE || move.amount == 0) {
+		if (move == null) {
+			return;
+		}
+		if (move.kind == ScrollStep.Kind.JUMP) {
+			jumpToStart();
+			return;
+		}
+		if (move.kind != ScrollStep.Kind.MOVE || move.amount == 0) {
 			return;
 		}
 		if (move.horizontal()) {

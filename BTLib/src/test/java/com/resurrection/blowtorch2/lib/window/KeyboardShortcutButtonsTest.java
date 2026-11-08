@@ -39,7 +39,7 @@ public class KeyboardShortcutButtonsTest {
 		assertEquals("b12", KeyboardShortcutButtons.matching(buttons, "step").get(0).id);
 		List<Button> byHold = KeyboardShortcutButtons.matching(buttons, "around");
 		assertEquals(1, byHold.size());
-		assertEquals("Look", byHold.get(0).listLabel());
+		assertEquals("b4\nLook", byHold.get(0).listLabel());
 		assertEquals("b4", byHold.get(0).id);
 		assertTrue(KeyboardShortcutButtons.matching(buttons, "smile").isEmpty());
 	}
@@ -79,7 +79,7 @@ public class KeyboardShortcutButtonsTest {
 		assertEquals(2, KeyboardShortcutButtons.matchingGroups(groups, "   ").size());
 		List<Group> bySet = KeyboardShortcutButtons.matchingGroups(groups, "FIGHT");
 		assertEquals(1, bySet.size());
-		assertEquals("STOP", bySet.get(0).buttons.get(0).listLabel());
+		assertEquals("b1\nSTOP", bySet.get(0).buttons.get(0).listLabel());
 		assertEquals("b2", KeyboardShortcutButtons.matchingGroups(groups, "b2").get(0).buttons.get(0).id);
 		assertEquals("bash", KeyboardShortcutButtons.matchingGroups(groups, "BASH").get(0).buttons.get(0).hold);
 		assertEquals("step", KeyboardShortcutButtons.matchingGroups(groups, "step").get(0).buttons.get(0).name);
@@ -94,5 +94,35 @@ public class KeyboardShortcutButtonsTest {
 		assertEquals(1, groups.size());
 		assertEquals("", groups.get(0).name);
 		assertEquals("look", groups.get(0).buttons.get(0).command);
+	}
+
+	@Test
+	public void setsStartClosedAndASearchOpensTheMatch() {
+		String raw = "[{\"set\":\"fight\",\"buttons\":["
+				+ "{\"label\":\"STOP\",\"id\":\"b1\",\"command\":\"stop\",\"hold\":\"\"}]},"
+				+ "{\"set\":\"move\",\"buttons\":["
+				+ "{\"label\":\"N\",\"id\":\"b2\",\"command\":\"north\",\"hold\":\"bash\"}]}]";
+		List<Group> groups = KeyboardShortcutButtons.groups(raw);
+		List<KeyboardShortcutButtons.Entry> closed = KeyboardShortcutButtons.catalog(groups, "", null);
+		assertEquals(2, closed.size());
+		assertTrue(closed.get(0).isHeader());
+		assertEquals("fight", closed.get(0).header);
+		assertTrue(!closed.get(0).expanded);
+		java.util.Set<String> open = new java.util.HashSet<String>();
+		open.add("fight");
+		List<KeyboardShortcutButtons.Entry> one = KeyboardShortcutButtons.catalog(groups, "", open);
+		assertEquals(3, one.size());
+		assertEquals("b1", one.get(1).button.id);
+		assertTrue(!one.get(2).expanded);
+		List<KeyboardShortcutButtons.Entry> found = KeyboardShortcutButtons.catalog(groups, "north", null);
+		assertEquals(2, found.size());
+		assertTrue(found.get(0).expanded);
+		assertEquals("b2", found.get(1).button.id);
+		assertEquals("north", KeyboardShortcutButtons.find(raw, "move", "b2").command);
+		assertEquals("bash", KeyboardShortcutButtons.find(raw, "", "b2").hold);
+		assertEquals(null, KeyboardShortcutButtons.find(raw, "fight", "b2"));
+		assertTrue(KeyboardShortcutButtons.headerTapChangesOpen(""));
+		assertTrue(KeyboardShortcutButtons.headerTapChangesOpen("   "));
+		assertTrue(!KeyboardShortcutButtons.headerTapChangesOpen("north"));
 	}
 }

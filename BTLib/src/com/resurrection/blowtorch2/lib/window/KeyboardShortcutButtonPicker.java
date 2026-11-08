@@ -1,10 +1,13 @@
 package com.resurrection.blowtorch2.lib.window;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button;
+import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Entry;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Group;
 
 import android.app.Dialog;
@@ -32,11 +35,13 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 	}
 
 	private final List<Group> groups;
-	private final List<Row> rows = new ArrayList<Row>();
+	private final Set<String> open = new HashSet<String>();
+	private final List<Entry> rows = new ArrayList<Entry>();
 	private final Choice choice;
 	private final TextView empty;
 	private final ListView list;
 	private final RowAdapter adapter;
+	private String queryText = "";
 
 	private KeyboardShortcutButtonPicker(final Context context, final String raw, final Choice choice) {
 		super(context, EditorDialogChrome.fullScreenTheme());
@@ -57,7 +62,7 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 		LinearLayout shell = new LinearLayout(context);
 		shell.setOrientation(LinearLayout.VERTICAL);
 		shell.setBackgroundColor(body);
-		shell.addView(title(context, "Use a button", density, ink, bar));
+		shell.addView(title(context, EditorHelp.PICKER_TITLE, density, ink, bar));
 
 		empty = new TextView(context);
 		empty.setText("This set has no buttons.");
@@ -81,11 +86,19 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 				if (position < 0 || position >= rows.size()) {
 					return;
 				}
-				Button button = rows.get(position).button;
-				if (button == null) {
+				Entry entry = rows.get(position);
+				if (entry.isHeader()) {
+					if (KeyboardShortcutButtons.headerTapChangesOpen(queryText)) {
+						if (open.contains(entry.header)) {
+							open.remove(entry.header);
+						} else {
+							open.add(entry.header);
+						}
+						show(queryText);
+					}
 					return;
 				}
-				KeyboardShortcutButtonPicker.this.choice.picked(button);
+				KeyboardShortcutButtonPicker.this.choice.picked(entry.button);
 				dismiss();
 			}
 		});
@@ -137,7 +150,8 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 			@Override
 			public void onTextChanged(final CharSequence s, final int start, final int before,
 					final int count) {
-				show(s == null ? "" : s.toString());
+				queryText = s == null ? "" : s.toString();
+				show(queryText);
 			}
 
 			@Override
@@ -159,18 +173,15 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 	}
 
 	private void show(final String query) {
-		List<Group> matched = KeyboardShortcutButtons.matchingGroups(groups, query);
 		rows.clear();
-		for (int i = 0; i < matched.size(); i++) {
-			Group group = matched.get(i);
-			if (group.name.length() > 0) {
-				rows.add(Row.header(group.name));
-			}
-			for (int j = 0; j < group.buttons.size(); j++) {
-				rows.add(Row.button(group.buttons.get(j)));
-			}
+		rows.addAll(KeyboardShortcutButtons.catalog(groups, query, open));
+		boolean searching = query != null && query.trim().length() > 0;
+		boolean none = groups.isEmpty() || (searching && rows.isEmpty());
+		if (groups.isEmpty()) {
+			empty.setText("This set has no buttons.");
+		} else if (searching && rows.isEmpty()) {
+			empty.setText("No button matches.");
 		}
-		boolean none = groups.isEmpty();
 		empty.setVisibility(none ? View.VISIBLE : View.GONE);
 		list.setVisibility(none ? View.GONE : View.VISIBLE);
 		adapter.notifyDataSetChanged();
@@ -204,33 +215,15 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 		return footer;
 	}
 
-	private static final class Row {
-		final String header;
-		final Button button;
-
-		private Row(final String header, final Button button) {
-			this.header = header;
-			this.button = button;
-		}
-
-		static Row header(final String name) {
-			return new Row(name, null);
-		}
-
-		static Row button(final Button button) {
-			return new Row(null, button);
-		}
-	}
-
 	private static final class RowAdapter extends BaseAdapter {
 		private final Context context;
-		private final List<Row> rows;
+		private final List<Entry> rows;
 		private final int ink;
 		private final int bar;
 		private final int body;
 		private final float density;
 
-		RowAdapter(final Context context, final List<Row> rows, final int ink, final int bar,
+		RowAdapter(final Context context, final List<Entry> rows, final int ink, final int bar,
 				final int body, final float density) {
 			this.context = context;
 			this.rows = rows;
@@ -262,21 +255,22 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 
 		@Override
 		public int getItemViewType(final int position) {
-			return rows.get(position).button == null ? 0 : 1;
+			return rows.get(position).isHeader() ? 0 : 1;
 		}
 
 		@Override
 		public boolean isEnabled(final int position) {
-			return rows.get(position).button != null;
+			return true;
 		}
 
 		@Override
 		public View getView(final int position, final View convert, final ViewGroup parent) {
-			Row row = rows.get(position);
+			Entry row = rows.get(position);
 			TextView view = convert instanceof TextView ? (TextView) convert : new TextView(context);
 			int h = (int) (16 * density);
-			if (row.button == null) {
-				view.setText(row.header);
+			if (row.isHeader()) {
+				String mark = row.expanded ? "\u25BE  " : "\u25B8  ";
+				view.setText(mark + row.header);
 				view.setTextColor(ink);
 				view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
 				view.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
@@ -288,7 +282,8 @@ public final class KeyboardShortcutButtonPicker extends Dialog {
 			view.setTextColor(ink);
 			view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
 			view.setTypeface(android.graphics.Typeface.DEFAULT);
-			view.setSingleLine(true);
+			view.setSingleLine(false);
+			view.setMaxLines(2);
 			view.setEllipsize(android.text.TextUtils.TruncateAt.END);
 			view.setBackgroundColor(body);
 			view.setPadding(h, (int) (8 * density), h, (int) (8 * density));

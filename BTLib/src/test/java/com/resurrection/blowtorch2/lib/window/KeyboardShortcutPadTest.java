@@ -162,9 +162,9 @@ public class KeyboardShortcutPadTest {
 				KeyboardShortcutPad.lookCaption(KeyboardShortcuts.MOD_ALT));
 		assertEquals("Pick Alt or Ctrl above. The numbers already walk, so there is nothing to keep on.",
 				KeyboardShortcutPad.latchCaption(0));
-		assertEquals("This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Walk.",
+		assertEquals("This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Pad walks.",
 				KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_ALT));
-		assertEquals("This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Walk.",
+		assertEquals("This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Pad walks.",
 				KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_CTRL));
 		assertEquals("nothing", KeyboardShortcutPad.latchChip(0, 57, true, "Press a key"));
 		assertFalse("Needs Alt or Ctrl".equals(

@@ -38,6 +38,7 @@ public final class KeyboardShortcutMatcher {
 	private static final int KEY_META_RIGHT = 118;
 
 	private KeyboardShortcuts shortcuts = KeyboardShortcuts.empty();
+	private ButtonLookup buttonLookup;
 	private boolean typingForced;
 	private boolean walkingSuspended;
 	private boolean dialogOpen;
@@ -80,6 +81,15 @@ public final class KeyboardShortcutMatcher {
 	private int lastRepeat;
 	private int lastHook;
 	private boolean lastConsumed;
+
+	/** Current command of a followed button. Null when that button is gone. */
+	public interface ButtonLookup {
+		KeyboardShortcutButtons.Button find(String set, String id);
+	}
+
+	public void setButtonLookup(final ButtonLookup lookup) {
+		this.buttonLookup = lookup;
+	}
 
 	public void setShortcuts(final KeyboardShortcuts next) {
 		boolean wasOn = shortcuts.isOn();
@@ -160,7 +170,7 @@ public final class KeyboardShortcutMatcher {
 	/** Walk when latched and shortcuts are on. Shortcuts off when a hardware keyboard is present and the master is off. */
 	public String mark() {
 		if (shortcuts.isOn() && latchOn && !typingForced) {
-			return "Walk";
+			return "Pad walks";
 		}
 		if (!shortcuts.isOn() && hardwareKeyboard) {
 			return "Shortcuts off";
@@ -286,7 +296,7 @@ public final class KeyboardShortcutMatcher {
 			}
 			return finish(key, Outcome.pass());
 		}
-		return finish(key, startPress(key, row));
+		return finish(key, startPress(key, follow(row)));
 	}
 
 	public Outcome onHoldFired(final int token) {
@@ -307,6 +317,18 @@ public final class KeyboardShortcutMatcher {
 			return Outcome.pass();
 		}
 		return fire(active, 0, REPEAT_MS, timerToken);
+	}
+
+	/** One lookup per press. Repeats use the row stored on that press. */
+	private KeyboardShortcuts.Row follow(final KeyboardShortcuts.Row row) {
+		if (row == null || !row.followsButton()) {
+			return row;
+		}
+		KeyboardShortcutButtons.Button found = buttonLookup == null
+				? null : buttonLookup.find(row.buttonSet, row.buttonId);
+		String command = found == null ? "" : found.command;
+		String hold = found == null ? "" : found.hold;
+		return row.withLive(command, hold);
 	}
 
 	private Outcome startPress(final Key key, final KeyboardShortcuts.Row row) {

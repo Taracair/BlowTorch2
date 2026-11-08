@@ -49,11 +49,16 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final TextView quietNote;
 	private final RadioGroup actions;
 	private final View commandBlock;
+	private final View followBlock;
+	private final TextView followNote;
 	private final int lineId;
 	private final int inputId;
 	private final int stepId;
 	private final int clearId;
-	private final int liveId;
+	private String linkSet = "";
+	private String linkId = "";
+	private String liveCommand = "";
+	private String liveHold = "";
 	private final boolean rowEnabled;
 	private final boolean rowPad;
 	private boolean formLock;
@@ -123,12 +128,10 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		inputId = View.generateViewId();
 		stepId = View.generateViewId();
 		clearId = View.generateViewId();
-		liveId = View.generateViewId();
 		actions.addView(radio(activity, lineId, "Send a line"));
 		actions.addView(radio(activity, inputId, "Send the current line"));
 		actions.addView(radio(activity, stepId, "Step back"));
 		actions.addView(radio(activity, clearId, "Clear the bar"));
-		actions.addView(radio(activity, liveId, "Jump to the newest text"));
 		TextView stepNote = caption(activity, "Uses the directions set in Speedwalk Directions.");
 		int stepIndent = (int) (36 * density);
 		stepNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
@@ -139,8 +142,6 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			actions.check(stepId);
 		} else if (KeyboardShortcuts.ACTION_ESCAPE.equals(action)) {
 			actions.check(clearId);
-		} else if (KeyboardShortcuts.ACTION_LIVE.equals(action)) {
-			actions.check(liveId);
 		} else {
 			actions.check(lineId);
 		}
@@ -169,10 +170,37 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		((LinearLayout) commandBlock).addView(why);
 		form.addView(commandBlock);
 
+		followBlock = new LinearLayout(activity);
+		((LinearLayout) followBlock).setOrientation(LinearLayout.VERTICAL);
+		followNote = caption(activity, "");
+		((LinearLayout) followBlock).addView(followNote);
+		android.widget.Button stop = new android.widget.Button(activity);
+		stop.setAllCaps(false);
+		stop.setText("Stop following this button");
+		stop.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				formLock = true;
+				tapField.setText(liveCommand);
+				holdField.setText(liveHold);
+				linkSet = "";
+				linkId = "";
+				formLock = false;
+				applyAction();
+			}
+		});
+		((LinearLayout) followBlock).addView(stop);
+		form.addView(followBlock);
+		if (existing != null && existing.followsButton()) {
+			linkSet = existing.buttonSet;
+			linkId = existing.buttonId;
+			refreshFollow();
+		}
+
 		quietBox = new CheckBox(activity);
-		quietBox.setText("Don't print the sent line");
+		quietBox.setText("Local echo");
 		quietBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
-		quietBox.setChecked(existing != null && existing.quiet);
+		quietBox.setChecked(existing == null || !existing.quiet);
 		form.addView(quietBox);
 		quietNote = caption(activity, EditorHelp.QUIET_CAPTION);
 		quietNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
@@ -370,11 +398,39 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private void applyAction() {
 		int checked = actions.getCheckedRadioButtonId();
 		boolean line = checked == lineId;
-		boolean hideQuiet = checked == inputId || checked == clearId || checked == liveId;
-		commandBlock.setVisibility(line ? View.VISIBLE : View.GONE);
+		boolean linked = line && linkId.length() > 0;
+		boolean hideQuiet = checked == inputId || checked == clearId;
+		commandBlock.setVisibility(line && !linked ? View.VISIBLE : View.GONE);
+		followBlock.setVisibility(linked ? View.VISIBLE : View.GONE);
 		int quiet = hideQuiet ? View.GONE : View.VISIBLE;
 		quietBox.setVisibility(quiet);
 		quietNote.setVisibility(quiet);
+	}
+
+	private void refreshFollow() {
+		KeyboardShortcutButtons.Button found = KeyboardShortcutButtons.find(
+				host.buttonLines(), linkSet, linkId);
+		String where = linkSet.length() > 0 ? linkSet + " / " + linkId : linkId;
+		if (found == null) {
+			liveCommand = "";
+			liveHold = "";
+			followNote.setText("Follows " + where + ". That button is not in the list.");
+			return;
+		}
+		liveCommand = found.command;
+		liveHold = found.hold;
+		StringBuilder text = new StringBuilder();
+		text.append("Follows ").append(where).append(".\n");
+		text.append("This key sends that button's current command");
+		if (liveHold.length() > 0) {
+			text.append(" and its hold line");
+		}
+		text.append(".\nNow: ");
+		text.append(liveCommand.length() > 0 ? liveCommand : "(empty)");
+		if (liveHold.length() > 0) {
+			text.append("\nHold: ").append(liveHold);
+		}
+		followNote.setText(text.toString());
 	}
 
 	private void save() {
@@ -390,15 +446,15 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			action = KeyboardShortcuts.ACTION_STEP;
 		} else if (checked == clearId) {
 			action = KeyboardShortcuts.ACTION_ESCAPE;
-		} else if (checked == liveId) {
-			action = KeyboardShortcuts.ACTION_LIVE;
 		}
-		boolean quiet = quietBox.isChecked() && checked != inputId
-				&& checked != clearId && checked != liveId;
+		boolean quiet = !quietBox.isChecked() && checked != inputId && checked != clearId;
 		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, rowEnabled,
 				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
 				nameField.getText().toString(), quiet)
 				.asPad(rowPad);
+		if (KeyboardShortcuts.ACTION_LINE.equals(action) && linkId.length() > 0) {
+			row = row.withLink(linkSet, linkId);
+		}
 		host.save(stored.withRow(previousKey, previousMods, row));
 		dismiss();
 	}
@@ -431,9 +487,17 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 					public void picked(final Button picked) {
 						formLock = true;
 						actions.check(lineId);
-						tapField.setText(picked.command);
-						holdField.setText(picked.hold);
 						repeatBox.setChecked(false);
+						if (picked.id.length() == 0) {
+							linkSet = "";
+							linkId = "";
+							tapField.setText(picked.command);
+							holdField.setText(picked.hold);
+						} else {
+							linkSet = picked.set;
+							linkId = picked.id;
+							refreshFollow();
+						}
 						formLock = false;
 						applyAction();
 					}

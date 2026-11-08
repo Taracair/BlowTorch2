@@ -5862,6 +5862,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			});
 			shortcutController.setTypingForced(mLocalEchoOff);
+			shortcutController.setButtonLookup(new KeyboardShortcutMatcher.ButtonLookup() {
+				@Override
+				public com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button find(
+						final String set, final String id) {
+					return com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.find(
+							shortcutButtonLines(), set, id);
+				}
+			});
 		}
 		return shortcutController;
 	}
@@ -5880,7 +5888,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (quiet) {
 				service.sendHiddenData(bytes);
 			} else {
-				service.sendData(bytes);
+				service.sendShownData(bytes);
 			}
 		} catch (RemoteException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(

@@ -51,18 +51,23 @@ public class EditorHelpTest {
 				"A hold command and Repeat cannot both be on. Typing a hold command turns Repeat off. "
 						+ "Turning Repeat on clears the hold command.",
 				EditorHelp.HOLD_AND_REPEAT);
-		assertEquals("The game still receives it. This window does not show it.", EditorHelp.QUIET_CAPTION);
-		assertEquals("Use a button that already exists on your screen", EditorHelp.USE_BUTTON);
+		assertEquals(
+				"Show this key's line, including when Local Echo? is off. Off, the game still receives it.",
+				EditorHelp.QUIET_CAPTION);
+		assertEquals("Follow a button", EditorHelp.PICKER_TITLE);
+		assertEquals("Follow a button that already exists on your screen", EditorHelp.USE_BUTTON);
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.HOLD_AND_REPEAT));
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.QUIET_CAPTION));
 		assertTrue(EditorHelp.SHORTCUTS.contains(EditorHelp.USE_BUTTON));
 		assertTrue(EditorHelp.SHORTCUTS.contains(
-				"The list has a search box. It matches the words on the button, its name, its id, "
-						+ "its command, and its hold line."));
-		assertTrue(EditorHelp.SHORTCUTS.contains("It also matches the set name."));
+				"The list shows the id, and the search box matches it."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Every set starts closed. Tap the set to open it."));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+K can send kill goblin."));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".kb insert say"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("F1 starts empty."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("The row under Keyboard."));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("The first row in this list."));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollnew"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+Enter and Ctrl+End"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollv 10"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollh 10"));
@@ -81,9 +86,9 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.NUMBER_PAD.contains(
 				"Pick Alt or Ctrl above. The numbers already walk, so there is nothing to keep on."));
 		assertTrue(EditorHelp.NUMBER_PAD.contains(
-				"This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Walk."));
+				"This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Pad walks."));
 		assertTrue(EditorHelp.NUMBER_PAD.contains(
-				"This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Walk."));
+				"This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Pad walks."));
 		assertTrue(EditorHelp.NUMBER_PAD.contains("Send the current line"));
 		assertTrue(EditorHelp.NUMBER_PAD.contains("An empty command is not a shortcut."));
 		assertTrue(!EditorHelp.NUMBER_PAD.contains("In and out"));
@@ -93,7 +98,11 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains("**Name**\nWhat this list shows."));
 		assertTrue(EditorHelp.SHORTCUTS.contains("**Repeat**\n"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(
-				"**Don't print the sent line**\n" + EditorHelp.QUIET_CAPTION));
+				"**Local echo**\n" + EditorHelp.QUIET_CAPTION));
+		assertTrue(EditorHelp.SHORTCUTS.contains("A password prompt still hides it."));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("The same words"));
+		assertTrue(EditorHelp.KEYBOARD.contains(EditorHelp.QUIET_CAPTION));
+		assertTrue(!EditorHelp.KEYBOARD.contains("for that one key"));
 		assertTrue(EditorHelp.NUMBER_PAD.contains("**Walk lock**\n"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Latch"));
 		assertTrue(!EditorHelp.NUMBER_PAD.contains("Latch"));

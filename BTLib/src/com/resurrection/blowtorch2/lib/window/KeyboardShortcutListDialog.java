@@ -29,6 +29,7 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 	private final IConnectionBinder service;
 	private KeyboardShortcuts stored = KeyboardShortcuts.empty();
 	private static final String PAD_KEY = "number-pad";
+	private static final String KEYS_KEY = "keyboard";
 
 	public KeyboardShortcutListDialog(final MainWindow activity, final IConnectionBinder service) {
 		super(activity);
@@ -76,6 +77,10 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 			openPad();
 			return;
 		}
+		if (KEYS_KEY.equals(getItemKey(row))) {
+			openKeyboard();
+			return;
+		}
 		Row data = rowFor(row);
 		if (data == null) {
 			return;
@@ -119,7 +124,7 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	@Override
 	public void willShowToolbar(final LinearLayout toolbar, final int row) {
-		if (PAD_KEY.equals(getItemKey(row))) {
+		if (PAD_KEY.equals(getItemKey(row)) || KEYS_KEY.equals(getItemKey(row))) {
 			for (int i = 0; i < toolbar.getChildCount(); i++) {
 				if (i != 1) {
 					toolbar.getChildAt(i).setVisibility(android.view.View.GONE);
@@ -184,6 +189,15 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 				});
 	}
 
+	private void openKeyboard() {
+		KeyboardShortcutMenuDialog.show(activity, new KeyboardShortcutMenuDialog.Host() {
+			@Override
+			public void openPad() {
+				KeyboardShortcutListDialog.this.openPad();
+			}
+		});
+	}
+
 	private void openPad() {
 		KeyboardShortcutPadDialog.show(activity, stored, new KeyboardShortcutPadDialog.Host() {
 			@Override
@@ -225,6 +239,8 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	private void fill() {
 		clearListItems();
+		addListItem(KEYS_KEY, "Keyboard", "Pad walks, arrows, .scrollnew", 0, true);
+		setLastItemPinned();
 		addListItem(PAD_KEY, "Number pad", "Presets for the number pad", 0, true);
 		setLastItemPinned();
 		for (int i = 0; i < stored.rows().size(); i++) {

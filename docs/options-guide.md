@@ -428,7 +428,7 @@ All of these are Options → Typing.
 - **Keep Ctrl editing keys** (default on) — Ctrl editing keys keep editing the bar. A shortcut on that chord runs when this is off. Example: Ctrl+Left moves back one word. Off, a shortcut on Ctrl+Left runs instead.
 - **Up finds a command that starts with what you typed** (default on) — Up and Down stay on commands that start with the bar. Off, they step through every command. Example: type `ki` and Up finds `kill goblin`.
 
-Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). The caret moves with `.kb start` and `.kb end`.
+Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). `.scrollnew` jumps to the newest text. The caret moves with `.kb start` and `.kb end`. A shortcut's Local echo, on, prints that key's line even when Local Echo? is off. Off, that key does not print the line.
 
 ## Input bar growth
 

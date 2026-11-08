@@ -47,6 +47,10 @@ public final class KeyboardShortcutController {
 		return outcome.consumed;
 	}
 
+	public void setButtonLookup(final KeyboardShortcutMatcher.ButtonLookup lookup) {
+		matcher.setButtonLookup(lookup);
+	}
+
 	public void setStored(final String stored) {
 		KeyboardShortcuts next = KeyboardShortcuts.parse(stored);
 		String canonical = next.format();

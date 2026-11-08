@@ -3,9 +3,10 @@ package com.resurrection.blowtorch2.lib.window;
 import java.util.Locale;
 
 /**
- * Parse result for {@code .scrollv} and {@code .scrollh}. The number is added
- * to where the window already is. Positive vertical moves toward the text
- * that was above. Positive horizontal moves right.
+ * Parse result for {@code .scrollv}, {@code .scrollh}, and {@code .scrollnew}.
+ * A number is added to where the window already is. Positive vertical moves
+ * toward the text that was above. Positive horizontal moves right.
+ * {@code .scrollnew} jumps to the newest text and takes no number.
  */
 public final class ScrollStep {
 
@@ -15,7 +16,7 @@ public final class ScrollStep {
 	public static final int FIT_WIDTH_PERCENT = 100;
 
 	public static final String[] COMMANDS = {
-		"scrollv", "scrollh",
+		"scrollv", "scrollh", "scrollnew",
 	};
 
 	private ScrollStep() {
@@ -26,6 +27,8 @@ public final class ScrollStep {
 		BAD_NUMBER,
 		NOTHING_SIDEWAYS,
 		MOVE,
+		JUMP,
+		EXTRA,
 	}
 
 	public enum Axis {
@@ -72,11 +75,17 @@ public final class ScrollStep {
 				return "There is nothing to scroll sideways. Text width is "
 						+ widthPercent + "% of the screen.";
 			}
+			if (kind == Kind.EXTRA) {
+				return shown + " jumps to the newest text. It takes no number.";
+			}
 			return null;
 		}
 
-		/** Payload for {@code doRunUiAction}. Null unless this is a move. */
+		/** Payload for {@code doRunUiAction}. Null unless the window should move. */
 		public String toAction() {
+			if (kind == Kind.JUMP) {
+				return ACTION_PREFIX + "new";
+			}
 			if (kind != Kind.MOVE || axis == null || amount == 0) {
 				return null;
 			}
@@ -92,11 +101,18 @@ public final class ScrollStep {
 	 */
 	public static Decision decide(final String command, final String argument,
 			final int widthPercent) {
+		String name = commandName(command);
+		if ("scrollnew".equals(name)) {
+			String arg = argument == null ? "" : argument.trim();
+			if (arg.length() > 0) {
+				return new Decision(Kind.EXTRA, null, 0, "scrollnew", widthPercent);
+			}
+			return new Decision(Kind.JUMP, null, 0, "scrollnew", widthPercent);
+		}
 		Axis axis = axisOf(command);
 		if (axis == null) {
 			return null;
 		}
-		String name = commandName(command);
 		if (axis == Axis.HORIZONTAL && widthPercent <= FIT_WIDTH_PERCENT) {
 			return new Decision(Kind.NOTHING_SIDEWAYS, axis, 0, name, widthPercent);
 		}
@@ -121,6 +137,9 @@ public final class ScrollStep {
 			return null;
 		}
 		String rest = action.substring(ACTION_PREFIX.length());
+		if ("new".equals(rest)) {
+			return new Decision(Kind.JUMP, null, 0, "scrollnew", 0);
+		}
 		int colon = rest.indexOf(':');
 		if (colon <= 0 || rest.indexOf(':', colon + 1) >= 0) {
 			return null;
@@ -199,6 +218,9 @@ public final class ScrollStep {
 
 	/** One line for {@code .help}, first clause is what the bare name does. */
 	public static String summary(final String command) {
+		if ("scrollnew".equals(commandName(command))) {
+			return "jump to the newest text; no number";
+		}
 		Axis axis = axisOf(command);
 		if (axis == Axis.VERTICAL) {
 			return "needs a number of lines, added to where the window is now";
@@ -213,7 +235,8 @@ public final class ScrollStep {
 		if (filter == null || filter.length() == 0) {
 			return false;
 		}
-		return "scroll".equals(filter) || axisOf(filter) != null;
+		return "scroll".equals(filter) || "scrollnew".equals(commandName(filter))
+				|| axisOf(filter) != null;
 	}
 
 	public static String helpText() {
@@ -221,9 +244,10 @@ public final class ScrollStep {
 				+ "10 moves toward the text that was above. -10 moves toward the text that was below.\n"
 				+ "  .scrollh <N>        — N columns from where the canvas is now, when text width is above 100. "
 				+ "10 moves right. -10 moves left.\n"
+				+ "  .scrollnew           — jump to the newest text. No number.\n"
 				+ "No number does not pick a count. 0 does not move. "
 				+ "At 100% there is nothing to scroll sideways.\n"
-				+ "Sending one of these does not jump to the newest text.\n"
+				+ "Sending .scrollv or .scrollh does not jump to the newest text.\n"
 				+ "The number is how far one press moves. A shortcut can send either line.\n"
 				+ "Not sent to the world.\n";
 	}

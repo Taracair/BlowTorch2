@@ -5,7 +5,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.window.ScrollStep;
 
 /**
- * {@code .scrollv N} and {@code .scrollh N}. The window moves on the UI thread.
+ * {@code .scrollv N}, {@code .scrollh N}, and {@code .scrollnew}. The window moves on the UI thread.
  */
 public class ScrollCommand extends SpecialCommand {
 
@@ -29,14 +29,12 @@ public class ScrollCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor() + d.message() + "\n");
 			return null;
 		}
-		if (d.kind != ScrollStep.Kind.MOVE) {
-			c.sendDataToWindow(getErrorMessage("Scroll command usage:", d.message()));
-			return null;
-		}
 		String action = d.toAction();
 		if (action != null) {
 			c.getService().doRunUiAction(action);
+			return null;
 		}
+		c.sendDataToWindow(getErrorMessage("Scroll command usage:", d.message()));
 		return null;
 	}
 }

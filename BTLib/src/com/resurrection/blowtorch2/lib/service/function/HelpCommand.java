@@ -78,6 +78,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("scrollv", "The window", ScrollStep.summary("scrollv"));
 		cmd("scrollh", "The window", ScrollStep.summary("scrollh"));
+		cmd("scrollnew", "The window", ScrollStep.summary("scrollnew"));
 		cmd("avoidbuttons", "The window",
 				"wrap text around buttons; sides|between, letters|words; .width if it does not fit");
 		cmd("jumpsend", "The window", "after a send, jump to the newest text");
@@ -380,7 +381,7 @@ public class HelpCommand extends SpecialCommand {
 		if (ScrollStep.isScrollHelp(filter)) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor()
-					+ "Children of .scrollv / .scrollh:"
+					+ "Children of .scrollv / .scrollh / .scrollnew:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ ScrollStep.helpText();
 		}

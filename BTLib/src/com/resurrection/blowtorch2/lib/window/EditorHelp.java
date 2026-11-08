@@ -185,10 +185,12 @@ public final class EditorHelp {
 					+ "Turning Repeat on clears the hold command.";
 
 	public static final String QUIET_CAPTION =
-			"The game still receives it. This window does not show it.";
+			"Show this key's line, including when Local Echo? is off. Off, the game still receives it.";
+
+	public static final String PICKER_TITLE = "Follow a button";
 
 	public static final String USE_BUTTON =
-			"Use a button that already exists on your screen";
+			"Follow a button that already exists on your screen";
 
 	public static final String SHORTCUTS =
 			"A shortcut sends a line when you press a hardware key. The keys on the screen do not.\n\n"
@@ -222,23 +224,21 @@ public final class EditorHelp {
 			+ "Escape puts a recalled line's draft back. Type ki, Up shows kill goblin, "
 			+ "and Escape puts ki back. Escape again clears the bar. "
 			+ "An empty bar hides the keyboard. A dialog keeps Escape.\n\n"
-			+ "**Jump to the newest text**\n"
-			+ "Ctrl+Enter and Ctrl+End jump to the newest line. Enter still sends the line.\n\n"
-			+ "**Don't print the sent line**\n"
-			+ QUIET_CAPTION + "\n\n"
+			+ "**Local echo**\n"
+			+ QUIET_CAPTION + " A password prompt still hides it.\n\n"
 			+ "**" + USE_BUTTON + "**\n"
-			+ "Copies that button's command and its hold line, and turns repeat off. "
-			+ "Changing the button later does not change this key. "
-			+ "The list has a search box. It matches the words on the button, its name, its id, "
-			+ "its command, and its hold line. "
-			+ "It also matches the set name. Every button set is listed, under that set's name.\n\n"
+			+ "The key keeps sending that button's current command and its hold line. "
+			+ "Changing the button changes this key. "
+			+ "The list shows the id, and the search box matches it. "
+			+ "It also matches the words on the button, its name, its command, its hold line, "
+			+ "and the set name. Every set starts closed. Tap the set to open it.\n\n"
 			+ "**Number pad**\n"
-			+ "The first row in this list. Done writes those rows. "
+			+ "The row under Keyboard. Done writes those rows. "
 			+ "Compass words is a preset you apply. It fills 8 with north. Until Done, 8 still types. "
 			+ "None walks on the bare number. Alt walks on Alt plus the number, and the bare number types. "
 			+ "Ctrl walks on Ctrl plus the number, and the bare number types. "
 			+ "Look is a second layer. With Alt walking, Ctrl+8 sends look north. "
-			+ "The walk-lock button sends .shortcuts toggle. The bar shows Walk.\n\n"
+			+ "The walk-lock button sends .shortcuts toggle. The bar shows Pad walks.\n\n"
 			+ "**Up**\n"
 			+ "Type ki and Up finds kill goblin.\n\n"
 			+ "**Ctrl editing**\n"
@@ -247,6 +247,8 @@ public final class EditorHelp {
 			+ ".shortcuts off sends keys into the bar. Right Alt+a still inserts ą. "
 			+ "Ctrl and Alt together are not a shortcut unless that exact chord was bound.\n\n"
 			+ "**Scrolling**\n"
+			+ ".scrollnew jumps to the newest text. Ctrl+Enter and Ctrl+End start as that line. "
+			+ "Enter still sends the line. "
 			+ ".scrollv 10 moves toward the text that was above. .scrollh 10 moves to the right. "
 			+ ".kb start and .kb end move the caret.\n\n"
 			+ "**.shortcuts**\n"
@@ -258,6 +260,23 @@ public final class EditorHelp {
 	public static String shortcutsPlain() {
 		return SHORTCUTS.replace("**", "");
 	}
+
+	public static final String KEYBOARD =
+			"**Pad walks**\n"
+			+ "The number pad sends directions, the words from the Number pad form. "
+			+ "The bar shows Pad walks. Alt or Ctrl alone turns that on when the pad's modifier is that key. "
+			+ "The same key turns it off. It is not a second list of shortcuts.\n\n"
+			+ "**Arrows**\n"
+			+ "Up and Down stay in the input bar. They step through what you sent. "
+			+ "They do not move to Send, Edit, or the overflow button.\n\n"
+			+ "**Newest text**\n"
+			+ ".scrollnew jumps there. Put that line on a key. "
+			+ "Ctrl+Enter and Ctrl+End start as that line. Enter still sends what you typed.\n\n"
+			+ "**Local echo**\n"
+			+ QUIET_CAPTION + " A password prompt still hides it.\n\n"
+			+ "**A button**\n"
+			+ "Choosing one follows that button. The key sends whatever the button sends now. "
+			+ "The list shows the id. Sets start closed. Tap a set to open it.\n";
 
 	public static final String NUMBER_PAD =
 			"**Nothing is saved until Done.**\n\n"

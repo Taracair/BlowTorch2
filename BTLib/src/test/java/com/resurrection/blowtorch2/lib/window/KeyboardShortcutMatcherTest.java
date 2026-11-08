@@ -454,12 +454,12 @@ public class KeyboardShortcutMatcherTest {
 		matcher.setShortcuts(KeyboardShortcuts.enabled(Row.numpadEnter()));
 		assertNull(matcher.mark());
 		matcher.setLatch(true);
-		assertEquals("Walk", matcher.mark());
+		assertEquals("Pad walks", matcher.mark());
 		matcher.setTypingForced(true);
 		assertTrue(matcher.isLatchOn());
 		assertNull(matcher.mark());
 		matcher.setTypingForced(false);
-		assertEquals("Walk", matcher.mark());
+		assertEquals("Pad walks", matcher.mark());
 		matcher.setLatch(false);
 		assertFalse(matcher.isLatchOn());
 		assertNull(matcher.mark());
@@ -516,7 +516,7 @@ public class KeyboardShortcutMatcherTest {
 		Outcome latched = matcher.onKey(key(UP, ALT_LEFT, 0, 0, 0, 56, 0, 0, DEV, PRE));
 		assertTrue(latched.consumed);
 		assertTrue(matcher.isLatchOn());
-		assertEquals("Walk", matcher.mark());
+		assertEquals("Pad walks", matcher.mark());
 		Outcome walk = matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
 		assertEquals("north", walk.send);
 		assertTrue(walk.quiet);
@@ -610,7 +610,9 @@ public class KeyboardShortcutMatcherTest {
 		Outcome jump = matcher.onKey(key(DOWN, ENTER, KeyboardShortcuts.MOD_CTRL,
 				0, 0, SCAN_ENTER, 0, 0, DEV, PRE));
 		assertTrue(jump.consumed);
-		assertTrue(jump.jumpLive);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE, jump.send);
+		assertFalse(jump.quiet);
+		assertFalse(jump.jumpLive);
 		assertFalse(jump.sendInput);
 		assertFalse(jump.clearBar);
 		KeyboardShortcutMatcher fallback = seeded();
@@ -630,7 +632,9 @@ public class KeyboardShortcutMatcherTest {
 		KeyboardShortcutMatcher matcher = seeded();
 		Outcome end = matcher.onKey(key(DOWN, KeyboardShortcuts.KEYCODE_MOVE_END,
 				KeyboardShortcuts.MOD_CTRL, 0, 0, 107, 0, 0, DEV, PRE));
-		assertTrue(end.jumpLive);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE, end.send);
+		assertFalse(end.quiet);
+		assertFalse(end.jumpLive);
 		assertTrue(end.consumed);
 		Outcome both = matcher.onKey(key(DOWN, ENTER,
 				KeyboardShortcuts.MOD_CTRL | KeyboardShortcuts.MOD_ALT,
@@ -717,6 +721,53 @@ public class KeyboardShortcutMatcherTest {
 		assertFalse(typed.consumed);
 		Outcome altgr = matcher.onKey(letter(DOWN, 0x3012, 'a', 0, 0, PRE));
 		assertFalse(altgr.consumed);
+	}
+
+	@Test
+	public void aFollowedButtonSendsWhateverItSendsNow() {
+		final String[] raw = {
+			"[{\"set\":\"move\",\"buttons\":["
+					+ "{\"label\":\"N\",\"id\":\"b2\",\"command\":\"north\",\"hold\":\"bash\"}]}]"
+		};
+		KeyboardShortcutMatcher matcher = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, true, "stale", "old hold", "go", false).withLink("move", "b2"));
+		matcher.setButtonLookup(new KeyboardShortcutMatcher.ButtonLookup() {
+			@Override
+			public com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button find(
+					final String set, final String id) {
+				return KeyboardShortcutButtons.find(raw[0], set, id);
+			}
+		});
+		Outcome down = matcher.onKey(letter(DOWN, 0, 0, 0, 0, PRE));
+		assertTrue(down.consumed);
+		assertNull(down.send);
+		assertEquals(450, down.scheduleHoldMs);
+		assertEquals("bash", matcher.onHoldFired(down.timerToken).send);
+		matcher.onKey(letter(UP, 0, 0, 0, 0, PRE));
+		raw[0] = "[{\"set\":\"move\",\"buttons\":["
+				+ "{\"label\":\"N\",\"id\":\"b2\",\"command\":\"south\",\"hold\":\"\"}]}]";
+		Outcome again = matcher.onKey(letter(DOWN, 0, 0, 0, 0, PRE));
+		assertEquals("south", again.send);
+		assertEquals(0, again.scheduleHoldMs);
+	}
+
+	@Test
+	public void aMissingButtonSendsNothing() {
+		KeyboardShortcutMatcher matcher = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, false, "stale", "", "go", false).withLink("move", "gone"));
+		matcher.setButtonLookup(new KeyboardShortcutMatcher.ButtonLookup() {
+			@Override
+			public com.resurrection.blowtorch2.lib.window.KeyboardShortcutButtons.Button find(
+					final String set, final String id) {
+				return null;
+			}
+		});
+		Outcome down = matcher.onKey(letter(DOWN, 0, 0, 0, 0, PRE));
+		assertTrue(down.consumed);
+		assertNull(down.send);
+		Outcome up = matcher.onKey(letter(UP, 0, 0, 0, 0, PRE));
+		assertTrue(up.consumed);
+		assertNull(up.send);
 	}
 
 	private static KeyboardShortcutMatcher seeded() {

@@ -97,10 +97,10 @@ public class KeyboardShortcutsTest {
 				loaded.row(KeyboardShortcuts.KEYCODE_NUMPAD_ENTER, 0).action);
 		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
 				loaded.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				loaded.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				loaded.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				loaded.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).tap);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				loaded.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).tap);
 		assertEquals(4, KeyboardShortcuts.parse(loaded.format()).rows().size());
 
 		KeyboardShortcuts off = KeyboardShortcuts.parse("on=0;introduced=1;160|0|input|1|0||");
@@ -116,8 +116,8 @@ public class KeyboardShortcutsTest {
 		Change again = reloaded.apply("off").next.apply("on");
 		assertFalse(again.printNotice);
 		assertEquals(null, again.next.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0));
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				again.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				again.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).tap);
 
 		KeyboardShortcuts taken = KeyboardShortcuts.parse(
 				"on=1;introduced=1;111|0|line|1|0|smile|;160|0|input|1|0||");
@@ -137,10 +137,10 @@ public class KeyboardShortcutsTest {
 		assertEquals(KeyboardShortcuts.ACTION_LINE, escape.action);
 		assertEquals("smile", escape.tap);
 		assertEquals(KeyboardShortcuts.ACTION_INPUT, on.next.row(160, 0).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				on.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				on.next.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				on.next.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).tap);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				on.next.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).tap);
 		assertEquals(4, on.next.rows().size());
 	}
 
@@ -363,8 +363,8 @@ public class KeyboardShortcutsTest {
 				KeyboardShortcuts.empty().apply("on").next.format());
 		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
 				parsed.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				parsed.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				parsed.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).tap);
 		assertEquals("Esc", KeyboardShortcuts.chordLabel(KeyboardShortcuts.KEYCODE_ESCAPE, 0));
 		assertEquals("Ctrl+Enter", KeyboardShortcuts.chordLabel(
 				KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL));
@@ -372,7 +372,7 @@ public class KeyboardShortcutsTest {
 				KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL));
 		assertEquals("clear the bar", KeyboardShortcuts.listText(
 				parsed.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0)).detail);
-		assertEquals("newest text", KeyboardShortcuts.listText(
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE, KeyboardShortcuts.listText(
 				parsed.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL)).detail);
 	}
 
@@ -390,15 +390,42 @@ public class KeyboardShortcutsTest {
 		assertFalse(live.repeat);
 	}
 
+	@Test
+	public void aButtonLinkRoundTripsAndAnOldJumpBecomesTheCommand() {
+		Row linked = Row.of(29, 0, KeyboardShortcuts.ACTION_LINE, true, true, "stale", "held",
+				"go", true).withLink("fight", "b1");
+		assertTrue(linked.followsButton());
+		assertEquals("", linked.tap);
+		assertFalse(linked.repeat);
+		assertTrue(linked.quiet);
+		KeyboardShortcuts parsed = KeyboardShortcuts.parse(KeyboardShortcuts.enabled(linked).format());
+		Row back = parsed.row(29, 0);
+		assertEquals("b1", back.buttonId);
+		assertEquals("fight", back.buttonSet);
+		assertEquals("button fight / b1", KeyboardShortcuts.listText(back).detail);
+		KeyboardShortcuts kept = parsed.withEnabled(29, 0, false);
+		assertFalse(kept.row(29, 0).enabled);
+		assertEquals("b1", kept.row(29, 0).buttonId);
+
+		KeyboardShortcuts old = KeyboardShortcuts.parse("on=1;offered=1;66|4096|live|1|0||");
+		Row jump = old.row(66, KeyboardShortcuts.MOD_CTRL);
+		assertEquals(KeyboardShortcuts.ACTION_LINE, jump.action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE, jump.tap);
+		assertFalse(jump.quiet);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				KeyboardShortcuts.parse(old.format()).row(66, KeyboardShortcuts.MOD_CTRL).tap);
+	}
+
 	private static void assertClientRows(final KeyboardShortcuts shortcuts) {
 		assertEquals(4, shortcuts.rows().size());
 		assertEquals(160, shortcuts.rows().get(0).keyCode);
 		assertEquals(KeyboardShortcuts.ACTION_INPUT, shortcuts.row(160, 0).action);
 		assertEquals(KeyboardShortcuts.ACTION_ESCAPE,
 				shortcuts.row(KeyboardShortcuts.KEYCODE_ESCAPE, 0).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				shortcuts.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).action);
-		assertEquals(KeyboardShortcuts.ACTION_LIVE,
-				shortcuts.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).action);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				shortcuts.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).tap);
+		assertEquals(KeyboardShortcuts.SCROLL_NEW_LINE,
+				shortcuts.row(KeyboardShortcuts.KEYCODE_MOVE_END, KeyboardShortcuts.MOD_CTRL).tap);
+		assertFalse(shortcuts.row(KeyboardShortcuts.KEYCODE_ENTER, KeyboardShortcuts.MOD_CTRL).quiet);
 	}
 }

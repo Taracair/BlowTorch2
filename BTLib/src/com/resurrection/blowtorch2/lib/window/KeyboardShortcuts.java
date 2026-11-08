@@ -33,8 +33,10 @@ public final class KeyboardShortcuts {
 	public static final String ACTION_STEP = "step";
 	/** Put a recalled draft back, or clear the bar, or hide the keyboard. */
 	public static final String ACTION_ESCAPE = "escape";
-	/** Jump the game text to the live end. */
+	/** Jump the game text to the live end. Old saves store this; parse turns it into {@link #SCROLL_NEW_LINE}. */
 	public static final String ACTION_LIVE = "live";
+	/** A shortcut line that jumps to the newest text. */
+	public static final String SCROLL_NEW_LINE = ".scrollnew";
 
 	/** Platform {@code KeyEvent.KEYCODE_ESCAPE}. */
 	public static final int KEYCODE_ESCAPE = 111;
@@ -361,9 +363,7 @@ public final class KeyboardShortcuts {
 		if (existing == null || existing.enabled == enabled) {
 			return this;
 		}
-		return withRow(keyCode, modifiers, Row.of(existing.keyCode, existing.modifiers, existing.action,
-				enabled, existing.repeat, existing.tap, existing.hold, existing.name, existing.quiet)
-				.asPad(existing.pad));
+		return withRow(keyCode, modifiers, existing.withEnabled(enabled));
 	}
 
 	public static String listKey(final int keyCode, final int modifiers) {
@@ -406,8 +406,12 @@ public final class KeyboardShortcuts {
 			detail.append("send the line");
 		} else if (ACTION_ESCAPE.equals(row.action)) {
 			detail.append("clear the bar");
-		} else if (ACTION_LIVE.equals(row.action)) {
-			detail.append("newest text");
+		} else if (row.followsButton()) {
+			detail.append("button ");
+			if (row.buttonSet.length() > 0) {
+				detail.append(row.buttonSet).append(" / ");
+			}
+			detail.append(row.buttonId);
 		} else if (row.tap.length() > 0) {
 			detail.append(row.tap);
 		}
@@ -424,7 +428,7 @@ public final class KeyboardShortcuts {
 			detail.append("hold to repeat");
 		}
 		String search = (row.name + "\n" + chord + "\n" + row.tap + "\n" + row.hold + "\n"
-				+ detail).toLowerCase(Locale.US);
+				+ row.buttonSet + "\n" + row.buttonId + "\n" + detail).toLowerCase(Locale.US);
 		return new ListText(title, detail.toString(), search);
 	}
 
@@ -548,7 +552,20 @@ public final class KeyboardShortcuts {
 			String name = f.length > 7 ? decode(f[7]) : "";
 			boolean quiet = f.length > 8 && "1".equals(f[8].trim());
 			boolean pad = f.length > 9 && "1".equals(f[9].trim());
-			return Row.of(key, mods, action, enabled, repeat, tap, hold, name, quiet).asPad(pad);
+			String buttonSet = f.length > 10 ? decode(f[10]) : "";
+			String buttonId = f.length > 11 ? decode(f[11]) : "";
+			if (ACTION_LIVE.equals(action)) {
+				action = ACTION_LINE;
+				if (tap.length() == 0) {
+					tap = SCROLL_NEW_LINE;
+				}
+				repeat = false;
+			}
+			Row row = Row.of(key, mods, action, enabled, repeat, tap, hold, name, quiet).asPad(pad);
+			if (buttonId.length() > 0) {
+				row = row.withLink(buttonSet, buttonId);
+			}
+			return row;
 		} catch (NumberFormatException e) {
 			return null;
 		}
@@ -622,10 +639,15 @@ public final class KeyboardShortcuts {
 		public final boolean quiet;
 		/** Written by the number-pad form. Done replaces these and leaves other rows. */
 		public final boolean pad;
+		/** Button set this key follows. Empty when it does not follow a button. */
+		public final String buttonSet;
+		/** Button id this key follows. Empty when the key stores its own lines. */
+		public final String buttonId;
 
 		private Row(final int keyCode, final int modifiers, final String action,
 				final boolean enabled, final boolean repeat, final String tap, final String hold,
-				final String name, final boolean quiet, final boolean pad) {
+				final String name, final boolean quiet, final boolean pad,
+				final String buttonSet, final String buttonId) {
 			this.keyCode = keyCode;
 			this.modifiers = modifiers;
 			this.action = action;
@@ -636,6 +658,12 @@ public final class KeyboardShortcuts {
 			this.name = name;
 			this.quiet = quiet;
 			this.pad = pad;
+			this.buttonSet = buttonSet == null ? "" : buttonSet;
+			this.buttonId = buttonId == null ? "" : buttonId;
+		}
+
+		public boolean followsButton() {
+			return buttonId.length() > 0;
 		}
 
 		/** Repeat and a hold line are not both kept. A hold line wins. */
@@ -669,17 +697,39 @@ public final class KeyboardShortcuts {
 				useRepeat = false;
 			}
 			return new Row(keyCode, modifiers & MOD_MASK, useAction, enabled, useRepeat, useTap,
-					useHold, flatten(name), useQuiet, false);
+					useHold, flatten(name), useQuiet, false, "", "");
 		}
 
 		public Row asPad(final boolean pad) {
-			return new Row(keyCode, modifiers, action, enabled, repeat, tap, hold, name, quiet, pad);
+			return new Row(keyCode, modifiers, action, enabled, repeat, tap, hold, name, quiet, pad,
+					buttonSet, buttonId);
+		}
+
+		public Row withEnabled(final boolean nextEnabled) {
+			return new Row(keyCode, modifiers, action, nextEnabled, repeat, tap, hold, name, quiet, pad,
+					buttonSet, buttonId);
+		}
+
+		/** Follow this button. The lines are read when the key is pressed. */
+		public Row withLink(final String set, final String id) {
+			String useId = id == null ? "" : id.trim();
+			if (useId.length() == 0) {
+				return this;
+			}
+			String useSet = set == null ? "" : set.trim();
+			return new Row(keyCode, modifiers, ACTION_LINE, enabled, false, "", "", name, quiet, pad,
+					useSet, useId);
+		}
+
+		/** The button's lines for this press. Repeat stays off. The link is not kept on this copy. */
+		public Row withLive(final String command, final String holdCommand) {
+			return of(keyCode, modifiers, ACTION_LINE, enabled, false, command, holdCommand, name, quiet)
+					.asPad(pad);
 		}
 
 		/** A copy of this button's tap and hold. Repeat is off. Later edits of the button are not followed. */
 		public Row withButton(final String command, final String holdCommand) {
-			return of(keyCode, modifiers, ACTION_LINE, enabled, false, command, holdCommand, name, quiet)
-					.asPad(pad);
+			return withLive(command, holdCommand);
 		}
 
 		public static Row numpadEnter() {
@@ -691,7 +741,7 @@ public final class KeyboardShortcuts {
 		}
 
 		public static Row jumpLive(final int keyCode, final int modifiers) {
-			return of(keyCode, modifiers, ACTION_LIVE, true, false, "", "");
+			return of(keyCode, modifiers, ACTION_LINE, true, false, SCROLL_NEW_LINE, "", "", false);
 		}
 
 		private void append(final StringBuilder sb) {
@@ -704,8 +754,11 @@ public final class KeyboardShortcuts {
 			sb.append(encode(hold)).append('|');
 			sb.append(encode(name)).append('|');
 			sb.append(quiet ? '1' : '0');
-			if (pad) {
-				sb.append("|1");
+			if (pad || followsButton()) {
+				sb.append('|').append(pad ? '1' : '0');
+			}
+			if (followsButton()) {
+				sb.append('|').append(encode(buttonSet)).append('|').append(encode(buttonId));
 			}
 		}
 

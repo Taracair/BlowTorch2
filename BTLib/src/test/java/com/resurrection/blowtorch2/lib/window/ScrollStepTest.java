@@ -218,6 +218,23 @@ public class ScrollStepTest {
 		assertTrue(ScrollStep.isScrollHelp("scrollh"));
 		assertTrue(!ScrollStep.isScrollHelp("width"));
 		assertTrue(!ScrollStep.isScrollHelp("scrollup"));
+		assertTrue(help.contains(".scrollnew"));
+		assertTrue(ScrollStep.summary("scrollnew").contains("newest"));
+		assertTrue(ScrollStep.isScrollHelp("scrollnew"));
+	}
+
+	@Test
+	public void scrollnewJumpsAndTakesNoNumber() {
+		ScrollStep.Decision jump = ScrollStep.decide("scrollnew", "", 100);
+		assertEquals(ScrollStep.Kind.JUMP, jump.kind);
+		assertEquals("scroll:new", jump.toAction());
+		assertEquals(ScrollStep.Kind.JUMP, ScrollStep.fromAction("scroll:new").kind);
+		ScrollStep.Decision extra = ScrollStep.decide(".scrollnew", "10", 100);
+		assertEquals(ScrollStep.Kind.EXTRA, extra.kind);
+		assertNull(extra.toAction());
+		assertTrue(extra.message().contains("no number"));
+		assertTrue(!ScrollStep.keepsPlace(".scrollnew"));
+		assertTrue(!ScrollStep.keepsPlace(".scrollnew;.scrollv 10"));
 	}
 
 	private static void assertBad(final String command, final String argument) {

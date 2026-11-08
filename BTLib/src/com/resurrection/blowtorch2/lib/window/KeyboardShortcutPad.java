@@ -141,10 +141,10 @@ public final class KeyboardShortcutPad {
 	/** None tells the player to pick Alt or Ctrl. Alt and Ctrl name that key. */
 	public static String latchCaption(final int walkModifier) {
 		if (walkModifier == KeyboardShortcuts.MOD_ALT) {
-			return "This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Walk.";
+			return "This key, or Alt alone, turns walking on. The same key turns it off. The bar shows Pad walks.";
 		}
 		if (walkModifier == KeyboardShortcuts.MOD_CTRL) {
-			return "This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Walk.";
+			return "This key, or Ctrl alone, turns walking on. The same key turns it off. The bar shows Pad walks.";
 		}
 		return "Pick Alt or Ctrl above. The numbers already walk, so there is nothing to keep on.";
 	}

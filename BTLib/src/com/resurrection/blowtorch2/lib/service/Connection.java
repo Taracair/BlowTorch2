@@ -396,6 +396,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final StringBuffer mDataToServer = new StringBuffer();
 	/** Unaccent flag of the send being walked, for a mid-line credential flush. */
 	private boolean mOutboundUnaccent = false;
+	/** Echo mode of the send being walked. Handler thread only. */
+	private int mOutboundEcho = SendEcho.INHERIT;
 	private volatile List<com.resurrection.blowtorch2.lib.launcher.ServerAccount> mLauncherAccounts =
 			new ArrayList<com.resurrection.blowtorch2.lib.launcher.ServerAccount>();
 	/** String builder used by the alias parsing routine. */
@@ -1158,7 +1160,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_SENDDATA_BYTES:
 				try {
 					resetUntilSendFired();
-					sendToServer((byte[]) msg.obj, true, msg.arg1 != 0);
+					sendToServer((byte[]) msg.obj, true, SendEcho.mode(msg.arg1));
 				} catch (Exception e1) {
 					reportRuntimeError("outbound command", e1);
 				}
@@ -4306,7 +4308,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				pending.mCmdString = mDataToServer.toString();
 				pending.mVisString = "";
 				mDataToServer.setLength(0);
-				emitOutbound(pending, mOutboundUnaccent, false);
+				emitOutbound(pending, mOutboundUnaccent, SendEcho.INHERIT);
 			}
 			String line = value;
 			if (mMcpEngine != null && mMcpEngine.isUse()) {
@@ -4367,7 +4369,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			enter.mCmdString = ";" + mCRLF;
 			// Same inherit path as a plain typed line — respect global local echo.
 			if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho,
-					AliasLocalEcho.INHERIT)) {
+					SendEcho.shown(AliasLocalEcho.INHERIT, mOutboundEcho))) {
 				enter.mVisString = ";";
 			} else {
 				enter.mVisString = "";
@@ -4521,7 +4523,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					d = null;
 				} else {
 					AliasLocalEcho outerPolicy = mCommandEchoPolicy;
-					mCommandEchoPolicy = segmentPolicy;
+					mCommandEchoPolicy = SendEcho.shown(segmentPolicy, mOutboundEcho);
 					try {
 						d = processCommand(cmd);
 					} finally {
@@ -4604,14 +4606,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 									mDataToServer.append(new String(srv));
 									appendVisIfAllowed(
 											new String(tmp, mSettings.getEncoding()) + ";",
-											segmentPolicy);
+											SendEcho.shown(segmentPolicy, mOutboundEcho));
 								} else {
 									String srv = new String(tmp, mSettings.getEncoding()) + mCRLF;
 									mDataToServer.append(new String(srv));
 								}
 							} else {
 								mDataToServer.append(d.mCmdString + mCRLF);
-								appendVisIfAllowed(d.mCmdString, segmentPolicy);
+								appendVisIfAllowed(d.mCmdString,
+										SendEcho.shown(segmentPolicy, mOutboundEcho));
 							}
 						}
 							
@@ -4622,7 +4625,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						if (!m) {
 							AliasLocalEcho visPolicy = d.mVisEchoPolicy != null
 									? d.mVisEchoPolicy : segmentPolicy;
-							appendVisIfAllowed(d.mVisString + ";", visPolicy);
+							appendVisIfAllowed(d.mVisString + ";",
+									SendEcho.shown(visPolicy, mOutboundEcho));
 						}
 					}
 				}
@@ -4747,13 +4751,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				holdover.append(paused.holdover);
 			}
 			mOutboundUnaccent = paused.unaccent;
-			Data d = processPreparedSegments(paused.segments, paused.inheritedEcho,
-					holdover, paused.holdoverPolicy);
+			int previousEcho = mOutboundEcho;
+			mOutboundEcho = paused.echoMode;
+			final Data d;
+			try {
+				d = processPreparedSegments(paused.segments, paused.inheritedEcho,
+						holdover, paused.holdoverPolicy);
+			} finally {
+				mOutboundEcho = previousEcho;
+			}
 			if (mJustPaused != null) {
 				mJustPaused.unaccent = paused.unaccent;
-				mJustPaused.quiet = paused.quiet;
+				mJustPaused.echoMode = paused.echoMode;
 			}
-			emitOutbound(d, paused.unaccent, paused.quiet);
+			emitOutbound(d, paused.unaccent, paused.echoMode);
 			armPendingWait();
 		} catch (Exception e) {
 			reportRuntimeError("wait resume", e);
@@ -4773,7 +4784,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		long delayMs;
 		long fireAtElapsed;
 		boolean unaccent;
-		boolean quiet;
+		int echoMode;
 	}
 
 	/**
@@ -8234,17 +8245,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param bytes Input to process.
 	 */
 	private void sendToServer(final byte[] bytes) {
-		sendToServer(bytes, false, false);
+		sendToServer(bytes, false, SendEcho.INHERIT);
 	}
 
 	/**
 	 * @param unaccent true for input-bar / button (BYTES) sends; false for Lua
 	 *        {@code SendToServer} and Ack (STRING)
-	 * @param quiet true skips the local echo of this send. The socket line is unchanged.
+	 * @param echoMode {@link SendEcho#INHERIT}, {@link SendEcho#HIDE}, or
+	 *        {@link SendEcho#SHOW}. The socket line is unchanged.
 	 */
-	private void sendToServer(final byte[] bytes, final boolean unaccent, final boolean quiet) {
+	private void sendToServer(final byte[] bytes, final boolean unaccent, final int echoMode) {
 		try {
-			sendToServerOnce(bytes, unaccent, quiet);
+			sendToServerOnce(bytes, unaccent, echoMode);
 		} finally {
 			// No-op when the route's line reached the mapper; otherwise it never went out.
 			if (mMapper != null) {
@@ -8253,12 +8265,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	private void sendToServerOnce(final byte[] bytes, final boolean unaccent, final boolean quiet) {
+	private void sendToServerOnce(final byte[] bytes, final boolean unaccent, final int echoMode) {
 		if (bytes == null || mSettings == null) {
 			return;
 		}
 		Data d = null;
 		mOutboundUnaccent = unaccent;
+		int previousEcho = mOutboundEcho;
+		mOutboundEcho = echoMode;
 		try {
 			d = processOutputData(new String(bytes, mSettings.getEncoding()));
 		} catch (UnsupportedEncodingException e2) {
@@ -8267,11 +8281,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} catch (Exception e2) {
 			reportRuntimeError("alias / special command", e2);
 			return;
+		} finally {
+			mOutboundEcho = previousEcho;
 		}
 
 		if (mJustPaused != null) {
 			mJustPaused.unaccent = unaccent;
-			mJustPaused.quiet = quiet;
+			mJustPaused.echoMode = echoMode;
 		}
 		
 		if (d == null) {
@@ -8279,7 +8295,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		try {
-			emitOutbound(d, unaccent, quiet);
+			emitOutbound(d, unaccent, echoMode);
 		} catch (IOException e) {
 			cancelCommandWaits();
 			mHandler.sendEmptyMessage(MESSAGE_DISCONNECTED);
@@ -8292,12 +8308,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * Socket write + local echo for a batch that {@link #processOutputData} or a
 	 * {@code .wait} resume already finished walking.
 	 */
-	private void emitOutbound(final Data d, final boolean unaccentFromBytes, final boolean quiet)
+	private void emitOutbound(final Data d, final boolean unaccentFromBytes, final int echoMode)
 			throws IOException {
 		if (d == null) {
 			return;
 		}
-		if (quiet) {
+		if (SendEcho.hideLine(echoMode)) {
 			d.mVisString = "";
 		}
 		if (d.mCmdString.equals("") && (d.mVisString != null && d.mVisString.replaceAll("\\s", "").equals(""))) {
