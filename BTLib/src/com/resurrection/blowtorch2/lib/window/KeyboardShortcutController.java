@@ -16,6 +16,8 @@ public final class KeyboardShortcutController {
 	public interface Sink {
 		void sendLine(String line, boolean quiet);
 
+		void typeIntoBar(int codePoint);
+
 		void sendInput();
 
 		void showMark(String mark);
@@ -114,7 +116,9 @@ public final class KeyboardShortcutController {
 		if (outcome == null || sink == null) {
 			return;
 		}
-		if (outcome.clearBar) {
+		if (outcome.typeCode != 0) {
+			sink.typeIntoBar(outcome.typeCode);
+		} else if (outcome.clearBar) {
 			sink.clearBar();
 		} else if (outcome.jumpLive) {
 			sink.jumpLive();
