@@ -4653,7 +4653,7 @@ Print the summary with `.map dirs`.
     `.map capture preview`                                                  Match Options title/exits/room id regex on the last 20 lines
     `.map capture apply`                                                    Read the last 20 lines again and apply them to the current tile
     `.map route <cmd>`                                                      Send `cmd`; when the room id changes, link the two rooms by it
-    `.map room <id> [| <exits> [| <title>]]`                                A trigger's Send or Lua names the room you are in; placed and linked like an id line
+    `.map room <id> [| <exits> [| <title> [| <move>]]]`                     A trigger's Send or Lua names the room you are in; the last field is how you arrived and is not sent
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, **Auto-Send Path?**, **Use GMCP Room Sync?**,
@@ -4737,18 +4737,19 @@ wins when it names one. Aliases do not run on the routed command, so an alias
 can read, but something else tells rooms apart (a description you colour with
 a trigger, a line a script recognises), let the trigger name the room. Put
 `.map room $1` in the trigger's **Send** action, or call
-`SendToServer(".map room " .. id)` from Lua. It works like an id line: the room
-is placed by the last move you typed, found again by that id when you come
-back, and linked from where you were. No Capture Room ID Regex is needed.
-Exits and a title can follow after `|`:
-`.map room $1 | north,east,south | Temple Square`. The id is everything before
-the first `|`, so it may contain spaces. Moves come from what you type (or the
-buttons you bind), so typed specials need `.map route` as above. The trigger
-has to fire in every room: walk `n`, `n` through a room it misses and the next
-room is drawn one step from where you started. Use either this or a Capture
-Room ID Regex, not both: each takes the move you typed, so the second room has
-none left. If the mapper is off, or `$1` is empty, it says so once, not on every
-room.
+`SendToServer(".map room " .. id)` from Lua. The room is found again by that
+id when you come back, and it is linked from where you were. No Capture Room ID
+Regex is needed. Exits, a title, and the way you arrived can follow after `|`:
+`.map room temple | north,east | Temple | enter`. The optional fourth field is
+the way you arrived, and it is not sent to the game. Omit it and the mapper
+still uses the last move you typed. `.map route` is still how you send a
+special exit. `north` is stored as `n`, and `enter` as `in`, the same as a
+capture group named `move`. A field may contain spaces; `|` separates fields.
+The trigger has to fire in every room: walk `n`, `n` through a room it misses
+and the next room is drawn one step from where you started. Use either this
+or a Capture Room ID Regex, not both: each takes the move you typed, so the
+second room has none left. If the mapper is off, or `$1` is empty, it says so
+once, not on every room.
 
 **GMCP Room:** with **Use GMCP?** and **Use GMCP Room Sync?** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:

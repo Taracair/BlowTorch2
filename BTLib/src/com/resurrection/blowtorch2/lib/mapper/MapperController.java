@@ -1545,15 +1545,17 @@ public class MapperController {
 	}
 
 	/**
-	 * {@code .map room}: a trigger or Lua names the room, for worlds whose
-	 * text has no id line a regex could read (the BatMUD player keyed rooms by
-	 * a coloured description). Placed by the last typed move, like an id line.
+	 * {@code .map room}: a trigger or Lua names the room when the game text
+	 * has no id line a regex could read. The move field, when set, is how you
+	 * arrived; otherwise the last typed move.
 	 *
 	 * @return a problem to show, or null
 	 */
-	public String reportRoom(final String id, final String exits, final String title) {
+	public String reportRoom(final String id, final String exits, final String title,
+			final String move) {
 		if (id == null || id.trim().length() == 0) {
-			return roomReportProblem("Usage: .map room <id> [| <exits> [| <title>]]");
+			return roomReportProblem(
+					"Usage: .map room <id> [| <exits> [| <title> [| <move>]]]");
 		}
 		if (!mEnabled || mMap == null) {
 			return roomReportProblem("Mapper is off, so .map room maps nothing.");
@@ -1565,6 +1567,8 @@ public class MapperController {
 		room.id = id.trim();
 		room.exits = exits != null && exits.trim().length() > 0 ? splitExits(exits) : null;
 		room.title = title != null && title.trim().length() > 0 ? title.trim() : null;
+		String arrived = move == null ? "" : move.trim();
+		room.move = arrived.length() > 0 ? arrived : null;
 		mCapturedRoom = room;
 		mLiveIdSeen = room.id;
 		// Committed now: the trigger's line may already be behind the lines that follow it.

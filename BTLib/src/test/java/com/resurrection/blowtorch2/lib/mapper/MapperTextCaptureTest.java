@@ -106,19 +106,80 @@ public class MapperTextCaptureTest {
 	public void aTriggerCanNameTheRoomWithoutAnyCaptureRegex() {
 		MapperController mapper = new MapperController(new Object());
 		mapper.setEditMode(true);
-		mapper.reportRoom("A dusty hall", "north", null);
+		mapper.reportRoom("A dusty hall", "north", null, null);
 		MapTile a = mapper.currentTile();
 		mapper.onPlayerCommand("n");
-		mapper.reportRoom("A cold cellar", "south", "Cellar");
+		mapper.reportRoom("A cold cellar", "south", "Cellar", null);
 		MapTile b = mapper.currentTile();
 		assertEquals("A cold cellar", b.getExternalId());
 		assertEquals("Cellar", b.getTitle());
 		assertEquals(a.getGridY() - 1, b.getGridY());
 		assertTrue(commands(a).toString(), commands(a).contains("n"));
 		mapper.onPlayerCommand("s");
-		mapper.reportRoom("A dusty hall", null, null);
+		mapper.reportRoom("A dusty hall", null, null, null);
 		assertEquals(a.getId(), mapper.currentTile().getId());
 		assertEquals(2, mapper.getMap().getTiles().size());
+	}
+
+	@Test
+	public void aMoveOnReportRoomLinksByThatWordWithoutATypedDirection() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
+		mapper.reportRoom("hall", null, null, null);
+		MapTile hall = mapper.currentTile();
+		mapper.reportRoom("temple", "north,east", "Temple", "enter");
+		MapTile temple = mapper.currentTile();
+		assertTrue(!hall.getId().equals(temple.getId()));
+		// enter is the lexicon alias of in, same as a capture group named move.
+		assertTrue(commands(hall).toString(), commands(hall).contains("in"));
+		assertTrue(mapper.lastDrawnRoom(), mapper.lastDrawnRoom().contains("came by enter"));
+		assertEquals("temple", temple.getExternalId());
+		assertEquals("Temple", temple.getTitle());
+	}
+
+	@Test
+	public void aSuppliedMoveBeatsTheDirectionYouTyped() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
+		mapper.reportRoom("hall", null, null, null);
+		MapTile hall = mapper.currentTile();
+		mapper.onPlayerCommand("s");
+		mapper.reportRoom("temple", null, "Temple", "enter");
+		assertTrue(!hall.getId().equals(mapper.currentTile().getId()));
+		assertTrue(commands(hall).toString(), commands(hall).contains("in"));
+		assertTrue(commands(hall).toString(), !commands(hall).contains("s"));
+	}
+
+	@Test
+	public void aBlankMoveDoesNotEraseTheDirectionYouTyped() {
+		MapperController empty = new MapperController(new Object());
+		empty.setEditMode(true);
+		empty.reportRoom("hall", null, null, null);
+		MapTile fromEmpty = empty.currentTile();
+		empty.onPlayerCommand("n");
+		empty.reportRoom("cellar", null, "Cellar", "");
+		assertEquals("cellar", empty.currentTile().getExternalId());
+		assertTrue(commands(fromEmpty).toString(), commands(fromEmpty).contains("n"));
+
+		MapperController spaces = new MapperController(new Object());
+		spaces.setEditMode(true);
+		spaces.reportRoom("hall", null, null, null);
+		MapTile fromSpaces = spaces.currentTile();
+		spaces.onPlayerCommand("n");
+		spaces.reportRoom("cellar", null, "Cellar", "   ");
+		assertEquals("cellar", spaces.currentTile().getExternalId());
+		assertTrue(commands(fromSpaces).toString(), commands(fromSpaces).contains("n"));
+	}
+
+	@Test
+	public void aCompassWordInTheMoveFieldIsStoredShort() {
+		MapperController mapper = new MapperController(new Object());
+		mapper.setEditMode(true);
+		mapper.reportRoom("hall", null, null, null);
+		MapTile hall = mapper.currentTile();
+		mapper.reportRoom("yard", null, null, "north");
+		assertTrue(commands(hall).toString(), commands(hall).contains("n"));
+		assertTrue(commands(hall).toString(), !commands(hall).contains("north"));
 	}
 
 	@Test
