@@ -109,6 +109,8 @@ public class HelpCommand extends SpecialCommand {
 				"Up stays on commands that start with the bar; off steps through every command");
 		cmd("stepback", "Input and suggestions",
 				"sends the reverse of the last number-pad walk; nothing until that pad has walked");
+		cmd("clearbar", "Input and suggestions",
+				"one Escape press: draft back, otherwise clear, empty bar hides the keyboard");
 		cmd("last", "Input and suggestions",
 				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
 		cmd("lastlist", "Input and suggestions",
@@ -782,6 +784,18 @@ public class HelpCommand extends SpecialCommand {
 					+ "  The up and down on the Edit strip do the same. Off at the start.\n"
 					+ "  Options → Typing → Up finds a command that starts with what you typed\n";
 		}
+		if (filter.equals("clearbar")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + ".clearbar"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  One press of Escape on the input bar.\n"
+					+ "  A recalled line puts the draft back.\n"
+					+ "  Any other text clears the bar.\n"
+					+ "  An empty bar hides the keyboard.\n"
+					+ "  .kb clear only empties the bar.\n"
+					+ "  Put .clearbar in a shortcut's tap command to bind it to a key.\n"
+					+ "  The Escape key shortcuts turn on does this until you replace its line.\n";
+		}
 		if (filter.equals("stepback")) {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + ".stepback"
@@ -808,6 +822,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .kb insertliteral <text> — at caret, exactly as typed\n"
 					+ "  .kb insertword <text>  — same as insert\n"
 					+ "  .kb add|popup|flush|clear|close\n"
+					+ "  .kb clear             — empty the bar. .clearbar is the Escape press\n"
 					+ "  .kb sel|copy|cut|paste\n"
 					+ "  .kb start|end|stepf|stepb\n"
 					+ "  .kb stepu|stepd        — older / newer command in history\n"

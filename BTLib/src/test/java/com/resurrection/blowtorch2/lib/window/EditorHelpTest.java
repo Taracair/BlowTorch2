@@ -69,8 +69,12 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains("Options → Typing → Hardware keyboard"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".kb flush"));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".stepback"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".clearbar"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".kb clear"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("Send the current line"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("**Step back**"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("**Clear the bar**"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("**Send a line**"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("The first row in this list."));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollnew"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+Enter and Ctrl+End"));

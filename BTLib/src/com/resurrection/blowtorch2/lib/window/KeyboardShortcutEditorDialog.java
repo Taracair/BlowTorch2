@@ -20,8 +20,6 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.core.content.ContextCompat;
@@ -47,14 +45,11 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final CheckBox repeatBox;
 	private final CheckBox quietBox;
 	private final TextView quietNote;
-	private final RadioGroup actions;
 	private final View commandBlock;
 	private final View followBlock;
 	private final TextView followNote;
 	private TextView legacyNote;
-	private final int lineId;
-	private final int clearId;
-	/** ACTION_INPUT and ACTION_STEP stay until the player picks a radio. */
+	/** An old send-the-line, step-back, or clear-the-bar row, until a tap or hold is typed. */
 	private final String loadedAction;
 	private String linkSet = "";
 	private String linkId = "";
@@ -123,27 +118,17 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		});
 		form.addView(keyLabel);
 
-		form.addView(label(activity, "Action"));
-		actions = new RadioGroup(activity);
-		actions.setOrientation(LinearLayout.VERTICAL);
-		lineId = View.generateViewId();
-		clearId = View.generateViewId();
-		actions.addView(radio(activity, lineId, "Send a line"));
-		actions.addView(radio(activity, clearId, "Clear the bar"));
-		if (KeyboardShortcuts.ACTION_ESCAPE.equals(loadedAction)) {
-			actions.check(clearId);
-		} else if (!KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)
-				&& !KeyboardShortcuts.ACTION_STEP.equals(loadedAction)) {
-			actions.check(lineId);
-		}
-		form.addView(actions);
 		if (KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)) {
 			legacyNote = caption(activity,
-					"This key sends the current line. Pick Send a line to change that.");
+					"This key sends the current line. Type a tap command to replace that.");
 			form.addView(legacyNote);
 		} else if (KeyboardShortcuts.ACTION_STEP.equals(loadedAction)) {
 			legacyNote = caption(activity,
-					"This key steps back. Pick Send a line to change that. .stepback does the same.");
+					"This key steps back. Type a tap command to replace that.");
+			form.addView(legacyNote);
+		} else if (KeyboardShortcuts.ACTION_ESCAPE.equals(loadedAction)) {
+			legacyNote = caption(activity,
+					"This key clears the bar. Type a tap command to replace that. .clearbar does the same.");
 			form.addView(legacyNote);
 		}
 
@@ -266,12 +251,6 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 		EditorDialogChrome.applyFullScreen(this);
 
-		actions.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-			@Override
-			public void onCheckedChanged(final RadioGroup group, final int checkedId) {
-				applyAction();
-			}
-		});
 		repeatBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
 			@Override
 			public void onCheckedChanged(final CompoundButton button, final boolean checked) {
@@ -283,6 +262,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 					holdField.setText("");
 					formLock = false;
 				}
+				applyAction();
 			}
 		});
 		holdField.addTextChangedListener(new TextWatcher() {
@@ -306,6 +286,23 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 					repeatBox.setChecked(false);
 					formLock = false;
 				}
+				applyAction();
+			}
+		});
+		tapField.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(final CharSequence s, final int start, final int count,
+					final int after) {
+			}
+
+			@Override
+			public void onTextChanged(final CharSequence s, final int start, final int before,
+					final int count) {
+			}
+
+			@Override
+			public void afterTextChanged(final Editable s) {
+				applyAction();
 			}
 		});
 		applyAction();
@@ -399,19 +396,18 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	}
 
 	private void applyAction() {
-		int checked = actions.getCheckedRadioButtonId();
-		boolean line = checked == lineId;
-		boolean linked = line && linkId.length() > 0;
-		boolean hideQuiet = checked == clearId
-				|| (checked != lineId && KeyboardShortcuts.ACTION_INPUT.equals(loadedAction));
-		commandBlock.setVisibility(line && !linked ? View.VISIBLE : View.GONE);
+		boolean linked = linkId.length() > 0;
+		boolean empty = tapField.getText().toString().trim().length() == 0
+				&& holdField.getText().toString().trim().length() == 0;
+		boolean legacy = legacyNote != null && !linked && empty;
+		commandBlock.setVisibility(linked ? View.GONE : View.VISIBLE);
 		followBlock.setVisibility(linked ? View.VISIBLE : View.GONE);
-		int quiet = hideQuiet ? View.GONE : View.VISIBLE;
-		quietBox.setVisibility(quiet);
-		quietNote.setVisibility(quiet);
+		int boxes = legacy ? View.GONE : View.VISIBLE;
+		repeatBox.setVisibility(boxes);
+		quietBox.setVisibility(boxes);
+		quietNote.setVisibility(boxes);
 		if (legacyNote != null) {
-			boolean kept = checked != lineId && checked != clearId;
-			legacyNote.setVisibility(kept ? View.VISIBLE : View.GONE);
+			legacyNote.setVisibility(legacy ? View.VISIBLE : View.GONE);
 		}
 	}
 
@@ -446,13 +442,13 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			setKeyListening(true);
 			return;
 		}
+		String tap = tapField.getText().toString();
+		String hold = holdField.getText().toString();
 		String action = KeyboardShortcuts.ACTION_LINE;
-		int checked = actions.getCheckedRadioButtonId();
-		if (checked == clearId) {
-			action = KeyboardShortcuts.ACTION_ESCAPE;
-		} else if (checked != lineId
-				&& (KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)
-						|| KeyboardShortcuts.ACTION_STEP.equals(loadedAction))) {
+		boolean bare = tap.trim().length() == 0 && hold.trim().length() == 0 && linkId.length() == 0;
+		if (bare && (KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)
+				|| KeyboardShortcuts.ACTION_STEP.equals(loadedAction)
+				|| KeyboardShortcuts.ACTION_ESCAPE.equals(loadedAction))) {
 			action = loadedAction;
 		}
 		boolean quiet = !quietBox.isChecked()
@@ -474,7 +470,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 			return;
 		}
 		Row row = Row.of(newKey, newMods, action, rowEnabled,
-				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
+				repeatBox.isChecked(), tap, hold,
 				nameField.getText().toString(), quiet)
 				.asPad(rowPad);
 		if (KeyboardShortcuts.ACTION_LINE.equals(action) && linkId.length() > 0) {
@@ -511,7 +507,6 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 					@Override
 					public void picked(final Button picked) {
 						formLock = true;
-						actions.check(lineId);
 						repeatBox.setChecked(false);
 						if (picked.id.length() == 0) {
 							linkSet = "";
@@ -566,14 +561,6 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		field.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
 		field.setHintTextColor(ContextCompat.getColor(activity, R.color.chrome_hint));
 		return field;
-	}
-
-	private static RadioButton radio(final Activity activity, final int id, final String text) {
-		RadioButton radio = new RadioButton(activity);
-		radio.setId(id);
-		radio.setText(text);
-		radio.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
-		return radio;
 	}
 
 	private static LinearLayout buttonBar(final Activity activity, final float density,

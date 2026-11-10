@@ -692,6 +692,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(shortcutscmd.commandName, shortcutscmd);
 		mSpecialCommands.put("stepback",
 				new com.resurrection.blowtorch2.lib.service.function.StepBackCommand());
+		mSpecialCommands.put("clearbar",
+				new com.resurrection.blowtorch2.lib.service.function.ClearBarCommand());
 		LastCommand lastcmd = new LastCommand();
 		mSpecialCommands.put(lastcmd.commandName, lastcmd);
 		com.resurrection.blowtorch2.lib.service.function.LastListCommand lastlistcmd =

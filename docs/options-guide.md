@@ -428,7 +428,7 @@ Five of these are Options → Typing → Hardware keyboard. They are stored with
 - **Keep Ctrl editing keys** (default on) — Ctrl editing keys keep editing the bar. A shortcut on that chord runs when this is off. Example: Ctrl+Left moves back one word. Off, a shortcut on Ctrl+Left runs instead.
 - **Up finds a command that starts with what you typed** (default off) — Options → Typing, not Hardware keyboard. Off, Up and Down step through every command, even when the bar says `ki`. On, they stay on commands that start with the bar. `.prefix` with no argument prints on or off. Example: `.prefix on`, then type `ki` and Up finds `kill goblin`. The up and down on the Edit strip follow the same switch.
 
-Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). `.scrollnew` jumps to the newest text. The caret moves with `.kb start` and `.kb end`. A shortcut's Local echo, on, prints that key's line even when Local Echo? is off. Off, that key does not print the line.
+A shortcut has no action list. The tap line is the command. `.kb flush` sends the bar. `.kb clear` empties it. `.clearbar` is one Escape press: a recalled line puts the draft back, any other text clears the bar, and an empty bar hides the keyboard. `.stepback` sends the reverse of the last number-pad walk. Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). `.scrollnew` jumps to the newest text. The caret moves with `.kb start` and `.kb end`. A shortcut's Local echo, on, prints that key's line even when Local Echo? is off. Off, that key does not print the line.
 
 ## Input bar growth
 

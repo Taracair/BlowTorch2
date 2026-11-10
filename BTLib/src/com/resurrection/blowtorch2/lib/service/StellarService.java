@@ -2533,6 +2533,22 @@ public class StellarService extends Service {
 		broadcastInputBarActionWithArg(10, delta);
 	}
 
+	/** Ask the window to take one input-bar Escape step. */
+	public final void doClearInputBar() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).clearInputBar();
+				} catch (RemoteException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
 	/** Ask the window to send the reverse of its last number-pad walk. */
 	public final void doStepBack() {
 		final int n = mCallbacks.beginBroadcast();

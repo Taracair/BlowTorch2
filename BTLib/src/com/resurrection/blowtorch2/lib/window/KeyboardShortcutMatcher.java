@@ -184,7 +184,8 @@ public final class KeyboardShortcutMatcher {
 			return;
 		}
 		String trimmed = command.trim();
-		if (trimmed.length() == 0 || trimmed.indexOf(' ') >= 0 || isStepBackCommand(trimmed)) {
+		if (trimmed.length() == 0 || trimmed.indexOf(' ') >= 0
+				|| isStepBackCommand(trimmed) || isClearBarCommand(trimmed)) {
 			return;
 		}
 		if ("look".equals(trimmed.toLowerCase(Locale.US))) {
@@ -401,11 +402,18 @@ public final class KeyboardShortcutMatcher {
 		if (isStepBackCommand(line)) {
 			return Outcome.send(resolveStep(), holdMs, repeatMs, token, quiet);
 		}
+		if (isClearBarCommand(line)) {
+			return Outcome.clearBar(holdMs, repeatMs, token);
+		}
 		return Outcome.send(line, holdMs, repeatMs, token, quiet);
 	}
 
 	private static boolean isStepBackCommand(final String line) {
 		return line != null && ".stepback".equals(line.trim());
+	}
+
+	private static boolean isClearBarCommand(final String line) {
+		return line != null && ".clearbar".equals(line.trim());
 	}
 
 	/** The reverse of the last single-word pad walk, or null when there has been none. */
@@ -590,7 +598,11 @@ public final class KeyboardShortcutMatcher {
 		}
 
 		static Outcome clearBar() {
-			return new Outcome(true, null, false, 0, 0, 0, false, true, false);
+			return clearBar(0, 0, 0);
+		}
+
+		static Outcome clearBar(final int holdMs, final int repeatMs, final int token) {
+			return new Outcome(true, null, false, holdMs, repeatMs, token, false, true, false);
 		}
 
 		static Outcome jumpLive() {

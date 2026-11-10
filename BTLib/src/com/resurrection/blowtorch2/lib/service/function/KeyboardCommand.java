@@ -171,6 +171,7 @@ public class KeyboardCommand extends SpecialCommand {
 				"  .kb insertliteral troll — same text exactly as typed\n" +
 				"  .kb insertword troll — same as insert\n" +
 				"  .kb flush         — send current input\n" +
+				"  .kb clear         — empty the bar\n" +
 				"  .kb sel / .kb cut — select all / cut\n" +
 				"  .kb start / .kb end — caret to start / end\n" +
 				"  .kb stepf / .kb stepb — caret ±1 character\n" +

@@ -354,6 +354,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_HISTORY = 942;
 	/** .stepback: send the reverse of the last number-pad walk. */
 	protected static final int MESSAGE_STEP_BACK = 946;
+	/** .clearbar: one input-bar Escape step. */
+	protected static final int MESSAGE_CLEAR_INPUT_BAR = 947;
 	/** arg1: 0=off, 1=left/right, 2=top/bottom; arg2: primary percent. */
 	protected static final int MESSAGE_APPLY_SPLIT = 944;
 	protected boolean settingsDialogRun = false;
@@ -1915,6 +1917,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_STEP_BACK:
 					stepBackNow();
+					break;
+				case MESSAGE_CLEAR_INPUT_BAR:
+					applyShortcutEscape();
 					break;
 				case MESSAGE_INPUT_EDIT_TOOLS:
 					applyInputEditToolsMessage(msg.arg1);
@@ -7262,6 +7267,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void stepBack() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_STEP_BACK);
+		}
+
+		public void clearInputBar() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_CLEAR_INPUT_BAR);
 		}
 
 		public void inputBarEditTools(int mode) throws RemoteException {

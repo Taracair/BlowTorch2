@@ -594,6 +594,26 @@ public class KeyboardShortcutMatcherTest {
 	}
 
 	@Test
+	public void aClearBarCommandClearsInsteadOfSendingTheWord() {
+		KeyboardShortcutMatcher matcher = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, false, ".clearbar", ""));
+		Outcome cleared = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertTrue(cleared.clearBar);
+		assertNull(cleared.send);
+		assertTrue(cleared.consumed);
+		assertEquals(0, cleared.scheduleRepeatMs);
+
+		KeyboardShortcutMatcher repeating = ready(Row.of(A, 0, KeyboardShortcuts.ACTION_LINE,
+				true, true, ".clearbar", ""));
+		Outcome down = repeating.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertTrue(down.clearBar);
+		assertEquals(200, down.scheduleRepeatMs);
+		Outcome tick = repeating.onRepeatFired(down.timerToken);
+		assertTrue(tick.clearBar);
+		assertEquals(200, tick.scheduleRepeatMs);
+	}
+
+	@Test
 	public void aPadWalkSetsTheStepAndLookDoesNot() {
 		Row north = Row.of(NUMPAD_8, 0, KeyboardShortcuts.ACTION_LINE, true, false, "north", "");
 		Row look = Row.of(149, 0, KeyboardShortcuts.ACTION_LINE, true, false, "look", "");

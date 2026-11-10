@@ -203,4 +203,9 @@ oneway interface IConnectionBinderCallback {
 	void showChatPanel();
 	/** Force the chat drawer closed. Already closed stays closed. Appended. */
 	void closeChatPanel();
+	/**
+	 * One press of input-bar Escape: restore a recalled draft, clear other text,
+	 * or hide the keyboard when the bar is empty. Appended.
+	 */
+	void clearInputBar();
 }
