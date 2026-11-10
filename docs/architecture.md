@@ -382,7 +382,11 @@ sequenceDiagram
 
 **GMCP** is mostly out-of-band: mapper sync, extra-text routing, frames, module
 status. It does not have to pass through the main line buffer unless feed/show
-options say so.
+options say so. `OnGmcp` runs in that branch after the module and the body
+are split, and before absorb, native handlers, extra text, and GMCP triggers.
+A string replaces the body. An empty string drops the message, so those
+readers and the main-window feed do not see it. `gmcp.log` still records the
+server's line.
 
 ### Outbound: input → aliases → socket
 

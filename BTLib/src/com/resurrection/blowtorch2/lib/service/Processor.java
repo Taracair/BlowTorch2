@@ -61,6 +61,8 @@ public class Processor {
 	private final CrToNewline mCrToNewline = new CrToNewline();
 	/** GMCP Data holder object. */
 	private GMCPData mGMCP = null;
+	/** {@code OnGmcp}. Null in tests that do not set one. The body is unchanged. */
+	private GmcpHook.Rewriter mGmcpRewrite;
 	/** List of GMCP Triggers. */
 	private HashMap<String, ArrayList<GMCPWatcher>> mGMCPTriggers = new HashMap<String, ArrayList<GMCPWatcher>>();
 	/** GMCP Hello string (version filled from package versionName). */
@@ -229,7 +231,16 @@ public class Processor {
 			new java.util.ArrayList<String>();
 
 	private void logGmcp(final String direction, final String payload) {
-		if (!mLogGMCP && !mDebugTelnet && !mFeedGMCP) {
+		logGmcp(direction, payload, true, true);
+	}
+
+	/**
+	 * @param file logcat and gmcp.log
+	 * @param window the main-window feed
+	 */
+	private void logGmcp(final String direction, final String payload,
+			final boolean file, final boolean window) {
+		if ((!file || (!mLogGMCP && !mDebugTelnet)) && (!window || !mFeedGMCP)) {
 			return;
 		}
 		String safe = payload == null ? "" : payload;
@@ -238,7 +249,7 @@ public class Processor {
 			safe = safe.replaceAll("(?i)(\"password\"\\s*:\\s*\")([^\"]*)(\")", "$1***$3");
 		}
 		String line = direction + " " + safe;
-		if (mLogGMCP || mDebugTelnet) {
+		if (file && (mLogGMCP || mDebugTelnet)) {
 			Log.i("GMCP", line);
 			if (mContext != null && mLogGMCP) {
 				// Its own file, not the error log: a trace of every packet used to
@@ -253,7 +264,7 @@ public class Processor {
 				}
 			}
 		}
-		if (mFeedGMCP && mReportTo != null) {
+		if (window && mFeedGMCP && mReportTo != null) {
 			// Inbound modules routed to an extra text window are not also dumped in main.
 			if ("IN".equals(direction) && isGmcpRoutedToExtraWindow(safe)) {
 				return;
@@ -268,6 +279,28 @@ public class Processor {
 			mReportTo.sendMessageDelayed(
 					mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, msg), 1);
 		}
+	}
+
+	/** {@code OnGmcp}. The connection thread is the only caller that may touch Lua. */
+	public void setGmcpRewrite(final GmcpHook.Rewriter rewrite) {
+		mGmcpRewrite = rewrite;
+	}
+
+	private GmcpHook.Result rewriteGmcp(final String module, final String body) {
+		if (mGmcpRewrite == null) {
+			return GmcpHook.leave(body);
+		}
+		GmcpHook.Result result = mGmcpRewrite.rewrite(module, body);
+		return result == null ? GmcpHook.leave(body) : result;
+	}
+
+	/** Module, then the body when there is one. This is the text after {@code IAC SB GMCP}. */
+	private static String gmcpText(final String module, final String body) {
+		String name = module == null ? "" : module;
+		if (body == null || body.length() == 0) {
+			return name;
+		}
+		return name + " " + body;
 	}
 
 	/**
@@ -628,10 +661,6 @@ public class Processor {
 		if (sub[0] == compressresp[0]) {
 			return true;
 		} else if (sub[0] == TC.GMCP) {
-			if (mDebugTelnet) {
-				String message = "\n" + Colorizer.getTeloptStartColor() + "IN:[" + TC.decodeSUB(negotiation) + "]" + Colorizer.getResetColor() + "\n";
-				mReportTo.sendMessageDelayed(mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message), 1);
-			}
 			byte[] foo = new byte[negotiation.length - PAYLOAD_BYTES];
 			ByteBuffer wrap = ByteBuffer.wrap(negotiation);
 			wrap.rewind();
@@ -639,7 +668,6 @@ public class Processor {
 			wrap.get(foo, 0, negotiation.length - PAYLOAD_BYTES);
 			try {
 				String whole = new String(foo, "UTF-8").trim();
-				logGmcp("IN", whole);
 				int split = whole.indexOf(' ');
 				String module;
 				String data;
@@ -658,12 +686,31 @@ public class Processor {
 									+ " — Options → Manage modules… or .gmcp enable "
 									+ suggested), 1);
 				}
+				// The file keeps the server's line. The window feed is the body
+				// the hook left, and a drop skips it.
+				logGmcp("IN", whole, true, false);
+				GmcpHook.Result hooked = rewriteGmcp(module, data);
+				if (hooked.dropped) {
+					return false;
+				}
+				boolean unchanged = hooked.body == data;
+				String bodyText = hooked.body;
+				if (mDebugTelnet && mReportTo != null) {
+					String decoded = unchanged
+							? TC.decodeSUB(negotiation)
+							: "IAC SB GMCP " + gmcpText(module, bodyText) + " IAC SE";
+					String message = "\n" + Colorizer.getTeloptStartColor() + "IN:["
+							+ decoded + "]" + Colorizer.getResetColor() + "\n";
+					mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+							Connection.MESSAGE_PROCESSORWARNING, message), 1);
+				}
+				logGmcp("IN", unchanged ? whole : gmcpText(module, bodyText), false, true);
 				// A GMCP body is any JSON value, not always an object. This used to
 				// call new JSONObject(data) on whatever arrived, so an array — the
 				// shape our own core.supports.set uses — produced a red
 				// "[GMCP ERR] parse failed" line and the packet was dropped.
 				// GmcpBody decides the shape first, and has the tests.
-				GmcpBody body = GmcpBody.of(data);
+				GmcpBody body = GmcpBody.of(bodyText);
 				switch (body.shape()) {
 				case OBJECT:
 					mGMCP.absorb(module, body.object());

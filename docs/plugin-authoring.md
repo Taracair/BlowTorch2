@@ -450,6 +450,7 @@ About to open the socket → OnConnected()   (bytes flushed after TCP and TLS,
                                             before the first read)
 Each finished server chunk → OnIncoming(data)   (before display and triggers)
 Each aliased send batch     → OnOutgoing(data)   (before unaccent and the socket)
+Each GMCP message           → OnGmcp(module, body) (before mapper, triggers, gauges)
 UI attaches windows → OnCreate / OnDraw / …
 Option change → OnOptionChanged(key, value)
 Save → OnXmlExport(out)
@@ -467,6 +468,7 @@ Shutdown → window OnDestroy; plugin Lua state dropped
 | `OnConnected()` | About to open the socket. Returned bytes are flushed after TCP and TLS, before the first read. See §5.3 |
 | `OnIncoming(data)` | Finished server lines, before display and triggers. See §5.4 |
 | `OnOutgoing(data)` | Aliased send batch, before unaccent and the socket. See §5.5 |
+| `OnGmcp(module, body)` | One GMCP message, before the mapper, triggers, and gauges. See §5.6 |
 | `OnXmlExport(serializer)` | Settings save |
 | Trigger `<script function="fn">` | Match → global `fn` |
 | `RegisterSpecialCommand(cmd, fn)` | Player types `.cmd …` |
@@ -637,6 +639,34 @@ Pressing Enter on an empty line is not passed to the function. A line that only 
 Commands already queued ahead of `.password` are their own batch. You type `name;.password`. The hook sees `name` plus the newline. When it leaves that batch alone, the window still shows `name` with the rest of the line (`name;look` stays one echo). When it returns a different string, the window shows that string and does not also show `name`. When it returns `""`, `name` is not written and not shown. Rewriting `look` in `name;.password;look` changes `look` only. `name` stays on screen. A note that is not itself a send, such as the `[alias=>text]` line from `.alias text`, stays either way. The stored password is not an argument of this function.
 
 Unaccent, when the input-bar option is on, folds the hook's string. The hook itself sees the characters the player produced. Telnet ECHO off still hides the line. A send that was already hidden stays hidden when the hook rewrites it.
+
+### 5.6 `OnGmcp` — rewrite one GMCP message
+
+```lua
+function OnGmcp(module, body)
+  if module ~= "Room.Info" then
+    return
+  end
+  return (body:gsub('"name":"Hall"', '"name":"Temple"', 1))
+end
+```
+
+The server sends `Room.Info {"name":"Hall","num":1}`. The function sees the module and the JSON text. The string it returns is the body every later reader uses: the mapper, a GMCP trigger, a gauge, an extra-text pane, and the native handlers (`Room.*`, `Client.Media`, `Char.Login`, frames). The module name does not change.
+
+| Return | Effect |
+|--------|--------|
+| nothing, `nil`, or not a string | This plugin leaves the body alone |
+| a string equal to the body | The body is unchanged. JSON is not reformatted |
+| a different string | Replaces the body. That text is parsed as the message |
+| `""` | Drops the message. The mapper, triggers, gauges, extra text, and the main-window GMCP feed do not see it |
+
+A message that is only a module name, such as `Core.Ping`, arrives with `body` equal to `""`. Return nothing to keep it. `return body` drops it, because `""` drops the message.
+
+`gmcp.log` still records the line the server sent, including a message this function dropped. The main window, when Feed GMCP is on, shows the body that is left.
+
+Main settings run first, then each **enabled** plugin in load order. Each one sees the previous plugin's body. A disabled plugin is skipped. A Lua error leaves that plugin's input unchanged, prints the red error line, and the next plugin still runs. With no `OnGmcp` defined anywhere, the message is not passed to Lua.
+
+The returned text is not a client command. A return of `.map room 1` is JSON that will not parse, not a mapper command. `SendToServer` from inside the function is a second, later send. The window VM does not have this callback. MCP is not this function.
 
 ---
 

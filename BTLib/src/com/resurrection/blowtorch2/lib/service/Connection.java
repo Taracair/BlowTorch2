@@ -474,6 +474,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private final ArrayList<InboundTextHook.Filter> mOutboundHookFilters =
 			new ArrayList<InboundTextHook.Filter>();
+	/**
+	 * Plugins whose Lua defines {@code OnGmcp}, main settings first.
+	 * Rebuilt with {@link #mInboundHookFilters}.
+	 */
+	private final ArrayList<GmcpHook.Step> mGmcpHookSteps =
+			new ArrayList<GmcpHook.Step>();
 	/** Set from any thread. The connection thread is what walks Lua. */
 	private volatile boolean mInboundHooksStale = true;
 	/** {@code .prompt on}: the unfinished last line goes to its own bar. */
@@ -3023,13 +3029,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mInboundHooksStale = false;
 			mInboundHookFilters.clear();
 			mOutboundHookFilters.clear();
+			mGmcpHookSteps.clear();
 			addInboundHook(mSettings);
 			addOutboundHook(mSettings);
+			addGmcpHook(mSettings);
 			if (mPlugins != null) {
 				for (int i = 0; i < mPlugins.size(); i++) {
 					Plugin plugin = mPlugins.get(i);
 					addInboundHook(plugin);
 					addOutboundHook(plugin);
+					addGmcpHook(plugin);
 				}
 			}
 		}
@@ -3161,6 +3170,63 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} catch (UnsupportedEncodingException e) {
 			reportRuntimeError("OnOutgoing", e);
 		}
+	}
+
+	private void addGmcpHook(final Plugin plugin) {
+		if (plugin == null) {
+			return;
+		}
+		boolean enabled = plugin.isEnabled();
+		boolean offers = enabled && plugin.offersGmcpHook();
+		if (!GmcpHook.include(enabled, offers)) {
+			return;
+		}
+		mGmcpHookSteps.add(new GmcpHook.Step() {
+			@Override
+			public byte[] apply(final String module, final byte[] body) {
+				try {
+					return plugin.filterGmcp(module, body);
+				} catch (RuntimeException e) {
+					BlowTorchLogger.logMinor("OnGmcp " + plugin.getName(), e);
+					return null;
+				}
+			}
+		});
+	}
+
+	/**
+	 * {@code OnGmcp} for one message. Off the connection thread the body is
+	 * unchanged and Lua is not called. A module-only message has a null body
+	 * and is still passed.
+	 */
+	private GmcpHook.Result applyGmcpHook(final String module, final String body) {
+		if (!onConnectionThread() || mSettings == null) {
+			return GmcpHook.leave(body);
+		}
+		if (mInboundHooksStale) {
+			rebuildInboundHooks();
+		}
+		if (mGmcpHookSteps.isEmpty()) {
+			return GmcpHook.leave(body);
+		}
+		try {
+			return GmcpHook.apply(module, body, mGmcpHookSteps);
+		} catch (java.io.UnsupportedEncodingException e) {
+			reportRuntimeError("OnGmcp", e);
+			return GmcpHook.leave(body);
+		}
+	}
+
+	private void attachGmcpRewrite(final Processor processor) {
+		if (processor == null) {
+			return;
+		}
+		processor.setGmcpRewrite(new GmcpHook.Rewriter() {
+			@Override
+			public GmcpHook.Result rewrite(final String module, final String body) {
+				return applyGmcpHook(module, body);
+			}
+		});
 	}
 
 	/** THE INCOMING DATA DISPATCH ROUTINE! Unicorns and puppies and all kinds of good things live here.
@@ -4053,6 +4119,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					+ " tls=" + (mUseTls ? 1 : 0)
 					+ " open=" + (mService != null ? mService.openWorldCount() : -1));
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+			attachGmcpRewrite(mProcessor);
 			mProcessor.setDisplayName(mDisplay);
 			loadLoginCredentialsIntoProcessor();
 			attachMxpListener();
@@ -4189,6 +4256,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mService.updateForegroundNotification(mDisplay, "Offline · Starter Tutorial");
 
 		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+		attachGmcpRewrite(mProcessor);
 		mProcessor.setDisplayName(mDisplay);
 		attachMxpListener();
 		initSettings();

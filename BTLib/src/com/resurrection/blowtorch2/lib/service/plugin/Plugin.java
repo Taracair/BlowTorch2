@@ -1917,6 +1917,56 @@ Note("Example text!")
 	}
 
 	/**
+	 * {@code OnGmcp(module, body)}. The body is UTF-8 JSON, or empty when the
+	 * message had none. Null means leave the body (no function, a Lua error,
+	 * nil, or any return that is not a string). An empty array drops the message.
+	 *
+	 * <p>The error handler is {@code -4}: the stack is traceback, function,
+	 * module, body. {@code -3} is the function, and an error would call
+	 * {@code OnGmcp} again.
+	 */
+	public byte[] filterGmcp(final String module, final byte[] body) {
+		if (L == null || body == null) {
+			return null;
+		}
+		L.getGlobal("debug");
+		L.getField(-1, "traceback");
+		L.remove(-2);
+
+		L.getGlobal("OnGmcp");
+		if (!L.isFunction(-1)) {
+			L.pop(2);
+			checkStack("OnGmcp");
+			return null;
+		}
+		L.pushString(module == null ? "" : module);
+		L.pushString(body);
+		int ret = L.pcall(2, 1, -4);
+		if (ret != 0) {
+			displayLuaError("Plugin: " + getName() + " OnGmcp() Error:"
+					+ L.getLuaObject(-1).getString());
+			L.pop(2);
+			checkStack("OnGmcp");
+			return null;
+		}
+		byte[] out = null;
+		if (L.type(-1) == LuaState.LUA_TSTRING.intValue()) {
+			out = L.toBytes(-1);
+			if (out == null) {
+				out = new byte[0];
+			}
+		}
+		L.pop(2);
+		checkStack("OnGmcp");
+		return out;
+	}
+
+	/** True when this plugin's Lua state defines {@code OnGmcp}. */
+	public boolean offersGmcpHook() {
+		return checkPluginSupports("OnGmcp");
+	}
+
+	/**
 	 * {@code OnConnected()}. No arguments. The return is raw Lua bytes, or
 	 * null when this plugin sends nothing (no function, a Lua error, nil, or
 	 * any return that is not a string).
