@@ -39,6 +39,12 @@ list is now enforced by a script, so you do not have to remember it. See
    back to the maintainer before a seventh approach. Ask two things out loud:
    do they want what they said, and is what they said what you understood.
 
+## When the request is a choice
+
+When the request is a choice, first name the strongest reason not to do it and
+what it costs. When the request is an instruction to implement, implement,
+unless a hard constraint or rule 6 says stop.
+
 ## Code comments
 
 Default: no comment. If one is useful, 1–2 lines. Keep measurements, API quirks,

@@ -197,6 +197,18 @@ approach. Check two things out loud:
 
 Do not silently redefine the goal to something easier to implement.
 
+### When the request is a choice
+
+Rule 6 asks whether they want what they said only after a fix has failed. Ask
+it before any work, and only when the turn is a decision: name the strongest
+reason not to do it and what it costs, then the recommendation. An instruction
+to implement is not that turn. Implement it, unless a hard constraint or rule 6
+says stop.
+
+This is a scope limit, not a seventh rule. Do not grow it into a standing
+challenge of decisions already made. The maintainer set it so the short list
+stays two sentences; the short list is in `CLAUDE.md`.
+
 ### Explain in examples, not architecture
 
 "Unanchored aliases do not substitute captures" is a sentence about
