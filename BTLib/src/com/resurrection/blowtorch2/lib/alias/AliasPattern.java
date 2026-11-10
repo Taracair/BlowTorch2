@@ -48,9 +48,7 @@ public final class AliasPattern {
 			}
 			// An anchored pattern supplies its own boundary; an unanchored one is
 			// wrapped so "c" does not match inside "cast".
-			String prefix = pre.startsWith("^") ? "" : "\\b";
-			String suffix = pre.endsWith("$") ? "" : "\\b";
-			String one = "(" + prefix + pre + suffix + ")";
+			String one = wrapped(pre);
 			int groups;
 			try {
 				// Advance past this alternative's own groups, not just by one: the
@@ -92,6 +90,13 @@ public final class AliasPattern {
 	/** @return Compiled form of {@link #regex()}. */
 	public Pattern compile() {
 		return Pattern.compile(regex);
+	}
+
+	/** The one alternative {@link #build} compiles for {@code pre}. */
+	static String wrapped(String pre) {
+		String prefix = pre.startsWith("^") ? "" : "\\b";
+		String suffix = pre.endsWith("$") ? "" : "\\b";
+		return "(" + prefix + pre + suffix + ")";
 	}
 
 	/** @return The alias owning capture group {@code group}, or null. */

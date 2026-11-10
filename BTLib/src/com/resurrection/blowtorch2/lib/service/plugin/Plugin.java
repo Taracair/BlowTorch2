@@ -244,6 +244,8 @@ public class Plugin implements SettingsChangedListener {
 		tef.register("EnableTrigger");
 		EnableAliasFunction eaf = new EnableAliasFunction(L, this);
 		eaf.register("EnableAlias");
+		NewAliasFunction naf = new NewAliasFunction(L, this);
+		naf.register("NewAlias");
 		L.pushJavaObject(settings.getTriggers());
 		L.setGlobal("triggers");
 		

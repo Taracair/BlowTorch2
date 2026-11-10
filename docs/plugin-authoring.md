@@ -89,8 +89,8 @@ Treat every installed plugin as full app code in `:stellar`.
 - `NewWindow(...)` is legacy; size arguments are largely ignored. Prefer XML
   `<window>` layouts or `CreateTextWindow` for extra panes.
 - Only **window** (UI) Lua can add global menu items (`PopulateMenu`).
-- **No `NewAlias` / `NewTimer` in Lua** — declare those in XML or edit them in
-  the UI. Lua can `EnableAlias` and fully create/delete triggers.
+- **No `NewTimer` in Lua** — declare timers in XML or edit them in the UI.
+  Lua can `NewAlias`, `EnableAlias`, and fully create/delete triggers.
 - **No plugin `Send_MSDP`** — MSDP is Options / `.msdp` only.
 - ForgeMap (`forgemap`) is skipped at load in this build.
 
@@ -737,10 +737,34 @@ comment set; this section is the maintained summary.
 | `DeleteTrigger(name)` / `DeleteTriggerGroup(name)` | Remove |
 | `EnableTrigger(name [, state])` | Get/set enabled |
 | `EnableTriggerGroup(name, state)` | Group enable |
+| `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
 | `EnableAlias(name [, state])` | Get/set alias enabled + rebuild matcher |
 | `SetVariable(name, value)` | Session var for `${name}` |
 | `GetVariable(name)` | Read (nil if unset) |
 | `UnsetVariable(name)` | Clear |
+
+**`NewAlias(pattern, replacement)`** creates the same alias the editor saves.
+`pattern` is the Match field, `replacement` is the With field. You type
+`kk goblin` and the game receives `kill goblin`:
+
+```lua
+NewAlias("^kk (.+)$", "kill $1")
+```
+
+Called from a plugin, the alias belongs to that plugin. Disabling the plugin
+disables it. Called from main-settings Lua, it belongs to the world's alias
+list. It is enabled, and local echo follows the world setting. The window
+Lua VM does not get this function.
+
+The name is the pattern with one leading `^` and one trailing `$` removed,
+so `^kk$` is the alias `kk`. A second call with that name returns an error
+and leaves the first alias. `map` is refused because `.map` is a system
+command. A pattern the matcher cannot compile is refused. So is a name
+the editor's circular check expands back into an alias
+(`NewAlias("a", "a")`). `NewAlias("^(.+)$", "say $1")` is stored. The
+error is a string, and in Lua a string counts as true, so check
+`NewAlias(...) == true`. `SaveSettings`, or leaving the world, writes it
+into the settings file the editor reloads. `NewTimer` is not available.
 
 **`NewTrigger` config table** (common keys): `regex`, `group`, `once`
 (`true` = until enabled again; `"send"` = until you type a command; also

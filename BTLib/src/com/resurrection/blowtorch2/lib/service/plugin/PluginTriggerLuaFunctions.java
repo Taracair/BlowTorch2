@@ -12,7 +12,10 @@ import org.keplerproject.luajava.LuaState;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.resurrection.blowtorch2.lib.alias.AliasCreate;
+import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
+import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.responder.color.ColorAction;
@@ -890,6 +893,57 @@ class EnableAliasFunction extends JavaFunction {
 		plugin.getSettings().getAliases().get(alias).setEnabled(state);
 		// The combined matcher is built from the enabled ones, so it has to go.
 		plugin.buildAliases();
+		L.pushBoolean(true);
+		return 1;
+	}
+}
+
+/**
+ * {@code NewAlias(pattern, replacement)} — the alias the editor's New button
+ * stores, on this plugin. Main-settings Lua is the world's alias list.
+ *
+ * <p>The main settings plugin is not in the plugin map, so
+ * {@code setPluginAliases} would not save it. {@code setAliases} writes that
+ * map. Every other plugin goes through {@code setPluginAliases}, which marks
+ * the file dirty.
+ */
+class NewAliasFunction extends JavaFunction {
+	Plugin plugin;
+
+	public NewAliasFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		String pre = this.getParam(2) != null ? this.getParam(2).getString() : null;
+		String post = this.getParam(3) != null ? this.getParam(3).getString() : null;
+		if (!(plugin.getParentCallback() instanceof Connection)) {
+			L.pushString("Function: NewAlias(string,string) Error: no connection");
+			return 1;
+		}
+		Connection connection = (Connection) plugin.getParentCallback();
+		String error = AliasCreate.rejection(pre, post, plugin.getSettings().getAliases(),
+				connection.getSystemCommands());
+		if (error != null) {
+			L.pushString("Function: NewAlias(string,string) Error: " + error);
+			return 1;
+		}
+		boolean main = plugin instanceof ConnectionSettingsPlugin;
+		if (!main && connection.getPluginAliases(plugin.getName()) == null) {
+			L.pushString("Function: NewAlias(string,string) Error: plugin is not loaded");
+			return 1;
+		}
+		AliasData created = AliasCreate.create(pre, post);
+		String key = AliasCreate.mapKey(pre);
+		HashMap<String, AliasData> map = plugin.getSettings().getAliases();
+		map.put(key, created);
+		if (main) {
+			connection.setAliases(map);
+		} else {
+			connection.setPluginAliases(plugin.getName(), map);
+		}
 		L.pushBoolean(true);
 		return 1;
 	}
