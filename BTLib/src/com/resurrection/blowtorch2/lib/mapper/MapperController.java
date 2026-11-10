@@ -3948,10 +3948,7 @@ public class MapperController {
 		if (mMap == null) {
 			return null;
 		}
-		if (tileId != null && tileId.trim().length() > 0) {
-			return mMap.findTile(tileId.trim());
-		}
-		return currentTile();
+		return MapEditTile.resolve(mMap.getTiles(), tileId, currentTile());
 	}
 
 	public String link(final String cmd, final String toTileId) {

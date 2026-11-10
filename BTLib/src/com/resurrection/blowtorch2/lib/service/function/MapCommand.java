@@ -295,8 +295,9 @@ public class MapCommand extends SpecialCommand {
 	}
 
 	/**
-	 * {@code .map title|note <text>} on current, or
-	 * {@code .map title|note for <tileId> <text>} on a specific tile.
+	 * {@code .map title|note <text>} on the current tile, or
+	 * {@code .map title|note for <id> <text>} on one tile. {@code id} is the
+	 * mapper tile id or the game room id.
 	 */
 	private Object doTitleOrNotes(Connection c, MapperController mapper, String rest,
 			boolean title) {
@@ -308,8 +309,8 @@ public class MapCommand extends SpecialCommand {
 			int sp = after.indexOf(' ');
 			if (sp <= 0) {
 				note(c, title
-						? "Usage: .map title for <tileId> <text>"
-						: "Usage: .map note for <tileId> <text>");
+						? "Usage: .map title for <id> <text>"
+						: "Usage: .map note for <id> <text>");
 				return null;
 			}
 			tileId = after.substring(0, sp).trim();
@@ -1321,6 +1322,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map goto <query>  (send if path_auto_send) | .map go <query|id> (always send)\n");
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
+		sb.append("      (<id> is the mapper tile id or the game room id)\n");
 		sb.append("  .map locktitle [for <id>] on|off|toggle\n");
 		sb.append("  .map lockposition|lockpos [for <id>] on|off|toggle\n");
 		sb.append("  .map relayout|tidy  (rebuild this level's positions from its exits; pinned tiles stay)\n");

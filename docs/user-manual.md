@@ -4643,7 +4643,7 @@ Print the summary with `.map dirs`.
     `.map shift <dir> [n]`                                                  Edit: move every room on this floor beyond Here n cells that way (default 1)
     `.map shift`                                                            Edit: alone, put the last new room that did not fit where you walked
     `.map title` / `.map note`                                              Edit current tile text. A note keeps its line breaks (Enter in the tile editor)
-    `.map title for <id> <text>` / `.map note for <id> <text>`              Edit a specific tile
+    `.map title for <id> <text>` / `.map note for <id> <text>`              Edit one tile. `<id>` is the mapper tile id or the game room id
     `.map link <cmd> [from <id>] to <tileId>`                               Manual link
     `.map unlink <cmd> [from <id>]`                                         Remove an exit
     `.map conflict` / `list` / `list all`                                   List open conflicts (or all, including resolved)
