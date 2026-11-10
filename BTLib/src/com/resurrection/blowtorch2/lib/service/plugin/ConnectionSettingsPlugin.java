@@ -161,42 +161,46 @@ public class ConnectionSettingsPlugin extends Plugin {
 		keyboard_shortcuts.setValue("");
 		input.addOption(keyboard_shortcuts);
 
-		// Drawn on the Keyboard shortcuts list, hidden from Options. The row is
-		// the storage: without it the switch on that list has nowhere to write.
+		// Own page under Typing. Up matching the bar stays on Typing itself.
+		SettingsGroup hardware = new SettingsGroup();
+		hardware.setTitle("Hardware keyboard");
+		hardware.setDescription("What a hardware or Bluetooth key does. Up and Down matching the bar stay on Typing.");
+
 		BooleanOption shortcuts_on = new BooleanOption();
 		shortcuts_on.setTitle("Hardware keyboard shortcuts");
 		shortcuts_on.setDescription("Turn hardware keys into commands. Off, those keys type as usual.");
 		shortcuts_on.setKey("shortcuts_on");
 		shortcuts_on.setValue(false);
-		input.addOption(shortcuts_on);
+		hardware.addOption(shortcuts_on);
 
 		BooleanOption shortcut_pad = new BooleanOption();
 		shortcut_pad.setTitle("Walk with the numeric keypad");
 		shortcut_pad.setDescription("The number pad walks after a preset. Off, those keys do not walk.");
 		shortcut_pad.setKey("shortcut_pad");
 		shortcut_pad.setValue(true);
-		input.addOption(shortcut_pad);
+		hardware.addOption(shortcut_pad);
 
 		BooleanOption shortcut_toprow = new BooleanOption();
 		shortcut_toprow.setTitle("Number row walks too");
 		shortcut_toprow.setDescription("The digits above the letters send the same walks as the number pad.");
 		shortcut_toprow.setKey("shortcut_toprow");
 		shortcut_toprow.setValue(false);
-		input.addOption(shortcut_toprow);
+		hardware.addOption(shortcut_toprow);
 
 		BooleanOption shortcut_idle = new BooleanOption();
 		shortcut_idle.setTitle("Direction keys type while a line is being edited");
 		shortcut_idle.setDescription("A caret in the line types the digit. An empty bar, or the whole line selected, still walks.");
 		shortcut_idle.setKey("shortcut_idle");
 		shortcut_idle.setValue(false);
-		input.addOption(shortcut_idle);
+		hardware.addOption(shortcut_idle);
 
 		BooleanOption shortcut_ctrl_edit = new BooleanOption();
 		shortcut_ctrl_edit.setTitle("Keep Ctrl editing keys");
 		shortcut_ctrl_edit.setDescription("Ctrl editing keys keep editing the bar. A shortcut on that chord runs when this is off.");
 		shortcut_ctrl_edit.setKey("shortcut_ctrl_edit");
 		shortcut_ctrl_edit.setValue(true);
-		input.addOption(shortcut_ctrl_edit);
+		hardware.addOption(shortcut_ctrl_edit);
+		input.addOption(hardware);
 
 		BooleanOption shortcut_prefix = new BooleanOption();
 		shortcut_prefix.setTitle("Up finds a command that starts with what you typed");

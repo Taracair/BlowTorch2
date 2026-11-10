@@ -7,7 +7,7 @@ bottom of Options filters as you type; tap a result to jump there and flash the 
 |-------|---------|
 | **Window** | Drill in: **Text** (font, colours, wrap, light theme, timestamps, loupes, **Avoid buttons**), **Layout** (padding, scrolling, the keyboard, the ⋮ button), **Links**, **Input bar** (Edit and Send) |
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Typing** | The input bar: history, keep last, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation. Hardware shortcut switches are the lower half of the Keyboard shortcuts list. Edit and Send are under Window → Input bar |
+| **Typing** | The input bar: history, keep last, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation, Up matching the bar. Hardware keys are Typing → Hardware keyboard. Edit and Send are under Window → Input bar |
 | **Suggestions** | Words the game just used. Four section titles stay on that page |
 | **Gestures** | Screen-wide swipes on the game text (`.gesture`) |
 | **Panes** | Extra text windows, gauges, the prompt line, floating buttons |
@@ -419,14 +419,14 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 Partially experimental. Android does not read every keyboard the same way. What a key does also depends on the keyboard app installed on the phone.
 
-These six are the lower half of the Keyboard shortcuts list (`.shortcuts edit`). They are stored with the world. They are not repeated under Options → Typing.
+Five of these are Options → Typing → Hardware keyboard. They are stored with the world. Up matching the bar stays on Typing, not in that group.
 
-- **Hardware keyboard shortcuts** (default off) — Turn hardware keys into commands. Off, those keys type as usual. `.shortcuts` with no argument prints on or off. Example: `.shortcuts on`, then Ctrl+K can send `kill goblin`.
+- **Hardware keyboard shortcuts** (default off) — Options → Typing → Hardware keyboard. Turn hardware keys into commands. Off, those keys type as usual. `.shortcuts` with no argument prints on or off. Example: `.shortcuts on`, then Ctrl+K can send `kill goblin`.
 - **Walk with the numeric keypad** (default on) — The number pad walks after a preset. Off, those keys do not walk. Example: after Compass words and Done, 8 sends `north`.
 - **Number row walks too** (default off) — The digits above the letters send the same walks as the number pad. Example: with this on, the 8 above the letters sends `north` too.
 - **Direction keys type while a line is being edited** (default off) — A caret in the line types the digit. An empty bar, or the whole line selected, still walks. Example: a caret in `give 2 bread` types `2`.
 - **Keep Ctrl editing keys** (default on) — Ctrl editing keys keep editing the bar. A shortcut on that chord runs when this is off. Example: Ctrl+Left moves back one word. Off, a shortcut on Ctrl+Left runs instead.
-- **Up finds a command that starts with what you typed** (default off) — Off, Up and Down step through every command, even when the bar says `ki`. On, they stay on commands that start with the bar. `.prefix` with no argument prints on or off. Example: `.prefix on`, then type `ki` and Up finds `kill goblin`. The up and down on the Edit strip follow the same switch.
+- **Up finds a command that starts with what you typed** (default off) — Options → Typing, not Hardware keyboard. Off, Up and Down step through every command, even when the bar says `ki`. On, they stay on commands that start with the bar. `.prefix` with no argument prints on or off. Example: `.prefix on`, then type `ki` and Up finds `kill goblin`. The up and down on the Edit strip follow the same switch.
 
 Scrolling the window from a shortcut is `.scrollv 10` (toward the text that was above) and `.scrollh 10` (to the right). `.scrollnew` jumps to the newest text. The caret moves with `.kb start` and `.kb end`. A shortcut's Local echo, on, prints that key's line even when Local Echo? is off. Off, that key does not print the line.
 

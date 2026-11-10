@@ -93,6 +93,11 @@ public final class KeyboardShortcutController {
 		matcher.setDirections(directions);
 	}
 
+	/** Reverse of the last number-pad walk, or null when that pad has not walked. */
+	public String stepBackLine() {
+		return matcher.stepBack();
+	}
+
 	public void republishMark() {
 		markPublished = false;
 		publishMark();

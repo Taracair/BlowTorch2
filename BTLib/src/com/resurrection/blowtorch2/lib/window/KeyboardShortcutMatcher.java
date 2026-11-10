@@ -184,7 +184,7 @@ public final class KeyboardShortcutMatcher {
 			return;
 		}
 		String trimmed = command.trim();
-		if (trimmed.length() == 0 || trimmed.indexOf(' ') >= 0) {
+		if (trimmed.length() == 0 || trimmed.indexOf(' ') >= 0 || isStepBackCommand(trimmed)) {
 			return;
 		}
 		if ("look".equals(trimmed.toLowerCase(Locale.US))) {
@@ -309,7 +309,7 @@ public final class KeyboardShortcutMatcher {
 		if (row == null || row.hold.length() == 0) {
 			return Outcome.pass();
 		}
-		return Outcome.send(row.hold, 0, 0, 0, row.quiet);
+		return sendCommand(row.hold, 0, 0, 0, row.quiet);
 	}
 
 	public Outcome onRepeatFired(final int token) {
@@ -392,7 +392,25 @@ public final class KeyboardShortcutMatcher {
 		if (KeyboardShortcuts.ACTION_STEP.equals(row.action)) {
 			return Outcome.send(resolveStep(), holdMs, repeatMs, token, row.quiet);
 		}
-		return Outcome.send(row.tap, holdMs, repeatMs, token, row.quiet);
+		return sendCommand(row.tap, holdMs, repeatMs, token, row.quiet);
+	}
+
+	/** A tap or hold of exactly `.stepback` sends the reverse, not the word. */
+	private Outcome sendCommand(final String line, final int holdMs, final int repeatMs,
+			final int token, final boolean quiet) {
+		if (isStepBackCommand(line)) {
+			return Outcome.send(resolveStep(), holdMs, repeatMs, token, quiet);
+		}
+		return Outcome.send(line, holdMs, repeatMs, token, quiet);
+	}
+
+	private static boolean isStepBackCommand(final String line) {
+		return line != null && ".stepback".equals(line.trim());
+	}
+
+	/** The reverse of the last single-word pad walk, or null when there has been none. */
+	public String stepBack() {
+		return resolveStep();
 	}
 
 	private String resolveStep() {

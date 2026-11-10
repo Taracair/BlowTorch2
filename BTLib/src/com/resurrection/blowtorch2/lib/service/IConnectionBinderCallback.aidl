@@ -185,6 +185,8 @@ oneway interface IConnectionBinderCallback {
 	 * Appended: do not insert this above existing methods.
 	 */
 	void inputBarHistory(int delta);
+	/** Send the reverse of the last number-pad walk. Nothing if that pad has not walked. */
+	void stepBack();
 	/** Style grabber overlay. mode: 0=off, 1=once, 2=hold, 3=tap. Appended. */
 	void executeGrabber(int mode);
 	/** Prefix+screen-word pick. mode: 0=off, 1=once, 2=hold, 3=tap, 4=button, 5=button-double. Appended. */

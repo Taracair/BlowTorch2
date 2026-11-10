@@ -2533,6 +2533,22 @@ public class StellarService extends Service {
 		broadcastInputBarActionWithArg(10, delta);
 	}
 
+	/** Ask the window to send the reverse of its last number-pad walk. */
+	public final void doStepBack() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).stepBack();
+				} catch (RemoteException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
 	/** mode: {@link #INPUT_EDIT_TOOLS_TOGGLE}, {@link #INPUT_EDIT_TOOLS_ON}, {@link #INPUT_EDIT_TOOLS_OFF}, {@link #INPUT_EDIT_TOOLS_STATUS}. */
 	public static final int INPUT_EDIT_TOOLS_TOGGLE = 0;
 	public static final int INPUT_EDIT_TOOLS_ON = 1;

@@ -271,6 +271,23 @@ public final class KeyboardShortcuts {
 	}
 
 	/**
+	 * Another row already on this chord, or null when the chord is free
+	 * or is the row being edited ({@code previousKey} below 0 is a new row).
+	 */
+	public Row clash(final int keyCode, final int modifiers, final int previousKey,
+			final int previousMods) {
+		Row found = row(keyCode, modifiers);
+		if (found == null) {
+			return null;
+		}
+		if (previousKey >= 0 && found.keyCode == previousKey
+				&& found.modifiers == modifiers(previousMods)) {
+			return null;
+		}
+		return found;
+	}
+
+	/**
 	 * One chord is one row. {@code previousKey} below 0 appends.
 	 * Moving a row onto another chord replaces that chord and drops the old one.
 	 */

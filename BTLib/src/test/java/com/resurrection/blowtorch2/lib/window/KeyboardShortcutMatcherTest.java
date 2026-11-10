@@ -574,6 +574,26 @@ public class KeyboardShortcutMatcherTest {
 	}
 
 	@Test
+	public void aStepBackCommandSendsTheReverseAndKeepsQuiet() {
+		Row north = Row.of(NUMPAD_8, 0, KeyboardShortcuts.ACTION_LINE, true, false, "north", "");
+		Row command = Row.of(A, 0, KeyboardShortcuts.ACTION_LINE, true, false,
+				".stepback", "", "back", true);
+		KeyboardShortcutMatcher matcher = new KeyboardShortcutMatcher();
+		matcher.setShortcuts(KeyboardShortcuts.enabled(command)
+				.withPad(Arrays.asList(north), 0, -1));
+		matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
+		Outcome quietStep = matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE));
+		assertEquals("south", quietStep.send);
+		assertTrue(quietStep.quiet);
+		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
+		matcher.setShortcuts(KeyboardShortcuts.enabled(
+				Row.of(A, 0, KeyboardShortcuts.ACTION_LINE, true, false, ".stepback south", "")));
+		assertEquals(".stepback south",
+				matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
+	}
+
+	@Test
 	public void aPadWalkSetsTheStepAndLookDoesNot() {
 		Row north = Row.of(NUMPAD_8, 0, KeyboardShortcuts.ACTION_LINE, true, false, "north", "");
 		Row look = Row.of(149, 0, KeyboardShortcuts.ACTION_LINE, true, false, "look", "");
@@ -586,6 +606,7 @@ public class KeyboardShortcutMatcherTest {
 		matcher.onKey(key(DOWN, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
 		matcher.onKey(key(UP, NUMPAD_8, 0, 0, 0, SCAN_PAD8, 0, 0, DEV, PRE));
 		assertEquals("south", matcher.onKey(letter(DOWN, 0, 'a', 'a', 0, PRE)).send);
+		assertEquals("south", matcher.stepBack());
 		matcher.onKey(letter(UP, 0, 'a', 'a', 0, PRE));
 		matcher.onKey(key(DOWN, 149, 0, 0, 0, 76, 0, 0, DEV, PRE));
 		matcher.onKey(key(UP, 149, 0, 0, 0, 76, 0, 0, DEV, PRE));

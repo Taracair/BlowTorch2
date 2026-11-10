@@ -305,6 +305,15 @@ public class KeyboardShortcutsTest {
 	}
 
 	@Test
+	public void clashNamesTheOtherRowAndSkipsTheOneBeingEdited() {
+		KeyboardShortcuts stored = KeyboardShortcuts.enabled(
+				Row.of(29, 0, KeyboardShortcuts.ACTION_LINE, true, false, "look", "", "look", false));
+		assertEquals("look", stored.clash(29, 0, -1, 0).name);
+		assertEquals(null, stored.clash(29, 0, 29, 0));
+		assertEquals(null, stored.clash(30, 0, -1, 0));
+	}
+
+	@Test
 	public void deleteAllKeepsTheSwitchAndDoesNotReseed() {
 		KeyboardShortcuts on = KeyboardShortcuts.empty().apply("on").next;
 		assertEquals(4, on.rows().size());

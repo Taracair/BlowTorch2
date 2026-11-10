@@ -352,6 +352,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_GAUGE_WIDGET_VALUES = 941;
 	/** Command history browse; arg1 negative = older. */
 	protected static final int MESSAGE_INPUT_HISTORY = 942;
+	/** .stepback: send the reverse of the last number-pad walk. */
+	protected static final int MESSAGE_STEP_BACK = 946;
 	/** arg1: 0=off, 1=left/right, 2=top/bottom; arg2: primary percent. */
 	protected static final int MESSAGE_APPLY_SPLIT = 944;
 	protected boolean settingsDialogRun = false;
@@ -1910,6 +1912,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INPUT_HISTORY:
 					applyInputHistoryStep(msg.arg1 < 0);
+					break;
+				case MESSAGE_STEP_BACK:
+					stepBackNow();
 					break;
 				case MESSAGE_INPUT_EDIT_TOOLS:
 					applyInputEditToolsMessage(msg.arg1);
@@ -5874,6 +5879,38 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return shortcutController;
 	}
 
+	private void stepBackNow() {
+		KeyboardShortcutController keys = shortcutKeys();
+		if (keys == null) {
+			return;
+		}
+		String line = keys.stepBackLine();
+		if (line == null || line.length() == 0) {
+			return;
+		}
+		sendDataLine(line);
+	}
+
+	/** Same echo rule as a line typed in the bar. */
+	private void sendDataLine(final String line) {
+		if (line == null || line.length() == 0 || service == null) {
+			return;
+		}
+		try {
+			String encoding = service.getEncoding();
+			if (encoding == null || encoding.length() == 0) {
+				return;
+			}
+			service.sendData((line + "\r\n").getBytes(encoding));
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.shortcutLine", e);
+		} catch (UnsupportedEncodingException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.shortcutLine", e);
+		}
+	}
+
 	/** Stored shortcut text. Numpad Enter uses the bar's existing Enter path. */
 	private void sendShortcutLine(final String line, final boolean quiet) {
 		if (line == null || line.length() == 0 || service == null) {
@@ -7221,6 +7258,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void inputBarHistory(int delta) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_HISTORY, delta, 0));
+		}
+
+		public void stepBack() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_STEP_BACK);
 		}
 
 		public void inputBarEditTools(int mode) throws RemoteException {

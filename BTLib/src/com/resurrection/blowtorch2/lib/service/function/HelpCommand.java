@@ -107,6 +107,8 @@ public class HelpCommand extends SpecialCommand {
 				"prints on or off; edit opens the list; .help shortcuts is the explanation");
 		cmd("prefix", "Input and suggestions",
 				"Up stays on commands that start with the bar; off steps through every command");
+		cmd("stepback", "Input and suggestions",
+				"sends the reverse of the last number-pad walk; nothing until that pad has walked");
 		cmd("last", "Input and suggestions",
 				"resend a recent command (.last, .2last); .last input fills the bar; not sent");
 		cmd("lastlist", "Input and suggestions",
@@ -778,8 +780,18 @@ public class HelpCommand extends SpecialCommand {
 					+ "  On: type ki and Up finds kill goblin.\n"
 					+ "  Off: Up and Down step through every command, even when the bar says ki.\n"
 					+ "  The up and down on the Edit strip do the same. Off at the start.\n"
-					+ "  Keyboard shortcuts list, lower half: "
-					+ "Up finds a command that starts with what you typed\n";
+					+ "  Options → Typing → Up finds a command that starts with what you typed\n";
+		}
+		if (filter.equals("stepback")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + ".stepback"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  Sends the reverse of the last direction the number pad walked.\n"
+					+ "  After the pad walked north, .stepback sends south.\n"
+					+ "  A second .stepback sends south again.\n"
+					+ "  Until that pad has walked, it sends nothing.\n"
+					+ "  Uses the directions set in Speedwalk Directions.\n"
+					+ "  Put .stepback in a shortcut's tap command to bind it to a key.\n";
 		}
 		if (filter.equals("shortcuts")) {
 			return "\n"

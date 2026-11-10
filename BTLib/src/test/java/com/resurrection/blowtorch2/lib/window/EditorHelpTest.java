@@ -66,7 +66,11 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains(".kb insert say"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("F1 starts empty."));
 		assertTrue(EditorHelp.SHORTCUTS.contains("The pinned row at the top."));
-		assertTrue(EditorHelp.SHORTCUTS.contains("The lower half of this list."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("Options → Typing → Hardware keyboard"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".kb flush"));
+		assertTrue(EditorHelp.SHORTCUTS.contains(".stepback"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("Send the current line"));
+		assertTrue(!EditorHelp.SHORTCUTS.contains("**Step back**"));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("The first row in this list."));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollnew"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+Enter and Ctrl+End"));

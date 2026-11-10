@@ -185,7 +185,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		showLatch();
 
 		form.addView(caption(activity,
-				"Walk with the numeric keypad is the switch on the shortcut list."));
+				"Walk with the numeric keypad is Options → Typing → Hardware keyboard."));
 
 		look.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
 			@Override

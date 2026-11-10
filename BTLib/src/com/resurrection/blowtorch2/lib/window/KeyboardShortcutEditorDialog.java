@@ -51,10 +51,11 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 	private final View commandBlock;
 	private final View followBlock;
 	private final TextView followNote;
+	private TextView legacyNote;
 	private final int lineId;
-	private final int inputId;
-	private final int stepId;
 	private final int clearId;
+	/** ACTION_INPUT and ACTION_STEP stay until the player picks a radio. */
+	private final String loadedAction;
 	private String linkSet = "";
 	private String linkId = "";
 	private String liveCommand = "";
@@ -77,10 +78,10 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		}
 
 		Row existing = previousKey >= 0 ? this.stored.row(previousKey, previousMods) : null;
+		loadedAction = existing == null || existing.action == null
+				? KeyboardShortcuts.ACTION_LINE : existing.action;
 		if (existing != null) {
 			capture.set(existing.keyCode, existing.modifiers);
-		} else {
-			capture.arm();
 		}
 
 		float density = activity.getResources().getDisplayMetrics().density;
@@ -104,7 +105,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		rowEnabled = existing == null || existing.enabled;
 		rowPad = existing != null && existing.pad;
 
-		form.addView(label(activity, "Key"));
+		form.addView(label(activity, "Key (tap to record keystroke)"));
 		keyLabel = new KeyRow(activity);
 		keyLabel.setText(capture.label());
 		keyLabel.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
@@ -112,7 +113,8 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		keyLabel.setBackgroundColor(ContextCompat.getColor(activity, R.color.chrome_title_bar));
 		int chip = (int) (12 * density);
 		keyLabel.setPadding(chip, chip, chip, chip);
-		keyLabel.setFocusableInTouchMode(true);
+		keyLabel.setFocusable(false);
+		keyLabel.setFocusableInTouchMode(false);
 		keyLabel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
@@ -125,28 +127,25 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		actions = new RadioGroup(activity);
 		actions.setOrientation(LinearLayout.VERTICAL);
 		lineId = View.generateViewId();
-		inputId = View.generateViewId();
-		stepId = View.generateViewId();
 		clearId = View.generateViewId();
 		actions.addView(radio(activity, lineId, "Send a line"));
-		actions.addView(radio(activity, inputId, "Send the current line"));
-		actions.addView(radio(activity, stepId, "Step back"));
 		actions.addView(radio(activity, clearId, "Clear the bar"));
-		TextView stepNote = caption(activity, "Uses the directions set in Speedwalk Directions.");
-		int stepIndent = (int) (36 * density);
-		stepNote.setPadding(stepIndent, 0, 0, (int) (4 * density));
-		String action = existing == null ? KeyboardShortcuts.ACTION_LINE : existing.action;
-		if (KeyboardShortcuts.ACTION_INPUT.equals(action)) {
-			actions.check(inputId);
-		} else if (KeyboardShortcuts.ACTION_STEP.equals(action)) {
-			actions.check(stepId);
-		} else if (KeyboardShortcuts.ACTION_ESCAPE.equals(action)) {
+		if (KeyboardShortcuts.ACTION_ESCAPE.equals(loadedAction)) {
 			actions.check(clearId);
-		} else {
+		} else if (!KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)
+				&& !KeyboardShortcuts.ACTION_STEP.equals(loadedAction)) {
 			actions.check(lineId);
 		}
 		form.addView(actions);
-		form.addView(stepNote);
+		if (KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)) {
+			legacyNote = caption(activity,
+					"This key sends the current line. Pick Send a line to change that.");
+			form.addView(legacyNote);
+		} else if (KeyboardShortcuts.ACTION_STEP.equals(loadedAction)) {
+			legacyNote = caption(activity,
+					"This key steps back. Pick Send a line to change that. .stepback does the same.");
+			form.addView(legacyNote);
+		}
 
 		commandBlock = new LinearLayout(activity);
 		((LinearLayout) commandBlock).setOrientation(LinearLayout.VERTICAL);
@@ -166,6 +165,7 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		repeatBox.setChecked(existing != null && existing.repeat);
 		((LinearLayout) commandBlock).addView(repeatBox);
 		TextView why = caption(activity, EditorHelp.HOLD_AND_REPEAT);
+		int stepIndent = (int) (36 * density);
 		why.setPadding(stepIndent, 0, 0, (int) (4 * density));
 		((LinearLayout) commandBlock).addView(why);
 		form.addView(commandBlock);
@@ -340,8 +340,11 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		setTypingAllowed(nameField, !listen);
 		setTypingAllowed(tapField, !listen);
 		setTypingAllowed(holdField, !listen);
+		keyLabel.setFocusable(listen);
+		keyLabel.setFocusableInTouchMode(listen);
 		keyLabel.setText(capture.label());
 		if (!listen) {
+			nameField.requestFocus();
 			return;
 		}
 		View focused = getCurrentFocus();
@@ -399,12 +402,17 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		int checked = actions.getCheckedRadioButtonId();
 		boolean line = checked == lineId;
 		boolean linked = line && linkId.length() > 0;
-		boolean hideQuiet = checked == inputId || checked == clearId;
+		boolean hideQuiet = checked == clearId
+				|| (checked != lineId && KeyboardShortcuts.ACTION_INPUT.equals(loadedAction));
 		commandBlock.setVisibility(line && !linked ? View.VISIBLE : View.GONE);
 		followBlock.setVisibility(linked ? View.VISIBLE : View.GONE);
 		int quiet = hideQuiet ? View.GONE : View.VISIBLE;
 		quietBox.setVisibility(quiet);
 		quietNote.setVisibility(quiet);
+		if (legacyNote != null) {
+			boolean kept = checked != lineId && checked != clearId;
+			legacyNote.setVisibility(kept ? View.VISIBLE : View.GONE);
+		}
 	}
 
 	private void refreshFollow() {
@@ -440,15 +448,32 @@ public final class KeyboardShortcutEditorDialog extends Dialog {
 		}
 		String action = KeyboardShortcuts.ACTION_LINE;
 		int checked = actions.getCheckedRadioButtonId();
-		if (checked == inputId) {
-			action = KeyboardShortcuts.ACTION_INPUT;
-		} else if (checked == stepId) {
-			action = KeyboardShortcuts.ACTION_STEP;
-		} else if (checked == clearId) {
+		if (checked == clearId) {
 			action = KeyboardShortcuts.ACTION_ESCAPE;
+		} else if (checked != lineId
+				&& (KeyboardShortcuts.ACTION_INPUT.equals(loadedAction)
+						|| KeyboardShortcuts.ACTION_STEP.equals(loadedAction))) {
+			action = loadedAction;
 		}
-		boolean quiet = !quietBox.isChecked() && checked != inputId && checked != clearId;
-		Row row = Row.of(capture.keyCode(), capture.modifiers(), action, rowEnabled,
+		boolean quiet = !quietBox.isChecked()
+				&& !KeyboardShortcuts.ACTION_INPUT.equals(action)
+				&& !KeyboardShortcuts.ACTION_ESCAPE.equals(action);
+		int newKey = capture.keyCode();
+		int newMods = capture.modifiers();
+		Row taken = stored.clash(newKey, newMods, previousKey, previousMods);
+		if (taken != null) {
+			String who = taken.name != null && taken.name.trim().length() > 0
+					? taken.name.trim()
+					: (taken.pad ? "the number pad" : "another shortcut");
+			new AlertDialog.Builder(getContext())
+					.setTitle("Key already used")
+					.setMessage(KeyboardShortcuts.chordLabel(newKey, newMods)
+							+ " is already used by " + who + ".")
+					.setPositiveButton("OK", null)
+					.show();
+			return;
+		}
+		Row row = Row.of(newKey, newMods, action, rowEnabled,
 				repeatBox.isChecked(), tapField.getText().toString(), holdField.getText().toString(),
 				nameField.getText().toString(), quiet)
 				.asPad(rowPad);

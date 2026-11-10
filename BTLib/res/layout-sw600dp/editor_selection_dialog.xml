@@ -119,22 +119,14 @@
 		android:layout_width="match_parent"
 		android:text="New"/>
 
-	<LinearLayout
-		android:id="@+id/editor_split"
+	<FrameLayout
+		android:id="@+id/frame"
 		android:layout_width="match_parent"
 		android:layout_height="fill_parent"
 		android:layout_margin="0dip"
-		android:orientation="vertical"
 		android:layout_above="@id/add"
-		android:layout_below="@id/search_filter_block">
-
-		<FrameLayout
-			android:id="@+id/frame"
-			android:layout_width="match_parent"
-			android:layout_height="0dip"
-			android:layout_weight="1"
-			android:layout_margin="0dip"
-			android:padding="0dip">
+		android:layout_below="@id/search_filter_block"
+		android:padding="0dip">
 			<ListView
 				android:id="@+id/list"
 				android:layout_height="fill_parent"
@@ -152,25 +144,7 @@
 				android:textStyle="bold"
 				android:textSize="18dip"
 				android:gravity="center"/>
-		</FrameLayout>
-
-		<ScrollView
-			android:id="@+id/shortcut_globals"
-			android:layout_width="match_parent"
-			android:layout_height="0dip"
-			android:layout_weight="0"
-			android:visibility="gone"
-			android:fillViewport="true"
-			android:background="@color/chrome_body"
-			android:scrollbars="vertical">
-
-			<LinearLayout
-				android:id="@+id/shortcut_globals_body"
-				android:layout_width="match_parent"
-				android:layout_height="wrap_content"
-				android:orientation="vertical"/>
-		</ScrollView>
-	</LinearLayout>
+	</FrameLayout>
 
 	<ListView
 	    android:id="@+id/optionslist"
