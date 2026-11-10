@@ -740,6 +740,7 @@ comment set; this section is the maintained summary.
 | `EnableTriggerGroup(name, state)` | Group enable |
 | `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
 | `NewTimer(name, seconds [, function])` | Stopped timer the editor saves. `true`, or an error string |
+| `HttpRequest(method, url, body, function)` | GET or POST off the connection thread. Returns an id, or an error string |
 | `EnableAlias(name [, state])` | Name only reads the flag. Pass true or false to set it and rebuild the matcher |
 | `SetVariable(name, value)` | Session var for `${name}` |
 | `GetVariable(name)` | Read (nil if unset) |
@@ -789,6 +790,32 @@ world's timer list. The window Lua VM does not get this function. A second
 call with that name returns an error and leaves the first timer. The error
 is a string, so check `NewTimer(...) == true`. `SaveSettings`, or leaving
 the world, writes it. Omit `function` when the timer should only count.
+
+**`HttpRequest(method, url, body, function)`** fetches a page without
+stopping reads and sends. `method` is `GET` or `POST`. `url` is `http` or
+`https`. `body` is a string; GET refuses one that is not empty. The call
+returns a number immediately. The function runs later:
+
+```lua
+local id = HttpRequest("GET", "https://example.org/room/1", "", "OnHttp")
+
+function OnHttp(id, ok, status, body, err)
+  if ok then
+    Note(body)
+  else
+    Note(tostring(err) .. "\n")
+  end
+end
+```
+
+`ok` is true for a 2xx status whose body fits in 256 KB. A page over
+that cap is `ok` false and `body` is empty, even when the status was 200.
+A 404 is `ok` false, `status` 404, and `body` is the error page. `err` is
+nil when `ok` is true. Connect and read each wait at most 10 seconds. A POST
+is sent as `text/plain; charset=utf-8`. The window Lua VM does not get
+this function. An error string is truthy, so check
+`type(HttpRequest(...)) == "number"`. A Lua error inside `OnHttp` is
+reported and does not disconnect.
 
 **`NewTrigger` config table** (common keys): `regex`, `group`, `once`
 (`true` = until enabled again; `"send"` = until you type a command; also

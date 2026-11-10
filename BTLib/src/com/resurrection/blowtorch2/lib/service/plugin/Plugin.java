@@ -248,6 +248,8 @@ public class Plugin implements SettingsChangedListener {
 		naf.register("NewAlias");
 		NewTimerFunction newTimer = new NewTimerFunction(L, this);
 		newTimer.register("NewTimer");
+		HttpRequestFunction http = new HttpRequestFunction(L, this);
+		http.register("HttpRequest");
 		L.pushJavaObject(settings.getTriggers());
 		L.setGlobal("triggers");
 		
@@ -713,6 +715,53 @@ Note("Example text!")
 	public LuaState getLuaState() {
 		// TODO Auto-generated method stub
 		return L;
+	}
+
+	/**
+	 * {@code OnHttp(id, ok, status, body, err)} on this connection's looper.
+	 * {@code err} is nil when the call succeeded. A missing function is reported
+	 * and does not disconnect. The traceback index is recorded before the five
+	 * arguments, because a relative {@code -2} would call the function again
+	 * with the error object.
+	 */
+	public void deliverHttp(String function, int id, boolean ok, int status, byte[] body,
+			String err) {
+		LuaState state = getLuaState();
+		if (state == null || function == null) {
+			return;
+		}
+		int base = state.getTop();
+		try {
+			state.getGlobal("debug");
+			state.getField(state.getTop(), "traceback");
+			state.remove(-2);
+			int traceback = state.getTop();
+			state.getGlobal(function);
+			if (!state.getLuaObject(-1).isFunction()) {
+				displayLuaError("No function named: " + function + " in plugin: " + getName());
+				state.pop(2);
+				return;
+			}
+			state.pushNumber(id);
+			state.pushBoolean(ok);
+			state.pushNumber(status);
+			state.pushString(body == null ? new byte[0] : body);
+			if (err == null) {
+				state.pushNil();
+			} else {
+				state.pushString(err);
+			}
+			int ret = state.pcall(5, 1, traceback);
+			if (ret != 0) {
+				displayLuaError("HttpRequest callback " + function + " in " + getName()
+						+ ": " + state.getLuaObject(-1).getString());
+			}
+			state.pop(2);
+		} catch (Throwable t) {
+			state.setTop(base);
+			displayLuaError("HttpRequest callback " + function + " in " + getName()
+					+ ": " + t.getClass().getSimpleName());
+		}
 	}
 	
 	/*public void outputXMLInternal(XmlSerializer out) throws IllegalArgumentException, IllegalStateException, IOException {

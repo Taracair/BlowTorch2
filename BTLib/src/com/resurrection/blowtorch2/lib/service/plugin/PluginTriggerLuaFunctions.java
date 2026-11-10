@@ -14,6 +14,7 @@ import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.alias.AliasCreate;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
+import com.resurrection.blowtorch2.lib.http.HttpRequestCall;
 import com.resurrection.blowtorch2.lib.timer.TimerCreate;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -1016,5 +1017,79 @@ class NewTimerFunction extends JavaFunction {
 		}
 		L.pushBoolean(true);
 		return 1;
+	}
+}
+
+/**
+ * {@code HttpRequest(method, url, body, function)}. The call returns the id
+ * immediately. The function runs later, on this connection's looper.
+ */
+class HttpRequestFunction extends JavaFunction {
+	Plugin plugin;
+
+	public HttpRequestFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject methodArg = this.getParam(2);
+		LuaObject urlArg = this.getParam(3);
+		LuaObject bodyArg = this.getParam(4);
+		LuaObject functionArg = this.getParam(5);
+		String method = text(methodArg);
+		if (urlArg != null && !urlArg.isNil() && !isLuaString(urlArg)) {
+			L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+					+ "url must be a string");
+			return 1;
+		}
+		String url = text(urlArg);
+		byte[] body = null;
+		if (bodyArg != null && !bodyArg.isNil()) {
+			if (!isLuaString(bodyArg)) {
+				L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+						+ "body must be a string");
+				return 1;
+			}
+			body = bodyArg.getBytes();
+		}
+		if (functionArg != null && !functionArg.isNil() && !isLuaString(functionArg)) {
+			L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+					+ "function name must be a string");
+			return 1;
+		}
+		String function = text(functionArg);
+		String error = HttpRequestCall.rejection(method, url, body, function);
+		if (error != null) {
+			L.pushString("Function: HttpRequest(string,string,string,string) Error: " + error);
+			return 1;
+		}
+		if (!(plugin.getParentCallback() instanceof Connection)) {
+			L.pushString("Function: HttpRequest(string,string,string,string) Error: no connection");
+			return 1;
+		}
+		Connection connection = (Connection) plugin.getParentCallback();
+		Integer id = connection.startHttpRequest(plugin,
+				HttpRequestCall.canonicalMethod(method), url.trim(),
+				body, function);
+		if (id == null) {
+			L.pushString("Function: HttpRequest(string,string,string,string) Error: no connection");
+			return 1;
+		}
+		L.pushNumber(id.intValue());
+		return 1;
+	}
+
+	/** A Lua string, including one LuaJIT would also accept as a number. */
+	private static boolean isLuaString(LuaObject value) {
+		return value != null && value.type() == LuaState.LUA_TSTRING.intValue();
+	}
+
+	private static String text(LuaObject value) {
+		if (!isLuaString(value)) {
+			return null;
+		}
+		return value.getString();
 	}
 }

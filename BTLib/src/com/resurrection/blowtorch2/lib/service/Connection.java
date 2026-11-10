@@ -238,6 +238,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public static final int MESSAGE_GAUGE_WIDGET_CHANGED = 60;
 
+	/** A finished {@code HttpRequest}, delivered on this connection's looper. */
+	public static final int MESSAGE_HTTP_RESULT = 61;
+
 	/**
 	 * One {@code mudstd.frame} event on its way to the UI process
 	 * (obj = JSON from {@link FrameEvent#toJson}).
@@ -503,6 +506,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private HashMap<String, String> mCaptureMap = new HashMap<String, String>();
 	private final SessionVariableStore mSessionVariables = new SessionVariableStore();
 	private SessionVariableSidecar mPersistedVariables;
+	private final HttpRequestRunner mHttp = new HttpRequestRunner();
+	private final Object mHttpGate = new Object();
+	private volatile boolean mHttpClosed;
 	
 	/** The DataPumper instance for this connection. */
 	DataPumper mPump = null;
@@ -1051,6 +1057,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_SET_VARIABLE:
 				applySetVariableMessage(msg.obj);
+				break;
+			case MESSAGE_HTTP_RESULT:
+				if (msg.obj instanceof HttpRequestRunner.Delivery) {
+					HttpRequestRunner.Delivery http = (HttpRequestRunner.Delivery) msg.obj;
+					synchronized (mHttpGate) {
+						if (!mHttpClosed && http.plugin != null && http.outcome != null) {
+							http.plugin.deliverHttp(http.function, http.id, http.outcome.ok,
+									http.outcome.status, http.outcome.body, http.outcome.err);
+						}
+					}
+				}
 				break;
 			case MESSAGE_UNSET_VARIABLE:
 				if (msg.obj instanceof String) {
@@ -9044,6 +9061,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mPersistedVariables.restoreInto(mSessionVariables);
 	}
 
+	/**
+	 * Queue one HTTP call. The id is what {@code OnHttp} receives. Null when
+	 * this connection is already shutting down.
+	 */
+	public Integer startHttpRequest(Plugin plugin, String method, String url, byte[] body,
+			String function) {
+		return mHttp.start(this, plugin, method, url, body, function);
+	}
+
+	boolean httpClosed() {
+		return mHttpClosed;
+	}
+
 	private void applySetVariableMessage(Object obj) {
 		if (!(obj instanceof SetVariableOp)) {
 			return;
@@ -9067,6 +9097,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Immediatly shuts down this connection and all associated data structures. */
 	public final void shutdown() {
+		synchronized (mHttpGate) {
+			mHttpClosed = true;
+		}
+		this.mHttp.shutdown();
 		this.saveMainSettings();
 		// Does not go through doDisconnect, so it needs its own: this is the
 		// other way a session ends for good.
