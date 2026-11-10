@@ -124,9 +124,16 @@ public class OptionsDialog extends Dialog {
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_use_coords");
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_grow");
 		HIDDEN_OPTION_KEYS.add("mapper_gmcp_create_exits");
-		// The list and .shortcuts edit this string. The Typing switch stays in step with on=.
+		// The list and .shortcuts edit this string. shortcuts_on stays in step with on=.
 		HIDDEN_OPTION_KEYS.add(
 				com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.SETTING_KEY);
+		// The shortcut list draws these. The rows stay so the profile still saves them.
+		HIDDEN_OPTION_KEYS.add("shortcuts_on");
+		HIDDEN_OPTION_KEYS.add("shortcut_pad");
+		HIDDEN_OPTION_KEYS.add("shortcut_toprow");
+		HIDDEN_OPTION_KEYS.add("shortcut_idle");
+		HIDDEN_OPTION_KEYS.add("shortcut_ctrl_edit");
+		HIDDEN_OPTION_KEYS.add("shortcut_prefix");
 	}
 
 	HashMap<Integer,String> pluginSettingsMap = new HashMap<Integer,String>();

@@ -7,7 +7,7 @@ bottom of Options filters as you type; tap a result to jump there and flash the 
 |-------|---------|
 | **Window** | Drill in: **Text** (font, colours, wrap, light theme, timestamps, loupes, **Avoid buttons**), **Layout** (padding, scrolling, the keyboard, the ⋮ button), **Links**, **Input bar** (Edit and Send) |
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Typing** | The input bar: history, keep last, hardware keyboard shortcuts, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation. Edit and Send are under Window → Input bar |
+| **Typing** | The input bar: history, keep last, **Grow Input Bar?** / `.wrap`, lowercase start, strip accents, hyphenation. Hardware shortcut switches are the lower half of the Keyboard shortcuts list. Edit and Send are under Window → Input bar |
 | **Suggestions** | Words the game just used. Four section titles stay on that page |
 | **Gestures** | Screen-wide swipes on the game text (`.gesture`) |
 | **Panes** | Extra text windows, gauges, the prompt line, floating buttons |
@@ -419,7 +419,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 Partially experimental. Android does not read every keyboard the same way. What a key does also depends on the keyboard app installed on the phone.
 
-All of these are Options → Typing.
+These six are the lower half of the Keyboard shortcuts list (`.shortcuts edit`). They are stored with the world. They are not repeated under Options → Typing.
 
 - **Hardware keyboard shortcuts** (default off) — Turn hardware keys into commands. Off, those keys type as usual. `.shortcuts` with no argument prints on or off. Example: `.shortcuts on`, then Ctrl+K can send `kill goblin`.
 - **Walk with the numeric keypad** (default on) — The number pad walks after a preset. Off, those keys do not walk. Example: after Compass words and Done, 8 sends `north`.

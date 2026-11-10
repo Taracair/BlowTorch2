@@ -8,10 +8,10 @@ import com.resurrection.blowtorch2.lib.window.KeyboardShortcutPad.Cell;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcutPad.Draft;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.DialogInterface;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -50,6 +50,11 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 	private final int ctrlId;
 	private final RadioGroup modifiers;
 	private boolean latchArmed;
+	private int selected;
+	private boolean editorLock;
+	private EditText commandField;
+	private CheckBox repeatBox;
+	private TextView commandHeading;
 
 	private KeyboardShortcutPadDialog(final Activity activity, final KeyboardShortcuts stored,
 			final Host host) {
@@ -74,6 +79,42 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		form.setOrientation(LinearLayout.VERTICAL);
 		form.setPadding(pad, pad, pad, pad);
 		form.addView(grid(activity, density));
+		commandHeading = label(activity, "7");
+		form.addView(commandHeading);
+		commandField = new EditText(activity);
+		commandField.setSingleLine(true);
+		commandField.setInputType(InputType.TYPE_CLASS_TEXT);
+		commandField.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
+		commandField.setHintTextColor(ContextCompat.getColor(activity, R.color.chrome_hint));
+		commandField.setHint("Command");
+		commandField.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(final CharSequence s, final int start, final int count,
+					final int after) {
+			}
+
+			@Override
+			public void onTextChanged(final CharSequence s, final int start, final int before,
+					final int count) {
+			}
+
+			@Override
+			public void afterTextChanged(final Editable s) {
+				onEditorChanged();
+			}
+		});
+		form.addView(commandField);
+		repeatBox = new CheckBox(activity);
+		repeatBox.setText("Repeat while held");
+		repeatBox.setTextColor(ContextCompat.getColor(activity, R.color.chrome_title_text));
+		repeatBox.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+			@Override
+			public void onCheckedChanged(final android.widget.CompoundButton button, final boolean checked) {
+				onEditorChanged();
+			}
+		});
+		form.addView(repeatBox);
+		selectCell(0);
 
 		form.addView(label(activity, "Preset"));
 		form.addView(preset(activity, "Compass words", KeyboardShortcutPad.compass()));
@@ -85,7 +126,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 			public void onClick(final View v) {
 				Map<String, DirectionData> directions = host.directions();
 				KeyboardShortcutPad.copyCommands(draft, KeyboardShortcutPad.speedwalk(directions));
-				showCells();
+				selectCell(selected);
 			}
 		});
 		form.addView(speed);
@@ -143,7 +184,8 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 		form.addView(latchNote);
 		showLatch();
 
-		form.addView(caption(activity, "When the pad walks is Options → Typing."));
+		form.addView(caption(activity,
+				"Walk with the numeric keypad is the switch on the shortcut list."));
 
 		look.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
 			@Override
@@ -214,6 +256,9 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 
 	@Override
 	public boolean dispatchKeyEvent(final KeyEvent event) {
+		if (getCurrentFocus() == commandField) {
+			return super.dispatchKeyEvent(event);
+		}
 		if (latchArmed && draft.modifier != 0 && event != null
 				&& latchCapture.onKey(event.getAction(), event.getKeyCode(), event.getMetaState(),
 						event.getScanCode(), event.getDeviceId())) {
@@ -241,7 +286,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 				cell.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(final View v) {
-						editCell(index);
+						selectCell(index);
 					}
 				});
 				cells[index] = cell;
@@ -252,13 +297,45 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 			}
 			grid.addView(line);
 		}
-		showCells();
 		return grid;
+	}
+
+	private void selectCell(final int index) {
+		if (index < 0 || index >= cells.length || commandField == null) {
+			return;
+		}
+		selected = index;
+		showCells();
+		Cell cell = draft.cells[index];
+		editorLock = true;
+		commandHeading.setText(cell.face);
+		commandField.setText(KeyboardShortcutPad.editorText(cell));
+		Editable text = commandField.getText();
+		if (text != null) {
+			commandField.setSelection(text.length());
+		}
+		boolean enter = cell.keyCode == KeyboardShortcuts.KEYCODE_NUMPAD_ENTER;
+		repeatBox.setChecked(cell.repeat);
+		repeatBox.setVisibility(enter ? View.GONE : View.VISIBLE);
+		editorLock = false;
+	}
+
+	private void onEditorChanged() {
+		if (editorLock || commandField == null || selected < 0 || selected >= cells.length) {
+			return;
+		}
+		KeyboardShortcutPad.edit(draft, selected,
+				commandField.getText() == null ? "" : commandField.getText().toString(),
+				repeatBox.isChecked());
+		cells[selected].setText(KeyboardShortcutPad.cellLabel(draft.cells[selected]));
 	}
 
 	private void showCells() {
 		for (int i = 0; i < cells.length; i++) {
 			cells[i].setText(KeyboardShortcutPad.cellLabel(draft.cells[i]));
+			cells[i].setTypeface(i == selected
+					? android.graphics.Typeface.DEFAULT_BOLD
+					: android.graphics.Typeface.DEFAULT);
 		}
 	}
 
@@ -269,50 +346,6 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 				latchCapture.label()));
 	}
 
-	private void editCell(final int index) {
-		final Cell cell = draft.cells[index];
-		final android.content.Context context = getContext();
-		LinearLayout box = new LinearLayout(context);
-		box.setOrientation(LinearLayout.VERTICAL);
-		int pad = (int) (16 * context.getResources().getDisplayMetrics().density);
-		box.setPadding(pad, pad, pad, pad);
-		final EditText command = new EditText(context);
-		command.setSingleLine(true);
-		command.setInputType(InputType.TYPE_CLASS_TEXT);
-		command.setText(KeyboardShortcutPad.editorText(cell));
-		if (cell.keyCode == KeyboardShortcuts.KEYCODE_NUMPAD_ENTER) {
-			command.setHint(KeyboardShortcutPad.SEND_CURRENT_LINE);
-		}
-		box.addView(command);
-		final CheckBox repeat = new CheckBox(context);
-		repeat.setText("Repeat");
-		repeat.setChecked(cell.repeat);
-		if (cell.keyCode != KeyboardShortcuts.KEYCODE_NUMPAD_ENTER) {
-			box.addView(repeat);
-		}
-		new AlertDialog.Builder(context)
-				.setTitle(cell.face)
-				.setView(box)
-				.setPositiveButton("Done", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(final DialogInterface dialog, final int which) {
-						KeyboardShortcutPad.edit(draft, index,
-								command.getText() == null ? "" : command.getText().toString(),
-								repeat.isChecked());
-						showCells();
-						dialog.dismiss();
-					}
-				})
-				.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(final DialogInterface dialog, final int which) {
-						dialog.dismiss();
-					}
-				})
-				.create()
-				.show();
-	}
-
 	private Button preset(final Activity activity, final String title, final Draft source) {
 		Button button = new Button(activity);
 		button.setText(title);
@@ -320,7 +353,7 @@ public final class KeyboardShortcutPadDialog extends Dialog {
 			@Override
 			public void onClick(final View v) {
 				KeyboardShortcutPad.copyCommands(draft, source);
-				showCells();
+				selectCell(selected);
 			}
 		});
 		return button;

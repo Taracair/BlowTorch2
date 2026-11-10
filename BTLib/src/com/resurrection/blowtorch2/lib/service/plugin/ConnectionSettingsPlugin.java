@@ -161,6 +161,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		keyboard_shortcuts.setValue("");
 		input.addOption(keyboard_shortcuts);
 
+		// Drawn on the Keyboard shortcuts list, hidden from Options. The row is
+		// the storage: without it the switch on that list has nowhere to write.
 		BooleanOption shortcuts_on = new BooleanOption();
 		shortcuts_on.setTitle("Hardware keyboard shortcuts");
 		shortcuts_on.setDescription("Turn hardware keys into commands. Off, those keys type as usual.");

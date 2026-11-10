@@ -105,7 +105,8 @@ public class PrefixCommand extends SpecialCommand {
 				+ "Off: Up and Down step through every command, even when the bar says ki.\n"
 				+ "The up and down on the Edit strip do the same.\n"
 				+ "Usage: .prefix on | .prefix off | .prefix toggle\n"
-				+ "Also: Options → Typing → Up finds a command that starts with what you typed\n";
+				+ "Also: Keyboard shortcuts list, lower half. "
+				+ "Up finds a command that starts with what you typed\n";
 	}
 
 	static String usage() {
@@ -113,7 +114,8 @@ public class PrefixCommand extends SpecialCommand {
 				+ ".prefix on | off | toggle\n"
 				+ "On: type ki and Up finds kill goblin.\n"
 				+ "Off: Up and Down step through every command.\n"
-				+ "Also: Options → Typing → Up finds a command that starts with what you typed";
+				+ "Also: Keyboard shortcuts list, lower half. "
+				+ "Up finds a command that starts with what you typed";
 	}
 
 	private static BooleanOption find(Connection c) {

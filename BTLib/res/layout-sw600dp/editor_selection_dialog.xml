@@ -119,32 +119,58 @@
 		android:layout_width="match_parent"
 		android:text="New"/>
 
-	<FrameLayout
-		android:id="@+id/frame"
+	<LinearLayout
+		android:id="@+id/editor_split"
 		android:layout_width="match_parent"
 		android:layout_height="fill_parent"
 		android:layout_margin="0dip"
-		android:padding="0dip"
+		android:orientation="vertical"
 		android:layout_above="@id/add"
 		android:layout_below="@id/search_filter_block">
-		<ListView
-			android:id="@+id/list"
-			android:layout_height="fill_parent"
+
+		<FrameLayout
+			android:id="@+id/frame"
 			android:layout_width="match_parent"
-			android:background="@color/chrome_body"/>
-		<TextView
-			android:id="@+id/empty"
-			android:layout_width="match_parent"
-			android:layout_height="fill_parent"
-			android:text="No items to display."
-			android:textColor="@color/chrome_description"
-			android:background="@color/chrome_body"
+			android:layout_height="0dip"
+			android:layout_weight="1"
 			android:layout_margin="0dip"
-			android:padding="0dip"
-			android:textStyle="bold"
-			android:textSize="18dip"
-			android:gravity="center"/>
-	</FrameLayout>
+			android:padding="0dip">
+			<ListView
+				android:id="@+id/list"
+				android:layout_height="fill_parent"
+				android:layout_width="match_parent"
+				android:background="@color/chrome_body"/>
+			<TextView
+				android:id="@+id/empty"
+				android:layout_width="match_parent"
+				android:layout_height="fill_parent"
+				android:text="No items to display."
+				android:textColor="@color/chrome_description"
+				android:background="@color/chrome_body"
+				android:layout_margin="0dip"
+				android:padding="0dip"
+				android:textStyle="bold"
+				android:textSize="18dip"
+				android:gravity="center"/>
+		</FrameLayout>
+
+		<ScrollView
+			android:id="@+id/shortcut_globals"
+			android:layout_width="match_parent"
+			android:layout_height="0dip"
+			android:layout_weight="0"
+			android:visibility="gone"
+			android:fillViewport="true"
+			android:background="@color/chrome_body"
+			android:scrollbars="vertical">
+
+			<LinearLayout
+				android:id="@+id/shortcut_globals_body"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"/>
+		</ScrollView>
+	</LinearLayout>
 
 	<ListView
 	    android:id="@+id/optionslist"

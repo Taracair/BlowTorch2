@@ -3,8 +3,10 @@ package com.resurrection.blowtorch2.lib.window;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.ListText;
@@ -12,11 +14,22 @@ import com.resurrection.blowtorch2.lib.window.KeyboardShortcuts.Row;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.os.Bundle;
 import android.os.RemoteException;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import androidx.core.content.ContextCompat;
 
 /**
  * The shortcut list. Same footer as the alias list: New, ?, More, Close.
@@ -29,7 +42,15 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 	private final IConnectionBinder service;
 	private KeyboardShortcuts stored = KeyboardShortcuts.empty();
 	private static final String PAD_KEY = "number-pad";
-	private static final String KEYS_KEY = "keyboard";
+	private static final String[] GLOBAL_KEYS = {
+			"shortcuts_on",
+			"shortcut_pad",
+			"shortcut_toprow",
+			"shortcut_idle",
+			"shortcut_ctrl_edit",
+			"shortcut_prefix"
+	};
+	private boolean switchLock;
 
 	public KeyboardShortcutListDialog(final MainWindow activity, final IConnectionBinder service) {
 		super(activity);
@@ -41,6 +62,19 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 		addOptionItem("Delete all", true);
 		stored = load();
 		fill();
+	}
+
+	@Override
+	public void onCreate(final Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		showGlobalSwitches();
+	}
+
+	/** Close writes the switches. Five of them have no other save. */
+	@Override
+	public void dismiss() {
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
+		super.dismiss();
 	}
 
 	@Override
@@ -75,10 +109,6 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 	public void onButtonPressed(final android.view.View v, final int row, final int index) {
 		if (PAD_KEY.equals(getItemKey(row))) {
 			openPad();
-			return;
-		}
-		if (KEYS_KEY.equals(getItemKey(row))) {
-			openKeyboard();
 			return;
 		}
 		Row data = rowFor(row);
@@ -124,7 +154,7 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	@Override
 	public void willShowToolbar(final LinearLayout toolbar, final int row) {
-		if (PAD_KEY.equals(getItemKey(row)) || KEYS_KEY.equals(getItemKey(row))) {
+		if (PAD_KEY.equals(getItemKey(row))) {
 			for (int i = 0; i < toolbar.getChildCount(); i++) {
 				if (i != 1) {
 					toolbar.getChildAt(i).setVisibility(android.view.View.GONE);
@@ -189,15 +219,6 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 				});
 	}
 
-	private void openKeyboard() {
-		KeyboardShortcutMenuDialog.show(activity, new KeyboardShortcutMenuDialog.Host() {
-			@Override
-			public void openPad() {
-				KeyboardShortcutListDialog.this.openPad();
-			}
-		});
-	}
-
 	private void openPad() {
 		KeyboardShortcutPadDialog.show(activity, stored, new KeyboardShortcutPadDialog.Host() {
 			@Override
@@ -239,8 +260,6 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 
 	private void fill() {
 		clearListItems();
-		addListItem(KEYS_KEY, "Keyboard", "Pad walks, arrows, .scrollnew", 0, true);
-		setLastItemPinned();
 		addListItem(PAD_KEY, "Number pad", "Presets for the number pad", 0, true);
 		setLastItemPinned();
 		for (int i = 0; i < stored.rows().size(); i++) {
@@ -252,6 +271,114 @@ public class KeyboardShortcutListDialog extends BaseSelectionDialog implements
 		}
 		if (isShowing()) {
 			invalidateList();
+		}
+	}
+
+	/** Lower half. The six switches used to sit under Options → Typing. */
+	private void showGlobalSwitches() {
+		ScrollView panel = (ScrollView) findViewById(R.id.shortcut_globals);
+		LinearLayout body = (LinearLayout) findViewById(R.id.shortcut_globals_body);
+		if (panel == null || body == null || service == null) {
+			return;
+		}
+		SettingsGroup group = settingsGroup();
+		if (group == null) {
+			return;
+		}
+		body.removeAllViews();
+		int added = 0;
+		for (int i = 0; i < GLOBAL_KEYS.length; i++) {
+			if (addSwitch(body, group, GLOBAL_KEYS[i])) {
+				added++;
+			}
+		}
+		if (added == 0) {
+			return;
+		}
+		TextView header = new TextView(getContext());
+		header.setText("Keyboard");
+		header.setTextColor(ContextCompat.getColor(getContext(), R.color.chrome_title_text));
+		header.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.chrome_title_bar));
+		header.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+		header.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+		header.setGravity(Gravity.CENTER_VERTICAL);
+		float density = getContext().getResources().getDisplayMetrics().density;
+		int pad = (int) (10 * density);
+		header.setPadding(pad, 0, pad, 0);
+		header.setMinHeight((int) (34 * density));
+		body.addView(header, 0);
+		panel.setVisibility(View.VISIBLE);
+		LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) panel.getLayoutParams();
+		lp.height = 0;
+		lp.weight = 1f;
+		panel.setLayoutParams(lp);
+	}
+
+	private boolean addSwitch(final LinearLayout body, final SettingsGroup group, final String key) {
+		Object found = group.findOptionByKey(key);
+		if (!(found instanceof BooleanOption)) {
+			return false;
+		}
+		final BooleanOption option = (BooleanOption) found;
+		LayoutInflater inflater = LayoutInflater.from(getContext());
+		final View row = inflater.inflate(R.layout.options_list_row, body, false);
+		TextView title = (TextView) row.findViewById(R.id.infoTitle);
+		TextView detail = (TextView) row.findViewById(R.id.infoExtended);
+		title.setText(option.getTitle());
+		detail.setText(option.getDescription());
+		LinearLayout widget = (LinearLayout) row.findViewById(R.id.widget_frame);
+		final CheckBox box = new CheckBox(getContext());
+		box.setFocusable(false);
+		box.setFocusableInTouchMode(false);
+		Object value = option.getValue();
+		box.setChecked(value instanceof Boolean && ((Boolean) value).booleanValue());
+		widget.addView(box, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+		box.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+			@Override
+			public void onCheckedChanged(final CompoundButton button, final boolean checked) {
+				if (switchLock) {
+					return;
+				}
+				try {
+					service.updateBooleanSetting(key, checked);
+					if ("shortcuts_on".equals(key)) {
+						stored = load();
+						fill();
+					}
+				} catch (RemoteException e) {
+					switchLock = true;
+					box.setChecked(!checked);
+					switchLock = false;
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"KeyboardShortcutListDialog", e);
+				}
+			}
+		});
+		row.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				box.setChecked(!box.isChecked());
+			}
+		});
+		body.addView(row);
+		View line = new View(getContext());
+		line.setBackgroundResource(R.drawable.editor_row_divider);
+		body.addView(line, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, 1));
+		return true;
+	}
+
+	private SettingsGroup settingsGroup() {
+		if (service == null) {
+			return null;
+		}
+		try {
+			return service.getSettings();
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"KeyboardShortcutListDialog", e);
+			return null;
 		}
 	}
 

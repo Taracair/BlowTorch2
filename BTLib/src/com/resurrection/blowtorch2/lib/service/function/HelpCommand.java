@@ -778,7 +778,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  On: type ki and Up finds kill goblin.\n"
 					+ "  Off: Up and Down step through every command, even when the bar says ki.\n"
 					+ "  The up and down on the Edit strip do the same. Off at the start.\n"
-					+ "  Options → Typing → Up finds a command that starts with what you typed\n";
+					+ "  Keyboard shortcuts list, lower half: "
+					+ "Up finds a command that starts with what you typed\n";
 		}
 		if (filter.equals("shortcuts")) {
 			return "\n"

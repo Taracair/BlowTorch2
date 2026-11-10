@@ -65,7 +65,8 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+K can send kill goblin."));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".kb insert say"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("F1 starts empty."));
-		assertTrue(EditorHelp.SHORTCUTS.contains("The row under Keyboard."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("The pinned row at the top."));
+		assertTrue(EditorHelp.SHORTCUTS.contains("The lower half of this list."));
 		assertTrue(!EditorHelp.SHORTCUTS.contains("The first row in this list."));
 		assertTrue(EditorHelp.SHORTCUTS.contains(".scrollnew"));
 		assertTrue(EditorHelp.SHORTCUTS.contains("Ctrl+Enter and Ctrl+End"));

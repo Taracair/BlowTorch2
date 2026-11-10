@@ -197,6 +197,12 @@ public final class EditorHelp {
 			+ "**Partially experimental**\n"
 			+ "Android does not read every keyboard the same way. What a key does also depends on "
 			+ "the keyboard app installed on the phone.\n\n"
+			+ "**Switches**\n"
+			+ "The lower half of this list. Hardware keyboard shortcuts turns them on. "
+			+ "Off, those keys type as usual. The other switches are Walk with the numeric keypad, "
+			+ "Number row walks too, Direction keys type while a line is being edited, "
+			+ "Keep Ctrl editing keys, and Up finds a command that starts with what you typed. "
+			+ "They are not under Options.\n\n"
 			+ "**Name**\n"
 			+ "What this list shows. Leave it blank and the list shows the key.\n\n"
 			+ "**Row switch**\n"
@@ -233,7 +239,7 @@ public final class EditorHelp {
 			+ "It also matches the words on the button, its name, its command, its hold line, "
 			+ "and the set name. Every set starts closed. Tap the set to open it.\n\n"
 			+ "**Number pad**\n"
-			+ "The row under Keyboard. Done writes those rows. "
+			+ "The pinned row at the top. Done writes those rows. "
 			+ "Compass words is a preset you apply. It fills 8 with north. Until Done, 8 still types. "
 			+ "None walks on the bare number. Alt walks on Alt plus the number, and the bare number types. "
 			+ "Ctrl walks on Ctrl plus the number, and the bare number types. "
@@ -297,6 +303,7 @@ public final class EditorHelp {
 			+ KeyboardShortcutPad.lookCaption(0) + " When the walk modifier is Alt, "
 			+ KeyboardShortcutPad.lookCaption(KeyboardShortcuts.MOD_ALT) + " Look sends once.\n\n"
 			+ "**Cells**\n"
+			+ "Tap a cell. The field under the grid is that key. "
 			+ "A cell shows its face and its command. An empty command is not a shortcut. "
 			+ "* and / start empty. Enter shows " + KeyboardShortcutPad.SEND_CURRENT_LINE
 			+ ". Clearing it removes that row.\n\n"
@@ -305,7 +312,7 @@ public final class EditorHelp {
 			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_ALT) + " "
 			+ KeyboardShortcutPad.latchCaption(KeyboardShortcuts.MOD_CTRL) + "\n\n"
 			+ "**When the pad walks**\n"
-			+ "Options → Typing.";
+			+ "The switch on the shortcut list, Walk with the numeric keypad.";
 
 	public static final String ALIASES =
 			"An alias rewrites what YOU type, before it leaves the phone. It never "
