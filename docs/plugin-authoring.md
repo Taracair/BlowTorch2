@@ -735,10 +735,10 @@ comment set; this section is the maintained summary.
 |----------|-------------|
 | `NewTrigger(name, pattern, config, action…)` | Create trigger + responder tables |
 | `DeleteTrigger(name)` / `DeleteTriggerGroup(name)` | Remove |
-| `EnableTrigger(name [, state])` | Get/set enabled |
+| `EnableTrigger(name [, state])` | Name only reads the flag. Pass true or false to change it |
 | `EnableTriggerGroup(name, state)` | Group enable |
 | `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
-| `EnableAlias(name [, state])` | Get/set alias enabled + rebuild matcher |
+| `EnableAlias(name [, state])` | Name only reads the flag. Pass true or false to set it and rebuild the matcher |
 | `SetVariable(name, value)` | Session var for `${name}` |
 | `GetVariable(name)` | Read (nil if unset) |
 | `UnsetVariable(name)` | Clear |

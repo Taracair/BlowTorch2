@@ -796,12 +796,14 @@ class TriggerEnabledFunction extends JavaFunction {
 		String trigger = this.getParam(2).getString();
 		
 		if(plugin.getSettings().getTriggers().containsKey(trigger)) {
-			//execute function
-			if(this.getParam(3) == null) {
+			// getParam always returns a LuaObject. A missing argument is nil,
+			// and getBoolean() on that nil is false, which is what turned it off.
+			LuaObject stateArg = this.getParam(3);
+			if (stateArg == null || stateArg.isNil()) {
 				L.pushBoolean(plugin.getSettings().getTriggers().get(trigger).isEnabled());
 				return 1;
 			}
-			Boolean state = this.getParam(3).getBoolean();
+			Boolean state = stateArg.getBoolean();
 			plugin.getSettings().getTriggers().get(trigger).setEnabled(state);
 			
 			plugin.markTriggersDirty();
@@ -885,11 +887,14 @@ class EnableAliasFunction extends JavaFunction {
 					+ alias + "\" does not exist");
 			return 1;
 		}
-		if (this.getParam(3) == null) {
+		// getParam always returns a LuaObject. A missing argument is nil,
+		// and getBoolean() on that nil is false, which is what turned it off.
+		LuaObject stateArg = this.getParam(3);
+		if (stateArg == null || stateArg.isNil()) {
 			L.pushBoolean(plugin.getSettings().getAliases().get(alias).isEnabled());
 			return 1;
 		}
-		boolean state = this.getParam(3).getBoolean();
+		boolean state = stateArg.getBoolean();
 		plugin.getSettings().getAliases().get(alias).setEnabled(state);
 		// The combined matcher is built from the enabled ones, so it has to go.
 		plugin.buildAliases();
