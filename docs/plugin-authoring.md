@@ -85,12 +85,13 @@ Treat every installed plugin as full app code in `:stellar`.
 - External plugins need **mounted shared storage**; otherwise links fail as
   “storage not mounted”.
 - Session variables (`SetVariable` / `GetVariable`) are **session-only** — not
-  persisted across reconnects.
+  persisted across reconnects. A Set Variable action with Keep after restart
+  is the exception: that one name is written beside the profile and restored
+  on the next load.
 - `NewWindow(...)` is legacy; size arguments are largely ignored. Prefer XML
   `<window>` layouts or `CreateTextWindow` for extra panes.
 - Only **window** (UI) Lua can add global menu items (`PopulateMenu`).
-- **No `NewTimer` in Lua** — declare timers in XML or edit them in the UI.
-  Lua can `NewAlias`, `EnableAlias`, and fully create/delete triggers.
+- Lua can `NewAlias`, `NewTimer`, `EnableAlias`, and fully create/delete triggers.
 - **No plugin `Send_MSDP`** — MSDP is Options / `.msdp` only.
 - ForgeMap (`forgemap`) is skipped at load in this build.
 
@@ -738,6 +739,7 @@ comment set; this section is the maintained summary.
 | `EnableTrigger(name [, state])` | Name only reads the flag. Pass true or false to change it |
 | `EnableTriggerGroup(name, state)` | Group enable |
 | `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
+| `NewTimer(name, seconds [, function])` | Stopped timer the editor saves. `true`, or an error string |
 | `EnableAlias(name [, state])` | Name only reads the flag. Pass true or false to set it and rebuild the matcher |
 | `SetVariable(name, value)` | Session var for `${name}` |
 | `GetVariable(name)` | Read (nil if unset) |
@@ -764,7 +766,29 @@ the editor's circular check expands back into an alias
 (`NewAlias("a", "a")`). `NewAlias("^(.+)$", "say $1")` is stored. The
 error is a string, and in Lua a string counts as true, so check
 `NewAlias(...) == true`. `SaveSettings`, or leaving the world, writes it
-into the settings file the editor reloads. `NewTimer` is not available.
+into the settings file the editor reloads.
+
+**`NewTimer(name, seconds [, function])`** stores the timer the editor's New
+button saves. `seconds` is a whole number, at least 1. Repeat is off, and
+the timer is not started:
+
+```lua
+NewTimer("heal", 45, "OnHeal")
+
+function OnHeal()
+  SendToServer("cast heal\n")
+end
+```
+
+`.timer play heal` starts it. It fires `OnHeal` once and stops. If two
+plugins use the same name, `.timer play` starts the world's timer when
+that name is there, otherwise the first plugin that has it. Opening
+Timers shows `heal`, 45 seconds, stopped. Called from a plugin, the timer
+belongs to that plugin. Called from main-settings Lua, it belongs to the
+world's timer list. The window Lua VM does not get this function. A second
+call with that name returns an error and leaves the first timer. The error
+is a string, so check `NewTimer(...) == true`. `SaveSettings`, or leaving
+the world, writes it. Omit `function` when the timer should only count.
 
 **`NewTrigger` config table** (common keys): `regex`, `group`, `once`
 (`true` = until enabled again; `"send"` = until you type a command; also

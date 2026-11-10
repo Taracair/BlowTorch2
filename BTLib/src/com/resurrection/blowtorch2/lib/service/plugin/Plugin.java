@@ -246,6 +246,8 @@ public class Plugin implements SettingsChangedListener {
 		eaf.register("EnableAlias");
 		NewAliasFunction naf = new NewAliasFunction(L, this);
 		naf.register("NewAlias");
+		NewTimerFunction newTimer = new NewTimerFunction(L, this);
+		newTimer.register("NewTimer");
 		L.pushJavaObject(settings.getTriggers());
 		L.setGlobal("triggers");
 		

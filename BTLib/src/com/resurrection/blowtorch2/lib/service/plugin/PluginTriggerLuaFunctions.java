@@ -14,6 +14,8 @@ import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.alias.AliasCreate;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
+import com.resurrection.blowtorch2.lib.timer.TimerCreate;
+import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
@@ -948,6 +950,69 @@ class NewAliasFunction extends JavaFunction {
 			connection.setAliases(map);
 		} else {
 			connection.setPluginAliases(plugin.getName(), map);
+		}
+		L.pushBoolean(true);
+		return 1;
+	}
+}
+
+/**
+ * {@code NewTimer(name, seconds[, function])} — the timer the editor's New
+ * button stores, on this plugin. Main-settings Lua is the world's timer list.
+ *
+ * <p>Does not save. {@code OnBackgroundStartup} runs while the settings page
+ * is still being built, and a save there writes that unfinished tree.
+ * External plugins are marked dirty so the next save rewrites the file.
+ * Main settings writes every timer on each save.
+ */
+class NewTimerFunction extends JavaFunction {
+	Plugin plugin;
+
+	public NewTimerFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject nameArg = this.getParam(2);
+		LuaObject secondsArg = this.getParam(3);
+		LuaObject functionArg = this.getParam(4);
+		String name = nameArg != null && !nameArg.isNil() && nameArg.isString()
+				? nameArg.getString() : null;
+		Integer seconds = null;
+		if (secondsArg != null && !secondsArg.isNil() && secondsArg.isNumber()) {
+			seconds = TimerCreate.wholeSeconds(secondsArg.getNumber());
+		}
+		String function = null;
+		if (functionArg != null && !functionArg.isNil()) {
+			if (!functionArg.isString()) {
+				L.pushString("Function: NewTimer(string,number[,string]) Error: "
+						+ "function name must be a string");
+				return 1;
+			}
+			function = functionArg.getString();
+		}
+		if (!(plugin.getParentCallback() instanceof Connection)) {
+			L.pushString("Function: NewTimer(string,number[,string]) Error: no connection");
+			return 1;
+		}
+		Connection connection = (Connection) plugin.getParentCallback();
+		String error = TimerCreate.rejection(name, seconds, function,
+				plugin.getSettings().getTimers());
+		if (error != null) {
+			L.pushString("Function: NewTimer(string,number[,string]) Error: " + error);
+			return 1;
+		}
+		boolean main = plugin instanceof ConnectionSettingsPlugin;
+		if (!main && connection.getPluginTimers(plugin.getName()) == null) {
+			L.pushString("Function: NewTimer(string,number[,string]) Error: plugin is not loaded");
+			return 1;
+		}
+		TimerData created = TimerCreate.create(name, seconds.intValue(), function);
+		plugin.getSettings().getTimers().put(created.getName(), created);
+		if (!main) {
+			plugin.getSettings().setDirty(true);
 		}
 		L.pushBoolean(true);
 		return 1;
