@@ -895,7 +895,27 @@ and .kb lined move the caret one visual line and do not touch history.
 .last resends the newest command. .2last resends the one before it,
 .3last the one before that. The game does not receive .last.
 .last input puts that command in the bar and does not send it.
-.lastlist opens this world's recent commands. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. A tap on the grip hides them, and so does .lastfloat off. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. Hold a chip on that bar to read the whole command. Slide onto another chip and lift to send it. A second finger elsewhere cancels. Each world has its own list.]])
+.lastlist opens this world's recent commands. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. A tap on the grip hides them, and so does .lastfloat off. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. Hold a chip on that bar to read the whole command. Slide onto another chip and lift to send it. A second finger elsewhere cancels. Each world has its own list.
+
+.prefix is off at the start. Up and Down step through every command,
+even when the bar says ki. .prefix on: type ki and Up finds kill goblin.
+The switch is Options → Typing → Up finds a command that starts with
+what you typed.
+
+.clearbar is one Escape press. A recalled line puts the draft back.
+Any other text clears the bar. An empty bar hides the keyboard.
+.kb clear only empties the bar.
+
+Hardware keys stay off until .shortcuts on. .shortcuts with no argument
+prints on or off. .shortcuts edit opens the list. Options → Typing →
+Hardware keyboard holds the switches. A key's line is the whole shortcut.
+.stepback sends the reverse of the last direction the number pad walked.
+After the pad walked north, .stepback sends south. Until that pad has
+walked, it sends nothing.
+
+.scrollnew jumps the game text to the newest line. .scrollv 10 moves
+toward the text that was above. .scrollh 10 moves to the right. Those
+lines are not sent to the world. A shortcut can send them.]])
 end
 
 TOPICS.completion = function()
@@ -1869,7 +1889,14 @@ local TIPS = {
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways. .avoidbuttons on wraps that text around the grid pad and floating buttons (maps may break).]],
 	avoidbuttons = [[.avoidbuttons on wraps game text around the grid pad and floating buttons instead of drawing under them. .avoidbuttons letters|words chooses letter-by-letter (default) or whole words. .avoidbuttons sides|between chooses one solid hole (default) or letters in the gaps. What does not fit on that row is dropped. If the line does not fit beside the buttons, .width over 100 widens the canvas and you drag sideways. .avoidbuttons margin N adds pixels around every hole. Off by default — ASCII maps may break. Live while dragging a floating button. One button can stay a hole when that is off, or let text draw under it when that is on: Edit buttons → Advanced. Options → Window → Text → Avoid buttons.]],
 	font = [[.font N sets game font size (6–96). .font +2 / -2 steps from where you are.]],
-	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
+	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help. .clearbar is one Escape press. .prefix on keeps Up on commands that start with the bar.]],
+	shortcuts = [[.shortcuts prints on or off. .shortcuts on turns hardware keys into commands. .shortcuts edit opens the list. Off until you turn them on. Options → Typing → Hardware keyboard. A key's line is the whole shortcut.]],
+	prefix = [[.prefix is off at the start. Up and Down step through every command, even when the bar says ki. .prefix on: type ki and Up finds kill goblin. The switch is Options → Typing → Up finds a command that starts with what you typed.]],
+	clearbar = [[.clearbar is one Escape press. A recalled line puts the draft back. Any other text clears the bar. An empty bar hides the keyboard. .kb clear only empties the bar. Put .clearbar on a shortcut to bind it to a key.]],
+	stepback = [[.stepback sends the reverse of the last direction the number pad walked. After north, it sends south. A second .stepback sends south again. Until the pad has walked, it sends nothing.]],
+	scrollnew = [[.scrollnew jumps the game text to the newest line. Ctrl+Enter and Ctrl+End start as that line. Enter still sends the line. Not sent to the world.]],
+	scrollv = [[.scrollv 10 moves the game text toward what was above. .scrollv -10 moves toward what was below. It needs a number. 0 does not move. Not sent to the world.]],
+	scrollh = [[.scrollh 10 moves the text to the right. .scrollh -10 moves left. Only when .width is above 100. Not sent to the world.]],
 	last = [[.last resends the newest command. .2last resends the one before it, .3last the one before that. You sent north, then look, then inventory: .last sends inventory. .last input puts that command in the bar and does not send it. .lastlist opens this world's list. .lastlist float (or .lastfloat) shows the newest as chips over the game. Drag the grip to move them. .lastfloat off hides them. .lastfloat 5 is how many chips. .lastfloat length 12 is how many characters of each. .lastlist bar turns on the chip bar. .lastbar 5 is how many chips on that bar. .lastbar length 12 is how many characters of each. Hold a chip on that bar to read the whole command. Slide onto another chip and lift to send it. A second finger elsewhere cancels. The game does not receive .last.]],
 	kb = [[Same as .keyboard.]],
 	pick = [[.pick once: type .pick, put a prefix in the bar (fix  or fix $1 helmet), tap a word; the client sends fix helmet or fix iron helmet and the bar still holds the prefix. $1, $0 and $word are the picked word. .pick insert puts that line in the bar and sends nothing. .pick hold stays until .pick off. .pick hold insert adds the next word in the bar. During hold, a second finger cancels that pick so you can scroll. .pick button: swipe a tile then slide onto a word. .pick button insert and .pick button-double insert put the line in the bar. .pick loupe size N / zoom N, or Options → Window → Text.]],
