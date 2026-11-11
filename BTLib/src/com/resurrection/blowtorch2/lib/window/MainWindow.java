@@ -771,8 +771,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
 			public void handleOnBackPressed() {
-				if (chatPanel != null && chatPanel.isVisible()) {
-					chatPanel.hide();
+				if (chatPanel != null && chatPanel.handleBack()) {
 					return;
 				}
 				// Edge-back may leave Lua buttons visually pressed without ACTION_UP.
@@ -5045,8 +5044,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public void onBackPressed() {
-		if (chatPanel != null && chatPanel.isVisible()) {
-			chatPanel.hide();
+		if (chatPanel != null && chatPanel.handleBack()) {
 			return;
 		}
 		showBackgroundExitDialog();

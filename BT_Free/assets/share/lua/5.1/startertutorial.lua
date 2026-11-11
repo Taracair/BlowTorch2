@@ -1028,6 +1028,8 @@ Open it
   .chat close | hide     same toggle
   .chat <name>           open that conversation
   ✕ or the dim area also close it
+  Back from a conversation returns to the list
+  Back from the list closes the drawer
 
 .chat ooc opens the conversation whose id or title is ooc —
 matching is case-insensitive.
@@ -1052,6 +1054,8 @@ read it. Type in the reply box and Send.
              channel this conversation uses (not one per name).
              Tune sound in Android Settings. Re-tune after this
              update: chat left the alerts channel.
+  ANSI colors  this conversation only. Bubbles use the world's
+             color and bold. Off keeps the bubble color.
   From/To/7d/All  date filter (not on the thread face)
   Save       writes My lines + reply, and updates a matching
              Send to thread trigger whose Thread field is this
@@ -1883,7 +1887,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: tap My lines or Reply for the submenu. Ada matches says and asks; Ada says; Ada asks for verb forms. $text is the reply box. Tap a chat notification to open that thread.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. Back in a conversation returns to the list; Back on the list closes it. ⚙: tap My lines or Reply for the submenu. ANSI colors is that conversation only. Ada matches says and asks; Ada says; Ada asks for verb forms. $text is the reply box. Tap a chat notification to open that thread.]],
 	run = [[.run 3n2e speedwalks using letters from Speedwalk Directions. Commas insert a command (open door). .rev walks the same string backwards.]],
 	rev = [[.rev 3n2e is .run backwards (w;w;s;s;s). Compass n↔s / in↔out if Reverse is blank. door/cave: fill Reverse in Speedwalk Directions. Comma text stays as written, not close door.]],
 	walk = [[.walk 1ne1climb vine2s sends ne;climb vine;s;s: a count before every command, sent as written. .walk back reverses it; <climb vine|down> before the path names a way back.]],

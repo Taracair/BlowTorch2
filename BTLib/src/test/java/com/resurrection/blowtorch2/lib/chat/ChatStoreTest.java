@@ -738,4 +738,153 @@ public class ChatStoreTest {
 		store.append("tells", "tells", "yo");
 		assertEquals(ChatNotifyBucket.TELLS, store.notifyBucket("tells"));
 	}
+
+	@Test
+	public void outgoingDoesNotRenameTheConversation() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("party", "party", "Ada [party]: hi", 1L);
+		store.appendOutgoing("party", "You", "hello");
+		assertEquals("party", store.threadTitle("party"));
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(2, msgs.size());
+		assertEquals("You", msgs.get(1).getTitle());
+		assertTrue(msgs.get(1).isMine());
+	}
+
+	@Test
+	public void outgoingOnANewThreadUsesTheId() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("sales", "You", "hello");
+		assertEquals("sales", store.listThreads().get(0).getTitle());
+		assertEquals("You", store.messages("sales", 1).get(0).getTitle());
+	}
+
+	@Test
+	public void identicalMineEchoIsOneBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party", "hi", System.currentTimeMillis(),
+				null, true, false, false, "\u001b[1mhi");
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(1, msgs.size());
+		assertEquals("\u001b[1mhi", msgs.get(0).getColored());
+		assertEquals("party", store.threadTitle("party"));
+	}
+
+	@Test
+	public void secondSendOfTheSameTextIsASecondBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "hi");
+		store.appendOutgoing("party", "You", "hi");
+		assertEquals(2, store.messages("party", 10).size());
+	}
+
+	@Test
+	public void someoneElsesIdenticalLineStays() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "hi");
+		store.append("party", "party", "hi", null, false, "\u001b[32mhi");
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(2, msgs.size());
+		assertEquals("", msgs.get(0).getColored());
+		assertEquals("\u001b[32mhi", msgs.get(1).getColored());
+		assertFalse(msgs.get(1).isMine());
+	}
+
+	@Test
+	public void shortQuotedEchoReplacesTheOutgoingBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("ooc", "You", "hi");
+		store.appendAt("ooc", "ooc", "You say, \"hi\"",
+				System.currentTimeMillis());
+		List<ChatMessage> msgs = store.messages("ooc", 10);
+		assertEquals(1, msgs.size());
+		assertEquals("You say, \"hi\"", msgs.get(0).getBody());
+		assertTrue(msgs.get(0).isMine());
+	}
+
+	@Test
+	public void shortChannelTailWithoutMineStaysTwoBubbles() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party", "Ada [party]: hi",
+				System.currentTimeMillis());
+		assertEquals(2, store.messages("party", 10).size());
+	}
+
+	@Test
+	public void someoneElsesSameWordsDoNotRewriteAnOlderSend() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "test");
+		store.appendOutgoing("party", "You", "testing");
+		store.append("party", "party", "testing", null, false, "\u001b[32mtesting");
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(3, msgs.size());
+		assertEquals("test", msgs.get(0).getBody());
+		assertEquals("", msgs.get(0).getColored());
+		assertEquals("testing", msgs.get(1).getBody());
+		assertEquals("testing", msgs.get(2).getBody());
+		assertFalse(msgs.get(2).isMine());
+	}
+
+	@Test
+	public void shortEchoWithAClockAfterAColonReplacesTheOutgoingBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineNeedle("party", "Ada");
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party", "Ada: hi (12:00:01)",
+				System.currentTimeMillis());
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(1, msgs.size());
+		assertEquals("Ada: hi (12:00:01)", msgs.get(0).getBody());
+	}
+
+	@Test
+	public void shortChannelEchoReplacesTheOutgoingBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineNeedle("party", "Ada");
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party", "Ada [party]: hi",
+				System.currentTimeMillis(), null, false, true);
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(1, msgs.size());
+		assertTrue(msgs.get(0).isMine());
+		assertEquals("Ada [party]: hi", msgs.get(0).getBody());
+		assertEquals("party", store.threadTitle("party"));
+	}
+
+	@Test
+	public void shortEchoWithATimestampReplacesTheOutgoingBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineNeedle("party", "Ada");
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party",
+				"Ada [party]: hi (Mon Nov 09 13:24:00 2026)",
+				System.currentTimeMillis(), null, false, true);
+		List<ChatMessage> msgs = store.messages("party", 10);
+		assertEquals(1, msgs.size());
+		assertEquals("Ada [party]: hi (Mon Nov 09 13:24:00 2026)",
+				msgs.get(0).getBody());
+	}
+
+	@Test
+	public void shortTailDoesNotSwallowALongerLine() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("party", "You", "hi");
+		store.appendAt("party", "party", "Bob [party]: hi there",
+				System.currentTimeMillis());
+		assertEquals(2, store.messages("party", 10).size());
+		assertEquals("hi", store.messages("party", 10).get(0).getBody());
+	}
+
+	@Test
+	public void ansiColorsAndColoredBodyRoundTrip() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setAnsiColors("party", true);
+		inbox.append("party", "party", "Hi", 1L, false, true, false, "\u001b[1;32mHi");
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertTrue(loaded.ansiColors("party"));
+		assertEquals("\u001b[1;32mHi", loaded.messages("party", 1).get(0).getColored());
+		assertFalse(loaded.ansiColors("other"));
+	}
 }

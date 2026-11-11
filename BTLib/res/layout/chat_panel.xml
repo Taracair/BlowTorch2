@@ -211,6 +211,28 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
+            <CheckBox
+                android:id="@+id/chat_ansi_colors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:text="ANSI colors"
+                android:textColor="@color/chrome_title_text"
+                android:textSize="12sp"
+                android:buttonTint="@color/chrome_accent"
+                android:contentDescription="Show ANSI colors in this chat" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="6dp"
+                android:text="Show the world's color and bold in these bubbles."
+                android:textColor="@color/chrome_description"
+                android:textSize="11sp" />
+
             <LinearLayout
                 android:id="@+id/chat_date_filter"
                 android:layout_width="match_parent"

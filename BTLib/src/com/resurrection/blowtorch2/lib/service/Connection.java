@@ -113,6 +113,7 @@ import com.resurrection.blowtorch2.lib.trigger.LineModCount;
 import com.resurrection.blowtorch2.lib.trigger.TriggerCascade;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerFireOnce;
+import com.resurrection.blowtorch2.lib.trigger.style.DispatchStyles;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
@@ -3491,6 +3492,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		snapshotStyleForDispatch();
+		DispatchStyles.bind(mWorking.getLines(), mDispatchStyleModels);
 		if (found) {
 			boolean done = false;
 			HashSet<Integer> removedLines = new HashSet<Integer>();
@@ -3677,6 +3679,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// TextTree and the line above already holds the text.
 		notifyMainWindow(proc);
 		} finally {
+			DispatchStyles.clear();
 			ColourBleedProbe.unbind();
 		}
 		

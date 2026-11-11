@@ -12,7 +12,11 @@ import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.resurrection.blowtorch2.lib.chat.ChatAnsi;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
+import com.resurrection.blowtorch2.lib.trigger.style.DispatchStyles;
+import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
+import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -139,7 +143,8 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 				// $n substitutes; $text is not $ + digits, so it is left alone.
 				seed = translate(tmpl, captureMap);
 			}
-			store.append(tid, resolvedTitle, resolvedBody, seed, mine);
+			String colored = ChatAnsi.encodeSlice(styleFor(line), resolvedBody);
+			store.append(tid, resolvedTitle, resolvedBody, seed, mine, colored);
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logThrowable("ChatThreadResponder", e);
 		} catch (Exception e) {
@@ -250,5 +255,16 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 			return b == null;
 		}
 		return a.equals(b);
+	}
+
+	private static StyleLineModel styleFor(TextTree.Line line) {
+		StyleLineModel bound = DispatchStyles.forLine(line);
+		if (bound != null) {
+			return bound;
+		}
+		if (line == null) {
+			return null;
+		}
+		return StyleLineModel.build(line, SgrRegisters.defaults());
 	}
 }

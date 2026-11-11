@@ -51,6 +51,7 @@ final class ChatInbox {
 
 		/** Android notification bucket; {@link ChatNotifyBucket#OTHER} when unset. */
 		String notifyBucket;
+		boolean ansiColors;
 
 		ThreadState(String threadId, String title, String replyTemplate, int unreadCount) {
 			this.threadId = threadId == null ? "" : threadId;
@@ -61,6 +62,7 @@ final class ChatInbox {
 			this.mineCompiled = null;
 			this.mineColor = 0;
 			this.notifyBucket = ChatNotifyBucket.OTHER;
+			this.ansiColors = false;
 		}
 
 		void setMineNeedle(String needle) {
@@ -84,35 +86,52 @@ final class ChatInbox {
 
 	void append(String threadId, String title, String body, long whenMs,
 			boolean mine, boolean countUnread) {
+		append(threadId, title, body, whenMs, mine, countUnread, false, null);
+	}
+
+	/**
+	 * {@code keepThreadTitle} is the typed Send path. "You" is the bubble
+	 * label, not the conversation name.
+	 */
+	void append(String threadId, String title, String body, long whenMs,
+			boolean mine, boolean countUnread, boolean keepThreadTitle,
+			String colored) {
 		String id = threadId == null ? "" : threadId;
 		String resolvedTitle = title == null || title.length() == 0 ? id : title;
 		String resolvedBody = body == null ? "" : body;
+		String paint = colored == null ? "" : colored;
 		ThreadState state = threads.get(id);
 		if (state == null) {
-			state = new ThreadState(id, resolvedTitle, "", 0);
+			String threadTitle = keepThreadTitle ? id : resolvedTitle;
+			state = new ThreadState(id, threadTitle, "", 0);
 			threads.put(id, state);
-		} else if (title != null && title.length() > 0) {
+		} else if (!keepThreadTitle && title != null && title.length() > 0) {
 			state.title = title;
 		}
 		if (countUnread) {
 			state.unreadCount++;
 		}
-		messages.add(new ChatMessage(id, resolvedTitle, resolvedBody, whenMs, mine));
+		messages.add(new ChatMessage(id, resolvedTitle, resolvedBody, whenMs, mine, paint));
 		capOldest();
 	}
 
 	/**
-	 * Last mine bubble in this thread was the typed reply; the MUD echo just
-	 * arrived. Replace the short local line with the full echo, still mine.
-	 * Walks past other people's lines so a busy channel does not block absorb.
+	 * The MUD echo replaces the recent own bubble. The same text stays one
+	 * bubble only when this line is also mine. A Send does not call this.
 	 *
-	 * @param markMine upgrade the kept bubble to mine when the trigger said so
+	 * @param markMine this line is the player's (trigger flag or My lines)
 	 * @return true when the file should be persisted
 	 */
 	boolean absorbRecentMine(String threadId, String incomingBody, long whenMs,
 			boolean markMine) {
+		return absorbRecentMine(threadId, incomingBody, whenMs, markMine, null);
+	}
+
+	boolean absorbRecentMine(String threadId, String incomingBody, long whenMs,
+			boolean markMine, String colored) {
 		String id = threadId == null ? "" : threadId;
 		String incoming = incomingBody == null ? "" : incomingBody;
+		String paint = colored == null ? "" : colored;
 		if (incoming.length() == 0) {
 			return false;
 		}
@@ -125,30 +144,78 @@ final class ChatInbox {
 				continue;
 			}
 			if (incoming.equals(m.getBody())) {
-				if (markMine && !m.isMine()) {
-					messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
-							incoming, whenMs, true));
+				if (markMine && m.isMine()) {
+					if (paint.length() > 0 && m.getColored().length() == 0) {
+						messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
+								m.getBody(), m.getWhenMs(), true, paint));
+					}
 					return true;
 				}
-				return false;
+				if (!markMine) {
+					return false;
+				}
+				continue;
 			}
 			if (!m.isMine()) {
 				continue;
 			}
 			String prev = m.getBody();
-			if (prev.length() == 0) {
-				continue;
-			}
-			boolean quoted = incoming.indexOf("\"" + prev + "\"") >= 0
-					|| incoming.indexOf("'" + prev + "'") >= 0;
-			if (!quoted && (prev.length() < 4 || incoming.indexOf(prev) < 0)) {
+			if (prev.length() == 0 || !echoContainsTyped(incoming, prev, markMine)) {
 				continue;
 			}
 			messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(), incoming,
-					whenMs, true));
+					whenMs, true, paint));
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * The typed reply is this echo: quoted, a long substring, or the text
+	 * after the last colon ({@code Ada [party]: hi}). A tail shorter than
+	 * four characters counts only when {@code markMine} is set. Quotes count
+	 * at any length. A trailing {@code (12:00:01)} is not part of that colon.
+	 */
+	static boolean echoContainsTyped(String incoming, String prev, boolean markMine) {
+		if (incoming == null || prev == null || prev.length() == 0) {
+			return false;
+		}
+		if (incoming.indexOf("\"" + prev + "\"") >= 0
+				|| incoming.indexOf("'" + prev + "'") >= 0) {
+			return true;
+		}
+		if (prev.length() >= 4 && incoming.indexOf(prev) >= 0) {
+			return true;
+		}
+		if (prev.length() < 4 && !markMine) {
+			return false;
+		}
+		String scanned = withoutTrailingParenthetical(incoming);
+		int bracket = scanned.lastIndexOf("]:");
+		String tail;
+		if (bracket >= 0) {
+			tail = scanned.substring(bracket + 2).trim();
+		} else {
+			int colon = scanned.lastIndexOf(':');
+			tail = colon >= 0 ? scanned.substring(colon + 1).trim() : scanned.trim();
+		}
+		if (tail.equals(prev)) {
+			return true;
+		}
+		return false;
+	}
+
+	/** {@code Ada: hi (12:00:01)} → {@code Ada: hi}. The clock's colons are not the speaker's. */
+	private static String withoutTrailingParenthetical(String incoming) {
+		String t = incoming.trim();
+		if (t.length() < 2 || t.charAt(t.length() - 1) != ')') {
+			return incoming;
+		}
+		int open = t.lastIndexOf('(');
+		if (open <= 0) {
+			return incoming;
+		}
+		return t.substring(0, open).trim();
 	}
 
 	/**
@@ -242,7 +309,7 @@ final class ChatInbox {
 				}
 			}
 			messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
-					m.getBody(), m.getWhenMs(), match));
+					m.getBody(), m.getWhenMs(), match, m.getColored()));
 		}
 	}
 
@@ -626,6 +693,21 @@ final class ChatInbox {
 		return ChatNotifyBucket.coerce(state.notifyBucket);
 	}
 
+	boolean ansiColors(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		return state != null && state.ansiColors;
+	}
+
+	void setAnsiColors(String threadId, boolean on) {
+		String id = threadId == null ? "" : threadId;
+		ThreadState state = threads.get(id);
+		if (state == null) {
+			state = new ThreadState(id, id, "", 0);
+			threads.put(id, state);
+		}
+		state.ansiColors = on;
+	}
+
 	void setNotifyBucket(String threadId, String bucket) {
 		String id = threadId == null ? "" : threadId;
 		ThreadState state = threads.get(id);
@@ -764,6 +846,9 @@ final class ChatInbox {
 				t.put("mineNeedle", state.mineNeedle == null ? "" : state.mineNeedle);
 				t.put("mineColor", state.mineColor);
 				t.put("notifyBucket", ChatNotifyBucket.coerce(state.notifyBucket));
+				if (state.ansiColors) {
+					t.put("ansiColors", true);
+				}
 				threadArr.put(t);
 			}
 			JSONArray messageArr = new JSONArray();
@@ -775,6 +860,9 @@ final class ChatInbox {
 				o.put("body", m.getBody());
 				o.put("whenMs", m.getWhenMs());
 				o.put("mine", m.isMine());
+				if (m.getColored().length() > 0) {
+					o.put("colored", m.getColored());
+				}
 				messageArr.put(o);
 			}
 			root.put("threads", threadArr);
@@ -831,6 +919,7 @@ final class ChatInbox {
 					state.mineColor = t.optInt("mineColor", 0);
 					state.notifyBucket = ChatNotifyBucket.coerce(
 							t.optString("notifyBucket", ChatNotifyBucket.OTHER));
+					state.ansiColors = t.optBoolean("ansiColors", false);
 					inbox.threads.put(id, state);
 					if (inbox.defaultMineNeedle.length() == 0
 							&& state.mineNeedle != null
@@ -854,7 +943,8 @@ final class ChatInbox {
 							title,
 							o.optString("body", ""),
 							o.optLong("whenMs", 0L),
-							mine));
+							mine,
+							o.optString("colored", "")));
 					if (!inbox.threads.containsKey(id)) {
 						inbox.threads.put(id, new ThreadState(id, title, "", 0));
 						inheritRoot.add(id);

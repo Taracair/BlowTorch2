@@ -4009,7 +4009,8 @@ the line also stays in the game window.
 
 No argument toggles the drawer. `.chat open` opens it, and if it is already
 open it stays open. `.chat close` and `.chat hide` close it, and if it is
-already closed it stays closed. ✕, the dim area, or Back also close it. Overflow
+already closed it stays closed. ✕ or the dim area closes it. Back from a
+conversation returns to the list; Back from the list closes it. Overflow
 **Chat** always opens it.
 
 `.chat <name>` opens that conversation. The name matches the thread id or
@@ -4043,6 +4044,9 @@ while that conversation is open.
   after this update, pick sound per bucket there (the old alerts
   setting does not follow chat). The master switch is still
   **Options → Chat → Android notification** (off by default).
+- **ANSI colors** — this conversation only. Bubbles show the color and
+  bold the world sent. Off leaves the text in the bubble's own color.
+  A line that arrived with no color codes stays plain.
 - Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
   face. **Find in this thread** stays visible; ‹ › step through matches
   like `.search` and do not hide other messages.
@@ -4066,9 +4070,11 @@ closed. In-game line example (cyan client text, not sent to the MUD):
 `Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
 the messages and keeps the trigger.
 
-Send from the drawer paints an own-bubble immediately. Dual display (main
-window and the drawer) is the trigger's job; the drawer only shows what
-was stored.
+Send from the drawer paints an own-bubble immediately and does not rename
+the conversation. The world's echo of that same text, within a few
+seconds, replaces that bubble instead of adding a second one. Dual display
+(main window and the drawer) is the trigger's job; the drawer only shows
+what was stored.
 
 ## Overlay gauges (`.widget` / `.gauge`)
 

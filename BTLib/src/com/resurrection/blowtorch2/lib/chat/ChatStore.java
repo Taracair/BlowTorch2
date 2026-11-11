@@ -123,14 +123,23 @@ public final class ChatStore {
 	 */
 	public void append(String threadId, String title, String body,
 			String seedTemplateIfEmpty, boolean mine) {
-		appendAt(threadId, title, body, System.currentTimeMillis(),
-				seedTemplateIfEmpty, mine, !mine);
+		append(threadId, title, body, seedTemplateIfEmpty, mine, null);
 	}
 
-	/** Typed Send: own bubble immediately, not an unread badge. */
+	/**
+	 * Trigger copy. {@code colored} is the matched text with the world's
+	 * SGR codes, or empty. The plain {@code body} is what search and absorb use.
+	 */
+	public void append(String threadId, String title, String body,
+			String seedTemplateIfEmpty, boolean mine, String colored) {
+		appendAt(threadId, title, body, System.currentTimeMillis(),
+				seedTemplateIfEmpty, mine, !mine, false, colored);
+	}
+
+	/** Typed Send: own bubble immediately, not an unread badge. Does not rename the thread. */
 	public void appendOutgoing(String threadId, String title, String body) {
 		appendAt(threadId, title, body, System.currentTimeMillis(),
-				null, true, false);
+				null, true, false, true, null);
 	}
 
 	void appendAt(String threadId, String title, String body, long whenMs) {
@@ -144,6 +153,13 @@ public final class ChatStore {
 
 	void appendAt(String threadId, String title, String body, long whenMs,
 			String seedTemplateIfEmpty, boolean mine, boolean countUnread) {
+		appendAt(threadId, title, body, whenMs, seedTemplateIfEmpty, mine,
+				countUnread, false, null);
+	}
+
+	void appendAt(String threadId, String title, String body, long whenMs,
+			String seedTemplateIfEmpty, boolean mine, boolean countUnread,
+			boolean keepThreadTitle, String colored) {
 		final boolean[] countedUnread = new boolean[] { false };
 		final int[] unreadAfter = new int[1];
 		final String[] resolvedTitle = new String[] { title };
@@ -162,11 +178,14 @@ public final class ChatStore {
 					}
 				}
 				boolean isMine = mine || inbox.bodyLooksMine(threadId, body);
-				if (inbox.absorbRecentMine(threadId, body, whenMs, isMine)) {
+				// A typed Send is a new bubble. Absorb is only the world's echo.
+				if (!keepThreadTitle
+						&& inbox.absorbRecentMine(threadId, body, whenMs, isMine, colored)) {
 					return true;
 				}
 				boolean count = countUnread && !isMine;
-				inbox.append(threadId, title, body, whenMs, isMine, count);
+				inbox.append(threadId, title, body, whenMs, isMine, count,
+						keepThreadTitle, colored);
 				countedUnread[0] = count;
 				unreadAfter[0] = inbox.unreadCount(threadId);
 				resolvedTitle[0] = inbox.threadTitle(threadId);
@@ -375,6 +394,22 @@ public final class ChatStore {
 		synchronized (lock) {
 			mutateUnderFileLock(() -> {
 				inbox.setNotifyBucket(threadId, bucket);
+				return true;
+			});
+		}
+	}
+
+	public boolean ansiColors(String threadId) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.ansiColors(threadId);
+		}
+	}
+
+	public void setAnsiColors(String threadId, boolean on) {
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				inbox.setAnsiColors(threadId, on);
 				return true;
 			});
 		}

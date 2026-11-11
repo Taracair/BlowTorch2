@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.chat.ChatAnsi;
 import com.resurrection.blowtorch2.lib.chat.ChatMessage;
 import com.resurrection.blowtorch2.lib.chat.ChatNotifyBucket;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
@@ -17,15 +18,21 @@ import com.resurrection.blowtorch2.lib.chat.ChatThreadSummary;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.DialogInterface;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.CheckBox;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -93,6 +100,8 @@ public class ChatPanelController {
 	private View templateRow;
 	private View notifyRow;
 	private LinearLayout notifyChips;
+	private CheckBox ansiColors;
+	private boolean bindingAnsi;
 	private EditText threadSearchBox;
 	private TextView filterFrom;
 	private TextView filterTo;
@@ -202,6 +211,24 @@ public class ChatPanelController {
 			return;
 		}
 		slideOut();
+	}
+
+	/**
+	 * Edge back. An open conversation returns to the list. From the list,
+	 * the drawer closes. The dim area still closes from either.
+	 *
+	 * @return true when the drawer consumed the back
+	 */
+	public boolean handleBack() {
+		if (!isVisible()) {
+			return false;
+		}
+		if (openThreadId != null) {
+			showInbox();
+			return true;
+		}
+		hide();
+		return true;
 	}
 
 	public void refresh() {
@@ -366,6 +393,7 @@ public class ChatPanelController {
 		templateRow = root.findViewById(R.id.chat_template_row);
 		notifyRow = root.findViewById(R.id.chat_notify_row);
 		notifyChips = (LinearLayout) root.findViewById(R.id.chat_notify_chips);
+		ansiColors = (CheckBox) root.findViewById(R.id.chat_ansi_colors);
 		threadSearchBox = (EditText) root.findViewById(R.id.chat_thread_search);
 		filterFrom = (TextView) root.findViewById(R.id.chat_filter_from);
 		filterTo = (TextView) root.findViewById(R.id.chat_filter_to);
@@ -444,6 +472,7 @@ public class ChatPanelController {
 					if (settingsOpen) {
 						bindMineRow();
 						bindTemplateFromTriggerOrStore();
+						bindAnsiCheckbox();
 					}
 					applySettingsVisibility();
 				}
@@ -505,7 +534,33 @@ public class ChatPanelController {
 			});
 		}
 		wireMineRow();
+		wireAnsiColors();
 		wireThreadFilter();
+	}
+
+	private void wireAnsiColors() {
+		if (ansiColors == null) {
+			return;
+		}
+		ansiColors.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+			@Override
+			public void onCheckedChanged(android.widget.CompoundButton button, boolean checked) {
+				if (bindingAnsi || openThreadId == null) {
+					return;
+				}
+				store().setAnsiColors(openThreadId, checked);
+				reloadThreadMessages();
+			}
+		});
+	}
+
+	private void bindAnsiCheckbox() {
+		if (ansiColors == null) {
+			return;
+		}
+		bindingAnsi = true;
+		ansiColors.setChecked(openThreadId != null && store().ansiColors(openThreadId));
+		bindingAnsi = false;
 	}
 
 	private void wireMineRow() {
@@ -1030,6 +1085,7 @@ public class ChatPanelController {
 		}
 		applySettingsVisibility();
 		bindMineRow();
+		bindAnsiCheckbox();
 		reloadThreadMessages();
 		if (resetReply && replyBox != null) {
 			replyBox.setText("");
@@ -1229,7 +1285,12 @@ public class ChatPanelController {
 				title.setVisibility(t.length() == 0 ? View.GONE : View.VISIBLE);
 			}
 			if (body != null) {
-				body.setText(m.getBody() == null ? "" : m.getBody());
+				String text = m.getBody() == null ? "" : m.getBody();
+				if (store.ansiColors(openThreadId)) {
+					body.setText(coloredText(text, m.getColored()));
+				} else {
+					body.setText(text);
+				}
 			}
 			if (when != null && m.getWhenMs() > 0) {
 				when.setText(timeFmt.format(new Date(m.getWhenMs())));
@@ -1256,6 +1317,38 @@ public class ChatPanelController {
 				}
 			});
 		}
+	}
+
+	private static CharSequence coloredText(String plain, String colored) {
+		List<ChatAnsi.Piece> pieces = ChatAnsi.pieces(colored);
+		if (pieces.isEmpty()) {
+			return plain == null ? "" : plain;
+		}
+		StringBuilder check = new StringBuilder();
+		for (int i = 0; i < pieces.size(); i++) {
+			check.append(pieces.get(i).text);
+		}
+		if (!check.toString().equals(plain)) {
+			return plain == null ? "" : plain;
+		}
+		SpannableString span = new SpannableString(plain);
+		int at = 0;
+		for (int i = 0; i < pieces.size(); i++) {
+			ChatAnsi.Piece piece = pieces.get(i);
+			int end = at + piece.text.length();
+			if (end > at) {
+				if (piece.bold) {
+					span.setSpan(new StyleSpan(Typeface.BOLD), at, end,
+							Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+				}
+				if (piece.fgArgb != 0) {
+					span.setSpan(new ForegroundColorSpan(piece.fgArgb), at, end,
+							Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+				}
+			}
+			at = end;
+		}
+		return span;
 	}
 
 	private static boolean messageMatches(ChatMessage m, String needleLower) {

@@ -15,6 +15,8 @@ public final class ChatMessage {
 	private final String body;
 	private final long whenMs;
 	private final boolean mine;
+	/** ANSI SGR for {@link #body}, or empty when the line had no color codes. */
+	private final String colored;
 
 	public ChatMessage(String threadId, String title, String body, long whenMs) {
 		this(threadId, title, body, whenMs, false);
@@ -22,11 +24,17 @@ public final class ChatMessage {
 
 	public ChatMessage(String threadId, String title, String body, long whenMs,
 			boolean mine) {
+		this(threadId, title, body, whenMs, mine, "");
+	}
+
+	public ChatMessage(String threadId, String title, String body, long whenMs,
+			boolean mine, String colored) {
 		this.threadId = threadId == null ? "" : threadId;
 		this.title = title == null ? "" : title;
 		this.body = body == null ? "" : body;
 		this.whenMs = whenMs;
 		this.mine = mine;
+		this.colored = colored == null ? "" : colored;
 	}
 
 	public String getThreadId() {
@@ -47,5 +55,10 @@ public final class ChatMessage {
 
 	public boolean isMine() {
 		return mine;
+	}
+
+	/** Same characters as {@link #getBody()}, with SGR codes, or empty. */
+	public String getColored() {
+		return colored;
 	}
 }
