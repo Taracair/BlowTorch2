@@ -1921,6 +1921,9 @@ Note("Example text!")
 	 * message had none. Null means leave the body (no function, a Lua error,
 	 * nil, or any return that is not a string). An empty array drops the message.
 	 *
+	 * <p>Measured 2026-11-10: a live {@code Room.Info} reached this call
+	 * ({@code pcall} 0) and {@code Note} logged the room name.
+	 *
 	 * <p>The error handler is {@code -4}: the stack is traceback, function,
 	 * module, body. {@code -3} is the function, and an error would call
 	 * {@code OnGmcp} again.
