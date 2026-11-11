@@ -1,32 +1,26 @@
-The good BlowTorch client is back! Now more stable, with more functions.
+BlowTorch2 is a MUD (Multi User Dungeon) client for Android.
 
-This app connects you to a MUD: a multiplayer text game over telnet. Add a host and port, connect, and you are in.
+<b>Basic features</b>
+• Buttons. Create button, tap it and the game receives your input. Swipe that same button eight ways, hold it, or open MORE for the extra commands you pinned there. Load another set and the whole pad changes.
+• Suggestions take words straight off the game text. Weird spelling included.
+• Screen off, still in the game. The notification shows how long.
+• The input bar grows when a command gets long. Search the scrollback. Copy with two fingers. Start a line, switch worlds, and it is still sitting in the one you left.
+• Much more!
 
-If you don't know where to look for MUDs, try these sites:
-<a href="https://www.mudstats.com/">MudStats</a>
-<a href="https://www.mudverse.com/">MudVerse</a>
-<a href="https://www.mudconnect.com/">The Mud Connector</a>
+<b>Advanced features</b>
+• Triggers, aliases, timers. A trigger can colour a line, hide it, notify you, read it out loud, or send a command. You type kk goblin and the game receives kill goblin. Timers run on a clock. Scripts are Lua.
+• GMCP, MCP, MXP, MSDP, MSSP, MCCP, MTTS. ANSI, 256 colours, truecolour, and a link the game puts on a word.
+• Bluetooth keyboard support. You turn it on, then a key can send a whole line. Ctrl+K can be kill goblin. The number pad walks too: Alt+8 sends north, and 8 still types. Up and Down go through commands you already sent. Type ki and Up finds kill goblin.
+• Tells and channels can live in a chat drawer. Reply in a conversation called party and the title stays party. Tick ANSI colors and the bubble keeps the game's colour.
+• Extra windows, for the lines you want out of the main text. Tap a word to send a command. HP bar, ring, or countdown: you add it, then you point it at the numbers.
+• A map, and speedwalks. The first time you open the map it calls itself experimental. It means that. Each world keeps its own settings.
+• Lua plugins. Rewrite a line on the way in, change a command after the alias, drop one GMCP message, or fetch a page on the side.
+• Much more!
 
-Menus, settings, and Help are in English. Daily play needs little of the toolkit; when you want more, open Help in the app or the <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/user-manual.md">user guide on GitHub</a>.
+Because this client covers massive amount of features, every single feature is described in Help in the app or here: <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/user-manual.md">user guide</a>. 
 
-Everyday play (some options might need to be turned on):
-• On-screen buttons that send commands
-• Suggestions from the text on the screen
-• Stay connected with the screen off; the notification shows how long you have been on
-• Growable input bar, search in scrollback, two-finger copy
-• ANSI colours, optional session log, in-app Help
+No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. The F-Droid build does not contact GitHub on start. Lua plugins run with the app's privileges, so only load ones you trust. "All files access" is optional — settings, backups, and logs can live in /BlowTorch/. You can refuse it and still play, import and export use the system file picker. <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md">Details</a>
 
-When you want more:
-• Eight-way swipe, hold, and accordion (MORE) on a button; swap a set with a loadset
-• Telnet plus GMCP, MCP, MXP, MSDP, MSSP, MCCP, MTTS; ANSI, 256-colour, truecolour, OSC 8 links
-• Triggers, aliases, timers, and Lua plugins
-• Extra text windows, a chat drawer, tappable words
-• HP bars, rings, and countdowns
-• Mapper (experimental), speedwalks, per-world settings
-• A trigger or timer can read a line aloud
-
-No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. The F-Droid build does not contact GitHub on start. Lua plugins run with the app's privileges, so only load ones you trust. "All files access" is optional — settings, backups, and logs can live in /BlowTorch/. You can refuse it and still play; import and export use the system file picker. <a href="https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md">Details</a>
-
-Original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). Unofficial fork and continuation. Back up your settings before upgrading.
+Forked from (not active anymore) original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). This is unofficial fork and continuation. Back up your settings before upgrading.
 
 <a href="https://github.com/Taracair/BlowTorch2">Source, issues, and suggestions</a>

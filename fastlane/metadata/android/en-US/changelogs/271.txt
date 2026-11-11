@@ -1,0 +1,5 @@
+BlowTorch 2 v2.5.0
+Bluetooth keyboard support. A key can send a line, and the number pad can walk. .scrollnew jumps to the newest text.
+A chat reply keeps the conversation's name. The world's echo replaces your bubble. Back returns to the list. ANSI colors are per conversation.
+Up and Down walk commands you have sent. .prefix on: ki then Up finds kill goblin.
+A plugin can rewrite a line, a send, or one GMCP message, and can fetch a page beside the game.
