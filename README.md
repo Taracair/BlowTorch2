@@ -12,38 +12,26 @@
   <a href="https://f-droid.org/packages/com.resurrection.blowtorch2/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="72"></a>
 </p>
 
-That's the client I'm using daily to play MUDs, so the testing I'm doing reaches specific situations and creates specific needs. I never played MUDs on a PC. It all started with the original BlowTorch. So I might be *slightly* biased towards weird mobile mudding, and the client is packed with those features. Sorry — that's my style!
-
-BlowTorch 2 is an Android client for MUDs — text worlds you play over the network.
-MUD stands for Multi-User Dungeon. They are an old kind of game people
-still play: immersive text rooms, meeting other players, fighting and
-talking, from before the graphical MMOs. The classic ones are fantasy
-role-play — a class, races, monsters, skills. The client does not care;
-it talks to whatever host you add. To find one, search
-[MudStats](https://www.mudstats.com/),
-[MudVerse](https://www.mudverse.com/), or
-[The Mud Connector](https://www.mudconnect.com/).
-
-You pick a host, connect, type commands, and read what the game sends back: rooms,
-combat, chat, the lot. No graphics engine; the screen is the game's text,
-plus whatever you put on it (buttons, a map, an HP bar).
+BlowTorch 2 is an Android client for MUDs.
 
 This is an unofficial fork of BlowTorch (2010–2018). The original stopped
 getting updates, Android moved on, and it quietly became uninstallable. Same
-client underneath, running again, with a lot built for a phone on top. The
+client underneath, running again, with a **lot** built for a phone on top. The
 [user guide](docs/user-manual.md) is the full picture (also in-app under
 **Help**). Settings: [docs/options-guide.md](docs/options-guide.md). Lua
-plugins: [docs/plugin-authoring.md](docs/plugin-authoring.md). 
+plugins: [docs/plugin-authoring.md](docs/plugin-authoring.md).
 
 Install from [F-Droid](https://f-droid.org/packages/com.resurrection.blowtorch2/)
 or from [GitHub Releases](https://github.com/Taracair/BlowTorch2/releases/latest)
 — not one on top of the other. Same recipe, two bakeries, two signing keys.
 Android will not let you swap the pie without uninstalling.
 
-**Daily driver.** This is the build I play on. It is past the science-project
+**Daily driver.** It is past the science-project
 stage: stable enough for everyday use. That is not a promise that a 1990s TCP
 socket on a 2026 phone will never surprise you. If you hit a bug, a report
 with steps is still the most useful thing you can send.
+
+That's the client I'm using daily to play MUDs, so the testing I'm doing reaches specific situations and creates specific needs. I never played MUDs on a PC. It all started with the original BlowTorch. So I might be *slightly* biased towards weird mobile mudding, and the client is packed with insane amount of features. 
 
 Join [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) (Blowtorch Users Rogues'
 Network) if you feel like chatting about the client.
@@ -145,6 +133,17 @@ same with one second between each. `##5 north` reaches the game as
 same list in a window. `.lastfloat` is those commands as chips over the game.
 `.pick insert` — type `get`, then a space, tap `iron` on the screen, and
 the bar shows `get iron` with a space after it. Nothing is sent until Send.
+`.chat` — the chat drawer. `.chat party` opens that conversation.
+`.shortcuts on` — a hardware key sends a line. `.shortcuts edit` opens
+the list. Off until you turn it on.
+`.clearbar` — one Escape press. A recalled line puts the draft back.
+Any other text clears the bar. An empty bar hides the keyboard.
+`.stepback` — the number pad just walked `north`. This sends `south`.
+`.scrollnew` — jump the game text to the newest line.
+`.scrollv 10` — move toward the text that was above. `.scrollh 10`
+moves right. Neither line is sent to the world.
+`.prefix on` — type `ki` and Up finds `kill goblin`. Off (the start):
+Up walks every command, even when the bar says `ki`.
 
 Dot commands are on by default. `..` alone toggles them. `..look` sends
 `.look` to the game.
@@ -167,10 +166,10 @@ license, see [LICENSE](LICENSE).
 
 ## How this is made
 
-One person, and a lot of AI. I use an LLM to write most of the code and docs. I
+One person, and a lot of AI. I use an LLM to write the code and docs. I
 test on a real phone, I decide what ships, and I read the bug reports.
 I definitely listen to your feedback too.
-After all, the client is here for you, not only me.
+After all, the client and the repo is here for you, not only me.
 
 This is my first public repo of any size. Bug reports with steps to reproduce
 are worth a great deal. [B.U.R.N.](https://discord.gg/AvyUUtRmtQ) is there if
