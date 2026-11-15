@@ -2149,6 +2149,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	protected final void updateEncoding(final String value) {
 		mBuffer.setEncoding(value);
+		mHoldBuffer.setEncoding(value);
 	}
 
 	/** Telnet ECHO changed hands. Only the main window has an input bar to hide,

@@ -1983,6 +1983,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			requestGaugeWidgetUi();
 			requestGaugeWidgetValues();
 		}
+		// Import builds a new plugin, and the settings listener updates the one
+		// about to be replaced. Copy the saved charset onto this plugin.
+		applyLoadedEncoding();
 		mService.reloadWindows();
 		// OnBackgroundStartup has run, so a function defined there is visible.
 		mInboundHooksStale = true;
@@ -2568,6 +2571,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// Outside the lock on purpose: resetWithRawDataIncoming posts into the UI
 		// process, and holding mWindowSynch across it would let a busy UI thread
 		// stall every other window's routing.
+		// The replay is raw bytes. The window decodes them with its own charset,
+		// which is still UTF-8 until this message is processed ahead of the replay.
+		if (mSettings != null && mSettings.getEncoding() != null
+				&& mSettings.getEncoding().length() > 0) {
+			try {
+				callback.setEncoding(mSettings.getEncoding());
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"Connection.registerWindowCallback.setEncoding", e);
+			}
+		}
 		//
 		// Extra-text slots always need a replay (they never parcel a buffer into
 		// initWindow). mainDisplay only needs one when the previous binder is
@@ -7878,41 +7892,68 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 	
 
+	/** The charset is stored on the option. Copy it onto the live connection. */
+	private void applyLoadedEncoding() {
+		if (mSettings == null || mSettings.getSettings() == null) {
+			return;
+		}
+		Option found = mSettings.getSettings().getOptions().findOptionByKey("encoding");
+		if (!(found instanceof BaseOption)) {
+			return;
+		}
+		Object value = ((BaseOption) found).getValue();
+		if (value == null) {
+			return;
+		}
+		doUpdateEncoding(value.toString());
+	}
+
 	/** Impelemntation of the system encoding settings handler.
 	 * 
 	 * @param value New value to use.
 	 */
 	private void doUpdateEncoding(final String value) {
-		if (mProcessor == null) { return; }
-		mProcessor.setEncoding(value);
-		//this.encoding = value;
+		if (value == null || value.length() == 0 || mSettings == null) {
+			return;
+		}
+		// Alias decode and the window buffers use this charset too.
+		// Only the processor is allowed to be absent.
 		mSettings.setEncoding(value);
-		this.mWorking.setEncoding(value);
-		this.mFinished.setEncoding(value);
-		if (mProcessor != null) {
-			this.mProcessor.setEncoding(value);
+		if (mWorking != null) {
+			mWorking.setEncoding(value);
 		}
-		for (int i = 0; i < mWindows.size(); i++) {
-			WindowToken w = mWindows.get(i);
-			w.getBuffer().setEncoding(value);
+		if (mFinished != null) {
+			mFinished.setEncoding(value);
 		}
-		
+		if (mWindows != null) {
+			for (int i = 0; i < mWindows.size(); i++) {
+				WindowToken w = mWindows.get(i);
+				if (w != null && w.getBuffer() != null) {
+					w.getBuffer().setEncoding(value);
+				}
+			}
+		}
 		for (IWindowCallback w : mWindowCallbackMap.values()) {
-			//IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
 			try {
 				w.setEncoding(value);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.doUpdateEncoding", e);
 			}
 		}
-		
-		for (int i = 0; i < mPlugins.size(); i++) {
-			Plugin p = mPlugins.get(i);
-			p.setEncoding(value);
+		if (mPlugins != null) {
+			for (int i = 0; i < mPlugins.size(); i++) {
+				Plugin p = mPlugins.get(i);
+				if (p != null) {
+					p.setEncoding(value);
+				}
+			}
 		}
-		
-		//handle the keyboard command callback.
-		mKeyboardCommand.setEncoding(value); 
+		if (mKeyboardCommand != null) {
+			mKeyboardCommand.setEncoding(value);
+		}
+		if (mProcessor != null) {
+			mProcessor.setEncoding(value);
+		} 
 		
 		//may want to go through and activate the settings changed handler for plugins.
 		//the chat window would want to re-construct it's buffers. But for proper operation

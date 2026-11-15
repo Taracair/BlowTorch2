@@ -102,6 +102,11 @@ in the input bar is a short list of every `.command`, printed into the
 game window — not this manual. From the launcher, **Help** is also a
 button at the bottom and an item in that screen's ⋮ menu.
 
+**System Encoding** is Options → Connection → System Encoding. It is the
+character set that turns the server's bytes into letters, and it stays on
+UTF-8 unless those letters look wrong. Pick KOI8-R there when the world
+sends KOI-8.
+
 **Edit buttons:** long-press ⋮, or ⋮ → **Edit buttons**. Tap an empty
 cell — that drops a blank tile. Tap the tile to select it, tap again for
 Move / Edit / Copy / Delete, choose **Edit** to edit the button.
