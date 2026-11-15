@@ -1076,7 +1076,8 @@ Examples:
 Notes:
 
 - Without `^`/`$`, BlowTorch wraps the pattern in word boundaries and uses
-  normal regex `$n` groups in **With**.
+  normal regex `$n` groups in **With**. A word is letters, digits, and `_`,
+  in any alphabet.
 - With **both** `^` and `$`, `$1` is the first `(…)` group in the pattern
   (example above).
 - With **only** `^` (no trailing `$`), the line is split on spaces: `$0` is
