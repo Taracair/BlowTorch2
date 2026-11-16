@@ -3,6 +3,9 @@ package com.resurrection.blowtorch2.lib.chat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
@@ -10,7 +13,8 @@ import com.resurrection.blowtorch2.lib.trigger.style.StyleSnapshot;
 
 /**
  * SGR on a copied chat line. The plain body stays the text search and
- * absorb use. {@code colored} is that same text with the world's codes.
+ * absorb use. {@code colored} is that same text with the world's codes,
+ * or codes written in the body as {@code \27[…m}.
  */
 public final class ChatAnsi {
 
@@ -27,6 +31,17 @@ public final class ChatAnsi {
 		}
 	}
 
+	/** Plain text to store, and SGR for that same text (empty when nothing to paint). */
+	public static final class Painted {
+		public final String plain;
+		public final String colored;
+
+		Painted(String plain, String colored) {
+			this.plain = plain == null ? "" : plain;
+			this.colored = colored == null ? "" : colored;
+		}
+	}
+
 	private ChatAnsi() {
 	}
 
@@ -35,15 +50,173 @@ public final class ChatAnsi {
 	 * slice has no color and no bold.
 	 */
 	public static String encodeSlice(StyleLineModel model, String body) {
+		return encodeSlice(model, body, -1);
+	}
+
+	/**
+	 * Same as {@link #encodeSlice(StyleLineModel, String)}. {@code anchor} is
+	 * the hit's offset in the line, or {@code -1} when that offset is unknown.
+	 */
+	public static String encodeSlice(StyleLineModel model, String body, int anchor) {
 		if (model == null || body == null || body.length() == 0) {
 			return "";
 		}
 		if (model.plain == null || model.byChar == null) {
 			return "";
 		}
-		int at = model.plain.indexOf(body);
+		int at = placed(model, body, anchor);
 		int end = at + body.length();
 		if (at < 0 || end > model.byChar.length) {
+			return "";
+		}
+		return encodeRange(model, at, end);
+	}
+
+	/**
+	 * {@code $n} keeps that capture's color. {@code \27[…m} (also {@code \033},
+	 * {@code \x1b}, {@code \e}) sets SGR on the following text until {@code \27[0m}.
+	 * {@code pattern} may be null; a repeated word then uses the first copy.
+	 * {@code anchor} is the hit's offset of {@code matched} in the line, or
+	 * {@code -1} when that offset is unknown.
+	 */
+	public static Painted paintTemplate(StyleLineModel model, String template,
+			Map<String, String> captures, String matched, Pattern pattern) {
+		return paintTemplate(model, template, captures, matched, pattern, -1);
+	}
+
+	public static Painted paintTemplate(StyleLineModel model, String template,
+			Map<String, String> captures, String matched, Pattern pattern,
+			int anchor) {
+		if (template == null) {
+			template = "";
+		}
+		if (!wantsPaint(template)) {
+			int use = matched != null && template.equals(matched) ? anchor : -1;
+			return new Painted(template, encodeSlice(model, template, use));
+		}
+		int base = placed(model, matched, anchor);
+		int[] groupStart = null;
+		int[] groupEnd = null;
+		if (base >= 0 && pattern != null) {
+			try {
+				Matcher m = pattern.matcher(matched);
+				if (m.matches()) {
+					int count = m.groupCount();
+					groupStart = new int[count + 1];
+					groupEnd = new int[count + 1];
+					for (int g = 0; g <= count; g++) {
+						groupStart[g] = m.start(g);
+						groupEnd[g] = m.end(g);
+					}
+				}
+			} catch (RuntimeException ignored) {
+				// The hit still copies; spans fall back to the first copy of the text.
+				groupStart = null;
+				groupEnd = null;
+			}
+		}
+		StringBuilder plain = new StringBuilder();
+		StringBuilder colored = new StringBuilder();
+		StringBuilder pending = new StringBuilder();
+		boolean explicit = false;
+		int lastEnd = -1;
+		int i = 0;
+		int n = template.length();
+		while (i < n) {
+			if (escapedSgr(template, i)) {
+				emit(plain, colored, pending, explicit, model, null, "\\");
+				lastEnd = -1;
+				i += 2;
+				continue;
+			}
+			int sgrAt = sgrEnd(template, i);
+			if (sgrAt > i) {
+				String params = paramsOf(template, i, sgrAt);
+				if (clearsToInherit(params)) {
+					explicit = false;
+					pending.setLength(0);
+				} else {
+					if (!explicit && pending.length() == 0
+							&& colored.indexOf("\u001b") >= 0) {
+						pending.append("\u001b[0m");
+					}
+					explicit = true;
+					pending.append('\u001b').append('[').append(params).append('m');
+					lastEnd = -1;
+				}
+				i = sgrAt;
+				continue;
+			}
+			if (captureAt(template, i)) {
+				int j = i + 1;
+				while (j < n && template.charAt(j) >= '0' && template.charAt(j) <= '9') {
+					j++;
+				}
+				String key = template.substring(i + 1, j);
+				boolean have = captures != null && captures.containsKey(key);
+				String text;
+				if (have) {
+					text = captures.get(key);
+					if (text == null) {
+						text = "";
+					}
+				} else {
+					text = template.substring(i, j);
+				}
+				int[] span = null;
+				if (have) {
+					span = locate(model, matched, base, groupStart, groupEnd,
+							parseInt(key), text);
+				}
+				if (text.length() == 0) {
+					if (span != null) {
+						lastEnd = span[1];
+					}
+				} else {
+					emit(plain, colored, pending, explicit, model, span, text);
+					lastEnd = span != null ? span[1] : -1;
+				}
+				i = j;
+				continue;
+			}
+			int j = i + 1;
+			while (j < n && !escapedSgr(template, j) && sgrEnd(template, j) < 0
+					&& !captureAt(template, j)) {
+				j++;
+			}
+			String literal = template.substring(i, j);
+			int[] gap = null;
+			if (!explicit) {
+				gap = literalGap(model, matched, base, groupStart, groupEnd, lastEnd,
+						template, j, captures, literal);
+			}
+			emit(plain, colored, pending, explicit, model, gap, literal);
+			lastEnd = (!explicit && gap != null) ? gap[1] : -1;
+			i = j;
+		}
+		String out = colored.toString();
+		if (out.indexOf('\u001b') < 0) {
+			out = "";
+		}
+		return new Painted(plain.toString(), out);
+	}
+
+	private static int placed(StyleLineModel model, String text, int anchor) {
+		if (model == null || model.plain == null || text == null || text.length() == 0) {
+			return -1;
+		}
+		int room = model.plain.length() - text.length();
+		if (anchor >= 0 && anchor <= room
+				&& model.plain.regionMatches(anchor, text, 0, text.length())) {
+			return anchor;
+		}
+		return model.plain.indexOf(text);
+	}
+
+	private static String encodeRange(StyleLineModel model, int at, int end) {
+		if (model == null || model.byChar == null || model.plain == null
+				|| at < 0 || end > model.byChar.length || at >= end
+				|| end > model.plain.length()) {
 			return "";
 		}
 		boolean any = false;
@@ -65,10 +238,202 @@ public final class ChatAnsi {
 				j++;
 			}
 			out.append(sgr(snap));
-			out.append(body, i - at, j - at);
+			out.append(model.plain, i, j);
 			i = j;
 		}
 		return out.toString();
+	}
+
+	private static boolean wantsPaint(String template) {
+		int n = template.length();
+		for (int i = 0; i < n; i++) {
+			if (captureAt(template, i) || sgrEnd(template, i) > i) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean captureAt(String s, int i) {
+		return i + 1 < s.length() && s.charAt(i) == '$'
+				&& s.charAt(i + 1) >= '0' && s.charAt(i + 1) <= '9';
+	}
+
+	/** {@code \\} only when it escapes an SGR. A bare {@code \\} stays two characters. */
+	private static boolean escapedSgr(String s, int i) {
+		return i + 1 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == '\\'
+				&& sgrEnd(s, i + 1) > i + 1;
+	}
+
+	/** Index just after the {@code m}, or {@code -1}. */
+	private static int sgrEnd(String s, int i) {
+		int n = s.length();
+		if (i >= n) {
+			return -1;
+		}
+		int bracket;
+		char c = s.charAt(i);
+		if (c == '\u001b') {
+			bracket = (i + 1 < n && s.charAt(i + 1) == '[') ? i + 1 : -1;
+		} else if (c == '\\' && i + 1 < n) {
+			char d = s.charAt(i + 1);
+			if ((d == 'e' || d == 'E') && i + 2 < n && s.charAt(i + 2) == '[') {
+				bracket = i + 2;
+			} else if (d == '2' && i + 3 < n && s.charAt(i + 2) == '7'
+					&& s.charAt(i + 3) == '[') {
+				bracket = i + 3;
+			} else if (d == '0' && i + 4 < n && s.charAt(i + 2) == '3'
+					&& s.charAt(i + 3) == '3' && s.charAt(i + 4) == '[') {
+				bracket = i + 4;
+			} else if ((d == 'x' || d == 'X') && i + 4 < n
+					&& s.charAt(i + 2) == '1'
+					&& (s.charAt(i + 3) == 'b' || s.charAt(i + 3) == 'B')
+					&& s.charAt(i + 4) == '[') {
+				bracket = i + 4;
+			} else {
+				bracket = -1;
+			}
+		} else {
+			bracket = -1;
+		}
+		if (bracket < 0) {
+			return -1;
+		}
+		int letter = bracket + 1;
+		while (letter < n) {
+			char e = s.charAt(letter);
+			if ((e >= 'A' && e <= 'Z') || (e >= 'a' && e <= 'z')) {
+				break;
+			}
+			letter++;
+		}
+		if (letter >= n || s.charAt(letter) != 'm') {
+			return -1;
+		}
+		return letter + 1;
+	}
+
+	private static String paramsOf(String s, int at, int end) {
+		int bracket = s.indexOf('[', at);
+		if (bracket < 0 || bracket >= end) {
+			return "";
+		}
+		return s.substring(bracket + 1, end - 1);
+	}
+
+	/** {@code \27[0m} and {@code \27[m} go back to the line. {@code \27[0;31m} does not. */
+	private static boolean clearsToInherit(String params) {
+		if (params == null || params.trim().length() == 0) {
+			return true;
+		}
+		boolean sawZero = false;
+		String[] parts = params.split(";");
+		for (int i = 0; i < parts.length; i++) {
+			if (parseInt(parts[i]) == 0) {
+				sawZero = true;
+				break;
+			}
+		}
+		if (!sawZero) {
+			return false;
+		}
+		int[] state = applySgr(params, 0, 0);
+		return state[0] == 0 && state[1] == 0;
+	}
+
+	private static int[] locate(StyleLineModel model, String matched, int base,
+			int[] groupStart, int[] groupEnd, int group, String text) {
+		if (text == null) {
+			text = "";
+		}
+		if (groupStart != null && group >= 0 && group < groupStart.length
+				&& groupStart[group] >= 0 && matched != null && base >= 0) {
+			int s = groupStart[group];
+			int e = groupEnd[group];
+			if (s <= e && e <= matched.length() && matched.substring(s, e).equals(text)) {
+				return new int[] { base + s, base + e };
+			}
+		}
+		if (text.length() == 0 || model == null || model.plain == null) {
+			return null;
+		}
+		if (matched != null && base >= 0) {
+			int rel = matched.indexOf(text);
+			if (rel >= 0) {
+				return new int[] { base + rel, base + rel + text.length() };
+			}
+		}
+		int at = model.plain.indexOf(text);
+		if (at < 0) {
+			return null;
+		}
+		return new int[] { at, at + text.length() };
+	}
+
+	private static int[] literalGap(StyleLineModel model, String matched, int base,
+			int[] groupStart, int[] groupEnd, int lastEnd, String template, int from,
+			Map<String, String> captures, String literal) {
+		if (lastEnd < 0 || literal == null || literal.length() == 0
+				|| model == null || model.plain == null) {
+			return null;
+		}
+		int fromCapture = from;
+		int limit = template.length();
+		while (fromCapture < limit) {
+			int skip = sgrEnd(template, fromCapture);
+			if (skip <= fromCapture) {
+				break;
+			}
+			fromCapture = skip;
+		}
+		if (!captureAt(template, fromCapture)) {
+			return null;
+		}
+		int j = fromCapture + 1;
+		int n = template.length();
+		while (j < n && template.charAt(j) >= '0' && template.charAt(j) <= '9') {
+			j++;
+		}
+		String key = template.substring(fromCapture + 1, j);
+		if (captures == null || !captures.containsKey(key)) {
+			return null;
+		}
+		String text = captures.get(key);
+		if (text == null) {
+			text = "";
+		}
+		int[] span = locate(model, matched, base, groupStart, groupEnd, parseInt(key), text);
+		if (span == null || span[0] < lastEnd || span[0] > model.plain.length()) {
+			return null;
+		}
+		if (!model.plain.substring(lastEnd, span[0]).equals(literal)) {
+			return null;
+		}
+		return new int[] { lastEnd, span[0] };
+	}
+
+	private static void emit(StringBuilder plain, StringBuilder colored,
+			StringBuilder pending, boolean explicit, StyleLineModel model,
+			int[] span, String text) {
+		if (text == null || text.length() == 0) {
+			return;
+		}
+		plain.append(text);
+		if (explicit) {
+			colored.append(pending);
+			pending.setLength(0);
+			colored.append(text);
+			return;
+		}
+		String slice = span == null ? "" : encodeRange(model, span[0], span[1]);
+		if (slice.length() == 0) {
+			if (colored.indexOf("\u001b") >= 0) {
+				colored.append("\u001b[0m");
+			}
+			colored.append(text);
+		} else {
+			colored.append(slice);
+		}
 	}
 
 	public static List<Piece> pieces(String ansi) {

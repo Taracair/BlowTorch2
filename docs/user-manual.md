@@ -1541,6 +1541,10 @@ there is no built-in channel or tell pack.
 
 Thread is the conversation key (a name you choose, or `$1` for whoever sent
 a tell). Title and body are optional; a blank body stores the matched line.
+A body of `$1 $3` stores those captures, and each keeps the color and bold
+it had on the line. `\27[1m` before text sets bold, `\27[32m` is green,
+`\27[1;31m` is bright red, and `\27[0m` goes back to the color on the line.
+The code is not shown in the bubble.
 On the trigger, Reply may be `tell $1 $text` — `$1` becomes the name when
 the thread is created; `$text` stays for the reply box. That capture form is
 not what Send uses. In ⚙ **Reply**, put the name in the template:
@@ -4051,7 +4055,9 @@ while that conversation is open.
   setting does not follow chat). The master switch is still
   **Options → Chat → Android notification** (off by default).
 - **ANSI colors** — this conversation only. Bubbles show the color and
-  bold the world sent. Off leaves the text in the bubble's own color.
+  bold the world sent. A body of `$1 $3` keeps the color each capture
+  had on the line. `\27[1m` in the body sets bold on the text after it
+  (the code is not shown). Off leaves the text in the bubble's own color.
   A line that arrived with no color codes stays plain.
 - Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
   face. **Find in this thread** stays visible; ‹ › step through matches

@@ -1075,7 +1075,10 @@ read it. Type in the reply box and Send.
              Tune sound in Android Settings. Re-tune after this
              update: chat left the alerts channel.
   ANSI colors  this conversation only. Bubbles use the world's
-             color and bold. Off keeps the bubble color.
+             color and bold. A body of $1 $3 keeps each
+             capture's color. \27[1m in the body sets bold on
+             the text after it (not shown in the bubble).
+             Off keeps the bubble color.
   From/To/7d/All  date filter (not on the thread face)
   Save       writes My lines + reply, and updates a matching
              Send to thread trigger whose Thread field is this

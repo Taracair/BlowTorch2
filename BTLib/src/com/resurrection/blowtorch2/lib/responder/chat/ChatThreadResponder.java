@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.responder.chat;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.ListIterator;
+import java.util.regex.Pattern;
 
 import org.keplerproject.luajava.LuaState;
 import org.xmlpull.v1.XmlSerializer;
@@ -14,6 +15,7 @@ import android.os.Parcelable;
 
 import com.resurrection.blowtorch2.lib.chat.ChatAnsi;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
+import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.trigger.style.DispatchStyles;
 import com.resurrection.blowtorch2.lib.trigger.style.SgrRegisters;
 import com.resurrection.blowtorch2.lib.trigger.style.StyleLineModel;
@@ -28,6 +30,8 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
  * <p>{@code threadId} is the conversation key after {@code $1} substitution
  * (a name you choose, or {@code $1} for a capture).
  * {@code title} defaults to that id. {@code body} defaults to the matched line.
+ * {@code $1} in the body keeps the color that capture had on the line.
+ * {@code \27[1m} sets bold on the text after it.
  *
  * <p>{@code replyTemplate} is stored on the thread the first time it is seen.
  * Trigger captures ({@code $1}, {@code $2}, …) are substituted then.
@@ -130,11 +134,21 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 			String resolvedTitle = title == null || title.length() == 0
 					? tid
 					: translate(title, captureMap);
+			Pattern pattern = null;
+			if (source instanceof TriggerData) {
+				pattern = ((TriggerData) source).getCompiledPattern();
+			}
+			StyleLineModel model = styleFor(line);
 			String resolvedBody;
+			String colored;
 			if (body == null || body.length() == 0) {
 				resolvedBody = matched == null ? "" : matched;
+				colored = ChatAnsi.encodeSlice(model, resolvedBody, start);
 			} else {
-				resolvedBody = translate(body, captureMap);
+				ChatAnsi.Painted painted = ChatAnsi.paintTemplate(model, body,
+						captureMap, matched, pattern, start);
+				resolvedBody = painted.plain;
+				colored = painted.colored;
 			}
 			ChatStore store = ChatStore.forWorld(c, displayname);
 			String tmpl = replyTemplate == null ? "" : replyTemplate;
@@ -143,7 +157,6 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 				// $n substitutes; $text is not $ + digits, so it is left alone.
 				seed = translate(tmpl, captureMap);
 			}
-			String colored = ChatAnsi.encodeSlice(styleFor(line), resolvedBody);
 			store.append(tid, resolvedTitle, resolvedBody, seed, mine, colored);
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logThrowable("ChatThreadResponder", e);
