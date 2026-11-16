@@ -100,50 +100,86 @@ and `.commands` are the same command; `.help` lists every registered one.
 A short list of the ones people put on buttons:
 
 `.help` — every dot command (same as `.commands`).
+
 `.options` — Options, the same screen as ⋮ → Options.
+
 `.font +2` — bigger game text, no trip through Options.
+
 `.loadset combat` — switch the button pad (a set named combat).
-`.clearbuttons` — hide the pad; one BACK tile brings it back (not the
-phone's Back key).
+
+`.clearbuttons` — hide the pad; one BACK tile brings it back (not the phone's Back key).
+
 `.map open` — show the map (does not hide it; `.map close` does).
-`.map go` plus a room title — walk there. `.map goto` only sends if Path
-auto-send is on.
-`.widget add hp ring` — an empty ring named hp. Then you point it at
-numbers. `.gauge` is the same command.
-`.window list` — extra text panes. `.window show` / `.window hide` need
-a slot name; bare `.window` is help.
+
+`.map go` plus a room title — walk there.
+
+`.map goto` — only sends if Path auto-send is on.
+
+`.widget add hp ring` — an empty ring named hp. Then you point it at numbers.
+
+`.gauge` — the same command as `.widget add hp ring`.
+
+`.window list` — extra text panes.
+
+`.window show` / `.window hide` — need a slot name; bare `.window` is help.
+
 `.search goblin` — find that text in scrollback.
+
 `.switch` — list open sessions; add the exact display name to jump.
+
 `.reconnect` — drop and connect again.
-`.kb popup` — show the keyboard. Words after it go into the bar (and
-replace what was there). Bare `.kb popup` clears the bar, then shows
-the keyboard.
-`.run 3n2ew` — speedwalk. `.rev 3n2ew` walks those letters backwards.
-`#5 north` — send `north` five times at once. `#5/1s north` does the
-same with one second between each. `##5 north` reaches the game as
-`#5 north`.
+
+`.kb popup` — show the keyboard. Words after it go into the bar (and replace what was there). Bare `.kb popup` clears the bar, then shows the keyboard.
+
+`.run 3n2ew` — speedwalk.
+
+`.rev 3n2ew` — walks those letters backwards.
+
+`#5 north` — send `north` five times at once.
+
+`#5/1s north` — the same with one second between each.
+
+`##5 north` — reaches the game as `#5 north`.
+
 `.trigger group off combat` — disable that trigger group.
+
 `.alias toggle kk` — that alias on or off.
+
 `.timer play heal` — start that timer (`pause` / `reset` / `stop` / `info` / `dump`).
+
 `.suggest on` — word chips from recent game text.
-`.last` — send the newest command again. You sent `inventory` last:
-`.last` sends it again, and `.last` itself never goes to the game.
-`.last input` puts that line in the bar so you can change it first.
-`.lastbar 5` — five recent commands above the input. `.lastlist` is the
-same list in a window. `.lastfloat` is those commands as chips over the game.
-`.pick insert` — type `get`, then a space, tap `iron` on the screen, and
-the bar shows `get iron` with a space after it. Nothing is sent until Send.
-`.chat` — the chat drawer. `.chat party` opens that conversation.
-`.shortcuts on` — a hardware key sends a line. `.shortcuts edit` opens
-the list. Off until you turn it on.
-`.clearbar` — one Escape press. A recalled line puts the draft back.
-Any other text clears the bar. An empty bar hides the keyboard.
+
+`.last` — send the newest command again. You sent `inventory` last: `.last` sends it again, and `.last` itself never goes to the game.
+
+`.last input` — puts that line in the bar so you can change it first.
+
+`.lastbar 5` — five recent commands above the input.
+
+`.lastlist` — same list in a window.
+
+`.lastfloat` — those commands as chips over the game.
+
+`.pick insert` — type `get`, then a space, tap `iron` on the screen, and the bar shows `get iron` with a space after it. Nothing is sent until Send.
+
+`.chat` — the chat drawer.
+
+`.chat party` — opens that conversation.
+
+`.shortcuts on` — a hardware key sends a line.
+
+`.shortcuts edit` — opens the list. Off until you turn it on.
+
+`.clearbar` — one Escape press. A recalled line puts the draft back. Any other text clears the bar. An empty bar hides the keyboard.
+
 `.stepback` — the number pad just walked `north`. This sends `south`.
+
 `.scrollnew` — jump the game text to the newest line.
-`.scrollv 10` — move toward the text that was above. `.scrollh 10`
-moves right. Neither line is sent to the world.
-`.prefix on` — type `ki` and Up finds `kill goblin`. Off (the start):
-Up walks every command, even when the bar says `ki`.
+
+`.scrollv 10` — move toward the text that was above.
+
+`.scrollh 10` — moves right. Neither line is sent to the world.
+
+`.prefix on` — type `ki` and Up finds `kill goblin`. Off (the start): Up walks every command, even when the bar says `ki`.
 
 Dot commands are on by default. `..` alone toggles them. `..look` sends
 `.look` to the game.
