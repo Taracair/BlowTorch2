@@ -91,6 +91,10 @@ public class MapperOverlayController
 	private int floatHeight;
 	private int floatX;
 	private int floatY;
+	/** Last frame written onto overlayRoot. Cleared when that view is replaced. */
+	private MapperOverlayGeometry appliedGeometry;
+	/** Last map-holder rules written. Cleared with the overlay view. */
+	private MapperMapHolderAnchors appliedMapHolderAnchors;
 	private String selectedTileId;
 	/** When true: tap FROM tile, then TO tile → pick walk verb to link/unlink. */
 	private boolean linkEditMode;
@@ -405,6 +409,10 @@ public class MapperOverlayController
 		}
 		LayoutInflater inflater = LayoutInflater.from(activity);
 		overlayRoot = inflater.inflate(R.layout.mapper_overlay, container, false);
+		// This view is added MATCH_PARENT below. A signature from the previous
+		// view would skip the real frame.
+		appliedGeometry = null;
+		appliedMapHolderAnchors = null;
 		mapperView = (MapperView) overlayRoot.findViewById(R.id.mapper_view);
 		titleView = (TextView) overlayRoot.findViewById(R.id.mapper_title);
 		toolbar = (LinearLayout) overlayRoot.findViewById(R.id.mapper_toolbar);
@@ -621,6 +629,8 @@ public class MapperOverlayController
 		if (inputbar != null && inputbar.getId() != View.NO_ID) {
 			lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 		}
+		// addView replaces the params restoreFloatGeometry just wrote.
+		appliedGeometry = null;
 		container.addView(overlayRoot, lp);
 		overlayRoot.setVisibility(View.GONE);
 		attached = true;
@@ -679,39 +689,40 @@ public class MapperOverlayController
 		}
 		float density = activity.getResources().getDisplayMetrics().density;
 		View inputbar = findGameplayInputBar(null);
+		boolean constrainAbove = fullscreen && inputbar != null
+				&& inputbar.getId() != View.NO_ID;
+		int aboveId = constrainAbove ? inputbar.getId() : 0;
+		MapperOverlayGeometry next = MapperOverlayGeometry.capture(
+				fullscreen, floatX, floatY, floatWidth, floatHeight, density,
+				constrainAbove, aboveId);
+		applyWindowChrome();
+		bringUnderChrome();
+		updateDisplayModeToggleUi();
+		if (next.sameAs(appliedGeometry)) {
+			return;
+		}
+		appliedGeometry = next;
 		// Fresh params — mutating removeRule/addRule across Float↔Full left ABOVE
 		// stale/wrong on the first Full switch (bottom Browse/Edit + Float/Full hidden).
 		RelativeLayout.LayoutParams lp;
-		if (fullscreen) {
+		if (next.fullscreen) {
 			lp = new RelativeLayout.LayoutParams(
 					RelativeLayout.LayoutParams.MATCH_PARENT,
 					RelativeLayout.LayoutParams.MATCH_PARENT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			if (inputbar != null && inputbar.getId() != View.NO_ID) {
-				lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
+			if (next.constrainAbove) {
+				lp.addRule(RelativeLayout.ABOVE, next.aboveViewId);
 			}
-			// Stay clear of input chrome — MATCH_PARENT alone was eating the toolbar.
-			overlayRoot.setPadding(
-					(int) (4 * density),
-					(int) (8 * density),
-					(int) (8 * density),
-					(int) (4 * density));
 		} else {
-			lp = new RelativeLayout.LayoutParams(floatWidth, floatHeight);
-			lp.leftMargin = floatX;
-			lp.topMargin = floatY;
-			overlayRoot.setPadding(
-					(int) (2 * density),
-					(int) (2 * density),
-					(int) (2 * density),
-					(int) (2 * density));
+			lp = new RelativeLayout.LayoutParams(next.width, next.height);
+			lp.leftMargin = next.x;
+			lp.topMargin = next.y;
 		}
-		applyWindowChrome();
+		// Fullscreen padding keeps MATCH_PARENT off the input chrome.
+		overlayRoot.setPadding(next.padLeft, next.padTop, next.padRight, next.padBottom);
 		overlayRoot.setLayoutParams(lp);
-		bringUnderChrome();
-		updateDisplayModeToggleUi();
 		overlayRoot.requestLayout();
 	}
 
@@ -3838,6 +3849,10 @@ public class MapperOverlayController
 		if (chromeToggleBtn != null) {
 			chromeToggleBtn.setText(chromeVisible ? "▾ tools" : "▸ tools");
 		}
+		MapperMapHolderAnchors next = MapperMapHolderAnchors.of(minimal, showTools);
+		if (next.sameAs(appliedMapHolderAnchors)) {
+			return;
+		}
 		View mapHolder = overlayRoot != null
 				? overlayRoot.findViewById(R.id.mapper_map_holder) : null;
 		if (mapHolder == null
@@ -3861,6 +3876,7 @@ public class MapperOverlayController
 			mp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
 		}
 		mapHolder.setLayoutParams(mp);
+		appliedMapHolderAnchors = next;
 	}
 
 	/** Pick opacity from a list — no step-cycling through near-invisible. */
@@ -4271,6 +4287,8 @@ public class MapperOverlayController
 			((ViewGroup) overlayRoot.getParent()).removeView(overlayRoot);
 		}
 		overlayRoot = null;
+		appliedGeometry = null;
+		appliedMapHolderAnchors = null;
 		attached = false;
 		visible = false;
 	}
