@@ -73,7 +73,8 @@ public class LuaInvocationHandler implements InvocationHandler
 	  	
 	  	if ( func.isNil() )
 	  	{
-	  		return null;
+	  		// removeOnPreDrawListener calls equals. Null unboxes and throws.
+	  		return LuaProxyFallback.valueFor(method, proxy, args);
 	  	}
 	  	
 	  	try {

@@ -59,7 +59,9 @@ import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewConfiguration;
+import android.view.ViewTreeObserver;
 import android.widget.EditText;
 import android.widget.OverScroller;
 import android.widget.RelativeLayout;
@@ -7719,21 +7721,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	
 	boolean noScript = true;
 	public void loadScript(String body) {
-		
-		if(body == null || body.equals("")) {
-			noScript = true;
-			if(mL != null) {
-				mL.close();
-				mL = null;
-			}
-			return;
-		} else {
-			noScript = false;
-		}
-		if(mL != null) {
+		boolean replacing = mL != null;
+		int keepW = getWidth();
+		int keepH = getHeight();
+		if (replacing) {
+			shutdown();
 			mL.close();
 			mL = null;
 		}
+		if(body == null || body.equals("")) {
+			noScript = true;
+			return;
+		}
+		noScript = false;
 		this.mL = LuaStateFactory.newLuaState();
 		initLua();
 		mL.pushJavaObject(this);
@@ -7752,6 +7752,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// Error branch used to pop neither the error object nor the traceback
 		// function.
 		mL.pop(2);
+		// A replaced script's OnDestroy recycled the button bitmaps. OnCreate
+		// does not allocate them; OnSizeChanged does, and only when the size
+		// changes. The view already has a size, so call it now.
+		hasOnSizeChanged = true;
+		if (replacing && keepW > 0 && keepH > 0) {
+			callLuaOnSizeChanged(keepW, keepH, keepW, keepH);
+			invalidate();
+		}
 
 	}
 	
@@ -9547,11 +9555,39 @@ end
 			//no method.
 			mL.pop(2);
 		}
-		
-		//callbackHandler.removeCallbacksAndMessages(token)
-		
-		//mL = null;
-		
+		// OnDestroy can remove the listeners it knows. Anything still
+		// registered on this window is dropped here, then scheduled callbacks.
+		removeLuaPreDrawListeners();
+		callbackHandler.removeCallbacksAndMessages(null);
+	}
+
+	private void removeLuaPreDrawListeners() {
+		if (mL == null) {
+			return;
+		}
+		Object[] proxies = mL.copyProxies();
+		removePreDrawListeners(this, proxies);
+	}
+
+	private static void removePreDrawListeners(View view, Object[] proxies) {
+		if (view == null || proxies == null) {
+			return;
+		}
+		ViewTreeObserver observer = view.getViewTreeObserver();
+		if (observer.isAlive()) {
+			for (int i = 0; i < proxies.length; i++) {
+				if (proxies[i] instanceof ViewTreeObserver.OnPreDrawListener) {
+					observer.removeOnPreDrawListener(
+							(ViewTreeObserver.OnPreDrawListener) proxies[i]);
+				}
+			}
+		}
+		if (view instanceof ViewGroup) {
+			ViewGroup group = (ViewGroup) view;
+			for (int i = 0; i < group.getChildCount(); i++) {
+				removePreDrawListeners(group.getChildAt(i), proxies);
+			}
+		}
 	}
 	
 	public void closeLua() {
@@ -9733,6 +9769,14 @@ end
  */
 		
 		if(mL == null || !hasOnSizeChanged) return;
+		callLuaOnSizeChanged(w, h, oldw, oldh);
+		this.invalidate();
+	}
+
+	private void callLuaOnSizeChanged(int w, int h, int oldw, int oldh) {
+		if (mL == null || !hasOnSizeChanged) {
+			return;
+		}
 		mL.getGlobal("debug");
 		mL.getField(mL.getTop(), "traceback");
 		mL.remove(-2);
@@ -9750,11 +9794,9 @@ end
 			// traceback function.
 			mL.pop(2);
 		} else {
-			//Log.e("LUAWINDOW","Window("+mName+"): No OnSizeChanged Function Defined.");
 			hasOnSizeChanged = false;
 			mL.pop(2);
 		}
-		this.invalidate();
 	}
 	boolean hasOnSizeChanged = true;
 	

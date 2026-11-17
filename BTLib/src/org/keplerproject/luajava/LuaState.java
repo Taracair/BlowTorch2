@@ -24,6 +24,8 @@
 
 package org.keplerproject.luajava;
 
+import java.util.ArrayList;
+
 /**
  * LuaState if the main class of LuaJava for the Java developer.
  * LuaState is a mapping of most of Lua's C API functions.
@@ -96,6 +98,9 @@ public class LuaState
 
   private CPtr luaState;
 
+  /** Proxies created while this state was open. Cleared in {@link #close()}. */
+  private final ArrayList<Object> proxies = new ArrayList<Object>();
+
   private int stateId;
 
   /**
@@ -135,6 +140,21 @@ public class LuaState
     LuaStateFactory.removeLuaState(stateId);
     _close(luaState);
     this.luaState = null;
+    proxies.clear();
+  }
+
+  /** Remember a luajava proxy so the window can drop it when this state closes. */
+  public synchronized void trackProxy(Object proxy)
+  {
+    if (proxy != null && luaState != null)
+    {
+      proxies.add(proxy);
+    }
+  }
+
+  public synchronized Object[] copyProxies()
+  {
+    return proxies.toArray();
   }
   
   /**
