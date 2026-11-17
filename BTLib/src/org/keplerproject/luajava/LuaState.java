@@ -149,9 +149,20 @@ public class LuaState
    * Return the long representing the LuaState pointer
    * @return long
    */
-  public long getCPtrPeer()
+  public synchronized long getCPtrPeer()
   {
     return (luaState != null)? luaState.getPeer() : 0;
+  }
+
+  // getPeer() on the nulled pointer is the closed-state NPE.
+  private long openPeer() throws LuaException
+  {
+    long peer = getCPtrPeer();
+    if (peer == 0)
+    {
+      throw new LuaException("LuaState is closed");
+    }
+    return peer;
   }
 
 
@@ -1060,7 +1071,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, String name)
 		throws LuaException
 	{
-		if (parent.L.getCPtrPeer() != luaState.getPeer())
+		if (parent.L.getCPtrPeer() != openPeer())
 			throw new LuaException("Object must have the same LuaState as the parent!");
 
 		return new LuaObject(parent, name);
@@ -1076,7 +1087,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, Number name)
 		throws LuaException
 	{
-		if (parent.L.getCPtrPeer() != luaState.getPeer())
+		if (parent.L.getCPtrPeer() != openPeer())
 			throw new LuaException("Object must have the same LuaState as the parent!");
 
 		return new LuaObject(parent, name);
@@ -1092,7 +1103,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, LuaObject name)
 		throws LuaException
 	{
-	  if (parent.getLuaState().getCPtrPeer() != luaState.getPeer() ||
+	  if (parent.getLuaState().getCPtrPeer() != openPeer() ||
 	      parent.getLuaState().getCPtrPeer() != name.getLuaState().getCPtrPeer())
 	    throw new LuaException("Object must have the same LuaState as the parent!");
 
