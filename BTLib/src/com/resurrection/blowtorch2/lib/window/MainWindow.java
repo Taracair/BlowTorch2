@@ -1035,11 +1035,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//Map map = (Map)msg.obj;
 					String plugin = msg.getData().getString("PLUGIN");
 					String function = msg.getData().getString("FUNCTION");
+					// Disconnect nulls the binder while ScheduleCallback messages
+					// are still queued. RemoteException does not cover that null.
+					if (service == null) {
+						break;
+					}
 					try {
 						service.pluginXcallS(plugin,function,(String)msg.obj);
 					} catch (RemoteException e9) {
-						// TODO Auto-generated catch block
-						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e9);
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.pluginXcallS", e9);
 					}
 					break;
 				case MESSAGE_ADDOPTIONCALLBACK:
