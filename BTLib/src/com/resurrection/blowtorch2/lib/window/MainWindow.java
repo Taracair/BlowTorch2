@@ -13419,6 +13419,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	/**
+	 * Like {@link #windowBroadcast}, but keeps the last non-empty string a
+	 * window returns. One script should answer.
+	 */
+	public String windowBroadcastResult(String function, String data) {
+		String last = null;
+		if (windowMap == null) {
+			return null;
+		}
+		for (com.resurrection.blowtorch2.lib.window.Window window : windowMap.values()) {
+			if (window.checkSupports(function)) {
+				String result = window.callFunctionResult(function, data);
+				if (result != null && result.length() > 0) {
+					last = result;
+				}
+			}
+		}
+		return last;
+	}
+
 	@Override
 	public String getPluginOption(String plugin, String value) throws RemoteException {
 		String ret = service.getPluginOption(plugin,value);

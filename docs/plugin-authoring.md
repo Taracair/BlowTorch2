@@ -484,11 +484,30 @@ plugin does not get that callback unless it is named `starter_tutorial`.
 |----------|------|
 | `OnCreate` | Window created |
 | `OnMeasure` / `OnSizeChanged` | Layout |
+| `OnMapperGeometry(payload)` | Map frame, before and after it is written. See below |
 | `OnDraw(canvas)` | Each frame (when not scrolling) — `android.graphics.Canvas` |
 | `PopulateMenu(menu)` | Overflow / action menu |
 | `OnDestroy` | Teardown |
 
 Drawing belongs in **window** Lua only. Service-side `DrawWindow` is disabled.
+
+### 5.2.1 `OnMapperGeometry` — the map frame, in the same pass
+
+Runs in the window Lua state, on the UI thread, only when the map's frame is about to change (a drag, Float/Full, a reload that actually moves it). An unchanged `.map load` does not call it.
+
+```lua
+function OnMapperGeometry(payload)
+  local phase, mode, x, y, w, h = payload:match(
+    "^(%S+)\t(%S+)\t(%-?%d+)\t(%-?%d+)\t(%-?%d+)\t(%-?%d+)$")
+  if phase == "will" and mode == "float" then
+    return x .. "," .. y .. "," .. w .. "," .. h
+  end
+end
+```
+
+`payload` is one string: `will` or `did`, then `float` or `full`, then x, y, width, height, separated by tabs. `will` is before the write. Return `x,y,width,height` (commas or spaces) to replace a **float** frame. Width and height have to be greater than 0. Anything else, including no return, keeps the host frame. A fullscreen frame ignores the return. `did` runs after the write; its return is ignored.
+
+Every window script that defines the function is called. If more than one returns numbers, the last one is the frame that is written. Keep the function fast. It runs on the UI thread, including once per drag step.
 
 ### 5.3 `OnConnected` — first bytes on the wire
 

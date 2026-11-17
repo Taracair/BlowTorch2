@@ -8416,6 +8416,9 @@ ScheduleCallback(104,"delayCallback",5000)
 	 * so both paths pop 2.
 	 */
 	public String callFunctionResult(String callback, String data) {
+		if (mL == null) {
+			return null;
+		}
 		mL.getGlobal("debug");
 		mL.getField(mL.getTop(), "traceback");
 		mL.remove(-2);
