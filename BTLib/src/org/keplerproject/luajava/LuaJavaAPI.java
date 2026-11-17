@@ -32,6 +32,8 @@ import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
 import android.os.Build;
+import android.view.View;
+import android.view.ViewTreeObserver;
 
 /**
  * Class that contains functions accessed by lua.
@@ -157,6 +159,9 @@ public final class LuaJavaAPI
         throw new LuaException(e);
       }
 
+      // addOnPreDrawListener is void, so ret is null and the return below is success.
+      notePreDraw(L, obj, methodName);
+
       // Void function returns null
       if (ret == null)
       {
@@ -167,6 +172,23 @@ public final class LuaJavaAPI
       L.pushObjectValue(ret);
 
       return 1;
+    }
+  }
+
+  private static void notePreDraw(LuaState L, Object obj, String methodName)
+  {
+    if (L == null || methodName == null)
+    {
+      return;
+    }
+    if ("getViewTreeObserver".equals(methodName) && obj instanceof View)
+    {
+      L.trackPreDrawView((View) obj);
+    }
+    else if ("addOnPreDrawListener".equals(methodName)
+        && obj instanceof ViewTreeObserver)
+    {
+      L.trackPreDrawObserver((ViewTreeObserver) obj);
     }
   }
 

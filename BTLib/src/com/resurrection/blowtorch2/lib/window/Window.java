@@ -9566,22 +9566,38 @@ end
 			return;
 		}
 		Object[] proxies = mL.copyProxies();
-		removePreDrawListeners(this, proxies);
+		// Siblings (the map) share this window's root. A dialog does not.
+		removePreDrawListeners(getRootView(), proxies);
+		View[] views = mL.copyPreDrawViews();
+		for (int i = 0; i < views.length; i++) {
+			if (views[i] != null) {
+				// Attach merges the floating observer into the live one and kills it.
+				removeFromObserver(views[i].getViewTreeObserver(), proxies);
+			}
+		}
+		ViewTreeObserver[] observers = mL.copyPreDrawObservers();
+		for (int i = 0; i < observers.length; i++) {
+			removeFromObserver(observers[i], proxies);
+		}
+	}
+
+	private static void removeFromObserver(ViewTreeObserver observer, Object[] proxies) {
+		if (observer == null || !observer.isAlive() || proxies == null) {
+			return;
+		}
+		for (int i = 0; i < proxies.length; i++) {
+			if (proxies[i] instanceof ViewTreeObserver.OnPreDrawListener) {
+				observer.removeOnPreDrawListener(
+						(ViewTreeObserver.OnPreDrawListener) proxies[i]);
+			}
+		}
 	}
 
 	private static void removePreDrawListeners(View view, Object[] proxies) {
 		if (view == null || proxies == null) {
 			return;
 		}
-		ViewTreeObserver observer = view.getViewTreeObserver();
-		if (observer.isAlive()) {
-			for (int i = 0; i < proxies.length; i++) {
-				if (proxies[i] instanceof ViewTreeObserver.OnPreDrawListener) {
-					observer.removeOnPreDrawListener(
-							(ViewTreeObserver.OnPreDrawListener) proxies[i]);
-				}
-			}
-		}
+		removeFromObserver(view.getViewTreeObserver(), proxies);
 		if (view instanceof ViewGroup) {
 			ViewGroup group = (ViewGroup) view;
 			for (int i = 0; i < group.getChildCount(); i++) {

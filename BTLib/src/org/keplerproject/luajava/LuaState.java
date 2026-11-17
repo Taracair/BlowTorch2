@@ -24,7 +24,11 @@
 
 package org.keplerproject.luajava;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+
+import android.view.View;
+import android.view.ViewTreeObserver;
 
 /**
  * LuaState if the main class of LuaJava for the Java developer.
@@ -100,6 +104,12 @@ public class LuaState
 
   /** Proxies created while this state was open. Cleared in {@link #close()}. */
   private final ArrayList<Object> proxies = new ArrayList<Object>();
+  /** Views whose getViewTreeObserver Lua fetched. Cleared in {@link #close()}. */
+  private final ArrayList<WeakReference<View>> preDrawViews =
+      new ArrayList<WeakReference<View>>();
+  /** Observers Lua passed to addOnPreDrawListener. Cleared in {@link #close()}. */
+  private final ArrayList<WeakReference<ViewTreeObserver>> preDrawObservers =
+      new ArrayList<WeakReference<ViewTreeObserver>>();
 
   private int stateId;
 
@@ -141,6 +151,8 @@ public class LuaState
     _close(luaState);
     this.luaState = null;
     proxies.clear();
+    preDrawViews.clear();
+    preDrawObservers.clear();
   }
 
   /** Remember a luajava proxy so the window can drop it when this state closes. */
@@ -155,6 +167,52 @@ public class LuaState
   public synchronized Object[] copyProxies()
   {
     return proxies.toArray();
+  }
+
+  /** The view Lua called getViewTreeObserver on. Its current observer may differ. */
+  public synchronized void trackPreDrawView(View view)
+  {
+    if (view != null && luaState != null)
+    {
+      preDrawViews.add(new WeakReference<View>(view));
+    }
+  }
+
+  /** The observer object Lua passed to addOnPreDrawListener. */
+  public synchronized void trackPreDrawObserver(ViewTreeObserver observer)
+  {
+    if (observer != null && luaState != null)
+    {
+      preDrawObservers.add(new WeakReference<ViewTreeObserver>(observer));
+    }
+  }
+
+  public synchronized View[] copyPreDrawViews()
+  {
+    ArrayList<View> live = new ArrayList<View>();
+    for (int i = 0; i < preDrawViews.size(); i++)
+    {
+      View view = preDrawViews.get(i).get();
+      if (view != null)
+      {
+        live.add(view);
+      }
+    }
+    return live.toArray(new View[live.size()]);
+  }
+
+  public synchronized ViewTreeObserver[] copyPreDrawObservers()
+  {
+    ArrayList<ViewTreeObserver> live = new ArrayList<ViewTreeObserver>();
+    for (int i = 0; i < preDrawObservers.size(); i++)
+    {
+      ViewTreeObserver observer = preDrawObservers.get(i).get();
+      if (observer != null)
+      {
+        live.add(observer);
+      }
+    }
+    return live.toArray(new ViewTreeObserver[live.size()]);
   }
   
   /**

@@ -487,7 +487,7 @@ plugin does not get that callback unless it is named `starter_tutorial`.
 | `OnMapperGeometry(payload)` | Map frame, before and after it is written. See below |
 | `OnDraw(canvas)` | Each frame (when not scrolling) — `android.graphics.Canvas` |
 | `PopulateMenu(menu)` | Overflow / action menu |
-| `OnDestroy` | Teardown. Also runs before a window script is replaced. Scheduled callbacks are cancelled after it, and `OnPreDrawListener` proxies created with `luajava.createProxy` are removed from that window. If the view already has a size, `OnSizeChanged` runs so the new script can rebuild what `OnDestroy` freed |
+| `OnDestroy` | Teardown. Also runs before a window script is replaced. Scheduled callbacks are cancelled after it. `OnPreDrawListener` proxies created with `luajava.createProxy` are removed from this window, from the rest of that screen (the map included), and from a view the script called `getViewTreeObserver` on, including a dialog shown afterwards. If the view already has a size, `OnSizeChanged` runs so the new script can rebuild what `OnDestroy` freed |
 
 Drawing belongs in **window** Lua only. Service-side `DrawWindow` is disabled.
 
