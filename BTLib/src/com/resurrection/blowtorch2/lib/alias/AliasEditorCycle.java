@@ -34,12 +34,10 @@ public final class AliasEditorCycle {
 			if (d == null || d.getPre() == null) {
 				continue;
 			}
-			String prefix = d.getPre().startsWith("^") ? "" : "\\b";
-			String suffix = d.getPre().endsWith("$") ? "" : "\\b";
 			if (regExp.length() > 0) {
 				regExp.append('|');
 			}
-			regExp.append('(').append(prefix).append(d.getPre()).append(suffix).append(')');
+			regExp.append(AliasPattern.wrapped(d.getPre()));
 		}
 		if (regExp.length() == 0) {
 			return null;

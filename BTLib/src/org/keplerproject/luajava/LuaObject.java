@@ -560,7 +560,9 @@ public class LuaObject
 
 			InvocationHandler handler = new LuaInvocationHandler(this);
 
-			return Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaces, handler);
+			Object proxy = Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaces, handler);
+			L.trackProxy(proxy);
+			return proxy;
 		}
 	}
 }

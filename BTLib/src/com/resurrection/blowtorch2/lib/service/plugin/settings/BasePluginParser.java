@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.service.plugin.settings;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -138,23 +139,25 @@ public class BasePluginParser {
 	}
 	
 	protected InputStream getInputStream() throws FileNotFoundException {
-		FileInputStream input = null;
-		
 		if(path == null) {
-			return mContext.getResources().openRawResource(mContext.getResources().getIdentifier("default_settings", "raw", mContext.getPackageName()));	
+			return mContext.getResources().openRawResource(mContext.getResources().getIdentifier("default_settings", "raw", mContext.getPackageName()));
 		}
-		
+
+		// Pick-file import copies into cache and passes that absolute path.
+		// openFileInput rejects any name that contains a separator.
+		File asFile = new File(path);
+		if (asFile.isAbsolute()) {
+			return new FileInputStream(asFile);
+		}
+
 		if(path.contains(Environment.getExternalStorageDirectory().getPath())) {
 			String state = Environment.getExternalStorageState();
 			if(Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-				input = new FileInputStream(path);
+				return new FileInputStream(path);
 			}
-		} else {
-			input = mContext.openFileInput(path);
+			return null;
 		}
-		
-		return input;
-		
+		return mContext.openFileInput(path);
 	}
 
 	/**

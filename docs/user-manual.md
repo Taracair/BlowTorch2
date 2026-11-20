@@ -102,6 +102,11 @@ in the input bar is a short list of every `.command`, printed into the
 game window — not this manual. From the launcher, **Help** is also a
 button at the bottom and an item in that screen's ⋮ menu.
 
+**System Encoding** is Options → Connection → System Encoding. It is the
+character set that turns the server's bytes into letters, and it stays on
+UTF-8 unless those letters look wrong. Pick KOI8-R there when the world
+sends KOI-8.
+
 **Edit buttons:** long-press ⋮, or ⋮ → **Edit buttons**. Tap an empty
 cell — that drops a blank tile. Tap the tile to select it, tap again for
 Move / Edit / Copy / Delete, choose **Edit** to edit the button.
@@ -1071,7 +1076,8 @@ Examples:
 Notes:
 
 - Without `^`/`$`, BlowTorch wraps the pattern in word boundaries and uses
-  normal regex `$n` groups in **With**.
+  normal regex `$n` groups in **With**. A word is letters, digits, and `_`,
+  in any alphabet.
 - With **both** `^` and `$`, `$1` is the first `(…)` group in the pattern
   (example above).
 - With **only** `^` (no trailing `$`), the line is split on spaces: `$0` is
@@ -1535,6 +1541,10 @@ there is no built-in channel or tell pack.
 
 Thread is the conversation key (a name you choose, or `$1` for whoever sent
 a tell). Title and body are optional; a blank body stores the matched line.
+A body of `$1 $3` stores those captures, and each keeps the color and bold
+it had on the line. `\27[1m` before text sets bold, `\27[32m` is green,
+`\27[1;31m` is bright red, and `\27[0m` goes back to the color on the line.
+The code is not shown in the bubble.
 On the trigger, Reply may be `tell $1 $text` — `$1` becomes the name when
 the thread is created; `$text` stays for the reply box. That capture form is
 not what Send uses. In ⚙ **Reply**, put the name in the template:
@@ -4045,7 +4055,9 @@ while that conversation is open.
   setting does not follow chat). The master switch is still
   **Options → Chat → Android notification** (off by default).
 - **ANSI colors** — this conversation only. Bubbles show the color and
-  bold the world sent. Off leaves the text in the bubble's own color.
+  bold the world sent. A body of `$1 $3` keeps the color each capture
+  had on the line. `\27[1m` in the body sets bold on the text after it
+  (the code is not shown). Off leaves the text in the bubble's own color.
   A line that arrived with no color codes stays plain.
 - Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
   face. **Find in this thread** stays visible; ‹ › step through matches

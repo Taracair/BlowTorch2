@@ -24,6 +24,12 @@
 
 package org.keplerproject.luajava;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+
+import android.view.View;
+import android.view.ViewTreeObserver;
+
 /**
  * LuaState if the main class of LuaJava for the Java developer.
  * LuaState is a mapping of most of Lua's C API functions.
@@ -96,6 +102,15 @@ public class LuaState
 
   private CPtr luaState;
 
+  /** Proxies created while this state was open. Cleared in {@link #close()}. */
+  private final ArrayList<Object> proxies = new ArrayList<Object>();
+  /** Views whose getViewTreeObserver Lua fetched. Cleared in {@link #close()}. */
+  private final ArrayList<WeakReference<View>> preDrawViews =
+      new ArrayList<WeakReference<View>>();
+  /** Observers Lua passed to addOnPreDrawListener. Cleared in {@link #close()}. */
+  private final ArrayList<WeakReference<ViewTreeObserver>> preDrawObservers =
+      new ArrayList<WeakReference<ViewTreeObserver>>();
+
   private int stateId;
 
   /**
@@ -135,6 +150,69 @@ public class LuaState
     LuaStateFactory.removeLuaState(stateId);
     _close(luaState);
     this.luaState = null;
+    proxies.clear();
+    preDrawViews.clear();
+    preDrawObservers.clear();
+  }
+
+  /** Remember a luajava proxy so the window can drop it when this state closes. */
+  public synchronized void trackProxy(Object proxy)
+  {
+    if (proxy != null && luaState != null)
+    {
+      proxies.add(proxy);
+    }
+  }
+
+  public synchronized Object[] copyProxies()
+  {
+    return proxies.toArray();
+  }
+
+  /** The view Lua called getViewTreeObserver on. Its current observer may differ. */
+  public synchronized void trackPreDrawView(View view)
+  {
+    if (view != null && luaState != null)
+    {
+      preDrawViews.add(new WeakReference<View>(view));
+    }
+  }
+
+  /** The observer object Lua passed to addOnPreDrawListener. */
+  public synchronized void trackPreDrawObserver(ViewTreeObserver observer)
+  {
+    if (observer != null && luaState != null)
+    {
+      preDrawObservers.add(new WeakReference<ViewTreeObserver>(observer));
+    }
+  }
+
+  public synchronized View[] copyPreDrawViews()
+  {
+    ArrayList<View> live = new ArrayList<View>();
+    for (int i = 0; i < preDrawViews.size(); i++)
+    {
+      View view = preDrawViews.get(i).get();
+      if (view != null)
+      {
+        live.add(view);
+      }
+    }
+    return live.toArray(new View[live.size()]);
+  }
+
+  public synchronized ViewTreeObserver[] copyPreDrawObservers()
+  {
+    ArrayList<ViewTreeObserver> live = new ArrayList<ViewTreeObserver>();
+    for (int i = 0; i < preDrawObservers.size(); i++)
+    {
+      ViewTreeObserver observer = preDrawObservers.get(i).get();
+      if (observer != null)
+      {
+        live.add(observer);
+      }
+    }
+    return live.toArray(new ViewTreeObserver[live.size()]);
   }
   
   /**
@@ -149,9 +227,20 @@ public class LuaState
    * Return the long representing the LuaState pointer
    * @return long
    */
-  public long getCPtrPeer()
+  public synchronized long getCPtrPeer()
   {
     return (luaState != null)? luaState.getPeer() : 0;
+  }
+
+  // getPeer() on the nulled pointer is the closed-state NPE.
+  private long openPeer() throws LuaException
+  {
+    long peer = getCPtrPeer();
+    if (peer == 0)
+    {
+      throw new LuaException("LuaState is closed");
+    }
+    return peer;
   }
 
 
@@ -1060,7 +1149,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, String name)
 		throws LuaException
 	{
-		if (parent.L.getCPtrPeer() != luaState.getPeer())
+		if (parent.L.getCPtrPeer() != openPeer())
 			throw new LuaException("Object must have the same LuaState as the parent!");
 
 		return new LuaObject(parent, name);
@@ -1076,7 +1165,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, Number name)
 		throws LuaException
 	{
-		if (parent.L.getCPtrPeer() != luaState.getPeer())
+		if (parent.L.getCPtrPeer() != openPeer())
 			throw new LuaException("Object must have the same LuaState as the parent!");
 
 		return new LuaObject(parent, name);
@@ -1092,7 +1181,7 @@ public class LuaState
 	public LuaObject getLuaObject(LuaObject parent, LuaObject name)
 		throws LuaException
 	{
-	  if (parent.getLuaState().getCPtrPeer() != luaState.getPeer() ||
+	  if (parent.getLuaState().getCPtrPeer() != openPeer() ||
 	      parent.getLuaState().getCPtrPeer() != name.getLuaState().getCPtrPeer())
 	    throw new LuaException("Object must have the same LuaState as the parent!");
 

@@ -91,6 +91,12 @@ public class MapperOverlayController
 	private int floatHeight;
 	private int floatX;
 	private int floatY;
+	/** Last frame written onto overlayRoot. Cleared when that view is replaced. */
+	private MapperOverlayGeometry appliedGeometry;
+	/** True while OnMapperGeometry is running, so the script cannot re-enter it. */
+	private boolean geometryHook;
+	/** Last map-holder rules written. Cleared with the overlay view. */
+	private MapperMapHolderAnchors appliedMapHolderAnchors;
 	private String selectedTileId;
 	/** When true: tap FROM tile, then TO tile → pick walk verb to link/unlink. */
 	private boolean linkEditMode;
@@ -405,6 +411,10 @@ public class MapperOverlayController
 		}
 		LayoutInflater inflater = LayoutInflater.from(activity);
 		overlayRoot = inflater.inflate(R.layout.mapper_overlay, container, false);
+		// This view is added MATCH_PARENT below. A signature from the previous
+		// view would skip the real frame.
+		appliedGeometry = null;
+		appliedMapHolderAnchors = null;
 		mapperView = (MapperView) overlayRoot.findViewById(R.id.mapper_view);
 		titleView = (TextView) overlayRoot.findViewById(R.id.mapper_title);
 		toolbar = (LinearLayout) overlayRoot.findViewById(R.id.mapper_toolbar);
@@ -621,6 +631,8 @@ public class MapperOverlayController
 		if (inputbar != null && inputbar.getId() != View.NO_ID) {
 			lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 		}
+		// addView replaces the params restoreFloatGeometry just wrote.
+		appliedGeometry = null;
 		container.addView(overlayRoot, lp);
 		overlayRoot.setVisibility(View.GONE);
 		attached = true;
@@ -679,40 +691,94 @@ public class MapperOverlayController
 		}
 		float density = activity.getResources().getDisplayMetrics().density;
 		View inputbar = findGameplayInputBar(null);
+		boolean constrainAbove = fullscreen && inputbar != null
+				&& inputbar.getId() != View.NO_ID;
+		int aboveId = constrainAbove ? inputbar.getId() : 0;
+		MapperOverlayGeometry next = MapperOverlayGeometry.capture(
+				fullscreen, floatX, floatY, floatWidth, floatHeight, density,
+				constrainAbove, aboveId);
+		next = adjustFromScript(activity, next, density, constrainAbove, aboveId);
+		applyWindowChrome();
+		bringUnderChrome();
+		updateDisplayModeToggleUi();
+		if (next.sameAs(appliedGeometry)) {
+			return;
+		}
+		appliedGeometry = next;
 		// Fresh params — mutating removeRule/addRule across Float↔Full left ABOVE
 		// stale/wrong on the first Full switch (bottom Browse/Edit + Float/Full hidden).
 		RelativeLayout.LayoutParams lp;
-		if (fullscreen) {
+		if (next.fullscreen) {
 			lp = new RelativeLayout.LayoutParams(
 					RelativeLayout.LayoutParams.MATCH_PARENT,
 					RelativeLayout.LayoutParams.MATCH_PARENT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			if (inputbar != null && inputbar.getId() != View.NO_ID) {
-				lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
+			if (next.constrainAbove) {
+				lp.addRule(RelativeLayout.ABOVE, next.aboveViewId);
 			}
-			// Stay clear of input chrome — MATCH_PARENT alone was eating the toolbar.
-			overlayRoot.setPadding(
-					(int) (4 * density),
-					(int) (8 * density),
-					(int) (8 * density),
-					(int) (4 * density));
 		} else {
-			lp = new RelativeLayout.LayoutParams(floatWidth, floatHeight);
-			lp.leftMargin = floatX;
-			lp.topMargin = floatY;
-			overlayRoot.setPadding(
-					(int) (2 * density),
-					(int) (2 * density),
-					(int) (2 * density),
-					(int) (2 * density));
+			lp = new RelativeLayout.LayoutParams(next.width, next.height);
+			lp.leftMargin = next.x;
+			lp.topMargin = next.y;
 		}
-		applyWindowChrome();
+		// Fullscreen padding keeps MATCH_PARENT off the input chrome.
+		overlayRoot.setPadding(next.padLeft, next.padTop, next.padRight, next.padBottom);
 		overlayRoot.setLayoutParams(lp);
-		bringUnderChrome();
-		updateDisplayModeToggleUi();
 		overlayRoot.requestLayout();
+		notifyGeometryDid(next);
+	}
+
+	/**
+	 * A window script may replace a float frame before it is written.
+	 * Fullscreen stays match-parent; a return value there is ignored.
+	 */
+	private MapperOverlayGeometry adjustFromScript(MainWindow activity, MapperOverlayGeometry next,
+			float density, boolean constrainAbove, int aboveId) {
+		if (geometryHook || activity == null || overlayRoot.getParent() == null
+				|| next.sameAs(appliedGeometry)) {
+			return next;
+		}
+		geometryHook = true;
+		try {
+			String answer = activity.windowBroadcastResult("OnMapperGeometry",
+					MapperGeometryEvent.message("will", next.fullscreen,
+							next.x, next.y, next.width, next.height));
+			if (next.fullscreen) {
+				return next;
+			}
+			int[] adj = MapperGeometryEvent.floatAdjustment(answer);
+			if (adj == null) {
+				return next;
+			}
+			floatX = adj[0];
+			floatY = adj[1];
+			floatWidth = adj[2];
+			floatHeight = adj[3];
+			return MapperOverlayGeometry.capture(false, floatX, floatY, floatWidth, floatHeight,
+					density, constrainAbove, aboveId);
+		} finally {
+			geometryHook = false;
+		}
+	}
+
+	private void notifyGeometryDid(MapperOverlayGeometry written) {
+		if (geometryHook || host == null || overlayRoot == null || overlayRoot.getParent() == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		geometryHook = true;
+		try {
+			activity.windowBroadcastResult("OnMapperGeometry",
+					MapperGeometryEvent.message("did", written.fullscreen,
+							written.x, written.y, written.width, written.height));
+		} finally {
+			geometryHook = false;
+		}
 	}
 
 	/** Title, tools bar, and corner handle. Opacity and the fill stay. */
@@ -3655,14 +3721,17 @@ public class MapperOverlayController
 				.show();
 	}
 
-	/** Pull JSON from the service process and apply to the overlay. */
-	public void pullSnapshotFromService() {
+	/**
+	 * Pull JSON from the service process and apply it to the overlay.
+	 * @return true when the snapshot was applied, including its map refresh
+	 */
+	public boolean pullSnapshotFromService() {
 		if (host == null) {
-			return;
+			return false;
 		}
 		String json = host.fetchMapperSnapshotJson();
 		if (json == null || json.length() == 0) {
-			return;
+			return false;
 		}
 		try {
 			org.json.JSONObject root = new org.json.JSONObject(json);
@@ -3705,8 +3774,10 @@ public class MapperOverlayController
 			applyOpacity();
 			applyLayoutMode();
 			refreshFromController();
+			return true;
 		} catch (Exception e) {
 			android.util.Log.w("BlowTorch", "mapper snapshot parse failed", e);
+			return false;
 		}
 	}
 
@@ -3810,11 +3881,15 @@ public class MapperOverlayController
 		runOnUi(new Runnable() {
 			@Override
 			public void run() {
-				pullSnapshotFromService();
+				boolean pulled = pullSnapshotFromService();
 				if (!isControllerEditMode()) {
 					forceOffDrawAndLinks();
 				}
-				refreshFromController();
+				// The snapshot refresh already painted the tiles. forceOffDrawAndLinks
+				// rebuilds the toolbar itself when Draw or Links were on.
+				if (!pulled) {
+					refreshFromController();
+				}
 			}
 		});
 	}
@@ -3838,6 +3913,10 @@ public class MapperOverlayController
 		if (chromeToggleBtn != null) {
 			chromeToggleBtn.setText(chromeVisible ? "▾ tools" : "▸ tools");
 		}
+		MapperMapHolderAnchors next = MapperMapHolderAnchors.of(minimal, showTools);
+		if (next.sameAs(appliedMapHolderAnchors)) {
+			return;
+		}
 		View mapHolder = overlayRoot != null
 				? overlayRoot.findViewById(R.id.mapper_map_holder) : null;
 		if (mapHolder == null
@@ -3860,7 +3939,12 @@ public class MapperOverlayController
 			mp.removeRule(RelativeLayout.ABOVE);
 			mp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
 		}
-		mapHolder.setLayoutParams(mp);
+		// The holder already owns this object. A second setLayoutParams would
+		// request another layout beside the overlay write in applyLayoutMode.
+		appliedMapHolderAnchors = next;
+		if (overlayRoot != null) {
+			overlayRoot.requestLayout();
+		}
 	}
 
 	/** Pick opacity from a list — no step-cycling through near-invisible. */
@@ -4271,6 +4355,8 @@ public class MapperOverlayController
 			((ViewGroup) overlayRoot.getParent()).removeView(overlayRoot);
 		}
 		overlayRoot = null;
+		appliedGeometry = null;
+		appliedMapHolderAnchors = null;
 		attached = false;
 		visible = false;
 	}

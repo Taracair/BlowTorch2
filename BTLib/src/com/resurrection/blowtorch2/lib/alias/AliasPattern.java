@@ -92,10 +92,17 @@ public final class AliasPattern {
 		return Pattern.compile(regex);
 	}
 
+	/**
+	 * Edge of a word. Java {@code \b} only treats {@code [A-Za-z0-9_]} as a word,
+	 * so an unanchored alias in another alphabet never matched.
+	 */
+	static final String WORD_EDGE =
+			"(?:(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_])|(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_]))";
+
 	/** The one alternative {@link #build} compiles for {@code pre}. */
 	static String wrapped(String pre) {
-		String prefix = pre.startsWith("^") ? "" : "\\b";
-		String suffix = pre.endsWith("$") ? "" : "\\b";
+		String prefix = pre.startsWith("^") ? "" : WORD_EDGE;
+		String suffix = pre.endsWith("$") ? "" : WORD_EDGE;
 		return "(" + prefix + pre + suffix + ")";
 	}
 

@@ -108,6 +108,15 @@ public class ChatThreadResponderEditor extends Dialog {
 				theResponder.getTitle(), true);
 		bodyField = addField(form, "Body (optional)", "blank = the matched line",
 				theResponder.getBody(), false);
+		TextView bodyNote = new TextView(getContext());
+		bodyNote.setText("$1 keeps the color that word had on the line. \\27[1m before text sets bold; \\27[32m is green; \\27[0m goes back to the line's color. The code is not shown in the bubble.");
+		bodyNote.setTextColor(desc);
+		bodyNote.setTextSize(12);
+		LinearLayout.LayoutParams bodyNoteLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		bodyNoteLp.topMargin = (int) (4.0f * density);
+		form.addView(bodyNote, bodyNoteLp);
 		replyField = addField(form, "Reply", "tell Bob $text",
 				theResponder.getReplyTemplate(), true);
 

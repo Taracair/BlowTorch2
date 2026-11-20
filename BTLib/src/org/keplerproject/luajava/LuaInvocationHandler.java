@@ -57,14 +57,24 @@ public class LuaInvocationHandler implements InvocationHandler
 	 */
   public Object invoke(Object proxy, Method method, Object[] args) throws LuaException
   {
+    if (obj == null || obj.L == null)
+    {
+      return LuaProxyFallback.valueFor(method, proxy, args);
+    }
     synchronized(obj.L)
     {
+      // close() nulls the native state. getField -> getLuaObject then NPEs.
+      if (obj.L.isClosed())
+      {
+        return LuaProxyFallback.valueFor(method, proxy, args);
+      }
 	  	String methodName = method.getName();
 	  	LuaObject func    = obj.getField(methodName);
 	  	
 	  	if ( func.isNil() )
 	  	{
-	  		return null;
+	  		// removeOnPreDrawListener calls equals. Null unboxes and throws.
+	  		return LuaProxyFallback.valueFor(method, proxy, args);
 	  	}
 	  	
 	  	try {

@@ -1691,6 +1691,9 @@ public final static int DEFAULT_HYPERLINK_COLOR = 0xFF66CCFF;
 
 	public void setEncoding(String encoding) {
 		this.encoding = encoding;
+		// Alias replacement and trigger responders read Plugin.mEncoding.
+		// This setter used to leave that field at UTF-8.
+		super.setEncoding(encoding);
 	}
 
 	public boolean isSemiIsNewLine() {

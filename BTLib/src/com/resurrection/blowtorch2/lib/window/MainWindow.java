@@ -1035,11 +1035,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//Map map = (Map)msg.obj;
 					String plugin = msg.getData().getString("PLUGIN");
 					String function = msg.getData().getString("FUNCTION");
+					// Disconnect nulls the binder while ScheduleCallback messages
+					// are still queued. RemoteException does not cover that null.
+					if (service == null) {
+						break;
+					}
 					try {
 						service.pluginXcallS(plugin,function,(String)msg.obj);
 					} catch (RemoteException e9) {
-						// TODO Auto-generated catch block
-						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e9);
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.pluginXcallS", e9);
 					}
 					break;
 				case MESSAGE_ADDOPTIONCALLBACK:
@@ -13412,6 +13417,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				window.callFunction(function, data);
 			}
 		}
+	}
+
+	/**
+	 * Like {@link #windowBroadcast}, but keeps the last non-empty string a
+	 * window returns. One script should answer.
+	 */
+	public String windowBroadcastResult(String function, String data) {
+		String last = null;
+		if (windowMap == null) {
+			return null;
+		}
+		for (com.resurrection.blowtorch2.lib.window.Window window : windowMap.values()) {
+			if (window.checkSupports(function)) {
+				String result = window.callFunctionResult(function, data);
+				if (result != null && result.length() > 0) {
+					last = result;
+				}
+			}
+		}
+		return last;
 	}
 
 	@Override

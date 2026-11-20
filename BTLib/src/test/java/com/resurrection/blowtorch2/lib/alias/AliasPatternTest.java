@@ -51,9 +51,15 @@ public class AliasPatternTest {
 		assertTrue(AliasPattern.build(list(alias("c", "cast", false))).isEmpty());
 	}
 
+	private static String edges(String pre) {
+		String prefix = pre.startsWith("^") ? "" : AliasPattern.WORD_EDGE;
+		String suffix = pre.endsWith("$") ? "" : AliasPattern.WORD_EDGE;
+		return "(" + prefix + pre + suffix + ")";
+	}
+
 	@Test
 	public void anUnanchoredAliasGetsWordBoundaries() {
-		assertEquals("(\\bc\\b)", AliasPattern.build(list(alias("c", "cast", true))).regex());
+		assertEquals(edges("c"), AliasPattern.build(list(alias("c", "cast", true))).regex());
 	}
 
 	/** An anchored pattern supplies its own edge, so no boundary is added. */
@@ -61,9 +67,9 @@ public class AliasPatternTest {
 	public void anchorsReplaceTheBoundaries() {
 		assertEquals("(^cast (.+)$)",
 				AliasPattern.build(list(alias("^cast (.+)$", "c $1", true))).regex());
-		assertEquals("(^kill\\b)",
+		assertEquals(edges("^kill"),
 				AliasPattern.build(list(alias("^kill", "k", true))).regex());
-		assertEquals("(\\bnorth$)",
+		assertEquals(edges("north$"),
 				AliasPattern.build(list(alias("north$", "n", true))).regex());
 	}
 
@@ -72,7 +78,7 @@ public class AliasPatternTest {
 		String regex = AliasPattern.build(list(
 				alias("c", "cast", true),
 				alias("k", "kill", true))).regex();
-		assertEquals("(\\bc\\b)|(\\bk\\b)", regex);
+		assertEquals(edges("c") + "|" + edges("k"), regex);
 	}
 
 	/** A disabled alias in the middle must not leave a stray alternative. */
@@ -82,7 +88,7 @@ public class AliasPatternTest {
 				alias("c", "cast", true),
 				alias("x", "nope", false),
 				alias("k", "kill", true))).regex();
-		assertEquals("(\\bc\\b)|(\\bk\\b)", regex);
+		assertEquals(edges("c") + "|" + edges("k"), regex);
 	}
 
 	/** Disabling the first one must not leave the pattern starting with "|". */
@@ -91,7 +97,7 @@ public class AliasPatternTest {
 		String regex = AliasPattern.build(list(
 				alias("c", "cast", false),
 				alias("k", "kill", true))).regex();
-		assertEquals("(\\bk\\b)", regex);
+		assertEquals(edges("k"), regex);
 	}
 
 	@Test
@@ -154,6 +160,18 @@ public class AliasPatternTest {
 		assertTrue("stands alone", p.compile().matcher("c fireball").find());
 		assertTrue("does not match inside 'cast'",
 				!p.compile().matcher("cast fireball").find());
+		assertTrue("a following letter in another alphabet is still the same word",
+				!p.compile().matcher("c\u043c\u0438\u0440").find());
+	}
+
+	/** Java {@code \b} treats these letters as non-words, so the old wrap never matched. */
+	@Test
+	public void anUnanchoredAliasMatchesAWordInAnotherAlphabet() {
+		String word = "\u043c\u0438\u0440";
+		AliasPattern p = AliasPattern.build(list(alias(word, "look", true)));
+		assertTrue(p.compile().matcher(word).find());
+		assertTrue(p.compile().matcher(word + " \u0442\u0430\u043c").find());
+		assertTrue(!p.compile().matcher(word + "\u0430").find());
 	}
 
 	@Test
