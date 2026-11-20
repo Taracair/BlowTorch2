@@ -1,0 +1,4 @@
+BlowTorch 2 v2.5.1
+A window script can place the floating map. A chat message built from pieces of the line keeps their color, and you can set bold or green in that text.
+An alias in another alphabet matches the whole word. You type that word and the game receives the replacement.
+Pick file opens the settings file you chose. A saved KOI8-R profile stays KOI8-R. Reloading a map no longer jumps the window. A script no longer crashes when you disconnect or close it.
