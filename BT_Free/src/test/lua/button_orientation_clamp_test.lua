@@ -121,6 +121,18 @@ screenW, screenH = 1080, 2400
 check(clampAllButtons(false, true) == 0, "nothing to move means nothing reported")
 check(buttons[1].data.x == 540 and buttons[1].data.y == 300, "and nothing written")
 
+print("5b. a top row stored above the screen is drawn on it and not saved")
+-- Chrome refresh calls refreshRect from the stored pair. y = -21 is a real
+-- layout centre, not a corrupt one, so the file keeps it. The rect still has
+-- to land fully on screen or only the bottom sliver is visible.
+buttons = { button({ x = 60, y = -21, width = 36, height = 36 }) }
+screenW, screenH = 2424, 1080
+statusoffset = 0
+refreshRect(buttons[1])
+check(buttons[1].data.y == -21, "stored y must stay -21, got " .. tostring(buttons[1].data.y))
+check(buttons[1].data.yLand == nil, "drawing must not invent a landscape pair")
+check(buttons[1].rectY == 18, "drawn centre must be half the 36px tile, got " .. tostring(buttons[1].rectY))
+
 print("5. the floating copy is moved with its button, not left behind")
 floatShifts = 0
 buttons = pad()

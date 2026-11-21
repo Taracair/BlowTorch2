@@ -2361,10 +2361,13 @@ function setPos(b, x, y)
 	end
 end
 
--- Draw a button where this orientation says it belongs.
+-- Draw a button where this orientation says it belongs. A stored centre can
+-- sit above the screen (a top row at y = -21). The rect moves down. The pair
+-- stays as stored, so a chrome refresh does not put the sliver back.
 function refreshRect(b)
 	if b ~= nil and b.data ~= nil then
-		b:updateRectAt(posX(b.data), posY(b.data), statusoffset)
+		local x, y = clampLogicalPosition(posX(b.data), posY(b.data), b)
+		b:updateRectAt(x, y, statusoffset)
 	end
 end
 
