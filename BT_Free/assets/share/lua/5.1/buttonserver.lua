@@ -81,8 +81,9 @@ function loadButtonSet(args)
 
 	debugString("Button Set "..args.." has ".. #lob.set .." buttons");
 
-	-- Never hand the window a set with tiles outside the screen: they cannot be
-	-- tapped, and if the set has no reachable way back the session is stuck.
+	-- Repair a coordinate that cannot be a position. A finite one that misses
+	-- this screen stays stored; the window clamps it for drawing and the
+	-- clamp is not saved, or a wide layout gets stacked on the right edge.
 	local okSanitize, repaired = pcall(sanitizeButtonSet, args)
 
 	lob.set = buttonsets[args]
@@ -2106,13 +2107,14 @@ function applyLayoutWizardClean(args)
 	pcall(loadOptions)
 end
 
--- Pull every tile of a set back onto the screen.
+-- Repair a stored position that cannot be a screen position.
 --
 -- Pure clamping, never scaling. Saved sets already hold pixel coordinates, and
--- multiplying those again is exactly what drove the tutorial pad to ~1e15. This
--- runs on every load, so a set damaged by an older build — or dragged somewhere
--- silly — still comes back reachable instead of sitting off the edge where it
--- cannot be tapped or edited.
+-- multiplying those again is exactly what drove the tutorial pad to ~1e15.
+-- nil, NaN, inf, and a magnitude past any display are rewritten and the caller
+-- saves. A finite position that misses this rect stays stored. One x/y pair is
+-- the whole layout until a landscape pair exists, and saving a portrait clamp
+-- over it stacks a wide pad on the right edge in both orientations.
 --
 -- Deliberately only enforces screen bounds (half the tile from each edge). Do
 -- not subtract action-bar / status-bar / input-bar chrome here: those are not
@@ -2169,6 +2171,17 @@ function sanitizeButtonSet(setName)
 
 	local defs = buttonset_defaults[setName]
 	local moved = false
+	-- 8K is 7680. Past this it is the 1e15 drift, not a display.
+	local function layoutCoord(v)
+		local n = tonumber(v)
+		if n == nil or n ~= n or n == math.huge or n == -math.huge then
+			return nil
+		end
+		if math.abs(n) > 16384 then
+			return nil
+		end
+		return n
+	end
 	for i,b in pairs(set) do
 		local bw = (tonumber(b.width) or tonumber(defs and defs.width) or 42) * d
 		local bh = (tonumber(b.height) or tonumber(defs and defs.height) or 42) * d
@@ -2199,19 +2212,21 @@ function sanitizeButtonSet(setName)
 				b.yLand = ny
 			end
 		else
-			-- Compare against the numeric original, not the raw field.
-			-- Coordinates come back from the settings XML as strings, and in
-			-- Lua 1 ~= "1", so comparing to b.x reported every button as moved
-			-- on the first load after a profile read — a settings write and a
-			-- Note() in the game window every time, for buttons that were
-			-- never off screen.
-			local x, y = clampToScreen(tonumber(b.x), tonumber(b.y), bw, bh, w, h)
-			if x ~= tonumber(b.x) or y ~= tonumber(b.y) then
-				moved = true
+			-- Keep a finite position, including one past this portrait rect.
+			-- XML stores coordinates as strings; write the number back without
+			-- reporting a move, or 1 ~= "1" saves every load.
+			local x, y = layoutCoord(b.x), layoutCoord(b.y)
+			if x == nil or y == nil then
+				local nx, ny = clampToScreen(tonumber(b.x), tonumber(b.y), bw, bh, w, h)
+				if nx ~= tonumber(b.x) or ny ~= tonumber(b.y) then
+					moved = true
+				end
+				b.x = nx
+				b.y = ny
+			else
+				b.x = x
+				b.y = y
 			end
-			-- Still normalise the stored value to a number either way.
-			b.x = x
-			b.y = y
 		end
 	end
 	return moved

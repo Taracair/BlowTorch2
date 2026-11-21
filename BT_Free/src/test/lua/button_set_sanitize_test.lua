@@ -8,8 +8,9 @@
 -- was never rebuilt from dp. Nearly every tile ended up off screen, including the
 -- DEF button that leads back, so LOAD could not be undone.
 --
--- The rebuild fixes the cause. This covers the safety net: whatever a set's
--- coordinates are, loading it must leave every tile somewhere reachable.
+-- The rebuild fixes the cause. This covers the safety net: a coordinate that
+-- cannot be a screen position is rewritten onto the screen. A finite position
+-- that merely misses the current rect stays stored.
 --
 -- The function body is pulled out of buttonserver.lua so the test cannot drift
 -- from the shipped source. Host globals it touches are stubbed.
@@ -241,6 +242,40 @@ check(far.x == 540 and far.y == 300, "clamping the landscape pair must not touch
 check(buttonsets.land[2].xLand == nil and buttonsets.land[2].yLand == nil,
 	"a button with no landscape pair must not be given one")
 WIDTH, HEIGHT = 1080, 2400
+
+print("11. a wide single layout is not squeezed into the portrait rect")
+-- Issue 7: one x/y pair, authored on a wide screen (x out to ~1995, y = -21
+-- along the top). Loading it while the metrics are 1080x2400 used to clamp
+-- every x past the portrait width to the right edge and report a move, which
+-- loadButtonSet saves. Landscape then draws that squeezed pair.
+buttonsets.wide = {
+	{ label = "L", x = 60, y = -21, width = 36, height = 36 },
+	{ label = "R", x = 1995.46875, y = -21, width = 36, height = 36 },
+	{ label = "LOW", x = 1632.65625, y = 946, width = 36, height = 36 },
+	{ label = "STR", x = "1995.46875", y = "-21", width = 36, height = 36 },
+}
+local wideBefore = {}
+for i, b in ipairs(buttonsets.wide) do
+	wideBefore[i] = { x = tonumber(b.x), y = tonumber(b.y) }
+end
+check(sanitizeButtonSet("wide") == false, "a wide finite layout must not report a move")
+for i, b in ipairs(buttonsets.wide) do
+	check(b.x == wideBefore[i].x and b.y == wideBefore[i].y,
+		b.label .. " must keep x=" .. wideBefore[i].x .. " y=" .. wideBefore[i].y
+			.. ", got " .. tostring(b.x) .. "," .. tostring(b.y))
+	check(type(b.x) == "number" and type(b.y) == "number",
+		b.label .. " coordinates must be numbers after a string read")
+end
+
+print("12. one corrupt tile does not pull a wide neighbour in with it")
+buttonsets.mixed = {
+	{ label = "WIDE", x = 1995.46875, y = 100 },
+	{ label = "DRIFT", x = 3.0512631862281e+15, y = 100 },
+}
+check(sanitizeButtonSet("mixed") == true, "the drifted tile must report a move")
+check(buttonsets.mixed[1].x == 1995.46875 and buttonsets.mixed[1].y == 100,
+	"the wide neighbour must keep its position")
+check(reachable(buttonsets.mixed[2], "mixed"), "the drifted tile must land on screen")
 
 print("")
 if failures == 0 then
