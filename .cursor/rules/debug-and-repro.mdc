@@ -1,0 +1,32 @@
+---
+description: Hard bugs — @ paths, repro test or probe, Debug Mode; skip on trivial work
+alwaysApply: true
+---
+
+# Hard bugs and repro
+
+Default for features and straightforward edits: implement, `scripts/check.sh`,
+review, commit. Use this when the bug is unclear, a fix already failed once
+(rule 6), or the maintainer asks for a repro test or Debug Mode.
+
+## Maintainer shortcuts
+
+- **@ files** — When the maintainer @-mentions paths, start there. Widen the
+  search only if those files are not enough.
+- **Debug Mode (Shift+Tab)** — State a hypothesis, measure (probe skill or
+  logcat), ask for on-device reproduction when needed, then one targeted fix.
+  No speculative edits before something is measured.
+
+## Which path
+
+| Situation | First step |
+|---|---|
+| JVM logic in BTLib (aliases, parsing, settings helpers) | `.cursor/skills/extract-then-test`: failing test from requirement or observation, then fix |
+| UI, binder, threads, Lua, symptom only on phone | `.cursor/skills/probe` or logcat; device-test card after `scripts/deploy.sh` |
+| Typo, copy, guard script, docs-only | No repro ritual |
+
+One measurement pass per hypothesis — do not duplicate probe logging and Debug
+Mode instrumentation for the same guess.
+
+Rule 5 still applies: the test expectation comes from the requirement or from
+what was observed, not from the method you are about to change.

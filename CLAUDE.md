@@ -77,6 +77,8 @@ finds it.
 | What already happened and how | `git log`, `git show`, `git blame` |
 | What is still to do | `docs/HANDOFF.md` if it exists locally |
 
+Unclear bugs or a second fix attempt: `.cursor/rules/debug-and-repro.mdc`.
+
 Read `docs/CODEBASE-TRAPS.md` **before** touching any of: the UI to `:stellar`
 binder, `static` state, settings serialisation, thread ownership, the Lua to
 Java boundary. Those five areas are where reading the code confidently teaches

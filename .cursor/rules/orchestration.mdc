@@ -73,6 +73,11 @@ its last commit. Report "installed", not "works". Do not resolve the adb serial
 by hand and never ask the maintainer for the wifi port; `scripts/adb-device.sh`
 finds it.
 
+## Hard bugs
+
+Unclear failures and second-attempt fixes: `.cursor/rules/debug-and-repro.mdc`
+(@ paths, repro test or probe, Debug Mode). Not for trivial edits.
+
 ## Before you touch these five areas, read docs/CODEBASE-TRAPS.md
 
 UI to `:stellar` binder, `static` state, settings serialisation, thread
