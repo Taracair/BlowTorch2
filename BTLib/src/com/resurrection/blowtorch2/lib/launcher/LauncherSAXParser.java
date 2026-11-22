@@ -19,9 +19,33 @@ public class LauncherSAXParser extends BaseParser {
 	final MudConnection current_item = new MudConnection();
 	final ArrayList<ServerAccount> current_accounts = new ArrayList<ServerAccount>();
 
-	public LauncherSAXParser(String location, Context context) {
-		super(location, context);
+	private final boolean keepDuplicateNames;
 
+	public LauncherSAXParser(String location, Context context) {
+		this(location, context, false);
+	}
+
+	/** Import keeps a second item with the same name. A normal load still keeps the last one. */
+	LauncherSAXParser(String location, Context context, boolean keepDuplicateNames) {
+		super(location, context);
+		this.keepDuplicateNames = keepDuplicateNames;
+	}
+
+	/**
+	 * Map key for one item. With duplicates kept, the second "Foo" is not stored
+	 * under "Foo", but the connection's display name stays "Foo".
+	 */
+	static String mapKey(String displayName, java.util.Set<String> used, boolean keepDuplicates) {
+		if (!keepDuplicates || used == null || !used.contains(displayName)) {
+			return displayName;
+		}
+		int n = 2;
+		String alt = displayName + "\u0000" + n;
+		while (used.contains(alt)) {
+			n++;
+			alt = displayName + "\u0000" + n;
+		}
+		return alt;
 	}
 
 	public LauncherSettings load() {
@@ -80,7 +104,7 @@ public class LauncherSAXParser extends BaseParser {
 					accounts.add(acc.copy());
 				}
 				copy.setAccounts(accounts);
-				items_read.put(copy.getDisplayName(), copy);
+				items_read.put(mapKey(copy.getDisplayName(), items_read.keySet(), keepDuplicateNames), copy);
 			}
 		});
 

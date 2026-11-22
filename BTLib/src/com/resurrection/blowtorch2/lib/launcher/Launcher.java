@@ -88,9 +88,11 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.text.TextUtils;
@@ -267,15 +269,19 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						return;
 					}
 					try {
-						LauncherSAXParser parser = new LauncherSAXParser(importPath, Launcher.this);
+						LauncherSAXParser parser = new LauncherSAXParser(importPath, Launcher.this, true);
 						LauncherSettings loaded = parser.load();
 						if (loaded == null) {
 							// A failed parse must not replace the list already on screen.
 							Toast.makeText(Launcher.this, "Import failed: invalid launcher list XML.", Toast.LENGTH_LONG).show();
 							return;
 						}
-						launcher_settings = loaded;
-						launcherSaveEnabled = true;
+						if (loaded.getList() == null || loaded.getList().isEmpty()) {
+							Toast.makeText(Launcher.this, "This file has no servers.", Toast.LENGTH_LONG).show();
+							return;
+						}
+						promptServerListImport(loaded);
+						return;
 					} catch (RuntimeException e) {
 						AlertDialog.Builder error = new AlertDialog.Builder(Launcher.this);
 						error.setTitle("Error loading XML");
@@ -290,19 +296,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						errordialog.show();
 						return;
 					}
-					//update this list to the new version.
-					PackageManager m = Launcher.this.getPackageManager();
-					String versionString = null;
-					try {
-						versionString = m.getPackageInfo(Launcher.this.getApplicationInfo().packageName, PackageManager.GET_CONFIGURATIONS).versionName;
-					} catch (NameNotFoundException e) {
-						//can't execute on our package aye?
-						throw new RuntimeException(e);
-					}
-					launcher_settings.setCurrentVersion(versionString);
-					buildList();
-					saveXML();
-					break;
 				case MESSAGE_EXPORT:
 
 					break;
@@ -1741,6 +1734,217 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 		}
 		return null;
+	}
+
+	private void promptServerListImport(final LauncherSettings loaded) {
+		int count = 0;
+		if (loaded.getList() != null) {
+			for (MudConnection row : loaded.getList().values()) {
+				if (row != null && !BuiltinTutorial.isTutorialEntry(row)) {
+					count++;
+				}
+			}
+		}
+		final int servers = count;
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle("Import server list");
+		builder.setMessage(servers == 0
+				? "This file has only Starter Tutorial."
+				: "This file has " + servers + (servers == 1 ? " server." : " servers."));
+		builder.setPositiveButton("Add to existing", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				showAddServers(loaded);
+			}
+		});
+		builder.setNeutralButton("Replace the list", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				confirmReplaceServerList(loaded);
+			}
+		});
+		builder.setNegativeButton("Cancel", null);
+		builder.show();
+	}
+
+	private void showAddServers(final LauncherSettings loaded) {
+		LinearLayout column = new LinearLayout(this);
+		column.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * getResources().getDisplayMetrics().density);
+		column.setPadding(pad, pad / 2, pad, pad / 2);
+
+		TextView note = new TextView(this);
+		note.setText("Tick the servers to add. A name already on the list is added as Name (2), then (3). A number is skipped when it would open another world's settings.");
+		column.addView(note);
+
+		final ArrayList<CheckBox> boxes = new ArrayList<CheckBox>();
+		for (MudConnection row : ImportedServerNames.byName(loaded.getList().values())) {
+			if (BuiltinTutorial.isTutorialEntry(row)) {
+				continue;
+			}
+			CheckBox box = new CheckBox(this);
+			box.setText(serverCheckboxLabel(row));
+			box.setChecked(true);
+			box.setTag(row);
+			boxes.add(box);
+			column.addView(box);
+		}
+		if (boxes.isEmpty()) {
+			Toast.makeText(this, "Nothing to add besides Starter Tutorial.", Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		ScrollView scroll = new ScrollView(this);
+		scroll.addView(column);
+		int cap = (int) (getResources().getDisplayMetrics().heightPixels * 0.5f);
+		scroll.setLayoutParams(new ViewGroup.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, cap));
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle("Add servers");
+		builder.setView(scroll);
+		builder.setPositiveButton("Add", null);
+		builder.setNegativeButton("Cancel", null);
+		final AlertDialog dialog = builder.create();
+		dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+			public void onShow(DialogInterface shown) {
+				dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+					public void onClick(View v) {
+						ArrayList<MudConnection> selected = new ArrayList<MudConnection>();
+						for (CheckBox box : boxes) {
+							if (box.isChecked() && box.getTag() instanceof MudConnection) {
+								selected.add((MudConnection) box.getTag());
+							}
+						}
+						if (selected.isEmpty()) {
+							Toast.makeText(Launcher.this, "Select at least one server.", Toast.LENGTH_LONG).show();
+							return;
+						}
+						dialog.dismiss();
+						addImportedServers(selected);
+					}
+				});
+			}
+		});
+		dialog.show();
+	}
+
+	private void confirmReplaceServerList(final LauncherSettings loaded) {
+		final EditText typed = new EditText(this);
+		typed.setSingleLine(true);
+		typed.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+		typed.setHint("YES");
+		int pad = (int) (16 * getResources().getDisplayMetrics().density);
+		LinearLayout wrap = new LinearLayout(this);
+		wrap.setPadding(pad, 0, pad, 0);
+		wrap.addView(typed, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle("Replace the server list");
+		builder.setMessage("This deletes the servers on this phone and replaces them with the imported list. Starter Tutorial stays. Type YES to continue.");
+		builder.setView(wrap);
+		builder.setPositiveButton("Replace", null);
+		builder.setNegativeButton("Cancel", null);
+		final AlertDialog dialog = builder.create();
+		dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+			public void onShow(DialogInterface shown) {
+				dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+					public void onClick(View v) {
+						String text = typed.getText() == null ? "" : typed.getText().toString().trim();
+						if (!"YES".equals(text)) {
+							Toast.makeText(Launcher.this, "Type YES to continue.", Toast.LENGTH_LONG).show();
+							return;
+						}
+						dialog.dismiss();
+						replaceWithImportedList(loaded);
+					}
+				});
+			}
+		});
+		dialog.show();
+	}
+
+	private static String serverCheckboxLabel(MudConnection row) {
+		String name = row.getDisplayName() == null || row.getDisplayName().length() == 0
+				? "Mud" : row.getDisplayName();
+		String host = row.getHostName() == null ? "" : row.getHostName();
+		String port = row.getPortString() == null ? "" : row.getPortString();
+		return name + "  " + host + ":" + port;
+	}
+
+	private void addImportedServers(List<MudConnection> selected) {
+		if (launcher_settings == null || launcher_settings.getList() == null) {
+			Toast.makeText(this, "The server list is not loaded.", Toast.LENGTH_LONG).show();
+			return;
+		}
+		ArrayList<String> desired = new ArrayList<String>();
+		ArrayList<MudConnection> rows = new ArrayList<MudConnection>();
+		for (MudConnection row : selected) {
+			if (row == null || BuiltinTutorial.isTutorialEntry(row)) {
+				continue;
+			}
+			rows.add(row);
+			desired.add(row.getDisplayName());
+		}
+		if (rows.isEmpty()) {
+			Toast.makeText(this, "Nothing to add besides Starter Tutorial.", Toast.LENGTH_LONG).show();
+			return;
+		}
+		List<String> names = ImportedServerNames.assign(
+				launcher_settings.getList().keySet(), desired, false);
+		for (int i = 0; i < rows.size(); i++) {
+			MudConnection copy = rows.get(i).copy();
+			String name = names.get(i);
+			copy.setDisplayName(name);
+			launcher_settings.getList().put(name, copy);
+		}
+		commitLauncherList();
+		int added = rows.size();
+		Toast.makeText(this, "Added " + added + (added == 1 ? " server." : " servers."),
+				Toast.LENGTH_LONG).show();
+	}
+
+	private void replaceWithImportedList(LauncherSettings loaded) {
+		ArrayList<MudConnection> rows = new ArrayList<MudConnection>();
+		ArrayList<String> desired = new ArrayList<String>();
+		for (MudConnection row : ImportedServerNames.byName(loaded.getList().values())) {
+			if (BuiltinTutorial.isTutorialEntry(row)) {
+				continue;
+			}
+			rows.add(row);
+			desired.add(row.getDisplayName());
+		}
+		java.util.Collection<String> existing = launcher_settings == null || launcher_settings.getList() == null
+				? new ArrayList<String>() : launcher_settings.getList().keySet();
+		List<String> names = ImportedServerNames.assign(existing, desired, true);
+		HashMap<String, MudConnection> next = new HashMap<String, MudConnection>();
+		for (int i = 0; i < rows.size(); i++) {
+			MudConnection copy = rows.get(i).copy();
+			String name = names.get(i);
+			copy.setDisplayName(name);
+			next.put(name, copy);
+		}
+		if (launcher_settings == null) {
+			launcher_settings = new LauncherSettings();
+		}
+		launcher_settings.setList(next);
+		commitLauncherList();
+		Toast.makeText(this, "Server list replaced.", Toast.LENGTH_LONG).show();
+	}
+
+	private void commitLauncherList() {
+		PackageManager manager = getPackageManager();
+		String versionString;
+		try {
+			versionString = manager.getPackageInfo(getApplicationInfo().packageName,
+					PackageManager.GET_CONFIGURATIONS).versionName;
+		} catch (NameNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+		launcher_settings.setCurrentVersion(versionString);
+		BuiltinTutorial.ensureIn(launcher_settings);
+		launcherSaveEnabled = true;
+		buildList();
+		saveXML();
 	}
 
 	private SettingsDocumentKind.Kind classifyImport(String path) {

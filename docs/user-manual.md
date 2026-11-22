@@ -125,8 +125,11 @@ Hide it from ⋮ if you do not want it. **New MUD** is how a live world gets
 onto the list. Deleting a row keeps it gone: the client does not scan app
 storage for leftover XML, and it does not pre-fill live games.
 
-**Import Server List** (⋮) takes an XML file. A server list replaces this
-list. A world settings file does not: an old BlowTorch `<root>` export, or a
+**Import Server List** (⋮) takes an XML file. A server list asks whether to
+add the ticked servers to this list, or to replace this list. A name already
+here is added as Name (2), then (3). A number is skipped when it would open
+another world's settings. Replacing asks you to type YES. A world
+settings file does not replace the list: an old BlowTorch `<root>` export, or a
 `<blowtorch>` profile, asks for a display name, host, and port — the file
 has neither host nor port — and is stored as that world's buttons, triggers,
 and aliases.
