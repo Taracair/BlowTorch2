@@ -9,8 +9,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Root element name and attributes only. A live profile is ~250 KB; SAX used
- * to parse it twice. Unparseable prolog → null name, same as a parser exception.
+ * Root element, its attributes, and optionally the first child's name.
+ * A live profile is ~250 KB; SAX used to parse it twice. Unparseable
+ * prolog → null name, same as a parser exception. The 64KB cap covers the
+ * root and that first child; it does not read the rest of the document.
  */
 public final class XmlRootProbe {
 
@@ -58,6 +60,25 @@ public final class XmlRootProbe {
 		}
 	}
 
+	/** Root name plus the first element child, or null when that child is absent. */
+	public static final class Outline {
+		private final String rootName;
+		private final String firstChildName;
+
+		Outline(final String rootName, final String firstChildName) {
+			this.rootName = rootName;
+			this.firstChildName = firstChildName;
+		}
+
+		public String root() {
+			return rootName;
+		}
+
+		public String firstChild() {
+			return firstChildName;
+		}
+	}
+
 	private XmlRootProbe() {
 	}
 
@@ -79,11 +100,42 @@ public final class XmlRootProbe {
 			return new Root(null, null);
 		}
 		Scanner s = new Scanner(reader);
+		Start start = findStart(s, openChar(s));
+		if (start == null) {
+			return new Root(null, null);
+		}
+		return new Root(start.name, start.attributes);
+	}
+
+	/** Root name and the first element inside it. Does not read past that child. */
+	public static Outline outline(final Reader reader) throws IOException {
+		if (reader == null) {
+			return new Outline(null, null);
+		}
+		Scanner s = new Scanner(reader);
+		Start root = findStart(s, openChar(s));
+		if (root == null) {
+			return new Outline(null, null);
+		}
+		if (root.selfClosing) {
+			return new Outline(root.name, null);
+		}
+		Start child = findStart(s, root.after);
+		return new Outline(root.name, child == null ? null : child.name);
+	}
+
+	/** First character, after a leading byte-order mark. */
+	private static int openChar(final Scanner s) throws IOException {
 		int c = s.read();
 		// A byte order mark survives decoding as U+FEFF; it is not whitespace.
 		if (c == 0xFEFF) {
 			c = s.read();
 		}
+		return c;
+	}
+
+	/** The next start tag at or after {@code c}, or null when the next markup is a close tag. */
+	private static Start findStart(final Scanner s, int c) throws IOException {
 		while (c != -1) {
 			if (c != '<') {
 				c = s.read();
@@ -95,13 +147,12 @@ public final class XmlRootProbe {
 			} else if (next == '!') {
 				c = skipMarkupDeclaration(s);
 			} else if (next == '/' || next == -1) {
-				// A close tag before any open tag: not a document we understand.
-				return new Root(null, null);
+				return null;
 			} else {
 				return readStartTag(s, next);
 			}
 		}
-		return new Root(null, null);
+		return null;
 	}
 
 	/** Comments end at "-->", everything else at the '>' that closes it. */
@@ -149,7 +200,7 @@ public final class XmlRootProbe {
 		return -1;
 	}
 
-	private static Root readStartTag(final Scanner s, final int firstChar) throws IOException {
+	private static Start readStartTag(final Scanner s, final int firstChar) throws IOException {
 		StringBuilder name = new StringBuilder();
 		name.append((char) firstChar);
 		int c = s.read();
@@ -201,7 +252,33 @@ public final class XmlRootProbe {
 			attributes.put(attr.toString(), value.toString());
 			c = s.read();
 		}
-		return new Root(name.toString(), attributes);
+		boolean selfClosing = false;
+		if (c == '/') {
+			selfClosing = true;
+			c = s.read();
+			if (c == '>') {
+				c = s.read();
+			}
+		} else if (c == '>') {
+			c = s.read();
+		}
+		return new Start(name.toString(), attributes, selfClosing, c);
+	}
+
+	private static final class Start {
+		final String name;
+		final Map<String, String> attributes;
+		final boolean selfClosing;
+		/** The character after the start tag, or -1 at EOF. */
+		final int after;
+
+		Start(final String name, final Map<String, String> attributes,
+				final boolean selfClosing, final int after) {
+			this.name = name;
+			this.attributes = attributes;
+			this.selfClosing = selfClosing;
+			this.after = after;
+		}
 	}
 
 	private static boolean isSpace(final int c) {

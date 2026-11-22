@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.launcher;
 import android.Manifest;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -39,6 +40,7 @@ import android.app.LauncherActivity;
 import android.app.ProgressDialog;
 import android.app.ActivityManager.RunningServiceInfo;
 import android.app.AlertDialog.Builder;
+import android.database.Cursor;
 import android.content.ComponentName;
 import android.content.res.ColorStateList;
 import android.content.Context;
@@ -56,6 +58,7 @@ import android.content.res.Resources;
 import android.graphics.Rect;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -106,6 +109,8 @@ import com.resurrection.blowtorch2.lib.service.ILauncherCallback;
 import com.resurrection.blowtorch2.lib.service.StellarService;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
+import com.resurrection.blowtorch2.lib.settings.SettingsFileNames;
+import com.resurrection.blowtorch2.lib.util.AtomicFiles;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.TimingLine;
 import com.resurrection.blowtorch2.lib.util.TimingTrace;
@@ -144,6 +149,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MESSAGE_EXPORT = 3;
 
 	protected static final int MESSAGE_USERNAME = 4;
+
+	/** World-settings file waiting on the new-connection dialog. */
+	private String pendingWorldSettingsPath;
+
+	/** Set when a world file was written and the launcher list has not been saved yet. */
+	private String importedSettingsFile;
 
 	protected static final int RP_INFO = 100;
 	protected static final int RP_EXPORT = 102;
@@ -244,13 +255,26 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				case MESSAGE_IMPORT:
 
 					//if the file exists, we will get here, if not, it will go to file not found.
+					String importPath = (String) msg.obj;
+					String suggested = msg.getData().getString("suggested");
+					SettingsDocumentKind.Kind kind = classifyImport(importPath);
+					if (kind == SettingsDocumentKind.Kind.WORLD_SETTINGS) {
+						showWorldSettingsImport(importPath, suggested);
+						return;
+					}
+					if (kind != SettingsDocumentKind.Kind.LAUNCHER_LIST) {
+						Toast.makeText(Launcher.this, "Import failed: invalid launcher list XML.", Toast.LENGTH_LONG).show();
+						return;
+					}
 					try {
-						LauncherSAXParser parser = new LauncherSAXParser((String)msg.obj,Launcher.this);
-						launcher_settings = parser.load();
-						if (launcher_settings == null) {
+						LauncherSAXParser parser = new LauncherSAXParser(importPath, Launcher.this);
+						LauncherSettings loaded = parser.load();
+						if (loaded == null) {
+							// A failed parse must not replace the list already on screen.
 							Toast.makeText(Launcher.this, "Import failed: invalid launcher list XML.", Toast.LENGTH_LONG).show();
 							return;
 						}
+						launcher_settings = loaded;
 						launcherSaveEnabled = true;
 					} catch (RuntimeException e) {
 						AlertDialog.Builder error = new AlertDialog.Builder(Launcher.this);
@@ -1082,7 +1106,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 	};
 	
-	public void ready(MudConnection newData) {
+	public boolean ready(MudConnection newData) {
+		importedSettingsFile = null;
+		if (!storeImportedSettings(newData)) {
+			return false;
+		}
 		//promote this one to the head of the class.
 		Time t = new Time();
 		t.set(System.currentTimeMillis());
@@ -1091,6 +1119,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		launcherSaveEnabled = true;
 		buildList();
 		saveXML();
+		if (importedSettingsFile != null) {
+			pendingWorldSettingsPath = null;
+			Toast.makeText(this, "Settings saved as " + importedSettingsFile, Toast.LENGTH_LONG).show();
+			importedSettingsFile = null;
+		}
+		return true;
 	}
 
     /*public void ready(String displayname,String host,String port) {
@@ -1219,7 +1253,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		if (xmlfiles.isEmpty()) {
 			Toast.makeText(this,
-					"No server-list .xml files in:\n" + btermdir.getAbsolutePath(),
+					"No .xml files in:\n" + btermdir.getAbsolutePath(),
 					Toast.LENGTH_LONG).show();
 			return;
 		}
@@ -1234,10 +1268,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setTitle("Select server list");
+		builder.setTitle("Select XML file");
 		builder.setItems(names, new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
-				actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, entries[which]));
+				queueXmlImport(entries[which], names[which]);
 				dialog.dismiss();
 			}
 		});
@@ -1660,7 +1694,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			closeQuietly(out);
 			closeQuietly(in);
 		}
-		actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, temp.getAbsolutePath()));
+		queueXmlImport(temp.getAbsolutePath(), displayNameOf(uri));
 	}
 
 	private void exportServerListToUri(Uri uri) throws IOException {
@@ -1677,6 +1711,134 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			closeQuietly(out);
 		}
 		Toast.makeText(this, "Server list exported.", Toast.LENGTH_LONG).show();
+	}
+
+	private void queueXmlImport(String path, String suggestedName) {
+		Message message = actionHandler.obtainMessage(MESSAGE_IMPORT, path);
+		if (suggestedName != null) {
+			message.getData().putString("suggested", suggestedName);
+		}
+		actionHandler.sendMessage(message);
+	}
+
+	/** @return the display name a content provider reports, or null. */
+	private String displayNameOf(Uri uri) {
+		Cursor cursor = null;
+		try {
+			cursor = getContentResolver().query(uri,
+					new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+			if (cursor != null && cursor.moveToFirst()) {
+				int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+				if (index >= 0) {
+					return cursor.getString(index);
+				}
+			}
+		} catch (RuntimeException ignored) {
+			// The bytes are already copied. The dialog still opens.
+		} finally {
+			if (cursor != null) {
+				cursor.close();
+			}
+		}
+		return null;
+	}
+
+	private SettingsDocumentKind.Kind classifyImport(String path) {
+		InputStreamReader reader = null;
+		try {
+			reader = new InputStreamReader(new FileInputStream(path), "UTF-8");
+			return SettingsDocumentKind.classify(reader);
+		} catch (IOException e) {
+			return SettingsDocumentKind.Kind.UNKNOWN;
+		} finally {
+			closeQuietly(reader);
+		}
+	}
+
+	private void showWorldSettingsImport(String path, String suggested) {
+		String source = suggested;
+		if (source == null && !"import_server_list.xml".equals(new File(path).getName())) {
+			source = new File(path).getName();
+		}
+		pendingWorldSettingsPath = path;
+		NewConnectionDialog diag = new NewConnectionDialog(this, this);
+		diag.setHeading("Import settings");
+		diag.setInitialDisplay(SettingsFileNames.suggestDisplayName(source));
+		final String token = path;
+		diag.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			public void onDismiss(DialogInterface dialog) {
+				if (token.equals(pendingWorldSettingsPath)) {
+					pendingWorldSettingsPath = null;
+				}
+			}
+		});
+		Toast.makeText(this,
+				"This file has no host. Type the host and port. Buttons and triggers are kept.",
+				Toast.LENGTH_LONG).show();
+		diag.show();
+	}
+
+	/** Copy a picked world file into the name {@link SettingsFileNames} will load. */
+	private boolean storeImportedSettings(MudConnection newData) {
+		String pending = pendingWorldSettingsPath;
+		if (pending == null) {
+			return true;
+		}
+		String display = newData.getDisplayName();
+		String fileName = SettingsFileNames.xmlFileName(display);
+		if (".xml".equals(fileName)) {
+			Toast.makeText(this,
+					"That name needs a Latin letter, a digit, or an underscore. The settings file is named from those.",
+					Toast.LENGTH_LONG).show();
+			return false;
+		}
+		if (SettingsFileNames.isLauncherList(fileName)) {
+			Toast.makeText(this, "That name is the server list. Pick a different name.",
+					Toast.LENGTH_LONG).show();
+			return false;
+		}
+		HashMap<String, MudConnection> list = launcher_settings.getList();
+		if (list.containsKey(display)) {
+			Toast.makeText(this, "A world with that name is already in the list.", Toast.LENGTH_LONG).show();
+			return false;
+		}
+		for (MudConnection existing : list.values()) {
+			if (existing == null) {
+				continue;
+			}
+			String existingName = existing.getDisplayName();
+			if (existingName != null
+					&& fileName.equals(SettingsFileNames.xmlFileName(existingName))) {
+				Toast.makeText(this,
+						"That name would replace another world's settings. Pick a different name.",
+						Toast.LENGTH_LONG).show();
+				return false;
+			}
+		}
+		try {
+			AtomicFiles.writeInternal(this, fileName, readWholeFile(new File(pending)), true);
+		} catch (IOException e) {
+			Toast.makeText(this, "Could not save that settings file.", Toast.LENGTH_LONG).show();
+			return false;
+		}
+		importedSettingsFile = fileName;
+		return true;
+	}
+
+	private static byte[] readWholeFile(File file) throws IOException {
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(file);
+			ByteArrayOutputStream buf = new ByteArrayOutputStream();
+			byte[] tmp = new byte[4096];
+			int n;
+			while ((n = in.read(tmp)) != -1) {
+				buf.write(tmp, 0, n);
+			}
+			return buf.toByteArray();
+		} finally {
+			closeQuietly(in);
+		}
 	}
 
 	/** Close and move on: a failure here cannot change what was already written. */

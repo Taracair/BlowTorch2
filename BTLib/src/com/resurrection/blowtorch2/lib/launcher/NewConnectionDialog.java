@@ -30,6 +30,8 @@ public class NewConnectionDialog extends Dialog {
 
 	boolean isEditor = false;
 
+	private String heading;
+
 	/** Extra account slots beyond the primary fields (index 0). */
 	private final ArrayList<ServerAccount> mExtraAccounts = new ArrayList<ServerAccount>();
 
@@ -52,6 +54,18 @@ public class NewConnectionDialog extends Dialog {
 		m_prev = old;
 	}
 
+	/** Prefill the display name on a new connection. Ignored while editing. */
+	public void setInitialDisplay(String display) {
+		if (!isEditor) {
+			m_display = display;
+		}
+	}
+
+	/** Replaces the "CONNECTION PROPERTIES" bar. The layout draws it in capitals. */
+	public void setHeading(String heading) {
+		this.heading = heading;
+	}
+
 	@Override
 	public void onCreate(Bundle settings) {
 
@@ -61,6 +75,13 @@ public class NewConnectionDialog extends Dialog {
 
 		setContentView(R.layout.newconnectiondialog);
 		wirePasswordReveal();
+
+		if (heading != null) {
+			TextView title = (TextView) findViewById(R.id.titlebar);
+			if (title != null) {
+				title.setText(heading);
+			}
+		}
 
 		this.setTitle("Connection properties");
 
@@ -101,6 +122,11 @@ public class NewConnectionDialog extends Dialog {
 				for (int i = 1; i < existing.size(); i++) {
 					mExtraAccounts.add(existing.get(i).copy());
 				}
+			}
+		} else if (m_display != null) {
+			EditText disp_input = (EditText) findViewById(R.id.dispinput);
+			if (disp_input != null) {
+				disp_input.setText(m_display);
 			}
 		}
 		refreshExtraAccountsList();
@@ -415,7 +441,9 @@ public class NewConnectionDialog extends Dialog {
 				m.setPortString(port.getText().toString());
 				m.setUseTls(useTls);
 				applyAccounts(m);
-				reportto.ready(m);
+				if (!reportto.ready(m)) {
+					return;
+				}
 			}
 
 			NewConnectionDialog.this.dismiss();

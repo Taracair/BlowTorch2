@@ -33,6 +33,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.VersionProbeParser;
 import com.resurrection.blowtorch2.lib.settings.ColorSetSettings;
+import com.resurrection.blowtorch2.lib.settings.SettingsFileNames;
 import com.resurrection.blowtorch2.lib.settings.HyperSAXParser;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
@@ -208,8 +209,7 @@ final class ConnectionSettingsIO {
 		if (host.mSettings == null) {
 			return null;
 		}
-		String prefsname = Pattern.compile("\\W").matcher(host.mDisplay).replaceAll("");
-		return prefsname.replaceAll("/", "") + ".xml";
+		return SettingsFileNames.xmlFileName(host.mDisplay);
 	}
 
 	/** Describe the kept copy of the settings, for the .settings command.
@@ -255,11 +255,7 @@ final class ConnectionSettingsIO {
 		if (host.mSettings == null) {
 			return;
 		}
-		Pattern invalidchars = Pattern.compile("\\W");
-		Matcher replacebadchars = invalidchars.matcher(host.mDisplay);
-		String prefsname = replacebadchars.replaceAll("");
-		prefsname = prefsname.replaceAll("/", "");
-		String rootPath = prefsname + ".xml";
+		String rootPath = SettingsFileNames.xmlFileName(host.mDisplay);
 		exportSettings(new File(host.mService.getApplicationContext().getFilesDir(), rootPath).getAbsolutePath());
 	}
 	
@@ -1076,11 +1072,7 @@ final class ConnectionSettingsIO {
 	
 	/** Entry point to load the internal settings. */
 	void loadInternalSettings() {
-		Pattern invalidchars = Pattern.compile("\\W");
-		Matcher replacebadchars = invalidchars.matcher(host.mDisplay);
-		String prefsname = replacebadchars.replaceAll("");
-		prefsname = prefsname.replaceAll("/", "");
-		String rootPath = prefsname + ".xml";
+		String rootPath = SettingsFileNames.xmlFileName(host.mDisplay);
 		File settingsFile = new File(host.mService.getApplicationContext().getFilesDir(), rootPath);
 		if (!settingsFile.exists()) {
 			importSettings(null, false, true);

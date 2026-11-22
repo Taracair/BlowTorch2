@@ -125,6 +125,12 @@ Hide it from ⋮ if you do not want it. **New MUD** is how a live world gets
 onto the list. Deleting a row keeps it gone: the client does not scan app
 storage for leftover XML, and it does not pre-fill live games.
 
+**Import Server List** (⋮) takes an XML file. A server list replaces this
+list. A world settings file does not: an old BlowTorch `<root>` export, or a
+`<blowtorch>` profile, asks for a display name, host, and port — the file
+has neither host nor port — and is stored as that world's buttons, triggers,
+and aliases.
+
 On the server list, long-press a world. The star is **Add to favorites** /
 **Remove from favorites** — starred worlds sit under Starter Tutorial on
 the list; the star does not launch anything. **Pin to home** asks Android

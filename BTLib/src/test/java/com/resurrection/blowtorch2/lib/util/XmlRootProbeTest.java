@@ -152,6 +152,34 @@ public class XmlRootProbeTest {
 				counting.count < 100);
 	}
 
+	@Test
+	public void outlineNamesTheFirstChildAndStops() throws Exception {
+		StringBuilder big = new StringBuilder("<blowtorch xmlversion=\"2\">");
+		for (int i = 0; i < 20000; i++) {
+			big.append("<alias pre=\"a").append(i).append("\" post=\"b\"/>");
+		}
+		big.append("</blowtorch>");
+		CountingReader counting = new CountingReader(big.toString());
+		XmlRootProbe.Outline outline = XmlRootProbe.outline(counting);
+		assertEquals("blowtorch", outline.root());
+		assertEquals("alias", outline.firstChild());
+		assertTrue("read " + counting.count + " chars of " + big.length(),
+				counting.count < 400);
+	}
+
+	@Test
+	public void outlineSkipsACommentAndASelfClosingRoot() throws Exception {
+		XmlRootProbe.Outline window = XmlRootProbe.outline(new StringReader(
+				"<root><!-- x --><window></window></root>"));
+		assertEquals("root", window.root());
+		assertEquals("window", window.firstChild());
+
+		XmlRootProbe.Outline empty = XmlRootProbe.outline(new StringReader(
+				"<blowtorch xmlversion=\"2\"/>"));
+		assertEquals("blowtorch", empty.root());
+		assertNull(empty.firstChild());
+	}
+
 	private static final class CountingReader extends java.io.Reader {
 		private final StringReader delegate;
 		int count;

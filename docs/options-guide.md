@@ -378,7 +378,7 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 
 | Menu item | What it does |
 |-----------|----------------|
-| **Import Server List** | Load launcher connections XML (SAF **Pick file…** or default `…/launcher/`) |
+| **Import Server List** | A server list replaces the launcher list. A world settings file (old `<root>` export or a `<blowtorch>` profile) asks for a name, host, and port and is kept as that world. SAF **Pick file…** or default `…/launcher/` |
 | **Export Server List** | Save launcher connections XML (default dir or SAF **Choose location…**) |
 | **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF **Choose location…** — preferred way to keep a portable copy) |
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
