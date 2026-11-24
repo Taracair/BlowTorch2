@@ -672,7 +672,12 @@ Note("Example text!")
 			L.pushString(str);
 			int ret = L.pcall(1, 1, -3);
 			if(ret != 0) {
-				displayLuaError("PluginXCallS Error:" + L.getLuaObject(-1).getString());
+				// A non-string error object (error({...}), error()) reads back as null.
+				String message = L.type(-1) == LuaState.LUA_TSTRING.intValue()
+						? L.toString(-1)
+						: "(error object is " + L.typeName(L.type(-1)) + ", not a string)";
+				displayLuaError("PluginXCallS Error in " + getName() + "." + function + ": "
+						+ message);
 			}
 			// See execute(): the error branch leaked the error object and the
 			// traceback function.

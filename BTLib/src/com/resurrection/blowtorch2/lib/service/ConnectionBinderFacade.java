@@ -647,21 +647,67 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void pluginXcallS(final String plugin, final String function, final String str)
 			throws RemoteException {
-		Connection c = active();
+		final Connection c = active();
 		if (c == null) {
 			return;
 		}
-		c.pluginXcallS(plugin, function, str);
+		// Binder thread: the plugin's LuaState belongs to the connection looper,
+		// where triggers, timers and OnHttp run. The window side already queues
+		// this call, so nothing waited for the Lua to finish.
+		c.postToLooper(new Runnable() {
+			public void run() {
+				try {
+					c.pluginXcallS(plugin, function, str);
+				} catch (RuntimeException e) {
+					// On the binder thread this reached the UI; on the looper it
+					// would end :stellar.
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"ConnectionBinderFacade.pluginXcallS", e);
+				}
+			}
+		});
 	}
+
+	/** How long a binder thread waits for a plugin's answer before returning "". */
+	private static final long PLUGIN_RESULT_WAIT_MS = 2000;
 
 	@Override
 	public String pluginCallResult(final String plugin, final String function, final String str)
 			throws RemoteException {
-		Connection c = active();
+		final Connection c = active();
 		if (c == null) {
 			return "";
 		}
-		return c.pluginCallResult(plugin, function, str);
+		final String[] result = { "" };
+		final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+		boolean queued = c.postToLooper(new Runnable() {
+			public void run() {
+				try {
+					result[0] = c.pluginCallResult(plugin, function, str);
+				} catch (RuntimeException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"ConnectionBinderFacade.pluginCallResult", e);
+				} finally {
+					done.countDown();
+				}
+			}
+		});
+		if (!queued) {
+			return "";
+		}
+		try {
+			// Shutdown drops the queued work without counting down; stop waiting then.
+			long until = android.os.SystemClock.uptimeMillis() + PLUGIN_RESULT_WAIT_MS;
+			while (!done.await(50, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+				if (c.httpClosed() || android.os.SystemClock.uptimeMillis() >= until) {
+					return "";
+				}
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return "";
+		}
+		return result[0];
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -1152,11 +1198,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void callPluginFunction(final String plugin, final String function)
 			throws RemoteException {
-		Connection c = active();
+		final Connection c = active();
 		if (c == null) {
 			return;
 		}
-		c.callPluginFunction(plugin, function);
+		// Same looper hop as pluginXcallS: this enters the plugin's LuaState.
+		c.postToLooper(new Runnable() {
+			public void run() {
+				try {
+					c.callPluginFunction(plugin, function);
+				} catch (RuntimeException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"ConnectionBinderFacade.callPluginFunction", e);
+				}
+			}
+		});
 	}
 
 	@Override

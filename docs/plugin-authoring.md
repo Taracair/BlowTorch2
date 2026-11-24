@@ -916,7 +916,7 @@ Registered on `Window` for scripts attached via `<window script="…">`.
 |----------|-------------|
 | `Note` | Echo to main |
 | `SendToServer` | Send text |
-| `PluginXCallS(function, data)` | UI → owning plugin (**sync — keep fast**) |
+| `PluginXCallS(function, data)` | UI → owning plugin. Queued: runs on the connection thread, after triggers already waiting there (**keep fast — it delays them**) |
 | `WindowCall(name, fn, arg)` | Call another window’s Lua |
 | `WindowSupports(name, fn)` | Probe |
 | `WindowBroadcast` | Broadcast to windows |

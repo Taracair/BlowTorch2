@@ -9122,6 +9122,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mHttpClosed;
 	}
 
+	/**
+	 * Run {@code work} on this connection's looper, the thread that owns every
+	 * plugin LuaState. Binder threads must not enter plugin Lua themselves.
+	 * False, and nothing runs, once {@link #shutdown()} has started.
+	 */
+	boolean postToLooper(final Runnable work) {
+		Handler handler = mHandler;
+		if (handler == null || mHttpClosed) {
+			return false;
+		}
+		return handler.post(new Runnable() {
+			public void run() {
+				if (!mHttpClosed) {
+					work.run();
+				}
+			}
+		});
+	}
+
 	private void applySetVariableMessage(Object obj) {
 		if (!(obj instanceof SetVariableOp)) {
 			return;
