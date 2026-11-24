@@ -760,6 +760,8 @@ comment set; this section is the maintained summary.
 | `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
 | `NewTimer(name, seconds [, function])` | Stopped timer the editor saves. `true`, or an error string |
 | `HttpRequest(method, url, body, function)` | GET or POST off the connection thread. Returns an id, or an error string |
+| `ScheduleCallback(id, function, delayMillis)` | Call a global function later, on the connection thread. Nothing, or an error string |
+| `CancelCallback(id)` | Drop every pending `ScheduleCallback` with that id |
 | `EnableAlias(name [, state])` | Name only reads the flag. Pass true or false to set it and rebuild the matcher |
 | `SetVariable(name, value)` | Session var for `${name}` |
 | `GetVariable(name)` | Read (nil if unset) |
@@ -866,6 +868,22 @@ work if you prefer a flat config table.
 **Action tables** (`type` required):
 
 | `type` | Useful fields |
+**`ScheduleCallback(id, function, delayMillis)`** works as it does in window
+scripts. The function gets the id as a string. Scheduling the same id twice
+fires twice; `CancelCallback(id)` drops both. A call that comes due while the
+plugin is disabled is dropped, so a loop that reschedules itself stops and
+must be started again. A delay over 30 days is cut to 30 days. Pending calls are dropped when the plugin is reloaded or the
+world closes. Pending calls are not saved. Window scripts no longer need a
+`ScheduleCallback` there plus `PluginXCallS` to run something later in a plugin:
+
+```lua
+function OnPoll(id)
+  SendToServer("score")
+  ScheduleCallback(1, "OnPoll", 60000)
+end
+ScheduleCallback(1, "OnPoll", 60000)
+```
+
 |--------|----------------|
 | `notification` | `title`, `message`, `soundpath`, `vibrate`, `spawnNew` |
 | `toast` | `message`, `duration` (0 short / 1 long) |
@@ -922,7 +940,7 @@ Registered on `Window` for scripts attached via `<window script="…">`.
 | `WindowBroadcast` | Broadcast to windows |
 | `AddOptionCallback(fn, title, icon)` | Overflow menu item |
 | `PushMenuStack` / `PopMenuStack` | Nested menu levels for that item |
-| `ScheduleCallback` / `CancelCallback` | Timed UI callbacks |
+| `ScheduleCallback` / `CancelCallback` | Timed callbacks. Plugins have them too (§6.5) |
 | `Invalidate` | Ask for a redraw (`OnDraw` next frame) |
 | `GetBounds` | The view’s current bounds |
 | `GetActivity` | Host activity Java object |

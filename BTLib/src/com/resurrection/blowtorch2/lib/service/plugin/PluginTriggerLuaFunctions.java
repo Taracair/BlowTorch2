@@ -1093,3 +1093,57 @@ class HttpRequestFunction extends JavaFunction {
 		return value.getString();
 	}
 }
+
+/**
+ * {@code ScheduleCallback(id, functionName, delayMillis)}, as in window scripts.
+ * The function receives the id as a string, on this connection's looper. The
+ * same id scheduled twice fires twice; {@code CancelCallback(id)} drops both.
+ * Returns nothing, or an error string.
+ */
+class ScheduleCallbackFunction extends JavaFunction {
+	private final Plugin plugin;
+
+	ScheduleCallbackFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject id = this.getParam(2);
+		LuaObject function = this.getParam(3);
+		LuaObject delay = this.getParam(4);
+		if (id == null || !id.isNumber() || function == null
+				|| function.type() != LuaState.LUA_TSTRING.intValue()
+				|| delay == null || !delay.isNumber()) {
+			L.pushString("Function: ScheduleCallback(number,string,number) Error: "
+					+ "expected id, function name, delay in milliseconds");
+			return 1;
+		}
+		if (!plugin.scheduleCallback((int) id.getNumber(), function.getString(),
+				(long) delay.getNumber())) {
+			L.pushString("Function: ScheduleCallback(number,string,number) Error: no connection");
+			return 1;
+		}
+		return 0;
+	}
+}
+
+/** {@code CancelCallback(id)}: every pending ScheduleCallback with that id. */
+class CancelCallbackFunction extends JavaFunction {
+	private final Plugin plugin;
+
+	CancelCallbackFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject id = this.getParam(2);
+		if (id != null && id.isNumber()) {
+			plugin.cancelScheduledCallback((int) id.getNumber());
+		}
+		return 0;
+	}
+}

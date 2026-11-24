@@ -250,6 +250,8 @@ public class Plugin implements SettingsChangedListener {
 		newTimer.register("NewTimer");
 		HttpRequestFunction http = new HttpRequestFunction(L, this);
 		http.register("HttpRequest");
+		new ScheduleCallbackFunction(L, this).register("ScheduleCallback");
+		new CancelCallbackFunction(L, this).register("CancelCallback");
 		L.pushJavaObject(settings.getTriggers());
 		L.setGlobal("triggers");
 		
@@ -619,9 +621,50 @@ Note("Example text!")
 	
 
 	public void shutdown() {
-		// TODO Auto-generated method stub
+		cancelScheduledCallbacks();
 		//L.close();
 		L = null;
+	}
+
+	/** {@code ScheduleCallback}: what = the script's id, obj = the function name. */
+	private Handler mScheduledCallbacks;
+
+	/** False when this plugin has no connection looper to run on. */
+	boolean scheduleCallback(int id, String function, long delayMillis) {
+		if (mHandler == null) {
+			return false;
+		}
+		if (mScheduledCallbacks == null) {
+			mScheduledCallbacks = new Handler(mHandler.getLooper()) {
+				public void handleMessage(Message msg) {
+					// Same rule as timers: a disabled plugin's callback is dropped.
+					if (L == null || !isEnabled() || !(msg.obj instanceof String)) {
+						return;
+					}
+					execute((String) msg.obj, Integer.toString(msg.what));
+				}
+			};
+		}
+		return mScheduledCallbacks.sendMessageDelayed(
+				mScheduledCallbacks.obtainMessage(id, function), clampDelay(delayMillis));
+	}
+
+	/** uptime + Long.MAX_VALUE overflows and fires at once; cap at 30 days. */
+	static long clampDelay(long delayMillis) {
+		return Math.min(Math.max(0L, delayMillis), 30L * 24 * 60 * 60 * 1000);
+	}
+
+	void cancelScheduledCallback(int id) {
+		if (mScheduledCallbacks != null) {
+			mScheduledCallbacks.removeMessages(id);
+		}
+	}
+
+	/** Every pending ScheduleCallback, so none fires into a dropped plugin. */
+	public void cancelScheduledCallbacks() {
+		if (mScheduledCallbacks != null) {
+			mScheduledCallbacks.removeCallbacksAndMessages(null);
+		}
 	}
 
 	public String getName() {

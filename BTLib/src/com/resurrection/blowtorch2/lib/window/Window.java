@@ -8345,6 +8345,8 @@ ScheduleCallback(104,"delayCallback",5000)
 			int id = (int)this.getParam(2).getNumber();
 			String callback = this.getParam(3).getString();
 			long delay = Long.parseLong(this.getParam(4).getString());
+			// uptime + a huge delay overflows and fires at once; cap at 30 days.
+			delay = Math.min(Math.max(0L, delay), 30L * 24 * 60 * 60 * 1000);
 			//callScheduleCallback(id,callback);
 			Message msg = callbackHandler.obtainMessage(id,callback);
 			callbackHandler.sendMessageDelayed(msg, delay);
@@ -8357,9 +8359,8 @@ ScheduleCallback(104,"delayCallback",5000)
 	
 	private Handler callbackHandler = new Handler() {
 		public void handleMessage(Message msg) {
-			//
-			//just call the string.
-			Window.this.callScheduleCallback(msg.arg1,(String)msg.obj);
+			// The id is msg.what; arg1 was never set, so callbacks received "0".
+			Window.this.callScheduleCallback(msg.what,(String)msg.obj);
 			
 			
 		}

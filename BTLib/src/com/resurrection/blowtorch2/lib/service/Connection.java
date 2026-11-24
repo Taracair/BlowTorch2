@@ -8881,6 +8881,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		mPlugins.remove(p);
+		p.cancelScheduledCallbacks();
 		saveMainSettings();
 		reloadSettings();
 	}
