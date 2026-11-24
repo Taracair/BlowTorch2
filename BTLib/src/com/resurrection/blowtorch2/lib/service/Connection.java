@@ -1069,7 +1069,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					synchronized (mHttpGate) {
 						if (!mHttpClosed && http.plugin != null && http.outcome != null) {
 							http.plugin.deliverHttp(http.function, http.id, http.outcome.ok,
-									http.outcome.status, http.outcome.body, http.outcome.err);
+									http.outcome.status, http.outcome.body, http.outcome.err,
+									http.outcome.headers);
 						}
 					}
 				}
@@ -9115,8 +9116,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * this connection is already shutting down.
 	 */
 	public Integer startHttpRequest(Plugin plugin, String method, String url, byte[] body,
-			String function) {
-		return mHttp.start(this, plugin, method, url, body, function);
+			java.util.Map<String, String> headers, boolean followRedirects, String function) {
+		return mHttp.start(this, plugin, method, url, body, headers, followRedirects, function);
 	}
 
 	boolean httpClosed() {

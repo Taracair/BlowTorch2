@@ -14,7 +14,12 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
@@ -96,6 +101,146 @@ public class HttpRequestCallTest {
 			missing.close();
 			note.close();
 		}
+	}
+
+	/**
+	 * The batshoppe flow from the player's report: a form POST that needs its
+	 * own Content-Type plus Cookie and Referer, and two cookies coming back.
+	 */
+	@Test
+	public void headersGoOutAsGivenAndComeBackLowerCased() throws IOException {
+		ServerSocket form = listen();
+		final AtomicReference<String> head = new AtomicReference<String>();
+		final AtomicReference<String> posted = new AtomicReference<String>();
+		serve(form, "HTTP/1.1 200 OK\r\nSet-Cookie: PHPSESSID=abc; path=/\r\n"
+				+ "Set-Cookie: seen=1; Expires=Wed, 21 Oct 2026 07:28:00 GMT\r\n", "found",
+				head, posted);
+		Map<String, String> headers = new LinkedHashMap<String, String>();
+		headers.put("content-type", "application/x-www-form-urlencoded");
+		headers.put("Cookie", "PHPSESSID=abc");
+		headers.put("Referer", "http://example.org/monsieinfo.php");
+		try {
+			HttpRequestFetch.Outcome sent = HttpRequestFetch.fetch("POST",
+					"http://127.0.0.1:" + form.getLocalPort() + "/monsieinfo.php",
+					"csrf_token=t&monsiestring=orc".getBytes(UTF8), headers, true);
+			assertTrue(sent.ok);
+			assertEquals("csrf_token=t&monsiestring=orc", posted.get());
+			assertEquals("application/x-www-form-urlencoded",
+					header(head.get(), "content-type"));
+			assertEquals("PHPSESSID=abc", header(head.get(), "cookie"));
+			assertEquals("http://example.org/monsieinfo.php", header(head.get(), "referer"));
+			assertEquals(1, count(head.get(), "content-type"));
+			// The desktop JDK returns repeated headers newest first; order is not the contract.
+			List<String> cookies = Arrays.asList(sent.headers.get("set-cookie").split("\n"));
+			assertEquals(2, cookies.size());
+			assertTrue(cookies.contains("PHPSESSID=abc; path=/"));
+			assertTrue(cookies.contains("seen=1; Expires=Wed, 21 Oct 2026 07:28:00 GMT"));
+		} finally {
+			form.close();
+		}
+	}
+
+	@Test
+	public void aRedirectComesBackItselfWhenNotFollowed() throws IOException {
+		ServerSocket moved = listen();
+		serve(moved, "HTTP/1.1 302 Found\r\nLocation: /next\r\nSet-Cookie: s=1\r\n", "",
+				null, null);
+		try {
+			HttpRequestFetch.Outcome got = HttpRequestFetch.fetch("GET",
+					"http://127.0.0.1:" + moved.getLocalPort() + "/start", null, null, false);
+			assertFalse(got.ok);
+			assertEquals(302, got.status);
+			assertEquals("/next", got.headers.get("location"));
+			assertEquals("s=1", got.headers.get("set-cookie"));
+		} finally {
+			moved.close();
+		}
+	}
+
+	@Test
+	public void headersThatWouldBreakTheRequestAreRefused() {
+		assertNull(HttpRequestCall.headerRejection(null));
+		assertNull(HttpRequestCall.headerRejection(one("Referer", "http://a/b")));
+		assertEquals("header X has no value", HttpRequestCall.headerRejection(one("X", null)));
+		assertEquals("header X contains a line break",
+				HttpRequestCall.headerRejection(one("X", "a\r\nHost: evil")));
+		assertEquals("header name is not valid: Bad Name",
+				HttpRequestCall.headerRejection(one("Bad Name", "v")));
+		assertEquals("header Content-Length is set by the connection",
+				HttpRequestCall.headerRejection(one("Content-Length", "3")));
+		assertTrue(HttpRequestCall.hasHeader(one("CONTENT-TYPE", "x"), "Content-Type"));
+		assertFalse(HttpRequestCall.hasHeader(null, "Content-Type"));
+	}
+
+	@Test
+	public void responseHeadersSkipTheStatusLineAndMergeCase() {
+		Map<String, List<String>> fields = new LinkedHashMap<String, List<String>>();
+		fields.put(null, Arrays.asList("HTTP/1.1 200 OK"));
+		fields.put("Set-Cookie", Arrays.asList("a=1"));
+		fields.put("set-cookie", Arrays.asList("b=2"));
+		Map<String, String> got = HttpRequestCall.responseHeaders(fields);
+		assertEquals(1, got.size());
+		assertEquals("a=1\nb=2", got.get("set-cookie"));
+	}
+
+	private static Map<String, String> one(String name, String value) {
+		Map<String, String> m = new HashMap<String, String>();
+		m.put(name, value);
+		return m;
+	}
+
+	private static int count(String head, String name) {
+		int n = 0;
+		for (String line : head.split("\r\n")) {
+			if (line.toLowerCase(Locale.US).startsWith(name + ":")) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** {@code statusAndHeaders} is the status line plus header lines, each ending CRLF. */
+	private static void serve(final ServerSocket listen, final String statusAndHeaders,
+			final String body, final AtomicReference<String> headOut,
+			final AtomicReference<String> bodyOut) {
+		Thread thread = new Thread(new Runnable() {
+			public void run() {
+				try {
+					Socket socket = listen.accept();
+					try {
+						InputStream in = socket.getInputStream();
+						String head = readHead(in);
+						int length = headerInt(head, "content-length");
+						byte[] payload = new byte[length];
+						int off = 0;
+						while (off < length) {
+							int n = in.read(payload, off, length - off);
+							if (n < 0) {
+								break;
+							}
+							off += n;
+						}
+						if (headOut != null) {
+							headOut.set(head);
+						}
+						if (bodyOut != null) {
+							bodyOut.set(new String(payload, UTF8));
+						}
+						byte[] page = body.getBytes(UTF8);
+						OutputStream out = socket.getOutputStream();
+						out.write((statusAndHeaders + "Content-Length: " + page.length
+								+ "\r\nConnection: close\r\n\r\n").getBytes(UTF8));
+						out.write(page);
+						out.flush();
+					} finally {
+						socket.close();
+					}
+				} catch (IOException ignored) {
+				}
+			}
+		});
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 	private static ServerSocket listen() throws IOException {

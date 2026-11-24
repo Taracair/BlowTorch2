@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.service;
 
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -23,7 +24,8 @@ public final class HttpRequestRunner {
 
 	/** The id, or null when this connection is already shutting down. */
 	public Integer start(final Connection host, final Plugin plugin, final String method,
-			final String url, final byte[] body, final String function) {
+			final String url, final byte[] body, final Map<String, String> headers,
+			final boolean followRedirects, final String function) {
 		synchronized (lock) {
 			if (closed || host.httpClosed() || host.mHandler == null) {
 				return null;
@@ -40,7 +42,8 @@ public final class HttpRequestRunner {
 			final int id = ++seq;
 			pool.execute(new Runnable() {
 				public void run() {
-					HttpRequestFetch.Outcome outcome = HttpRequestFetch.fetch(method, url, body);
+					HttpRequestFetch.Outcome outcome = HttpRequestFetch.fetch(method, url, body,
+							headers, followRedirects);
 					if (host.httpClosed()) {
 						return;
 					}

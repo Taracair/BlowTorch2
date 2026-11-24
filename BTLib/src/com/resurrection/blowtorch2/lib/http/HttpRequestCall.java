@@ -5,6 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * What {@code HttpRequest} may send. GET and POST, http and https. A body
@@ -87,6 +92,99 @@ public final class HttpRequestCall {
 			return "url is not http or https";
 		}
 		return null;
+	}
+
+	/**
+	 * Why these request headers cannot be sent, or null. Names are HTTP
+	 * tokens; values carry no CR, LF or NUL. Length and framing headers are
+	 * the connection's, not the script's.
+	 */
+	public static String headerRejection(Map<String, String> headers) {
+		if (headers == null) {
+			return null;
+		}
+		for (Map.Entry<String, String> e : headers.entrySet()) {
+			String name = e.getKey();
+			String value = e.getValue();
+			if (name == null || name.length() == 0 || !isToken(name)) {
+				return "header name is not valid: " + name;
+			}
+			String lower = name.toLowerCase(Locale.ROOT);
+			if ("content-length".equals(lower) || "transfer-encoding".equals(lower)
+					|| "host".equals(lower) || "connection".equals(lower)) {
+				return "header " + name + " is set by the connection";
+			}
+			if (value == null) {
+				return "header " + name + " has no value";
+			}
+			for (int i = 0; i < value.length(); i++) {
+				char c = value.charAt(i);
+				if (c == '\r' || c == '\n' || c == 0) {
+					return "header " + name + " contains a line break";
+				}
+			}
+		}
+		return null;
+	}
+
+	/** True when {@code headers} sets {@code name}, in any case. */
+	public static boolean hasHeader(Map<String, String> headers, String name) {
+		if (headers == null) {
+			return false;
+		}
+		for (String key : headers.keySet()) {
+			if (key != null && key.equalsIgnoreCase(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Response headers for Lua: names lower-cased, repeated headers joined
+	 * with "\n" (a Set-Cookie Expires date contains a comma). The status line
+	 * (null key) is left out.
+	 */
+	public static Map<String, String> responseHeaders(Map<String, List<String>> fields) {
+		Map<String, String> out = new LinkedHashMap<String, String>();
+		if (fields == null) {
+			return out;
+		}
+		for (Map.Entry<String, List<String>> e : fields.entrySet()) {
+			if (e.getKey() == null || e.getValue() == null) {
+				continue;
+			}
+			String name = e.getKey().toLowerCase(Locale.ROOT);
+			StringBuilder joined = new StringBuilder();
+			String earlier = out.get(name);
+			if (earlier != null) {
+				joined.append(earlier);
+			}
+			for (Iterator<String> it = e.getValue().iterator(); it.hasNext();) {
+				String v = it.next();
+				if (v == null) {
+					continue;
+				}
+				if (joined.length() > 0) {
+					joined.append('\n');
+				}
+				joined.append(v);
+			}
+			out.put(name, joined.toString());
+		}
+		return out;
+	}
+
+	private static boolean isToken(String name) {
+		for (int i = 0; i < name.length(); i++) {
+			char c = name.charAt(i);
+			boolean ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+					|| (c >= '0' && c <= '9') || "!#$%&'*+-.^_`|~".indexOf(c) >= 0;
+			if (!ok) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public static final class Read {

@@ -1021,7 +1021,7 @@ class NewTimerFunction extends JavaFunction {
 }
 
 /**
- * {@code HttpRequest(method, url, body, function)}. The call returns the id
+ * {@code HttpRequest(method, url, body, function [, options])}. The call returns the id
  * immediately. The function runs later, on this connection's looper.
  */
 class HttpRequestFunction extends JavaFunction {
@@ -1040,7 +1040,7 @@ class HttpRequestFunction extends JavaFunction {
 		LuaObject functionArg = this.getParam(5);
 		String method = text(methodArg);
 		if (urlArg != null && !urlArg.isNil() && !isLuaString(urlArg)) {
-			L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+			L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: "
 					+ "url must be a string");
 			return 1;
 		}
@@ -1048,37 +1048,98 @@ class HttpRequestFunction extends JavaFunction {
 		byte[] body = null;
 		if (bodyArg != null && !bodyArg.isNil()) {
 			if (!isLuaString(bodyArg)) {
-				L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+				L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: "
 						+ "body must be a string");
 				return 1;
 			}
 			body = bodyArg.getBytes();
 		}
 		if (functionArg != null && !functionArg.isNil() && !isLuaString(functionArg)) {
-			L.pushString("Function: HttpRequest(string,string,string,string) Error: "
+			L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: "
 					+ "function name must be a string");
 			return 1;
 		}
 		String function = text(functionArg);
 		String error = HttpRequestCall.rejection(method, url, body, function);
+		Options options = new Options();
+		if (error == null) {
+			error = readOptions(options);
+		}
+		if (error == null) {
+			error = HttpRequestCall.headerRejection(options.headers);
+		}
 		if (error != null) {
-			L.pushString("Function: HttpRequest(string,string,string,string) Error: " + error);
+			L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: " + error);
 			return 1;
 		}
 		if (!(plugin.getParentCallback() instanceof Connection)) {
-			L.pushString("Function: HttpRequest(string,string,string,string) Error: no connection");
+			L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: no connection");
 			return 1;
 		}
 		Connection connection = (Connection) plugin.getParentCallback();
 		Integer id = connection.startHttpRequest(plugin,
 				HttpRequestCall.canonicalMethod(method), url.trim(),
-				body, function);
+				body, options.headers, options.followRedirects, function);
 		if (id == null) {
-			L.pushString("Function: HttpRequest(string,string,string,string) Error: no connection");
+			L.pushString("Function: HttpRequest(string,string,string,string[,table]) Error: no connection");
 			return 1;
 		}
 		L.pushNumber(id.intValue());
 		return 1;
+	}
+
+	private static final class Options {
+		java.util.Map<String, String> headers;
+		boolean followRedirects = true;
+	}
+
+	/**
+	 * The optional 5th argument, {@code {headers = {...}, followRedirects = false}},
+	 * copied into Java here, on the looper: the HTTP worker never reads Lua.
+	 * Returns an error, or null. Leaves the stack as it found it.
+	 */
+	private String readOptions(Options out) {
+		final int idx = 6;
+		if (L.getTop() < idx || L.isNil(idx)) {
+			return null;
+		}
+		if (!L.isTable(idx)) {
+			return "options must be a table";
+		}
+		int top = L.getTop();
+		try {
+			L.getField(idx, "headers");
+			int headers = L.getTop();
+			if (!L.isNil(headers)) {
+				if (!L.isTable(headers)) {
+					return "options.headers must be a table";
+				}
+				out.headers = new java.util.LinkedHashMap<String, String>();
+				L.pushNil();
+				while (L.next(headers) != 0) {
+					int valueType = L.type(-1);
+					// A non-string key must not reach toString: it would convert
+					// the key in place and break next().
+					if (L.type(-2) != LuaState.LUA_TSTRING.intValue()
+							|| (valueType != LuaState.LUA_TSTRING.intValue()
+									&& valueType != LuaState.LUA_TNUMBER.intValue())) {
+						return "options.headers names and values must be strings";
+					}
+					out.headers.put(L.toString(-2), L.toString(-1));
+					L.pop(1);
+				}
+			}
+			L.setTop(top);
+			L.getField(idx, "followRedirects");
+			if (L.isBoolean(-1)) {
+				out.followRedirects = L.toBoolean(-1);
+			} else if (!L.isNil(-1)) {
+				return "options.followRedirects must be true or false";
+			}
+			return null;
+		} finally {
+			L.setTop(top);
+		}
 	}
 
 	/** A Lua string, including one LuaJIT would also accept as a number. */

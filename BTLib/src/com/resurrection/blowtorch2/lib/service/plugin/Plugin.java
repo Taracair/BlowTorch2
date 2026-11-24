@@ -773,7 +773,7 @@ Note("Example text!")
 	 * with the error object.
 	 */
 	public void deliverHttp(String function, int id, boolean ok, int status, byte[] body,
-			String err) {
+			String err, Map<String, String> headers) {
 		LuaState state = getLuaState();
 		if (state == null || function == null) {
 			return;
@@ -799,7 +799,15 @@ Note("Example text!")
 			} else {
 				state.pushString(err);
 			}
-			int ret = state.pcall(5, 1, traceback);
+			state.newTable();
+			if (headers != null) {
+				for (Map.Entry<String, String> h : headers.entrySet()) {
+					state.pushString(h.getKey());
+					state.pushString(h.getValue());
+					state.setTable(-3);
+				}
+			}
+			int ret = state.pcall(6, 1, traceback);
 			if (ret != 0) {
 				displayLuaError("HttpRequest callback " + function + " in " + getName()
 						+ ": " + state.getLuaObject(-1).getString());

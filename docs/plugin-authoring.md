@@ -759,7 +759,7 @@ comment set; this section is the maintained summary.
 | `EnableTriggerGroup(name, state)` | Group enable |
 | `NewAlias(pattern, replacement)` | Create an alias on this plugin. `true`, or an error string |
 | `NewTimer(name, seconds [, function])` | Stopped timer the editor saves. `true`, or an error string |
-| `HttpRequest(method, url, body, function)` | GET or POST off the connection thread. Returns an id, or an error string |
+| `HttpRequest(method, url, body, function [, options])` | GET or POST off the connection thread. `options.headers`, `options.followRedirects`. Returns an id, or an error string |
 | `ScheduleCallback(id, function, delayMillis)` | Call a global function later, on the connection thread. Nothing, or an error string |
 | `CancelCallback(id)` | Drop every pending `ScheduleCallback` with that id |
 | `EnableAlias(name [, state])` | Name only reads the flag. Pass true or false to set it and rebuild the matcher |
@@ -833,10 +833,60 @@ end
 that cap is `ok` false and `body` is empty, even when the status was 200.
 A 404 is `ok` false, `status` 404, and `body` is the error page. `err` is
 nil when `ok` is true. Connect and read each wait at most 10 seconds. A POST
-is sent as `text/plain; charset=utf-8`. The window Lua VM does not get
-this function. An error string is truthy, so check
+is sent as `text/plain; charset=utf-8` unless `options.headers` sets
+`Content-Type`. The window Lua VM does not get this function.
+
+The optional 5th argument is a table. `headers` is sent as given (names and
+values are strings; `Content-Length`, `Transfer-Encoding`, `Host` and
+`Connection` are refused, so is a line break in a value). `followRedirects =
+false` returns a 3xx as itself (`ok` false, empty body), so its `Set-Cookie`
+and `location` are readable. Setting `Accept-Encoding` yourself turns off
+decompression: `body` is then the compressed bytes. `OnHttp` gets a 6th argument: the response headers, names in lower
+case. A header sent more than once, like `Set-Cookie`, is one string with the
+values on separate lines, in no promised order. There is no cookie jar: read
+`Set-Cookie` and send `Cookie` yourself. A form POST, after a GET that set a
+session cookie:
+
+```lua
+local session
+
+function OnPage(id, ok, status, body, err, headers)
+  local token = ok and body:match("name='csrf_token' value='([^']*)'")
+  if not token then
+    Note("no form: " .. tostring(err) .. "\n")
+    return
+  end
+  session = (headers["set-cookie"] or ""):match("^([^;\n]+)") or ""
+  HttpRequest("POST", "https://example.org/info.php",
+    "csrf_token=" .. token .. "&q=orc&submit=Submit", "OnResult",
+    { headers = {
+        ["Content-Type"] = "application/x-www-form-urlencoded",
+        ["Cookie"] = session,
+        ["Referer"] = "https://example.org/info.php" } })
+end
+
+HttpRequest("GET", "https://example.org/info.php", "", "OnPage")
+```
+
+Not checked on a phone: which other headers Android's HTTP stack overrides. An error string is truthy, so check
 `type(HttpRequest(...)) == "number"`. A Lua error inside `OnHttp` is
 reported and does not disconnect.
+
+**`ScheduleCallback(id, function, delayMillis)`** works as it does in window
+scripts. The function gets the id as a string. Scheduling the same id twice
+fires twice; `CancelCallback(id)` drops both. A call that comes due while the
+plugin is disabled is dropped, so a loop that reschedules itself stops and
+must be started again. A delay over 30 days is cut to 30 days. Pending calls are dropped when the plugin is reloaded or the
+world closes. Pending calls are not saved. Window scripts no longer need a
+`ScheduleCallback` there plus `PluginXCallS` to run something later in a plugin:
+
+```lua
+function OnPoll(id)
+  SendToServer("score")
+  ScheduleCallback(1, "OnPoll", 60000)
+end
+ScheduleCallback(1, "OnPoll", 60000)
+```
 
 **`NewTrigger` config table** (common keys): `regex`, `group`, `once`
 (`true` = until enabled again; `"send"` = until you type a command; also
@@ -868,22 +918,6 @@ work if you prefer a flat config table.
 **Action tables** (`type` required):
 
 | `type` | Useful fields |
-**`ScheduleCallback(id, function, delayMillis)`** works as it does in window
-scripts. The function gets the id as a string. Scheduling the same id twice
-fires twice; `CancelCallback(id)` drops both. A call that comes due while the
-plugin is disabled is dropped, so a loop that reschedules itself stops and
-must be started again. A delay over 30 days is cut to 30 days. Pending calls are dropped when the plugin is reloaded or the
-world closes. Pending calls are not saved. Window scripts no longer need a
-`ScheduleCallback` there plus `PluginXCallS` to run something later in a plugin:
-
-```lua
-function OnPoll(id)
-  SendToServer("score")
-  ScheduleCallback(1, "OnPoll", 60000)
-end
-ScheduleCallback(1, "OnPoll", 60000)
-```
-
 |--------|----------------|
 | `notification` | `title`, `message`, `soundpath`, `vibrate`, `spawnNew` |
 | `toast` | `message`, `duration` (0 short / 1 long) |
